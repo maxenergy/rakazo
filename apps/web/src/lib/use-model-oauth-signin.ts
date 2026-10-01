@@ -161,7 +161,9 @@ export function useModelOAuthSignIn(options: {
           controller.signal.removeEventListener("abort", cancelBrowser);
           cancelBrowser();
         };
-        await browserAuth.open(started.verificationUri);
+        await browserAuth.open(started.verificationUri, {
+          callbackOwner: started.mode === "browser" ? "provider" : "app",
+        });
         if (controller.signal.aborted) return;
       } else {
         // null means the browser blocked the popup — the card keeps showing the

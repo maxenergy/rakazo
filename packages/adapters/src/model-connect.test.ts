@@ -2,6 +2,24 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildModelConnectPlaintext, modelCredentialDto } from "./model-connect.js";
 import { parseModelSecret, serializeModelSecret } from "./pi-oauth.js";
 
+describe("CLI connection settings", () => {
+  const previous = serializeModelSecret({
+    kind: "cli",
+    credential: { type: "cli", profileId: "11111111-1111-4111-8111-111111111111" },
+  });
+
+  it("requires a signed-in profile and rejects API keys and unsupported output limits", () => {
+    expect(() => buildModelConnectPlaintext({ provider: "codex-cli" })).toThrow(/Sign in/);
+    expect(() =>
+      buildModelConnectPlaintext({ provider: "codex-cli", apiKey: "fake-key" }, previous),
+    ).toThrow(/Sign in/);
+    expect(() =>
+      buildModelConnectPlaintext({ provider: "codex-cli", maxTokens: 1024 }, previous),
+    ).toThrow(/managed by the official CLI/);
+    expect(buildModelConnectPlaintext({ provider: "codex-cli" }, previous)).toBe(previous);
+  });
+});
+
 describe("built-in provider output limits", () => {
   const row = {
     id: "cred-builtin",

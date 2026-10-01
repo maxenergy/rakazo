@@ -1053,6 +1053,11 @@ msgstr "Continue"
 msgid "Continue in Background"
 msgstr "Continue in Background"
 
+#: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/Onboarding.tsx
+msgid "Continue sign-in"
+msgstr "Continue sign-in"
+
 #: src/pages/Auth.tsx
 msgid "Continue with email"
 msgstr "Continue with email"

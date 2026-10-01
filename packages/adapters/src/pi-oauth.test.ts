@@ -1138,7 +1138,7 @@ describe("PiOAuthLogins", () => {
     const logins = new PiOAuthLogins();
     await expect(
       logins.begin({ userId: "u", spaceId: "w", provider: "openrouter" }),
-    ).rejects.toThrow(/ChatGPT Plus\/Pro, Claude Pro\/Max, GitHub Copilot, and SuperGrok/);
+    ).rejects.toThrow("Subscription sign-in is not available for this provider.");
   });
 
   it("runs the anthropic auth-url flow via submitted code", async () => {
@@ -1181,7 +1181,8 @@ describe("PiOAuthLogins", () => {
     await flushMicrotasks();
     const done = await logins.complete(started.loginId, { userId: "u", spaceId: "w" });
     expect(done.status).toBe("connected");
-    if (done.status === "connected") expect(done.credential.access).toBe("claude-access");
+    if (done.status === "connected")
+      expect(done.credential).toMatchObject({ access: "claude-access" });
   });
 
   it("rejects submit for a login that is not waiting for a code", async () => {
@@ -1366,11 +1367,12 @@ describe("PiOAuthLogins", () => {
       provider: CHATGPT_OAUTH_PROVIDER,
       modelId: "gpt-5.4",
     });
-    if (done.status === "connected") expect(done.credential.access).toBe("live-access");
+    if (done.status === "connected")
+      expect(done.credential).toMatchObject({ access: "live-access" });
     const persisted = await logins.finish(
       started.loginId,
       { userId: "u", spaceId: "w" },
-      async (result) => result.credential.access,
+      async (result) => (result.credential.type === "oauth" ? result.credential.access : undefined),
     );
     expect(persisted).toEqual({ status: "connected", value: "live-access" });
     const gone = await logins.complete(started.loginId, { userId: "u", spaceId: "w" });
@@ -1539,10 +1541,8 @@ describe("PiOAuthLogins", () => {
     ).toBe("connected");
 
     await expect(
-      logins.finish(
-        started.loginId,
-        { userId: "owner", spaceId: "workspace" },
-        async (result) => result.credential.access,
+      logins.finish(started.loginId, { userId: "owner", spaceId: "workspace" }, async (result) =>
+        result.credential.type === "oauth" ? result.credential.access : undefined,
       ),
     ).resolves.toEqual({ status: "connected", value: "access-token" });
     expect(
@@ -1876,7 +1876,7 @@ describe("PiOAuthLogins", () => {
         // The expiry timer must not abort this write. A replacement that
         // started underneath it would be overwritten by this persist.
         if (result.signal.aborted) throw result.signal.reason;
-        persistedAccess = result.credential.access;
+        persistedAccess = result.credential.type === "oauth" ? result.credential.access : undefined;
         return "saved-original";
       });
       await Promise.resolve();

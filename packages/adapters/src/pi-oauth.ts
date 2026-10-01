@@ -17,7 +17,9 @@ import {
 } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import { createManualAnthropicOAuthLogin } from "./pi-anthropic-oauth.js";
+import { loginCliModel } from "./cli-model-login.js";
+import type { CliModelCredential } from "./cli-model-process.js";
+import { isCliModelProvider, isCliProfileId, removeCliProfile } from "./cli-model-process.js";
 import type { EncryptedSecretStore } from "./secrets.js";
 
 export const CHATGPT_OAUTH_PROVIDER = "openai-codex";
@@ -27,8 +29,28 @@ export const ANTHROPIC_OAUTH_PROVIDER = "anthropic";
 
 export const SUBSCRIPTION_SIGN_IN_PROVIDERS: Record<
   string,
-  { mode: ModelOAuthSignInMode; loginLabel: string; hint: string; billing: string }
+  { mode: ModelOAuthSignInMode; loginLabel?: string; hint: string; billing: string }
 > = {
+  "codex-cli": {
+    mode: "device-code",
+    hint: "ChatGPT",
+    billing: "",
+  },
+  "claude-code": {
+    mode: "browser",
+    hint: "Claude Pro / Max",
+    billing: "",
+  },
+  "gemini-cli": {
+    mode: "browser",
+    hint: "Google AI Pro / Ultra",
+    billing: "",
+  },
+  "grok-cli": {
+    mode: "device-code",
+    hint: "SuperGrok",
+    billing: "",
+  },
   [CHATGPT_OAUTH_PROVIDER]: {
     mode: "device-code",
     loginLabel: "Sign in with ChatGPT Plus/Pro",
@@ -242,6 +264,7 @@ export function isRetiredModelCredentialError(error: unknown): boolean {
 }
 
 export type StoredModelSecret =
+  | { kind: "cli"; credential: CliModelCredential; maxTokens?: number }
   | { kind: "api_key"; key: string; maxTokens?: number }
   | { kind: "oauth"; credential: OAuthCredential; maxTokens?: number }
   | {
@@ -258,7 +281,7 @@ export type StoredModelSecret =
 
 export type PiOAuthConnected = {
   status: "connected";
-  credential: OAuthCredential;
+  credential: OAuthCredential | CliModelCredential;
   provider: string;
   modelId?: string;
   thinkingLevel?: string | null;
@@ -285,7 +308,7 @@ type LoginFn = (
   providerId: string,
   type: "oauth",
   interaction: AuthInteraction,
-) => Promise<Credential>;
+) => Promise<Credential | CliModelCredential>;
 
 type SessionState = "pending" | "ready" | "finalizing" | "consumed";
 
@@ -300,7 +323,7 @@ type Session = {
   label?: string;
   abort: AbortController;
   state: SessionState;
-  credential?: OAuthCredential;
+  credential?: OAuthCredential | CliModelCredential;
   error?: string;
   finishing?: Promise<void>;
   // auth-url flows: resolves the runtime's "paste the redirect URL" prompt.
@@ -311,8 +334,10 @@ type Session = {
   expired?: boolean;
 };
 
-function isOAuthCredential(value: Credential): value is OAuthCredential {
-  return value.type === "oauth";
+function isSignInCredential(
+  value: Credential | CliModelCredential,
+): value is OAuthCredential | CliModelCredential {
+  return value.type === "oauth" || (value.type === "cli" && isCliProfileId(value.profileId));
 }
 
 function readOAuthCredential(value: unknown): OAuthCredential | undefined {
@@ -347,6 +372,18 @@ export function parseModelSecret(plaintext: string): StoredModelSecret {
   } catch {
     // Treat malformed JSON as a literal API key.
     return { kind: "api_key", key: plaintext };
+  }
+  if (parsed.kind === "cli") {
+    const value = parsed.credential as Partial<CliModelCredential> | undefined;
+    if (value?.type !== "cli" || !isCliProfileId(value.profileId))
+      throw new Error(CORRUPT_MODEL_SECRET_MESSAGE);
+    return {
+      kind: "cli",
+      credential: { type: "cli", profileId: value.profileId },
+      ...(parsedMaxTokens(parsed.maxTokens) !== undefined
+        ? { maxTokens: parsedMaxTokens(parsed.maxTokens) }
+        : {}),
+    };
   }
   if (parsed.kind === "openai_compatible") {
     if (typeof parsed.baseUrl !== "string" || !parsed.baseUrl.trim()) {
@@ -418,6 +455,7 @@ export function parseModelSecret(plaintext: string): StoredModelSecret {
 }
 
 export function serializeModelSecret(secret: StoredModelSecret): string {
+  if (secret.kind === "cli") return JSON.stringify(secret);
   if (secret.kind === "oauth") {
     if (secret.maxTokens === undefined) return JSON.stringify(secret.credential);
     return JSON.stringify({
@@ -450,6 +488,7 @@ export function serializeModelSecret(secret: StoredModelSecret): string {
 }
 
 export function secretValuesToRedact(secret: StoredModelSecret): string[] {
+  if (secret.kind === "cli") return [secret.credential.profileId];
   if (secret.kind === "api_key") return secret.key ? [secret.key] : [];
   if (secret.kind === "openai_compatible") return secret.apiKey ? [secret.apiKey] : [];
   return [secret.credential.access, secret.credential.refresh].filter(Boolean);
@@ -532,6 +571,13 @@ export async function resolveModelAuth(
   opts?: ResolveModelOpts,
 ): Promise<{ secret: StoredModelSecret; apiKey: string }> {
   const parsed = parseModelSecret(plaintext);
+  if (parsed.kind === "cli") {
+    if (!isCliModelProvider(provider))
+      throw new Error("CLI sign-in cannot authenticate an API provider.");
+    return { secret: parsed, apiKey: parsed.credential.profileId };
+  }
+  if (isCliModelProvider(provider))
+    throw new Error("Sign in with the official CLI for this connection.");
   if (parsed.kind === "api_key") return { secret: parsed, apiKey: parsed.key };
   if (parsed.kind === "openai_compatible") {
     return { secret: parsed, apiKey: parsed.apiKey ?? "" };
@@ -765,9 +811,7 @@ export class PiOAuthLogins {
     signal?: AbortSignal;
   }): Promise<PiOAuthBegin> {
     if (!SUBSCRIPTION_SIGN_IN_PROVIDERS[input.provider]) {
-      throw new Error(
-        "In-app subscription sign-in is only available for ChatGPT Plus/Pro, Claude Pro/Max, GitHub Copilot, and SuperGrok.",
-      );
+      throw new Error("Subscription sign-in is not available for this provider.");
     }
     if (input.signal?.aborted) {
       throw input.signal.reason ?? new Error("Sign-in cancelled.");
@@ -852,7 +896,7 @@ export class PiOAuthLogins {
           }
           if (event.type === "auth_url") {
             signInStarted.resolve({
-              mode: "auth-url",
+              mode: isCliModelProvider(input.provider) ? "browser" : "auth-url",
               verificationUri: httpsAuthorizationUrl(event.url),
               expiresInSeconds: 15 * 60,
             });
@@ -860,8 +904,13 @@ export class PiOAuthLogins {
         },
       })
         .then((credential) => {
-          if (!isOAuthCredential(credential)) {
-            throw new Error("Subscription sign-in did not return an OAuth credential.");
+          if (!isSignInCredential(credential)) {
+            throw new Error("Subscription sign-in did not return a valid credential.");
+          }
+          if (session.abort.signal.aborted) {
+            if (credential.type === "cli")
+              void removeCliProfile(credential.profileId).catch(() => undefined);
+            throw new Error("Sign-in cancelled.");
           }
           session.credential = credential;
           session.state = "ready";
@@ -988,13 +1037,14 @@ export class PiOAuthLogins {
       session.abort.abort();
       return { status: "connected", value };
     } catch (error) {
+      session.state = "ready";
       if (this.pending.get(loginId) === session) {
         if (session.expired) {
           session.abort.abort(new Error("Sign-in expired."));
           this.removeSession(session);
-        } else {
-          session.state = "ready";
         }
+      } else if (session.credential?.type === "cli") {
+        await removeCliProfile(session.credential.profileId);
       }
       throw error;
     } finally {
@@ -1089,6 +1139,13 @@ export class PiOAuthLogins {
   }
 
   private removeSession(session: Session): void {
+    if (
+      session.state !== "consumed" &&
+      session.state !== "finalizing" &&
+      session.credential?.type === "cli"
+    ) {
+      void removeCliProfile(session.credential.profileId).catch(() => undefined);
+    }
     if (session.expiresTimer) clearTimeout(session.expiresTimer);
     session.expiresTimer = undefined;
     if (this.pending.get(session.id) === session) this.pending.delete(session.id);
@@ -1111,10 +1168,13 @@ function defaultLogin(
   providerId: string,
   type: "oauth",
   interaction: AuthInteraction,
-): Promise<Credential> {
+): Promise<Credential | CliModelCredential> {
+  if (isCliModelProvider(providerId)) return loginCliModel(providerId, interaction);
   if (providerId === ANTHROPIC_OAUTH_PROVIDER) {
-    return createManualAnthropicOAuthLogin()(interaction);
+    throw new Error("Choose Claude Code to sign in with your Claude subscription.");
   }
+  if (providerId === XAI_OAUTH_PROVIDER)
+    throw new Error("Choose Grok CLI to sign in with your SuperGrok subscription.");
   return builtinModels().login(providerId, type, interaction);
 }
 

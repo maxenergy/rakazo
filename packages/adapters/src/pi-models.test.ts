@@ -30,15 +30,27 @@ describe("Pi model catalog", () => {
     const copilot = catalog.find((entry) => entry.provider === "github-copilot");
     expect(copilot?.signIn).toBe("device-code");
     const grok = catalog.find((entry) => entry.provider === "xai");
-    expect(grok?.signIn).toBe("device-code");
+    expect(grok).toMatchObject({ auth: "api-key", subscription: false, authHint: "API key" });
+    expect(grok?.signIn).toBeUndefined();
     const claude = catalog.find((entry) => entry.provider === "anthropic");
     expect(claude).toMatchObject({
-      signIn: "auth-url",
-      authHint: "Claude Pro/Max / key",
-      oauthLabel: "Sign in with Claude Pro/Max",
-      billing: "",
+      auth: "api-key",
+      authHint: "API key",
+      subscription: false,
+      billing: expect.stringContaining("API key"),
     });
+    expect(claude?.signIn).toBeUndefined();
     expect(scriptedCatalogEntry.provider).toBe("scripted");
+    for (const provider of ["codex-cli", "claude-code", "gemini-cli", "grok-cli"]) {
+      expect(catalog.find((entry) => entry.provider === provider)).toMatchObject({
+        auth: "oauth",
+        subscription: true,
+        reasoning: false,
+        supportsMaxTokens: false,
+      });
+    }
+    expect(catalog.find((entry) => entry.provider === "gemini-cli")?.signIn).toBe("browser");
+    expect(catalog.find((entry) => entry.provider === "grok-cli")?.id).toBe("grok-build");
   });
 
   it("lists current xAI and OpenCode Go models from the Pi catalog", () => {

@@ -32,6 +32,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Client secret": "客户端密钥",
   "Connect apps": "连接应用",
   Continue: "继续",
+  "Complete sign-in on the server.": "请在服务端浏览器中完成登录。",
   "Could not verify or save these credentials": "无法验证或保存这些凭据",
   "Direct MCP": "直连 MCP",
   "Finish MCP authorization in the web app.": "请在网页应用中完成 MCP 授权。",

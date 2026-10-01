@@ -299,7 +299,11 @@ export function ModelSettingsOverlay({
     baseUrl: effectiveBaseUrl,
     modelId,
   });
-  const builtinLimitSave = !isOpenAiCompatible && Boolean(credential) && apiKey.trim().length === 0;
+  const builtinLimitSave =
+    !isOpenAiCompatible &&
+    selected?.supportsMaxTokens !== false &&
+    Boolean(credential) &&
+    apiKey.trim().length === 0;
 
   function updateBaseUrl(nextBaseUrl: string) {
     setBaseUrl(nextBaseUrl);
@@ -615,18 +619,20 @@ export function ModelSettingsOverlay({
               setNotice(null);
             }}
           />
-          <ModelThinkingOptions
-            showThinking={false}
-            disabled={busy}
-            advancedLabel={t`Advanced`}
-            maxTokens={maxTokens}
-            onMaxTokensChange={(value) => {
-              selectionRevisionRef.current += 1;
-              setMaxTokens(value);
-              setNotice(null);
-            }}
-            maxTokensLabel={t`Maximum output tokens`}
-          />
+          {selected.supportsMaxTokens !== false ? (
+            <ModelThinkingOptions
+              showThinking={false}
+              disabled={busy}
+              advancedLabel={t`Advanced`}
+              maxTokens={maxTokens}
+              onMaxTokensChange={(value) => {
+                selectionRevisionRef.current += 1;
+                setMaxTokens(value);
+                setNotice(null);
+              }}
+              maxTokensLabel={t`Maximum output tokens`}
+            />
+          ) : null}
         </div>
         {catalogThinkingLevels.length ? (
           <label
@@ -733,6 +739,15 @@ export function ModelSettingsOverlay({
                     />
                   </p>
                 </>
+              ) : oauth.mode === "browser" ? (
+                <a
+                  href={oauth.verificationUri}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-foreground underline"
+                >
+                  <Trans>Continue sign-in</Trans>
+                </a>
               ) : (
                 <>
                   <p className="text-sm leading-[1.5] text-muted-foreground">

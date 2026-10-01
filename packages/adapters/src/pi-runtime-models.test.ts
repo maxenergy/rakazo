@@ -33,7 +33,8 @@ describe("request model catalogs", () => {
       expect(entry?.thinkingLevels).toContain("max");
     }
     if (provider === "anthropic") {
-      expect(entry?.signIn).toBe("auth-url");
+      expect(entry?.auth).toBe("api-key");
+      expect(entry?.signIn).toBeUndefined();
       expect(entry?.thinkingLevels).toContain("max");
     }
   });

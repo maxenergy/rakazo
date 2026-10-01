@@ -54,7 +54,10 @@ export interface RakazoDesktop {
      * Open system-browser auth. A redirect_uri must be HTTP loopback with state;
      * URLs without a redirect use backend polling. Optional for older desktops.
      */
-    open?: (authorizationUrl: string) => Promise<void>;
+    open?: (
+      authorizationUrl: string,
+      options?: { callbackOwner: "app" | "provider" },
+    ) => Promise<void>;
     cancel?: (authorizationUrl: string) => Promise<void>;
     /**
      * Authorization codes captured from the system browser or a legacy popup.

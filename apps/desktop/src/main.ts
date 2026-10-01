@@ -1056,49 +1056,53 @@ app.whenReady().then(async () => {
     browserAuthAttempts.clear();
   };
   app.on("before-quit", cancelBrowserAuth);
-  ipcMain.handle("desktop.oauth.open", async (event, url: unknown) => {
-    if (
-      (!fromMainWindow(event) &&
-        !(settingsWindow !== null && windowFrom(event) === settingsWindow)) ||
-      event.senderFrame !== event.sender.mainFrame ||
-      typeof url !== "string" ||
-      url.length > 16_384
-    )
-      throw new Error("Invalid sign-in request.");
-    if (browserAuthAttempts.has(url) || browserAuthAttempts.size >= 8) {
-      throw new Error("A sign-in attempt is already active. Cancel it and retry.");
-    }
-    const controller = new AbortController();
-    browserAuthAttempts.set(url, controller);
-    const stop = () => controller.abort();
-    const expiry = setTimeout(stop, 10 * 60_000);
-    expiry.unref();
-    event.sender.once("destroyed", stop);
-    event.sender.once("did-navigate", stop);
-    controller.signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(expiry);
-        event.sender.removeListener("destroyed", stop);
-        event.sender.removeListener("did-navigate", stop);
-        if (browserAuthAttempts.get(url) === controller) browserAuthAttempts.delete(url);
-      },
-      { once: true },
-    );
-    try {
-      await openBrowserAuth(url, {
-        signal: controller.signal,
-        onClose: stop,
-        openExternal: (target) => shell.openExternal(target),
-        onCallback: (callback) => {
-          if (!event.sender.isDestroyed()) event.sender.send("desktop.oauth.callback", callback);
+  ipcMain.handle(
+    "desktop.oauth.open",
+    async (event, url: unknown, options?: { callbackOwner?: unknown }) => {
+      if (
+        (!fromMainWindow(event) &&
+          !(settingsWindow !== null && windowFrom(event) === settingsWindow)) ||
+        event.senderFrame !== event.sender.mainFrame ||
+        typeof url !== "string" ||
+        url.length > 16_384
+      )
+        throw new Error("Invalid sign-in request.");
+      if (browserAuthAttempts.has(url) || browserAuthAttempts.size >= 8) {
+        throw new Error("A sign-in attempt is already active. Cancel it and retry.");
+      }
+      const controller = new AbortController();
+      browserAuthAttempts.set(url, controller);
+      const stop = () => controller.abort();
+      const expiry = setTimeout(stop, 10 * 60_000);
+      expiry.unref();
+      event.sender.once("destroyed", stop);
+      event.sender.once("did-navigate", stop);
+      controller.signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(expiry);
+          event.sender.removeListener("destroyed", stop);
+          event.sender.removeListener("did-navigate", stop);
+          if (browserAuthAttempts.get(url) === controller) browserAuthAttempts.delete(url);
         },
-      });
-    } catch {
-      controller.abort();
-      throw new Error("Could not open browser sign-in. Close other sign-in attempts and retry.");
-    }
-  });
+        { once: true },
+      );
+      try {
+        await openBrowserAuth(url, {
+          callbackOwner: options?.callbackOwner === "provider" ? "provider" : "app",
+          signal: controller.signal,
+          onClose: stop,
+          openExternal: (target) => shell.openExternal(target),
+          onCallback: (callback) => {
+            if (!event.sender.isDestroyed()) event.sender.send("desktop.oauth.callback", callback);
+          },
+        });
+      } catch {
+        controller.abort();
+        throw new Error("Could not open browser sign-in. Close other sign-in attempts and retry.");
+      }
+    },
+  );
   ipcMain.handle("desktop.oauth.cancel", (event, url: unknown) => {
     if (
       (!fromMainWindow(event) &&

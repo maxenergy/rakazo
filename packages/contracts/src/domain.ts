@@ -1021,7 +1021,7 @@ export const ModelConnectInputSchema = z
   });
 export type ModelConnectInput = z.infer<typeof ModelConnectInputSchema>;
 
-export const ModelOAuthSignInModeSchema = z.enum(["device-code", "auth-url"]);
+export const ModelOAuthSignInModeSchema = z.enum(["device-code", "auth-url", "browser"]);
 export type ModelOAuthSignInMode = z.infer<typeof ModelOAuthSignInModeSchema>;
 
 const ModelOAuthBeginBaseSchema = z.object({
@@ -1040,6 +1040,7 @@ export const ModelOAuthBeginSchema = z.discriminatedUnion("mode", [
     userCode: z.string().min(1),
   }),
   ModelOAuthBeginBaseSchema.extend({ mode: z.literal("auth-url") }),
+  ModelOAuthBeginBaseSchema.extend({ mode: z.literal("browser") }),
 ]);
 export type ModelOAuthBegin = z.infer<typeof ModelOAuthBeginSchema>;
 
@@ -1063,6 +1064,7 @@ export const ModelCatalogEntrySchema = z.object({
   subscription: z.boolean().optional(),
   signIn: ModelOAuthSignInModeSchema.optional(),
   reasoning: z.boolean().optional(),
+  supportsMaxTokens: z.boolean().optional(),
   thinkingLevels: z.array(ThinkingLevelSchema).optional(),
   /** Catalog stand-in so a provider appears before the user enters a real model id. */
   placeholder: z.boolean().optional(),

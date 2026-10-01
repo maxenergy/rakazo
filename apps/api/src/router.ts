@@ -58,6 +58,7 @@ import {
   expireComputerControl,
   hasActiveComputerControl,
   isAutoReviewCheckerConfigured,
+  isCliModelProvider,
   isComputerScreenUnavailable,
   isSandboxGoneError,
   isScratchpadStatus,
@@ -79,6 +80,7 @@ import {
   queueComputerUpdate,
   readStoredModelAuth,
   releaseComputerExecutionLease,
+  removeCliProfile,
   replaceComputer,
   resolveAutoReviewChecker,
   resolveBotUploadPath,
@@ -1087,7 +1089,10 @@ export function createRouter(deps: RouterDeps) {
               context.actor,
               {
                 provider: login.provider,
-                plaintext: serializeModelSecret({ kind: "oauth", credential: login.credential }),
+                plaintext:
+                  login.credential.type === "cli"
+                    ? serializeModelSecret({ kind: "cli", credential: login.credential })
+                    : serializeModelSecret({ kind: "oauth", credential: login.credential }),
                 label:
                   login.label ??
                   listPiCatalog().find((entry) => entry.provider === login.provider)?.providerName,
@@ -1254,13 +1259,24 @@ export function createRouter(deps: RouterDeps) {
           userId: context.actor.userId,
           provider: input.provider,
         });
-        await withSerializableRetry(() =>
+        const retiredCliProfiles = await withSerializableRetry(() =>
           deps.prisma.$transaction(
             async (tx) => {
               const existing = await tx.userModelCredential.findMany({
                 where: { userId: context.actor.userId, provider: input.provider },
               });
-              if (existing.length === 0) return;
+              if (existing.length === 0) return [];
+              const profiles: string[] = [];
+              if (isCliModelProvider(input.provider)) {
+                for (const row of existing) {
+                  const secret = await tx.secret.findFirst({
+                    where: { id: row.secretId, userId: context.actor.userId },
+                  });
+                  if (!secret) continue;
+                  const parsed = parseModelSecret(deps.secrets.load(secret.ciphertext, secret.id));
+                  if (parsed.kind === "cli") profiles.push(parsed.credential.profileId);
+                }
+              }
               const ids = existing.map((row) => row.id);
               // Credentials belong to the account, not the space — disconnecting
               // removes them everywhere, matching voice.disconnect. Linked
@@ -1278,10 +1294,12 @@ export function createRouter(deps: RouterDeps) {
                   secretId: row.secretId,
                 });
               }
+              return profiles;
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
           ),
         );
+        await Promise.all(retiredCliProfiles.map((profileId) => removeCliProfile(profileId)));
         return { ok: true as const };
       }),
     },
@@ -5991,6 +6009,22 @@ async function persistModelCredential(
           where: { userId: actor.userId, provider: input.provider },
           orderBy: newestModelCredentialOrder,
         });
+        let retiredCliProfileId: string | undefined;
+        if (existing && isCliModelProvider(input.provider)) {
+          const previous = await tx.secret.findFirst({
+            where: { id: existing.secretId, userId: actor.userId },
+          });
+          if (previous) {
+            const parsed = parseModelSecret(deps.secrets.load(previous.ciphertext, previous.id));
+            const next = parseModelSecret(input.plaintext);
+            if (
+              parsed.kind === "cli" &&
+              next.kind === "cli" &&
+              parsed.credential.profileId !== next.credential.profileId
+            )
+              retiredCliProfileId = parsed.credential.profileId;
+          }
+        }
         throwIfAborted(input.signal);
         const secret = await tx.secret.create({
           data: {
@@ -6052,11 +6086,18 @@ async function persistModelCredential(
           });
           throwIfAborted(input.signal);
         }
-        return { ...credential, isDefault: true, defaultModel };
+        return { ...credential, isDefault: true, defaultModel, retiredCliProfileId };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),
   );
+  if (cred.retiredCliProfileId) {
+    // The new credential is already committed. A cleanup failure must not leave
+    // its login pending, where expiry/cancellation could delete that live profile.
+    await removeCliProfile(cred.retiredCliProfileId).catch(() => {
+      getLogger().warn("Could not remove retired CLI sign-in storage.");
+    });
+  }
   return modelCredentialDto(cred, input.plaintext);
 }
 

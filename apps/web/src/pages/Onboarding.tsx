@@ -710,6 +710,15 @@ export function OnboardingPage() {
                           />
                         </p>
                       </>
+                    ) : oauth.mode === "browser" ? (
+                      <a
+                        href={oauth.verificationUri}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-foreground underline"
+                      >
+                        <Trans>Continue sign-in</Trans>
+                      </a>
                     ) : (
                       <>
                         <p className="text-sm text-muted-foreground">

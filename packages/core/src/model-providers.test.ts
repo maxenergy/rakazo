@@ -28,15 +28,19 @@ describe("featuredModelProviders", () => {
       provider("anthropic"),
       provider("openai-codex"),
       provider("openrouter"),
+      provider("grok-cli"),
+      provider("gemini-cli"),
+      provider("claude-code"),
+      provider("codex-cli"),
     ];
 
     expect(featuredModelProviders(providers, "openrouter").map((entry) => entry.provider)).toEqual([
-      "openrouter",
       "openai-codex",
-      "anthropic",
-      "openai",
-      "google",
-      "vercel-ai-gateway",
+      "codex-cli",
+      "claude-code",
+      "gemini-cli",
+      "grok-cli",
+      "openrouter",
     ]);
   });
 
@@ -50,9 +54,9 @@ describe("featuredModelProviders", () => {
 
     expect(featuredModelProviders(providers, "openrouter").map((entry) => entry.provider)).toEqual([
       "openrouter",
-      "anthropic",
       "azure",
       "bedrock",
+      "anthropic",
     ]);
   });
 
@@ -68,8 +72,8 @@ describe("featuredModelProviders", () => {
     ];
 
     expect(featuredModelProviders(providers, "local").map((entry) => entry.provider)).toEqual([
-      "openrouter",
       "openai-codex",
+      "openrouter",
       "anthropic",
       "openai",
       "google",

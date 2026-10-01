@@ -321,7 +321,11 @@ export default function Models() {
     baseUrl: effectiveBaseUrl,
     modelId,
   });
-  const builtinLimitSave = !isOpenAiCompatible && Boolean(credential) && apiKey.trim().length === 0;
+  const builtinLimitSave =
+    !isOpenAiCompatible &&
+    selected?.supportsMaxTokens !== false &&
+    Boolean(credential) &&
+    apiKey.trim().length === 0;
 
   function updateBaseUrl(nextBaseUrl: string) {
     setBaseUrl(nextBaseUrl);
@@ -604,7 +608,7 @@ export default function Models() {
       oauthLoginIdRef.current = started.loginId;
       setPasteCode("");
       setOauth(started);
-      await Linking.openURL(started.verificationUri);
+      if (started.mode !== "browser") await Linking.openURL(started.verificationUri);
       waitingForCode = started.mode === "auth-url";
       if (!waitingForCode) await finishSubscriptionSignIn(started.loginId, controller);
     } catch (err) {
@@ -1021,14 +1025,16 @@ export default function Models() {
             </Text>
           </Pressable>
         ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showAdvanced }}
-          onPress={() => setShowAdvanced((visible) => !visible)}
-        >
-          <Text style={styles.helpLabel}>{t("Advanced")}</Text>
-        </Pressable>
-        {showAdvanced ? (
+        {selected.supportsMaxTokens !== false ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showAdvanced }}
+            onPress={() => setShowAdvanced((visible) => !visible)}
+          >
+            <Text style={styles.helpLabel}>{t("Advanced")}</Text>
+          </Pressable>
+        ) : null}
+        {selected.supportsMaxTokens !== false && showAdvanced ? (
           <View style={styles.modelRow}>
             <Text style={styles.modelLabel}>{t("Maximum output tokens")}</Text>
             <TextInput
@@ -1091,6 +1097,8 @@ export default function Models() {
                     })}
                   </Text>
                 </>
+              ) : oauth.mode === "browser" ? (
+                <Text style={styles.secondary}>{t("Complete sign-in on the server.")}</Text>
               ) : (
                 <>
                   <Text style={styles.secondary}>

@@ -44,12 +44,12 @@ export function clampCatalogThinkingLevel(
 }
 
 export const POPULAR_MODEL_PROVIDER_IDS = [
-  "openrouter",
   "openai-codex",
-  "anthropic",
-  "openai",
-  "google",
-  "vercel-ai-gateway",
+  "codex-cli",
+  "claude-code",
+  "gemini-cli",
+  "grok-cli",
+  "openrouter",
 ] as const;
 
 const DEFAULT_PROVIDER_COUNT = POPULAR_MODEL_PROVIDER_IDS.length;

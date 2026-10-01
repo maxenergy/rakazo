@@ -17,6 +17,7 @@ export * from "./builtin-tools.js";
 export * from "./cartesia-voice.js";
 export * from "./chat-sdk-surface.js";
 export * from "./child-bots.js";
+export { isCliModelProvider, removeCliProfile } from "./cli-model-process.js";
 export * from "./cloud-agent-emulator.js";
 export * from "./cloud-agent-factory.js";
 export * from "./cloud-agent-poll.js";

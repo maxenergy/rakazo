@@ -1,13 +1,10 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ModelConnectInput, ModelCredential, ThinkingLevel } from "@rakazo/contracts";
 import { OPENAI_COMPATIBLE_PROVIDER_ID as CONTRACT_OPENAI_COMPAT } from "@rakazo/contracts";
+import { isCliModelProvider } from "./cli-model-process.js";
 import { modelIdSupportsImages, updateModelImageCapabilities } from "./model-vision.js";
-import {
-  CHATGPT_OAUTH_PROVIDER,
-  parseModelSecret,
-  type StoredModelSecret,
-  serializeModelSecret,
-} from "./pi-oauth.js";
+import type { StoredModelSecret } from "./pi-oauth.js";
+import { CHATGPT_OAUTH_PROVIDER, parseModelSecret, serializeModelSecret } from "./pi-oauth.js";
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   openAiCompatibleModel,
@@ -24,6 +21,14 @@ export function buildModelConnectPlaintext(
   previousPlaintext?: string,
   options?: BuildModelConnectOptions,
 ): string {
+  if (isCliModelProvider(input.provider)) {
+    const previous = tryParseModelSecret(previousPlaintext);
+    if (input.apiKey || previous?.kind !== "cli")
+      throw new Error("Sign in with the official CLI for this connection.");
+    if (input.maxTokens != null)
+      throw new Error("Output-token limits are managed by the official CLI.");
+    return serializeModelSecret({ kind: "cli", credential: previous.credential });
+  }
   if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
     const prepared = prepareOpenAiCompatibleConnect(input);
     const previous = tryParseModelSecret(previousPlaintext);

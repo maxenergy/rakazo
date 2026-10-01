@@ -1,10 +1,18 @@
-import { constants, type Stats } from "node:fs";
-import { type FileHandle, lstat, open, opendir, readlink } from "node:fs/promises";
+import type { Stats } from "node:fs";
+import { constants } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
+import { lstat, open, opendir, readlink } from "node:fs/promises";
 import path from "node:path";
 
 const DIRECTORY_OPEN_FLAGS = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
 
 function hasPermissions(stat: Stats, uid: number, gid: number, required: number): boolean {
+  // Windows reports synthetic uid/gid values and only owner read/write bits.
+  // Docker Desktop bind mounts do not use these values as Linux ownership.
+  if (process.platform === "win32") {
+    const supported = required & 0b110;
+    return ((stat.mode >> 6) & supported) === supported;
+  }
   const shift = stat.uid === uid ? 6 : stat.gid === gid ? 3 : 0;
   return ((stat.mode >> shift) & required) === required;
 }
@@ -17,7 +25,7 @@ function regularFileIsUsable(stat: Stats, uid: number, gid: number): boolean {
   if (hasPermissions(stat, uid, gid, 0b010)) return true;
   return (
     stat.isFile() &&
-    stat.uid === uid &&
+    (process.platform === "win32" || stat.uid === uid) &&
     hasPermissions(stat, uid, gid, 0b100) &&
     (stat.mode & constants.S_IWOTH) === 0
   );

@@ -34,6 +34,7 @@ import { usableModelId } from "@rakazo/contracts";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
 import { builtinAgentTools, DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
+import { registerCliModelProviders } from "./cli-model-provider.js";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import {
   normalizeOpenAiToolParameters,
@@ -77,8 +78,13 @@ const toolCallBudgetsByRun = new Map<string, ToolCallBudget>();
 // their imports, and ESM hoists those imports, so module-level env reads here
 // would run before .env is loaded and miss the local provider entirely.
 let catalogModelsCache: Models | undefined;
+function builtinRuntimeModels(options?: Parameters<typeof builtinModels>[0]) {
+  return registerCliModelProviders(builtinModels(options));
+}
 function catalogModels(): Models {
-  catalogModelsCache ??= registerOpenAiCompatibleCatalog(registerLocalProvider(builtinModels()));
+  catalogModelsCache ??= registerOpenAiCompatibleCatalog(
+    registerLocalProvider(builtinRuntimeModels()),
+  );
   return catalogModelsCache;
 }
 const MAX_PARALLEL_SUBAGENTS = 4;
@@ -589,7 +595,7 @@ export function modelsForRequest(
   const store = credentials ?? credentialStoreForRequest(request, provider);
   if (store) {
     return registerOpenAiCompatibleCatalog(
-      registerLocalProvider(builtinModels({ credentials: store })),
+      registerLocalProvider(builtinRuntimeModels({ credentials: store })),
     );
   }
   if (
@@ -597,7 +603,7 @@ export function modelsForRequest(
     request.model.baseUrl &&
     request.model.id.trim()
   ) {
-    const models = registerOpenAiCompatibleCatalog(registerLocalProvider(builtinModels()));
+    const models = registerOpenAiCompatibleCatalog(registerLocalProvider(builtinRuntimeModels()));
     return registerOpenAiCompatibleRuntime(models, {
       modelId: request.model.id,
       baseUrl: request.model.baseUrl,

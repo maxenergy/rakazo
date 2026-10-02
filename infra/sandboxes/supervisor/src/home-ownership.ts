@@ -98,6 +98,9 @@ async function assertWritableEntry(
 
   const directory = await opendir(target);
   for await (const entry of directory) {
+    // Docker-created Linux runtime links can be listed on Windows while lstat
+    // rejects their reparse metadata. Links are excluded from this walk anyway.
+    if (process.platform === "win32" && entry.isSymbolicLink()) continue;
     await assertWritableEntry(path.join(target, entry.name), root, uid, gid);
   }
 }

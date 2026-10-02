@@ -1,9 +1,14 @@
 import { z } from "zod";
+import { Id } from "./ids.js";
 
 // An opaque reference handle: matched exactly by secret_request/forget_secret,
 // displayed in list_secrets. Never interpolated into shells, env, or URLs, so
 // hyphens are safe.
 export const BotSecretName = z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/);
+
+// A name read back from storage. It is deliberately looser than BotSecretName so a row saved
+// before the pattern tightened stays listable and removable instead of failing a whole list call.
+export const StoredBotSecretName = z.string().min(1).max(256);
 
 const SecretHeaderName = z
   .string()
@@ -128,6 +133,40 @@ export function botSecretSubmissionSchema(options?: { allowPrivateHttpOrigin?: b
   return z.object({ credentialSaved: botSecretDestinationSchema(options) });
 }
 export const BotSecretSubmission = botSecretSubmissionSchema();
+
+export const BOT_SECRET_VALUE_MAX_LENGTH = 16_384;
+
+/**
+ * Owner-facing destination input. Structural only: the origin rules depend on the server's
+ * private-HTTP opt-in, so the server enforces them when it stores the value.
+ */
+export const BotSecretDestinationInput = z.object({
+  name: BotSecretName,
+  origin: z.string().min(1).max(2048),
+  auth: BotSecretAuth,
+});
+
+export const BotSecretPutInput = z.object({
+  botId: Id,
+  destination: BotSecretDestinationInput,
+  value: z.string().min(1).max(BOT_SECRET_VALUE_MAX_LENGTH),
+});
+export type BotSecretPutInput = z.infer<typeof BotSecretPutInput>;
+
+/**
+ * What the owner can see about a saved credential. It never carries the protected value.
+ * `name` is read loosely and `auth` is nullable so one stored row that no longer passes the
+ * current schema cannot fail the whole list call and lock the owner out of removing it.
+ * A null `auth` means the stored settings can't be read.
+ */
+export const BotSecretMetadata = z.object({
+  name: StoredBotSecretName,
+  origin: z.string(),
+  auth: BotSecretAuth.nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type BotSecretMetadata = z.infer<typeof BotSecretMetadata>;
 
 export const SecretHttpRequest = z
   .object({

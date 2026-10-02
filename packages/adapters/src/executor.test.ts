@@ -1125,6 +1125,7 @@ describe("createRunExecutor", () => {
     expect(tools).not.toContain("recall_memory");
     expect(tools).not.toContain("remember");
     expect(tools).not.toContain("save_memory");
+    expect(tools).not.toContain("save_shared_memory");
     expect(tools).not.toContain("task_catalog");
     expect(tools.some((tool) => tool.startsWith("scratchpad_"))).toBe(false);
     expect(tools).toContain("web_fetch");

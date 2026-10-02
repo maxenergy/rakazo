@@ -8,8 +8,14 @@ export const MODEL_STREAM_TIMEOUT_MS = 120_000;
  * models emit thinking deltas continuously while generating.
  */
 export const MODEL_STREAM_IDLE_TIMEOUT_MS = 180_000;
-/** One retry keeps a transient blip from killing the turn without outliving the lease. */
-export const MODEL_STREAM_MAX_RETRIES = 1;
+export const DEFAULT_MODEL_STREAM_MAX_RETRIES = 1;
+
+/** More retries extend the worst-case turn; the executor heartbeat renews its leases. */
+export function modelStreamMaxRetries(): number {
+  const value = process.env.MODEL_STREAM_MAX_RETRIES?.trim();
+  const raw = Number(value || DEFAULT_MODEL_STREAM_MAX_RETRIES);
+  return Number.isInteger(raw) && raw >= 0 && raw <= 5 ? raw : DEFAULT_MODEL_STREAM_MAX_RETRIES;
+}
 
 export const TOOL_RESULT_TEXT_LIMIT = 12_000;
 

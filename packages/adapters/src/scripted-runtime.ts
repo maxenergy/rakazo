@@ -509,6 +509,36 @@ code-b
     ];
   }
   if (
+    lower.includes("save shared memory") ||
+    lower.includes("update shared memory") ||
+    lower.includes("write shared memory")
+  ) {
+    const contentMatch =
+      /\b(?:with|content):\s*([\s\S]+)$/i.exec(prompt) ?? /\bwith\s+([\s\S]+)$/i.exec(prompt);
+    const content = contentMatch?.[1]?.trim();
+    const header = contentMatch ? prompt.slice(0, contentMatch.index) : prompt;
+    const named =
+      /(?:named|called|path|file)\s+([A-Za-z0-9._/-]+)/i.exec(header)?.[1] ??
+      /shared memory\s+([A-Za-z0-9._/-]+\.[A-Za-z0-9]+)/i.exec(header)?.[1];
+    const path = named && named.toLowerCase() !== "with" ? named : "MEMORY.md";
+    if (!content) {
+      return [
+        {
+          assistant:
+            "say what to save, for example: save shared memory MEMORY.md with: the new facts.",
+          complete: true,
+        },
+      ];
+    }
+    return [
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [{ name: "save_shared_memory", args: { path, content } }],
+        complete: true,
+      },
+    ];
+  }
+  if (
     lower.includes("write") &&
     (lower.includes("file") || lower.includes("home") || lower.includes("note"))
   ) {

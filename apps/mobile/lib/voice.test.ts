@@ -20,6 +20,7 @@ vi.mock("expo-secure-store", () => ({
 }));
 vi.mock("expo-speech", () => ({ speak: vi.fn(), stop: vi.fn() }));
 vi.mock("./api", () => ({
+  aiConsentCoalesceKey: vi.fn(() => "test-consent-context"),
   authHeaders: vi.fn(),
   captureApiRequestContext: vi.fn(),
   currentApiBase: vi.fn(() => "https://api.example"),

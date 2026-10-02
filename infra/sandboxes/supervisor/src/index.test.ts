@@ -1,7 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { resolveSupervisorToken } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import {
@@ -23,6 +25,7 @@ import {
   computerControlTimeoutMs,
   containerActionStep,
   containerActionSteps,
+  createDockerStreamDemuxer,
   DOCKER_BROWSER_ALIASES,
   demuxDockerStream,
   ensureScreenCommand,
@@ -121,6 +124,25 @@ describe("computer screen readiness", () => {
 });
 
 describe("sandbox supervisor Docker endpoint", () => {
+  it("discovers the unprivileged Docker Desktop socket on macOS", () => {
+    const home = mkdtempSync(path.join(tmpdir(), "rakazo-docker-home-"));
+    try {
+      expect(resolveDockerSocketPath({ HOME: home }, "darwin")).toBe("/var/run/docker.sock");
+      const socket = path.join(home, ".docker", "run", "docker.sock");
+      mkdirSync(path.dirname(socket), { recursive: true });
+      writeFileSync(socket, "");
+      expect(resolveDockerSocketPath({ HOME: home }, "darwin")).toBe(socket);
+      expect(
+        resolveDockerSocketPath({ HOME: home, DOCKER_SOCKET: "/tmp/override.sock" }, "darwin"),
+      ).toBe("/tmp/override.sock");
+      expect(
+        resolveDockerSocketPath({ HOME: home, DOCKER_HOST: "tcp://docker.test:2375" }, "darwin"),
+      ).toBeUndefined();
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("respects Docker host and socket overrides before platform defaults", () => {
     expect(resolveDockerSocketPath({ DOCKER_HOST: "tcp://docker.test:2375" }, "win32")).toBe(
       undefined,
@@ -320,6 +342,40 @@ describe("sandbox supervisor input containment", () => {
     });
   });
 
+  it("routes focus actions through the focus-or-launch wrapper", () => {
+    expect(containerActionStep({ kind: "focus", application: "xterm" }, ":3")).toEqual({
+      argv: ["env", "DISPLAY=:3", "rakazo-focus-or-launch", "xterm"],
+    });
+    expect(
+      containerActionStep(
+        { kind: "focus", application: "chromium", uri: "https://example.com" },
+        ":2",
+      ),
+    ).toEqual({
+      argv: [
+        "env",
+        "DISPLAY=:2",
+        "rakazo-focus-or-launch",
+        "rakazo-browser",
+        "https://example.com",
+      ],
+    });
+    const profile = browserProfilePathForScreen("writer");
+    expect(containerActionStep({ kind: "focus", application: "chromium" }, ":2", profile)).toEqual({
+      argv: [
+        "env",
+        "DISPLAY=:2",
+        `RAKAZO_BROWSER_PROFILE=${profile}`,
+        "rakazo-focus-or-launch",
+        "rakazo-browser",
+      ],
+    });
+    // A non-browser application never receives the per-screen browser profile.
+    expect(containerActionStep({ kind: "focus", application: "xterm" }, ":2", profile)).toEqual({
+      argv: ["env", "DISPLAY=:2", "rakazo-focus-or-launch", "xterm"],
+    });
+  });
+
   it("routes mixed-case Docker browser aliases through the safe wrapper", () => {
     for (const application of ["Chrome", "Firefox", "Chromium", "Google-Chrome"]) {
       expect(
@@ -463,26 +519,30 @@ describe("sandbox supervisor input containment", () => {
     expect(shouldReplayComputerActions(reset)).toBe(false);
   });
 
-  it("extends the computer control deadline for mapped waits", () => {
+  it("extends the computer control deadline for mapped waits and focus steps", () => {
     expect(computerControlTimeoutMs([])).toBe(15_000);
     expect(computerControlTimeoutMs([{ kind: "wait", ms: 5_000 }], 5_000)).toBe(25_000);
+    const focus = { kind: "focus" as const, application: "xterm" };
+    expect(computerControlTimeoutMs([focus])).toBe(15_000 + 13_400);
+    expect(computerControlTimeoutMs([focus, { kind: "wait", ms: 1_000 }], 500)).toBe(
+      15_000 + 13_400 + 1_000 + 500,
+    );
+    // Five focus steps need 15s + 67s. The deadline is that sum, not the old 60s clip.
+    expect(computerControlTimeoutMs(Array.from({ length: 5 }, () => focus))).toBe(
+      15_000 + 5 * 13_400,
+    );
     expect(
       computerControlTimeoutMs(
-        [
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-          { kind: "wait", ms: 5_000 },
-        ],
+        Array.from({ length: 24 }, () => focus),
         5_000,
       ),
-    ).toBe(60_000);
+    ).toBe(15_000 + 24 * 13_400 + 5_000);
+    expect(
+      computerControlTimeoutMs(
+        Array.from({ length: 10 }, () => ({ kind: "wait" as const, ms: 5_000 })),
+        5_000,
+      ),
+    ).toBe(15_000 + 10 * 5_000 + 5_000);
   });
 
   it("wraps sandbox commands in a process-tree timeout", () => {
@@ -828,6 +888,30 @@ describe("docker exec stream demux", () => {
     expect(demuxDockerStream(raw02)).toEqual({
       stdout: raw02.toString("utf8"),
       stderr: "",
+    });
+  });
+
+  it("emits complete frames before the stream ends", () => {
+    const stream = Buffer.concat([
+      frame(1, "code: ABCD-1234\n"),
+      frame(2, "waiting\n"),
+      frame(1, "done\n"),
+    ]);
+    const demuxer = createDockerStreamDemuxer();
+    const live: Array<{ stream: string; data: string }> = [];
+    const splitAt = 8 + Buffer.byteLength("code: ABCD-1234\n") + 3;
+    live.push(...demuxer.push(stream.subarray(0, splitAt)));
+    expect(live).toEqual([{ stream: "stdout", data: "code: ABCD-1234\n" }]);
+    live.push(...demuxer.push(stream.subarray(splitAt)));
+    live.push(...demuxer.finish());
+    expect(live).toEqual([
+      { stream: "stdout", data: "code: ABCD-1234\n" },
+      { stream: "stderr", data: "waiting\n" },
+      { stream: "stdout", data: "done\n" },
+    ]);
+    expect(demuxDockerStream(stream)).toEqual({
+      stdout: "code: ABCD-1234\ndone\n",
+      stderr: "waiting\n",
     });
   });
 

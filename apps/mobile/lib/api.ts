@@ -371,6 +371,11 @@ export type ApiRequestContext = {
   headers: Record<string, string>;
 };
 
+/** Keeps consent prompts separate across servers and the selected Space. */
+export function aiConsentCoalesceKey(requestContext: ApiRequestContext): string {
+  return [requestContext.apiBase, requestContext.headers["x-rakazo-space-id"] ?? ""].join("\u0000");
+}
+
 export async function captureApiRequestContext(): Promise<ApiRequestContext> {
   const apiBase = currentApiBase();
   const headers = await authHeaders(selectedSpaceId());
@@ -601,6 +606,7 @@ export async function rpc<T>(
       ),
     prompt: promptAiConsent,
     allow: (input) => rpc("aiConsent/allow", input, { requestContext: consentContext }),
+    coalesceKey: consentContext ? aiConsentCoalesceKey(consentContext) : undefined,
   });
   // Abort with an explicit reason so every consumer of the signal (the fetch, the bounded body
   // read, and nested recovery calls that share this signal) reports the same cause.

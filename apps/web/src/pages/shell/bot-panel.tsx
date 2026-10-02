@@ -28,6 +28,7 @@ import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { thinkingLevelLabel } from "../../lib/model-catalog";
 import { rpc } from "../../lib/rpc";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
+import { BotCredentialsSection } from "./bot-credentials";
 
 const ScratchpadSection = lazy(() =>
   import("../ScratchpadSection").then((module) => ({ default: module.ScratchpadSection })),
@@ -595,6 +596,7 @@ export function BotSettings({
             </NativeSelect>
           </label>
         ) : null}
+        {advancedOpened ? <BotCredentialsSection botId={bot.id} /> : null}
       </details>
       {error ? <p className="mt-2 text-[13px] text-destructive">{error}</p> : null}
       <div className="mt-5 flex flex-col items-start gap-3">

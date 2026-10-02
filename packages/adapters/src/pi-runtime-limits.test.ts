@@ -1,13 +1,36 @@
 import { DEFAULT_MODEL_MAX_TOKENS } from "@rakazo/contracts";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   billedPromptTokens,
   clipToolResultContent,
   clipToolResultText,
+  modelStreamMaxRetries,
   REASONING_MODEL_MAX_TOKENS,
   resolveCompletionMaxTokens,
   TOOL_RESULT_TEXT_LIMIT,
 } from "./pi-runtime-limits.js";
+
+describe("modelStreamMaxRetries", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("defaults to one retry when unset", () => {
+    vi.stubEnv("MODEL_STREAM_MAX_RETRIES", undefined);
+    expect(modelStreamMaxRetries()).toBe(1);
+  });
+
+  it.each(["0", "1", "2", "3", "4", "5", " 3 "])("accepts %j", (value) => {
+    vi.stubEnv("MODEL_STREAM_MAX_RETRIES", value);
+    expect(modelStreamMaxRetries()).toBe(Number(value));
+  });
+
+  it.each(["", " ", "-1", "6", "1.5", "NaN", "Infinity", "three", "3retries"])(
+    "falls back to one retry for %j",
+    (value) => {
+      vi.stubEnv("MODEL_STREAM_MAX_RETRIES", value);
+      expect(modelStreamMaxRetries()).toBe(1);
+    },
+  );
+});
 
 describe("billedPromptTokens", () => {
   it("adds cache read and write onto uncached input so the meter matches provider cost", () => {

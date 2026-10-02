@@ -7,6 +7,13 @@ export * from "./auto-review-factory.js";
 export * from "./background-job-handlers.js";
 export * from "./bot-avatar.js";
 export * from "./bot-messages.js";
+export {
+  forgetBotSecret,
+  getBotSecretMetadata,
+  listBotSecretMetadata,
+  normalizeSecretDestination,
+  storeBotSecret,
+} from "./bot-secrets.js";
 export * from "./box-emulator.js";
 export * from "./box-sandbox.js";
 export * from "./browser-emulator.js";

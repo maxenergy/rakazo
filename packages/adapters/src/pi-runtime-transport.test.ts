@@ -6,7 +6,7 @@ import type {
   ProviderHeaders,
 } from "@earendil-works/pi-ai";
 import { DEFAULT_MODEL_MAX_TOKENS } from "@rakazo/contracts";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   conversationSessionId,
   isOpenCodeProvider,
@@ -14,11 +14,11 @@ import {
   reliableStreamOptions,
   resolveRuntimeModel,
 } from "./pi-runtime.js";
-import { MODEL_STREAM_MAX_RETRIES, MODEL_STREAM_TIMEOUT_MS } from "./pi-runtime-limits.js";
+import { DEFAULT_MODEL_STREAM_MAX_RETRIES, MODEL_STREAM_TIMEOUT_MS } from "./pi-runtime-limits.js";
 
 const streamDefaults = {
   timeoutMs: MODEL_STREAM_TIMEOUT_MS,
-  maxRetries: MODEL_STREAM_MAX_RETRIES,
+  maxRetries: DEFAULT_MODEL_STREAM_MAX_RETRIES,
   maxTokens: DEFAULT_MODEL_MAX_TOKENS,
 };
 
@@ -34,6 +34,19 @@ const residencyFor = async (options: ModelsSimpleStreamOptions, headers: Provide
   (await options.transformHeaders?.(headers))?.["x-openai-internal-codex-residency"];
 
 describe("Pi runtime transport", () => {
+  beforeEach(() => vi.stubEnv("MODEL_STREAM_MAX_RETRIES", undefined));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each(["0", "3", "5"])("uses the configured retry limit %s", (value) => {
+    vi.stubEnv("MODEL_STREAM_MAX_RETRIES", value);
+    expect(reliableStreamOptions(codexModel).maxRetries).toBe(Number(value));
+  });
+
+  it.each([0, 2])("preserves an explicit retry limit of %i", (maxRetries) => {
+    vi.stubEnv("MODEL_STREAM_MAX_RETRIES", "3");
+    expect(reliableStreamOptions(codexModel, { maxRetries }).maxRetries).toBe(maxRetries);
+  });
+
   it.each([
     { source: "provider", provider: "openai-codex", api: "openai-completions" },
     { source: "API", provider: "custom-provider", api: "openai-codex-responses" },

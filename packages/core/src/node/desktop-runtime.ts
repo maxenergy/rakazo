@@ -124,6 +124,7 @@ function browserRunningFunction(profile: string, pidFile: string) {
     "  browser_matches() {",
     "    case \"$1\" in ''|0|*[!0-9]*) return 1 ;; esac",
     '    kill -0 "$1" 2>/dev/null || return 1',
+    '    case "$(readlink "/proc/$1/exe" 2>/dev/null)" in */bash|*/dash|*/sh|*/timeout) return 1 ;; esac',
     `    if ! has_arg "$1" ${flag}; then return 1; fi`,
     // Browser.close reads --remote-debugging-port from this PID. Renderers inherit
     // --user-data-dir (and sometimes the port) but always carry --type=.
@@ -171,7 +172,32 @@ function browserLauncherCommand(
       : []),
     "browser=$(command -v rakazo-browser || command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)",
     `export DISPLAY=${layout.display} HOME=${shellQuote(env.homeDir)}`,
-    `exec "$browser" --no-sandbox --no-first-run --no-default-browser-check --disable-dev-shm-usage --password-store=basic --remote-debugging-address=127.0.0.1 --remote-debugging-port=${layout.debugPort} --user-data-dir=${shellQuote(browserProfilePathForScreen(screenId, env))} "$@"`,
+    // Docker exec does not inherit the session bus exported by container startup.
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
+    'if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -r /tmp/rakazo/dbus-session ]; then . /tmp/rakazo/dbus-session; fi',
+    // The image preloads libnss_wrapper so arbitrary UIDs resolve. Chromium's
+    // process stays up with these flags while that library is loaded, and the
+    // debugging port never opens. Drop only that entry for this exec.
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
+    'if [ -n "${LD_PRELOAD:-}" ]; then',
+    '  _kept=""',
+    '  _rest="$LD_PRELOAD"',
+    '  while [ -n "$_rest" ]; do',
+    '    case "$_rest" in',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
+    '      *:*) _entry="${_rest%%:*}"; _rest="${_rest#*:}" ;;',
+    '      *) _entry="$_rest"; _rest="" ;;',
+    "    esac",
+    '    case "$_entry" in',
+    '      *libnss_wrapper.so|"") ;;',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
+    '      *) _kept="${_kept:+$_kept:}$_entry" ;;',
+    "    esac",
+    "  done",
+    '  if [ -n "$_kept" ]; then export LD_PRELOAD="$_kept"; else unset LD_PRELOAD; fi',
+    "  unset _kept _rest _entry",
+    "fi",
+    `exec "$browser" --test-type --no-sandbox --disable-dev-shm-usage --disable-gpu --enable-unsafe-swiftshader --no-first-run --no-default-browser-check --disable-session-crashed-bubble --hide-crash-restore-bubble --password-store=basic --start-maximized --remote-debugging-address=127.0.0.1 --remote-debugging-port=${layout.debugPort} --user-data-dir=${shellQuote(browserProfilePathForScreen(screenId, env))} "$@"`,
   ].join("\n");
 }
 
@@ -540,7 +566,11 @@ function renderEnsureScreenCommand(
     `  nohup ${browserLauncherPath(layout.displayNumber)} 8>&- 9>&- </dev/null >${log}-browser.log 2>&1 & printf %s "$!" >${pidFile}`,
     "fi",
     `for i in $(seq 1 80); do browser_running && (echo >/dev/tcp/127.0.0.1/${layout.debugPort}) >/dev/null 2>&1 && break; sleep 0.25; done`,
-    `browser_running && (echo >/dev/tcp/127.0.0.1/${layout.debugPort}) >/dev/null 2>&1 || exit 1`,
+    `if ! browser_running || ! (echo >/dev/tcp/127.0.0.1/${layout.debugPort}) >/dev/null 2>&1; then`,
+    `  echo "computer browser CDP not ready on ${layout.debugPort} (running=$(browser_running && echo yes || echo no))" >&2`,
+    `  tail -c 4000 ${log}-browser.log >&2 || true`,
+    "  exit 1",
+    "fi",
     ...setupView,
     `for i in $(seq 1 50); do (echo >/dev/tcp/127.0.0.1/${layout.viewPort}) >/dev/null 2>&1 && exit 0; sleep 0.1; done`,
     "exit 1",

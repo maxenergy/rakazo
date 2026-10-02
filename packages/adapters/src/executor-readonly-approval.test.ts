@@ -4,10 +4,12 @@ import type {
   ConnectorCall,
   ConnectorTool,
 } from "@rakazo/adapter-kit";
+import { MEMORY_REVISION_CONFLICT_ERROR } from "@rakazo/adapter-kit";
 import type { ActionApprovalRule } from "@rakazo/core";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isApprovalPausedResult } from "./approval-effect.js";
+import { MAX_SHARED_MEMORY_CHARS } from "./builtin-tools.js";
 import type * as ComputerLifecycleModule from "./computer-lifecycle.js";
 import { createRunExecutor } from "./executor.js";
 import { catalogEntries, resolveCatalogCall } from "./lazy-tool-catalog.js";
@@ -55,7 +57,14 @@ function fixture({
     description: "Test assistant",
   },
   shutdownSignal,
+  builtin = false,
+  existingSharedMemory,
+  advanceRevisionAfterRead = false,
 }: {
+  builtin?: boolean;
+  existingSharedMemory?: string;
+  /** Simulates another writer landing between the save's read and its commit. */
+  advanceRevisionAfterRead?: boolean;
   name?: string;
   catalog?: boolean;
   readOnly?: boolean;
@@ -80,6 +89,28 @@ function fixture({
   };
   const effects: Effect[] = [];
   const results: unknown[] = [];
+  const sharedMemoryState = {
+    content: existingSharedMemory as string | undefined,
+    revision: existingSharedMemory === undefined ? 0 : 1,
+  };
+  const commit = vi.fn(
+    async (request: { path: string; content: string; expectedRevision?: number }) => {
+      if (
+        request.expectedRevision !== undefined &&
+        request.expectedRevision !== sharedMemoryState.revision
+      ) {
+        throw new Error(MEMORY_REVISION_CONFLICT_ERROR);
+      }
+      sharedMemoryState.content = request.content;
+      sharedMemoryState.revision = (sharedMemoryState.revision || 0) + 1;
+      return {
+        id: "doc-1",
+        path: request.path,
+        revision: sharedMemoryState.revision,
+        content: request.content,
+      };
+    },
+  );
   const run = {
     id: "run-1",
     botId: "bot-1",
@@ -184,7 +215,9 @@ function fixture({
   const execute = vi.fn(async function* (call: ConnectorCall) {
     yield { type: "result" as const, data: { item: call.args.id } };
   });
-  let calls = [{ args: { id: "item-1" }, executionId: "call-1" }];
+  let calls: { args: Record<string, unknown>; executionId: string }[] = [
+    { args: { id: "item-1" }, executionId: "call-1" },
+  ];
   const runtimeRun = vi.fn(async function* (request: AgentRunRequest) {
     for (const call of calls) {
       const result = await request.executeTool!(
@@ -202,22 +235,47 @@ function fixture({
     runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
     connector: {
       discoverTools: async () =>
-        catalog
-          ? [
-              {
-                name: "demo_execute_tool",
-                description: "Execute a catalog tool",
-                inputSchema: { type: "object" },
-                route: { connectorId: "demo", toolName: "__catalog_execute" },
-              },
-            ]
-          : [tool],
+        builtin
+          ? []
+          : catalog
+            ? [
+                {
+                  name: "demo_execute_tool",
+                  description: "Execute a catalog tool",
+                  inputSchema: { type: "object" },
+                  route: { connectorId: "demo", toolName: "__catalog_execute" },
+                },
+              ]
+            : [tool],
       resolveCall: async (call: ConnectorCall) =>
         catalog ? resolveCatalogCall(call, catalogEntries([tool])) : undefined,
       execute,
     },
     sandbox: { describe: () => ({ capabilities: { graphical: false } }) },
-    memory: { read: async () => ({ documents: [] }) },
+    memory: {
+      read: async (request: { scope: string; path?: string }) => {
+        const documents =
+          request.scope === "user" &&
+          request.path === "MEMORY.md" &&
+          sharedMemoryState.content !== undefined
+            ? [
+                {
+                  id: "doc-1",
+                  path: "MEMORY.md",
+                  content: sharedMemoryState.content,
+                  revision: sharedMemoryState.revision,
+                  updatedAt: "",
+                },
+              ]
+            : [];
+        if (advanceRevisionAfterRead && request.path === "MEMORY.md") {
+          sharedMemoryState.content = "Someone else edited";
+          sharedMemoryState.revision += 1;
+        }
+        return { documents };
+      },
+      commit,
+    },
     memoryProviders: { resolve: async () => null },
     events: { append: vi.fn(async () => undefined), pauseRunForInput, finalizeRun },
     jobs: { enqueue: vi.fn(async () => undefined) },
@@ -229,6 +287,8 @@ function fixture({
     effects,
     results,
     execute,
+    commit,
+    sharedMemoryState,
     pauseRunForInput,
     setCalls(next: typeof calls) {
       calls = next;
@@ -262,6 +322,88 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect(reviewMock).not.toHaveBeenCalled();
     },
   );
+
+  it("writes shared memory directly, including when an always-allow rule exists", async () => {
+    const args = { path: " MEMORY.md ", content: "Printing: all print jobs go to Clyde." };
+    const f = fixture({
+      name: "save_shared_memory",
+      builtin: true,
+      autoReview: true,
+      rules: [{ effect: "always_allow", matchKind: "tool", matchValue: "save_shared_memory" }],
+    });
+    f.setCalls([{ args, executionId: "call-1" }]);
+    await f.run();
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+    expect(reviewMock).not.toHaveBeenCalled();
+    expect(f.commit).toHaveBeenCalledOnce();
+    expect(f.commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: "user",
+        path: "MEMORY.md",
+        content: args.content,
+        expectedRevision: 0,
+      }),
+      expect.objectContaining({ spaceId: "space-1", userId: "user-1" }),
+    );
+    expect(f.commit.mock.calls[0]![0]).not.toHaveProperty("botId");
+    expect(f.results.at(-1)).toEqual({ ok: true, path: "MEMORY.md", revision: 1 });
+  });
+
+  it("replaces an existing shared document at the revision it just read", async () => {
+    const f = fixture({
+      name: "save_shared_memory",
+      builtin: true,
+      existingSharedMemory: "Old rule",
+    });
+    f.setCalls([{ args: { path: "MEMORY.md", content: "New rule" }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+    expect(f.commit).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "New rule", expectedRevision: 1 }),
+      expect.anything(),
+    );
+    expect(f.results.at(-1)).toEqual({ ok: true, path: "MEMORY.md", revision: 2 });
+  });
+
+  it("does not overwrite shared memory that changed after it was read", async () => {
+    const f = fixture({
+      name: "save_shared_memory",
+      builtin: true,
+      existingSharedMemory: "Old rule",
+      advanceRevisionAfterRead: true,
+    });
+    f.setCalls([{ args: { path: "MEMORY.md", content: "New rule" }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.commit).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedRevision: 1 }),
+      expect.anything(),
+    );
+    expect(f.sharedMemoryState.content).toBe("Someone else edited");
+    expect(f.results.at(-1)).toEqual({ error: MEMORY_REVISION_CONFLICT_ERROR });
+  });
+
+  it("rejects shared memory content over the size limit", async () => {
+    const args = {
+      path: "MEMORY.md",
+      content: "x".repeat(MAX_SHARED_MEMORY_CHARS + 1),
+    };
+    const f = fixture({ name: "save_shared_memory", builtin: true });
+    f.setCalls([{ args, executionId: "call-1" }]);
+    await f.run();
+    expect(f.commit).not.toHaveBeenCalled();
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+    expect(f.results.at(-1)).toEqual({
+      error: `content exceeds ${MAX_SHARED_MEMORY_CHARS} characters`,
+    });
+  });
+
+  it("rejects a shared memory save without a path", async () => {
+    const f = fixture({ name: "save_shared_memory", builtin: true });
+    f.setCalls([{ args: { path: "  ", content: "ok" }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.commit).not.toHaveBeenCalled();
+    expect(f.results.at(-1)).toEqual({ error: "path is required" });
+  });
 
   describe.each([false, true])("catalog = %s", (catalog) => {
     it.each(["tool", "connector"] as const)(
@@ -351,7 +493,10 @@ describe("connector read-only metadata and approval enforcement", () => {
       f.setCalls([{ args: { id: "item-1" }, executionId: "call-2" }]);
       await f.run();
       expect(f.execute).not.toHaveBeenCalled();
-      expect(f.results.at(-1)).toEqual({ error: "User denied this action." });
+      expect(f.results.at(-1)).toEqual({
+        error:
+          "The user denied this action. Do not retry or rephrase it; tell the user and ask what they want instead.",
+      });
       expect(f.pauseRunForInput).toHaveBeenCalledOnce();
     });
 

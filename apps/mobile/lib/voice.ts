@@ -3,7 +3,7 @@ import { File, Paths } from "expo-file-system";
 import type * as ExpoSpeech from "expo-speech";
 import { promptAiConsent } from "./ai-consent";
 import type { ApiRequestContext } from "./api";
-import { captureApiRequestContext, rpc } from "./api";
+import { aiConsentCoalesceKey, captureApiRequestContext, rpc } from "./api";
 import { loadDeviceVoiceEnabled } from "./device-voice";
 import { t } from "./i18n";
 
@@ -110,6 +110,7 @@ export async function speakUtterance(
     status: () => rpc("aiConsent/status", { uses: ["voice"] }, { requestContext }),
     prompt: promptAiConsent,
     allow: (input) => rpc("aiConsent/allow", input, { requestContext }),
+    coalesceKey: aiConsentCoalesceKey(requestContext),
   });
   return renderUtterance(text, opts, requestContext);
 }

@@ -1,5 +1,25 @@
 import * as z from "zod";
-import { Id, RunStatus } from "./ids.js";
+import { Id, IsoDate, RunStatus } from "./ids.js";
+
+export const RoutineRunSchema = z.object({
+  id: Id,
+  botId: Id,
+  groupId: Id.nullable(),
+  status: RunStatus,
+  createdAt: IsoDate,
+  startedAt: IsoDate.nullable(),
+  completedAt: IsoDate.nullable(),
+  messageId: Id.nullable(),
+});
+export type RoutineRun = z.infer<typeof RoutineRunSchema>;
+
+export const RoutineRunCursorSchema = z.object({ id: Id, createdAt: IsoDate });
+export type RoutineRunCursor = z.infer<typeof RoutineRunCursorSchema>;
+export const RoutineHistorySchema = z.object({
+  runs: z.array(RoutineRunSchema),
+  nextCursor: RoutineRunCursorSchema.nullable(),
+});
+export type RoutineHistory = z.infer<typeof RoutineHistorySchema>;
 
 export const RunActivityRowSchema = z.object({
   runId: Id,

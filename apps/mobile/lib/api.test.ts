@@ -650,6 +650,83 @@ describe("mobile API authentication", () => {
     expect(promptAiConsent).toHaveBeenLastCalledWith(recipient, "https://example.com/privacy");
   });
 
+  it("coalesces concurrent mobile consent checks before sending each request once", async () => {
+    vi.mocked(promptAiConsent).mockClear();
+    vi.mocked(promptAiConsent).mockResolvedValue(true);
+    const calls: string[] = [];
+    const recipient = {
+      key: "provider",
+      name: "Example AI",
+      use: "model",
+      detail: "",
+      allowed: false,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        const path = new URL(String(url)).pathname;
+        calls.push(path);
+        if (path.endsWith("/status"))
+          return jsonResponse({
+            json: {
+              scope: "account-space",
+              version: "2026-09-14",
+              recipients: [recipient],
+            },
+          });
+        return jsonResponse({ json: { ok: true } });
+      }),
+    );
+
+    await Promise.all([
+      rpc("threads/send", { botId: "bot-1", text: "first" }),
+      rpc("threads/send", { botId: "bot-1", text: "second" }),
+    ]);
+
+    expect(promptAiConsent).toHaveBeenCalledTimes(1);
+    expect(calls.filter((path) => path.endsWith("/aiConsent/status"))).toHaveLength(2);
+    expect(calls.filter((path) => path.endsWith("/aiConsent/allow"))).toHaveLength(1);
+    expect(calls.filter((path) => path.endsWith("/threads/send"))).toHaveLength(2);
+  });
+
+  it("coalesces a concurrent refusal without granting or replaying the action", async () => {
+    vi.mocked(promptAiConsent).mockClear();
+    vi.mocked(promptAiConsent).mockResolvedValue(false);
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        const path = new URL(String(url)).pathname;
+        calls.push(path);
+        return jsonResponse({
+          json: {
+            scope: "account-space",
+            version: "2026-09-14",
+            recipients: [
+              {
+                key: "provider",
+                name: "Example AI",
+                use: "model",
+                detail: "",
+                allowed: false,
+              },
+            ],
+          },
+        });
+      }),
+    );
+
+    const results = await Promise.allSettled([
+      rpc("threads/send", { botId: "bot-1", text: "keep this draft" }),
+      rpc("threads/send", { botId: "bot-1", text: "keep this draft" }),
+    ]);
+
+    expect(results.every((result) => result.status === "rejected")).toBe(true);
+    expect(promptAiConsent).toHaveBeenCalledTimes(1);
+    expect(calls.filter((path) => path.endsWith("/aiConsent/allow"))).toHaveLength(0);
+    expect(calls.filter((path) => path.endsWith("/threads/send"))).toHaveLength(0);
+  });
+
   it("rejects an oversized RPC response before parsing it", async () => {
     vi.stubGlobal(
       "fetch",

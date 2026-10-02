@@ -359,7 +359,13 @@ export function resolveDuplicateEffectGate(
     return { action: "return", result: effect.result ?? { duplicate: true } };
   }
   if (effect.status === "denied") {
-    return { action: "return", result: { error: "User denied this action." } };
+    return {
+      action: "return",
+      result: {
+        error:
+          "The user denied this action. Do not retry or rephrase it; tell the user and ask what they want instead.",
+      },
+    };
   }
   if (effect.status === "executing") {
     return { action: "uncertain", toolName };

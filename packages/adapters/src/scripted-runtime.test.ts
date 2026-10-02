@@ -188,3 +188,104 @@ describe("ScriptedAgentRuntime executionIds", () => {
     expect(toolIds).toEqual(["run-1:message_agent:0", "run-1:message_agent:1"]);
   });
 });
+
+describe("inferScript save_shared_memory", () => {
+  it("saves shared memory from the prompt", () => {
+    expect(inferScript("save shared memory MEMORY.md with: Printing jobs go to Clyde.")).toEqual([
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [
+          {
+            name: "save_shared_memory",
+            args: { path: "MEMORY.md", content: "Printing jobs go to Clyde." },
+          },
+        ],
+        complete: true,
+      },
+    ]);
+  });
+
+  it("uses an explicit named path", () => {
+    expect(inferScript("save shared memory named ROUTING.md with: Route print jobs.")).toEqual([
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [
+          {
+            name: "save_shared_memory",
+            args: { path: "ROUTING.md", content: "Route print jobs." },
+          },
+        ],
+        complete: true,
+      },
+    ]);
+  });
+
+  it("defaults the path when none is given", () => {
+    expect(inferScript("save shared memory with: Team facts")).toEqual([
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [
+          {
+            name: "save_shared_memory",
+            args: { path: "MEMORY.md", content: "Team facts" },
+          },
+        ],
+        complete: true,
+      },
+    ]);
+  });
+
+  it("beats write_file when the payload mentions notes", () => {
+    const script = inferScript("write shared memory MEMORY.md with: Keep notes concise.");
+    expect(script?.[0]?.toolCalls?.[0]?.name).toBe("save_shared_memory");
+    expect(script?.[0]?.toolCalls?.[0]?.args).toEqual({
+      path: "MEMORY.md",
+      content: "Keep notes concise.",
+    });
+  });
+
+  it("accepts write shared memory file <path>", () => {
+    expect(inferScript("write shared memory file ROUTING.md with: Keep notes concise.")).toEqual([
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [
+          {
+            name: "save_shared_memory",
+            args: { path: "ROUTING.md", content: "Keep notes concise." },
+          },
+        ],
+        complete: true,
+      },
+    ]);
+  });
+
+  it("accepts with without a colon", () => {
+    expect(inferScript("save shared memory with Team facts")).toEqual([
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [
+          {
+            name: "save_shared_memory",
+            args: { path: "MEMORY.md", content: "Team facts" },
+          },
+        ],
+        complete: true,
+      },
+    ]);
+  });
+
+  it("does not take named paths from the content body", () => {
+    expect(inferScript("save shared memory ROUTING.md with: Team named Alice.")).toEqual([
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [
+          {
+            name: "save_shared_memory",
+            args: { path: "ROUTING.md", content: "Team named Alice." },
+          },
+        ],
+        complete: true,
+      },
+    ]);
+  });
+});

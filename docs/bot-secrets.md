@@ -68,6 +68,19 @@ The card asks for a username and a password. Both are stored encrypted in the sa
 
 The backend decrypts the value and the page browser types it only if the page is still on the saved origin at that moment, so a login cannot be typed into another site or a page that redirected. The origin must be HTTPS: `RAKAZO_SECRETS_ALLOW_PRIVATE_HTTP` does not apply to website logins. The value goes only into an input of type text, email, password, or tel. Values travel to the computer over stdin, not command-line arguments. Snapshots never report the value of a field that holds a saved login. Page results are also scrubbed of the password, and of the username when it is 6 or more characters, which covers a site that echoes it in page text; shorter usernames are not scrubbed from page text because redaction replaces every occurrence. A login cannot be used with `secret_request`. Fills need no approval: saving the login is the approval, and it is bound to one site. Use `forget_secret` to remove it.
 
+## Managing saved credentials
+
+Owners can read back what is saved without asking the bot. In the web app, open a bot's settings,
+expand **Advanced**, and use the **Credentials** section. It lists each credential's name, origin
+and authentication type and never its value. From there you can add a credential, replace its value
+on the same destination, or remove one after confirming. Remove deletes the saved value immediately.
+The Electron desktop app hosts the same web UI, so it has the same section.
+
+Mobile does not host that web settings shell, so it has no credential management screen.
+The thread credential card still works on the phone, including website logins, and that is how a
+bot obtains a value there. Listing, replacing, and removing saved credentials stays on the web
+section. Asking the bot to `forget_secret` a name only removes it; it does not list or replace one.
+
 Two-factor codes, CAPTCHA and passkeys still use `request_takeover`, as does any site where you prefer to sign in yourself.
 
 The value is typed into a real browser on the bot's computer. Anything that can read that browser, including the bot's own shell commands through the page or its debugging port, could read a filled field. Keeping the value out of model input stops accidental disclosure, not a bot that sets out to extract it. Save logins only for accounts you would let the bot use unattended.

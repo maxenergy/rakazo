@@ -9,7 +9,13 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 bash -n "$script"
 
-printed="$(bash "$script" --print)"
+print_bin="$scratch/print-bin"
+mkdir -p "$print_bin"
+for tool in iptables ip6tables; do
+  printf '#!/usr/bin/env bash\nexit 99\n' >"$print_bin/$tool"
+  chmod +x "$print_bin/$tool"
+done
+printed="$(PATH="$print_bin:$PATH" bash "$script" --print)"
 [[ -n "$printed" ]] || fail "--print produced no rules"
 
 # --print emits execution order (each rule inserts at the top of its chain), so
@@ -147,8 +153,8 @@ v4_state="$STUB_DIR/iptables.state"
 v6_state="$STUB_DIR/ip6tables.state"
 v4_calls="$STUB_DIR/iptables.calls"
 
-[[ "$(wc -l <"$v4_state")" == 14 ]] || fail "expected 14 IPv4 rules, got $(wc -l <"$v4_state")"
-[[ "$(wc -l <"$v6_state")" == 7 ]] || fail "expected 7 IPv6 rules, got $(wc -l <"$v6_state")"
+[[ "$(wc -l <"$v4_state")" -eq 14 ]] || fail "expected 14 IPv4 rules, got $(wc -l <"$v4_state")"
+[[ "$(wc -l <"$v6_state")" -eq 7 ]] || fail "expected 7 IPv6 rules, got $(wc -l <"$v6_state")"
 grep -qxF 'INPUT -i rakazo-c+ -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT' "$v4_state" ||
   fail "established accept missing after apply"
 grep -qxF 'INPUT -i rakazo-c+ -j DROP' "$v4_state" || fail "INPUT drop missing after apply"
@@ -248,7 +254,7 @@ meta_at="$(grep -nxF 'DOCKER-USER -i rakazo-c+ -d 169.254.0.0/16 -j DROP' "$v4_s
   fail "metadata drop is not above the foreign ACCEPT"
 [[ "$(grep -cxF 'DOCKER-USER -i rakazo-c+ -d 169.254.0.0/16 -j DROP' "$v4_state")" == 1 ]] ||
   fail "repair left a stale metadata drop"
-[[ "$(wc -l <"$v4_state")" == 15 ]] ||
+[[ "$(wc -l <"$v4_state")" -eq 15 ]] ||
   fail "repair left duplicate rules, got $(wc -l <"$v4_state") lines"
 
 # A failure halfway through the repair must not remove the drops. 14 inserts

@@ -14,6 +14,18 @@ function requestModel(id: string, baseUrl: string): Pick<AgentRunRequest, "model
 
 describe("request model catalogs", () => {
   it.each([
+    ["codex-cli", "gpt-6.1-sol"],
+    ["claude-code", "claude-sonnet-5-5"],
+  ])("offers and resolves supplemented subscription model %s/%s", (provider, id) => {
+    const entry = listPiCatalog().find((model) => model.provider === provider && model.id === id);
+    expect(entry).toMatchObject({ auth: "oauth", subscription: true, supportsMaxTokens: false });
+    const model = modelsForRequest({ model: { provider, id } }, provider).getModel(provider, id);
+    expect(model).toBeDefined();
+    expect(entry?.thinkingLevels).toEqual(getSupportedThinkingLevels(model!));
+    expect(resolveRuntimeModel({ provider, id })).toMatchObject({ provider, modelId: id, model });
+  });
+
+  it.each([
     ["openrouter", "openai/gpt-5.6-luna"],
     ["openai-codex", "gpt-6-astra"],
     ["openai-codex", "gpt-6-luna"],

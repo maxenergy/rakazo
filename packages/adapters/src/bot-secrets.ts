@@ -133,6 +133,29 @@ export function listBotSecrets(prisma: PrismaClient, scope: BotSecretScope) {
   });
 }
 
+// Owner-facing view: destination and timestamps only, never the row id or ciphertext.
+const ownerMetadata = { ...metadata, createdAt: true, updatedAt: true } as const;
+
+export function listBotSecretMetadata(prisma: PrismaClient, scope: BotSecretScope) {
+  return prisma.botSecret.findMany({
+    where: scopeFields(scope),
+    select: ownerMetadata,
+    orderBy: { name: "asc" },
+    take: 100,
+  });
+}
+
+export function getBotSecretMetadata(
+  client: PrismaClient | Prisma.TransactionClient,
+  scope: BotSecretScope,
+  name: string,
+) {
+  return client.botSecret.findFirst({
+    where: { ...scopeFields(scope), name },
+    select: ownerMetadata,
+  });
+}
+
 export async function forgetBotSecret(prisma: PrismaClient, scope: BotSecretScope, name: string) {
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM bots WHERE id = ${scope.botId} FOR UPDATE`;

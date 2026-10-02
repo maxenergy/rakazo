@@ -41,6 +41,7 @@ import {
   openAiToolParametersNeedNormalization,
 } from "./openai-tool-parameters.js";
 import { PiRuntimeCredentialStore, toOAuthCredential } from "./pi-credentials.js";
+import { supplementPiModels } from "./pi-current-models.js";
 import { registerLocalProvider } from "./pi-local-provider.js";
 import { codexComputeResidency } from "./pi-oauth.js";
 import {
@@ -53,8 +54,8 @@ import {
   clipToolResultContent,
   clipToolResultText,
   MODEL_STREAM_IDLE_TIMEOUT_MS,
-  MODEL_STREAM_MAX_RETRIES,
   MODEL_STREAM_TIMEOUT_MS,
+  modelStreamMaxRetries,
   REASONING_MODEL_MAX_TOKENS,
   resolveCompletionMaxTokens,
 } from "./pi-runtime-limits.js";
@@ -63,6 +64,8 @@ import {
   type PiSessionHandle,
   type PiSessionRecorder,
 } from "./pi-session.js";
+import type { FinishedShellCommand } from "./shell-command-stream.js";
+import { deliverFinishedShells } from "./shell-command-stream.js";
 import { textContentArg } from "./tool-text.js";
 
 const running = new Map<string, { controller: AbortController; work: Promise<void> }>();
@@ -79,7 +82,7 @@ const toolCallBudgetsByRun = new Map<string, ToolCallBudget>();
 // would run before .env is loaded and miss the local provider entirely.
 let catalogModelsCache: Models | undefined;
 function builtinRuntimeModels(options?: Parameters<typeof builtinModels>[0]) {
-  return registerCliModelProviders(builtinModels(options));
+  return registerCliModelProviders(supplementPiModels(builtinModels(options)));
 }
 function catalogModels(): Models {
   catalogModelsCache ??= registerOpenAiCompatibleCatalog(
@@ -222,6 +225,7 @@ export class PiAgentRuntime implements AgentRuntime {
           signal,
           depth: 0,
           pausePending: false,
+          pendingShells: [],
         };
         resumeHost = host;
         const tools = toAgentTools(toolDefs, host);
@@ -288,6 +292,16 @@ export class PiAgentRuntime implements AgentRuntime {
               pruneStalePageStateContext(messages),
               request.model.maxImagesPerPrompt,
             ),
+          finishTurn: async (turn, turnSignal) => {
+            await deliverFinishedShells(
+              (text) => {
+                agent.followUp({ role: "user", content: text, timestamp: Date.now() });
+              },
+              host.pendingShells,
+              turn,
+              turnSignal,
+            );
+          },
           prepareNextTurnWithContext: async () => {
             if (!request.claimSteering) return undefined;
             const steering = await request.claimSteering([...seenSteeringIds]);
@@ -668,6 +682,7 @@ export function describeToolActivity(toolName: string, args: unknown): string {
   if (toolName === "run_subagent") return `Delegating to helper: ${detail(record.name)}`;
   if (toolName === "create_space") return `Creating space: ${detail(record.name)}`;
   if (toolName === "remember") return "Saving a note to memory";
+  if (toolName === "save_shared_memory") return `Saving shared memory: ${detail(record.path)}`;
   if (toolName === "web_search") return `Searching the web: ${detail(record.query)}`;
   if (toolName === "web_fetch") return `Reading page: ${detail(redactActivityUrl(record.url))}`;
   if (toolName === "skill_read") return `Reading skill: ${detail(record.name)}`;
@@ -1004,9 +1019,17 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
             };
           }
           if (host.request.executeTool) {
-            const result = tool.route
-              ? await host.request.executeTool(tool.name, args, executionId, tool.route)
-              : await host.request.executeTool(tool.name, args, executionId);
+            const result = await host.request.executeTool(
+              tool.name,
+              args,
+              executionId,
+              tool.route,
+              {
+                onShellStillRunning: (completion) => {
+                  host.pendingShells.push(completion);
+                },
+              },
+            );
             if (isAgentToolExecutionResult(result)) {
               if (isToolPauseResult(result)) host.pausePending = true;
               return boundAgentToolResult(result);
@@ -1102,8 +1125,20 @@ async function executeSubagent(host: ToolHost, executionId: string, args: Record
     model: subagentModel,
     apiKey: selectedModel.apiKey,
     depth: 1,
+    pendingShells: [],
   };
-  const nested = new Agent({
+  let nested!: Agent;
+  nested = new Agent({
+    finishTurn: async (turn, turnSignal) => {
+      await deliverFinishedShells(
+        (text) => {
+          nested.followUp({ role: "user", content: text, timestamp: Date.now() });
+        },
+        nestedHost.pendingShells,
+        turn,
+        turnSignal,
+      );
+    },
     sessionId: conversationSessionId(host.request.threadId, host.request.botId, agentId),
     streamFn: (m, ctx, options) =>
       reliableModelStream(
@@ -1777,6 +1812,8 @@ interface ToolHost {
   signal: AbortSignal;
   depth: number;
   pausePending: boolean;
+  /** Shell commands that returned output and are still running. */
+  pendingShells: Array<Promise<FinishedShellCommand>>;
 }
 
 function toolCallBudgetExceededMessage(limit: number) {
@@ -2137,7 +2174,7 @@ export function reliableStreamOptions(
   let next: ModelsSimpleStreamOptions = {
     ...options,
     timeoutMs: options?.timeoutMs ?? MODEL_STREAM_TIMEOUT_MS,
-    maxRetries: options?.maxRetries ?? MODEL_STREAM_MAX_RETRIES,
+    maxRetries: options?.maxRetries ?? modelStreamMaxRetries(),
     maxTokens: resolveCompletionMaxTokens(
       model.maxTokens,
       configuredMaxTokens,

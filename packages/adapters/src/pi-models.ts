@@ -3,6 +3,7 @@ import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import type { ModelOAuthSignInMode, ThinkingLevel } from "@rakazo/contracts";
 import { isCliModelProvider } from "./cli-model-process.js";
 import { registerCliModelProviders } from "./cli-model-provider.js";
+import { supplementPiModels } from "./pi-current-models.js";
 import { LOCAL_PROVIDER_ID, registerLocalProvider } from "./pi-local-provider.js";
 import { SUBSCRIPTION_SIGN_IN_PROVIDERS } from "./pi-oauth.js";
 import {
@@ -38,7 +39,7 @@ let cachedCatalog: PiCatalogEntry[] | undefined;
 
 function buildPiCatalog(): PiCatalogEntry[] {
   const models = registerCliModelProviders(
-    registerOpenAiCompatibleCatalog(registerLocalProvider(builtinModels())),
+    registerOpenAiCompatibleCatalog(registerLocalProvider(supplementPiModels(builtinModels()))),
   );
   const entries: PiCatalogEntry[] = [];
   for (const provider of models.getProviders()) {

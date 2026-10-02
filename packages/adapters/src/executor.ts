@@ -6,6 +6,7 @@ import type {
   AgentRunRequest,
   AgentRuntime,
   AgentToolCompletion,
+  AgentToolExecutionObserver,
   ArtifactStore,
   AutoReviewProvider,
   BrowserProvider,
@@ -26,6 +27,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import {
   historyCompactJob,
+  MEMORY_REVISION_CONFLICT_ERROR,
   routineJobKey,
   routineWakeupJob,
   runContinueJob,
@@ -115,11 +117,7 @@ import {
   messageConnectedAgent,
   respondAgentConnection,
 } from "./agent-connections.js";
-import {
-  decryptAgentEnvironment,
-  formatAgentEnvironmentInstruction,
-  redactAgentCommandResult,
-} from "./agent-environment.js";
+import { decryptAgentEnvironment, formatAgentEnvironmentInstruction } from "./agent-environment.js";
 import { buildApprovalAskBlock } from "./approval-ask.js";
 import {
   approvalPausedToolResult,
@@ -175,7 +173,7 @@ import {
   browserNavigateFromTool,
   browserSnapshotFromTool,
 } from "./browser-tools.js";
-import { agentConnectionTools, builtinAgentTools } from "./builtin-tools.js";
+import { agentConnectionTools, builtinAgentTools, sharedMemorySaveError } from "./builtin-tools.js";
 import { archiveSpawnedBot, spawnBot } from "./child-bots.js";
 import { type CloudAgentConnection, cloudAgentsEnabled } from "./cloud-agent-factory.js";
 import { executeCloudAgentTool } from "./cloud-agent-service.js";
@@ -206,7 +204,16 @@ import {
   resolveBotWorkspacePath,
   teamBotWorkspaceDirectory,
 } from "./computer-support.js";
-import { observationToolResult, parseComputerActions } from "./computer-tools.js";
+import type { UnchangedVisualStreak } from "./computer-tools.js";
+import {
+  advanceUnchangedVisualGuard,
+  computerVisualActionKey,
+  observationToolResult,
+  parseComputerActions,
+  unchangedVisualActionBlocked,
+  unchangedVisualLoopToolResult,
+  unchangedVisualStreakAfterPageBrowser,
+} from "./computer-tools.js";
 import { checkpointRunComputerWorkspace } from "./computer-workspace.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
@@ -305,6 +312,11 @@ import {
 } from "./scratchpad-tools.js";
 import { inferScript } from "./scripted-runtime.js";
 import type { EncryptedSecretStore } from "./secrets.js";
+import {
+  isRunningShellCommand,
+  observeShellCommand,
+  SHELL_STILL_RUNNING_NOTICE,
+} from "./shell-command-stream.js";
 import { isExactNoResponse, NO_RESPONSE, stripNoResponseReply } from "./silent-reply.js";
 import {
   listAgentSkillRecords,
@@ -1775,6 +1787,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         let hasStreamedText = false;
         let toolCallStreak: ToolCallStreak = { key: undefined, count: 0 };
         let lastComputerFrameId: string | undefined;
+        let unchangedVisualStreak: UnchangedVisualStreak = { count: 0 };
         let terminalCheckpointComplete = false;
         let approvalPausePending = false;
         let handedOff = false;
@@ -1826,8 +1839,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const formatObservation = (
           observation: Awaited<ReturnType<SandboxProvider["observe"]>>,
           note?: string,
+          visualActionKey?: string,
         ) => {
-          const result = observationToolResult(observation, note, lastComputerFrameId);
+          const guard = advanceUnchangedVisualGuard(
+            unchangedVisualStreak,
+            observation.frameId,
+            visualActionKey,
+          );
+          unchangedVisualStreak = guard.streak;
+          const result = observationToolResult(
+            observation,
+            note,
+            lastComputerFrameId,
+            visualActionKey ? { unchangedVisualCount: guard.streak.count } : undefined,
+          );
           lastComputerFrameId = observation.frameId;
           return result;
         };
@@ -1855,6 +1880,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
           name: string,
           args: Record<string, unknown>,
           executionId: string,
+          _route?: unknown,
+          observer?: AgentToolExecutionObserver,
         ) => {
           context.signal.throwIfAborted();
           if (handedOff) {
@@ -2459,12 +2486,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (await getActiveTeachingSession(deps.prisma, run.spaceId, run.botId)) {
               return { error: "Teaching is in progress. Stop teaching before using the computer." };
             }
+            const actions = parseComputerActions(args.actions);
+            const visualActionKey = computerVisualActionKey(actions);
+            if (unchangedVisualActionBlocked(unchangedVisualStreak, actions)) {
+              return finish(unchangedVisualLoopToolResult(unchangedVisualStreak));
+            }
             workspaceCheckpoint.markDirty();
             return computerScreenToolResult(async () => {
               const result = await deps.sandbox.act(
                 computer,
                 {
-                  actions: parseComputerActions(args.actions),
+                  actions,
                   observe: args.observe !== false,
                   settleMs: Number(args.settle_ms ?? 350),
                 },
@@ -2474,6 +2506,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 ? formatObservation(
                     result.observation,
                     `completed ${result.completed} computer action${result.completed === 1 ? "" : "s"}`,
+                    visualActionKey,
                   )
                 : { ok: true, completed: result.completed };
             }, finish);
@@ -2708,33 +2741,93 @@ export function createRunExecutor(deps: ExecutorDeps) {
               output: "",
             });
             try {
-              const result = await runSandboxCommand(
-                deps.sandbox,
-                computer,
-                [
-                  "bash",
-                  "-c",
-                  BACKGROUND_WORK_LAUNCH,
-                  "rakazo-background-launch",
-                  // Marker id must match sleepComputerIfIdle's probe (DB id), not ComputerRef.id
-                  // (providerRef via toComputerRef). Scope launches to this run for cancel teardown.
-                  storedComputer.id,
-                  runId,
-                  randomUUID(),
-                  command,
-                ],
-                cwd,
-                agentEnvironment,
-                context,
+              let latestOutput = "";
+              let lastPublishedAt = 0;
+              let publishTimer: ReturnType<typeof setTimeout> | undefined;
+              const clearPublishTimer = () => {
+                if (publishTimer) clearTimeout(publishTimer);
+                publishTimer = undefined;
+              };
+              const publishRunning = (output: string, immediate = false) => {
+                latestOutput = output.slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS);
+                const send = () => {
+                  clearPublishTimer();
+                  lastPublishedAt = Date.now();
+                  void appendComputerCommand({
+                    ...commandEvent,
+                    status: "running",
+                    exitCode: null,
+                    output: latestOutput,
+                  });
+                };
+                if (immediate || Date.now() - lastPublishedAt >= 400) {
+                  send();
+                  return;
+                }
+                if (!publishTimer) publishTimer = setTimeout(send, 400);
+              };
+              const commandOutput = (snapshot: { stdout: string; stderr: string }) =>
+                `${snapshot.stdout}${snapshot.stderr}`;
+              const observed = await observeShellCommand(
+                deps.sandbox.execute(
+                  computer,
+                  {
+                    argv: [
+                      "bash",
+                      "-c",
+                      BACKGROUND_WORK_LAUNCH,
+                      "rakazo-background-launch",
+                      // Marker id must match sleepComputerIfIdle's probe (DB id), not ComputerRef.id
+                      // (providerRef via toComputerRef). Scope launches to this run for cancel teardown.
+                      storedComputer.id,
+                      runId,
+                      randomUUID(),
+                      command,
+                    ],
+                    cwd,
+                    env: Object.keys(agentEnvironment).length > 0 ? agentEnvironment : undefined,
+                    timeoutMs: sandboxCommandTimeoutMs(),
+                  },
+                  context,
+                ),
+                {
+                  secrets: runSecrets,
+                  onOutput: (snapshot) => {
+                    const output = commandOutput(snapshot);
+                    if (output) publishRunning(output);
+                  },
+                },
               );
-              const redacted = redactAgentCommandResult(result, runSecrets);
+              if (observed.completion) {
+                const completion = observed.completion.then(async (final) => {
+                  clearPublishTimer();
+                  await appendComputerCommand({
+                    ...commandEvent,
+                    status: "done",
+                    exitCode: final.code,
+                    output: commandOutput(final).slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS),
+                  });
+                  return final;
+                });
+                void completion.catch(() => undefined);
+                publishRunning(commandOutput(observed.result), true);
+                const returned = await finish({
+                  stdout: observed.result.stdout,
+                  stderr: observed.result.stderr,
+                  code: null,
+                  running: true,
+                  notice: SHELL_STILL_RUNNING_NOTICE,
+                });
+                if (isRunningShellCommand(returned)) observer?.onShellStillRunning?.(completion);
+                return returned;
+              }
+              clearPublishTimer();
+              const redacted = observed.result;
               await appendComputerCommand({
                 ...commandEvent,
                 status: "done",
                 exitCode: redacted.code,
-                output: `${redacted.stdout}${redacted.stderr}`.slice(
-                  -COMPUTER_COMMAND_OUTPUT_MAX_CHARS,
-                ),
+                output: commandOutput(redacted).slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS),
               });
               return finish(redacted);
             } catch (error) {
@@ -2799,7 +2892,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   {
                     actions: [
                       {
-                        kind: "launch",
+                        kind: "focus",
                         application,
                         uri: args.uri ? String(args.uri) : undefined,
                       },
@@ -2835,6 +2928,34 @@ export function createRunExecutor(deps: ExecutorDeps) {
             );
             return finish({ ok: true });
           }
+          if (name === "save_shared_memory") {
+            const invalid = sharedMemorySaveError(args);
+            if (invalid) return finish({ error: invalid });
+            const path = String(args.path ?? "").trim();
+            // The save replaces the whole document. Pass the revision just read so a
+            // concurrent edit is rejected instead of overwritten.
+            const snapshot = await deps.memory.read({ scope: "user", path }, context);
+            const expectedRevision = snapshot.documents[0]?.revision ?? 0;
+            try {
+              const saved = await deps.memory.commit(
+                {
+                  scope: "user",
+                  path,
+                  content: String(args.content ?? ""),
+                  expectedRevision,
+                  sourceRunId: runId,
+                  sourceThreadId: thread.id,
+                },
+                context,
+              );
+              return finish({ ok: true, path: saved.path, revision: saved.revision });
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : "Could not save shared memory.";
+              if (message === MEMORY_REVISION_CONFLICT_ERROR) return finish({ error: message });
+              throw error;
+            }
+          }
           if (name === "web_search") {
             return finish(await webSearchFromTool(web, context, args));
           }
@@ -2859,30 +2980,31 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 : name === "browser_snapshot"
                   ? browserSnapshotFromTool
                   : null;
-            return computerScreenToolResult(
-              async () =>
-                tool
-                  ? redactConnectorPayload(
-                      await tool(browser, computer, context, args),
-                      redactions(),
-                    )
-                  : browserActFromTool(browser, computer, context, args, {
-                      redactions,
-                      resolveSecretFill: async (step) => {
-                        const resolved = await resolveLoginFill({
-                          prisma: deps.prisma,
-                          secretStore: deps.secretStore,
-                          scope: run,
-                          name: step.secret,
-                          field: step.field,
-                        });
-                        if ("error" in resolved) return resolved;
-                        registerRunSecrets(resolved.redactions);
-                        return { text: resolved.text, origin: resolved.origin };
-                      },
-                    }),
-              finish,
-            );
+            return computerScreenToolResult(async () => {
+              const result = tool
+                ? redactConnectorPayload(await tool(browser, computer, context, args), redactions())
+                : await browserActFromTool(browser, computer, context, args, {
+                    redactions,
+                    resolveSecretFill: async (step) => {
+                      const resolved = await resolveLoginFill({
+                        prisma: deps.prisma,
+                        secretStore: deps.secretStore,
+                        scope: run,
+                        name: step.secret,
+                        field: step.field,
+                      });
+                      if ("error" in resolved) return resolved;
+                      registerRunSecrets(resolved.redactions);
+                      return { text: resolved.text, origin: resolved.origin };
+                    },
+                  });
+              unchangedVisualStreak = unchangedVisualStreakAfterPageBrowser(
+                unchangedVisualStreak,
+                name,
+                result,
+              );
+              return result;
+            }, finish);
           }
 
           if (name.startsWith("cloud_agent_")) {
@@ -4903,9 +5025,14 @@ export function selectBuiltinToolsForRun(options: {
     (tool) =>
       (options.voiceCall || tool.name !== "end_call") &&
       (!options.messagingChannelRun ||
-        (!["remember", "save_memory", "recall_memory", "forget_memory", "task_catalog"].includes(
-          tool.name,
-        ) &&
+        (![
+          "remember",
+          "save_shared_memory",
+          "save_memory",
+          "recall_memory",
+          "forget_memory",
+          "task_catalog",
+        ].includes(tool.name) &&
           !tool.name.startsWith("scratchpad_"))),
   );
 }
@@ -5428,42 +5555,6 @@ function uncertainEffectError(toolName: string): Error {
   return new Error(
     `tool ${toolName} has an earlier execution with an uncertain outcome; it may already have completed, so verify the destination before retrying`,
   );
-}
-
-async function runSandboxCommand(
-  sandbox: SandboxProvider,
-  computer: ComputerRef,
-  argv: string[],
-  cwd: string | undefined,
-  env: Record<string, string>,
-  context: {
-    operationId: string;
-    traceId: string;
-    spaceId: string;
-    userId: string;
-    botId?: string;
-    runId?: string;
-    signal: AbortSignal;
-  },
-) {
-  let stdout = "";
-  let stderr = "";
-  let code = 0;
-  for await (const event of sandbox.execute(
-    computer,
-    {
-      argv,
-      cwd,
-      env: Object.keys(env).length > 0 ? env : undefined,
-      timeoutMs: sandboxCommandTimeoutMs(),
-    },
-    context,
-  )) {
-    if (event.type === "stdout") stdout += event.data;
-    if (event.type === "stderr") stderr += event.data;
-    if (event.type === "exit") code = event.code;
-  }
-  return { stdout, stderr, code };
 }
 
 /**

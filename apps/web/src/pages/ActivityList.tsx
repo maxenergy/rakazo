@@ -5,7 +5,7 @@ import type { RunActivityRow } from "@rakazo/contracts";
 import { useEffect, useState } from "react";
 import { rpc } from "../lib/rpc";
 
-function statusTone(status: RunActivityRow["status"]): string {
+export function statusTone(status: RunActivityRow["status"]): string {
   if (status === "failed") return "text-destructive";
   if (status === "cancelled") return "text-muted-foreground";
   if (status === "completed") return "text-success";
@@ -141,7 +141,7 @@ function formatRelativeTime(iso: string, now = new Date()): string {
   return date.toLocaleDateString(i18n.locale || "en", { month: "short", day: "numeric" });
 }
 
-function statusLabel(status: RunActivityRow["status"]): string {
+export function statusLabel(status: RunActivityRow["status"]): string {
   switch (status) {
     case "queued":
       return t`Queued`;

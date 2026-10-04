@@ -41,7 +41,7 @@ describe("Pi model catalog", () => {
     });
     expect(claude?.signIn).toBeUndefined();
     expect(scriptedCatalogEntry.provider).toBe("scripted");
-    for (const provider of ["codex-cli", "claude-code", "gemini-cli", "grok-cli"]) {
+    for (const provider of ["codex-cli", "claude-code", "antigravity-cli", "grok-cli"]) {
       expect(catalog.find((entry) => entry.provider === provider)).toMatchObject({
         auth: "oauth",
         subscription: true,
@@ -49,7 +49,12 @@ describe("Pi model catalog", () => {
         supportsMaxTokens: false,
       });
     }
-    expect(catalog.find((entry) => entry.provider === "gemini-cli")?.signIn).toBe("browser");
+    expect(catalog.find((entry) => entry.provider === "antigravity-cli")).toMatchObject({
+      providerName: "Antigravity CLI",
+      signIn: "auth-url",
+      id: "gemini-3.8-flash-high",
+    });
+    expect(catalog.some((entry) => entry.provider === "gemini-cli")).toBe(false);
     expect(catalog.find((entry) => entry.provider === "grok-cli")?.id).toBe("grok-build");
   });
 

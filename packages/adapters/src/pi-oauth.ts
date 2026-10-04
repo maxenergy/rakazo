@@ -41,8 +41,8 @@ export const SUBSCRIPTION_SIGN_IN_PROVIDERS: Record<
     hint: "Claude Pro / Max",
     billing: "",
   },
-  "gemini-cli": {
-    mode: "browser",
+  "antigravity-cli": {
+    mode: "auth-url",
     hint: "Google AI Pro / Ultra",
     billing: "",
   },

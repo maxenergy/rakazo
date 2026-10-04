@@ -28,7 +28,8 @@ function output(
     })}\n`;
   if (provider === "claude-code") return JSON.stringify({ structured_output: reply });
   return JSON.stringify({
-    [provider === "gemini-cli" ? "response" : "text"]: JSON.stringify(reply),
+    ...(provider === "antigravity-cli" ? { status: "SUCCESS" } : {}),
+    [provider === "antigravity-cli" ? "response" : "text"]: JSON.stringify(reply),
   });
 }
 
@@ -142,7 +143,7 @@ describe("subscription CLI provider conformance", () => {
       new Error("secret-access-token account@example.invalid"),
     );
     const models = registerCliModelProviders(builtinModels());
-    const model = models.getProvider("gemini-cli")!.getModels()[0]!;
+    const model = models.getProvider("antigravity-cli")!.getModels()[0]!;
     const result = await models
       .streamSimple(model, { messages: [] }, { apiKey: profileId })
       .result();
@@ -176,21 +177,37 @@ describe("subscription CLI provider conformance", () => {
     expect(() => parseCliReply('{"text":"","calls":[]}', new Set())).toThrow("empty");
     expect(() => cliResponseText("codex-cli", '{"type":"turn.failed"}\n')).toThrow();
     expect(() => cliResponseText("claude-code", '{"is_error":true,"result":"private"}')).toThrow();
+    for (const status of ["ERROR", "CANCELED", "WAITING", "RUNNING", "INVALID"])
+      expect(() =>
+        cliResponseText("antigravity-cli", JSON.stringify({ status, response: "private" })),
+      ).toThrow();
+    expect(
+      cliResponseText(
+        "antigravity-cli",
+        JSON.stringify({ status: "SUCCESS", structured_output: answer }),
+      ),
+    ).toBe(JSON.stringify(answer));
   });
 
   it("uses fixed vendor protocols with native tools disabled", () => {
-    const codex = cliInferenceArgs("codex-cli", "model", "schema", "policy");
+    const codex = cliInferenceArgs("codex-cli", "model", "schema");
     expect(codex).toContain("--ignore-user-config");
     expect(codex).toContain("--ephemeral");
     expect(codex).toContain("read-only");
-    const claude = cliInferenceArgs("claude-code", "model", "schema", "policy");
+    const claude = cliInferenceArgs("claude-code", "model", "schema");
     expect(claude.slice(claude.indexOf("--tools"), claude.indexOf("--tools") + 2)).toEqual([
       "--tools",
       "",
     ]);
     expect(claude).not.toContain("--bare");
-    expect(cliInferenceArgs("gemini-cli", "model", "schema", "policy")).toContain("--admin-policy");
-    const grok = cliInferenceArgs("grok-cli", "model", "schema", "policy");
+    const agy = cliInferenceArgs("antigravity-cli", "model", "schema");
+    expect(agy).toContain("--disable-slash-commands");
+    expect(agy.slice(agy.indexOf("--json-schema"), agy.indexOf("--json-schema") + 2)).toEqual([
+      "--json-schema",
+      "schema",
+    ]);
+    expect(agy).not.toContain("--dangerously-skip-permissions");
+    const grok = cliInferenceArgs("grok-cli", "model", "schema");
     expect(grok).toContain("--prompt-file");
     expect(grok).toContain("dontAsk");
     expect(grok).not.toContain("--always-approve");

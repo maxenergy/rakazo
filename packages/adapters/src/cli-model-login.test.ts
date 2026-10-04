@@ -158,37 +158,50 @@ describe("official CLI login", () => {
     expect(stop).toHaveBeenCalledOnce();
   });
 
-  it("drives Gemini's ACP initialize/authenticate handshake and stops after success", async () => {
+  it("completes Antigravity's hosted code flow and checks access without model inference", async () => {
     const notify = vi.fn();
     const write = vi.fn();
     const stop = vi.fn();
     vi.mocked(runCliProcess).mockImplementation(async (options) => {
-      expect(JSON.parse(options.initialInput || "{}")).toMatchObject({
-        method: "initialize",
-        params: { protocolVersion: 1 },
-      });
+      expect(options.args).toEqual(["--print", "/usage", "--output-format", "json"]);
+      expect(options.interactiveAuth).toBe(true);
+      expect(options).not.toHaveProperty("initialInput");
       options.onOutput?.(
-        '{"jsonrpc":"2.0","id":1,"result":{"authMethods":[]}}\n',
-        write,
-        stop,
-        true,
-      );
-      expect(JSON.parse(write.mock.calls[0]![0])).toMatchObject({
-        method: "authenticate",
-        params: { methodId: "oauth-personal" },
-      });
-      options.onOutput?.(
-        "https://accounts.google.com/o/oauth2/v2/auth?state=fake\n",
+        "https://accounts.google.com/o/oauth2/auth?state=fake&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback\n",
         write,
         stop,
         false,
       );
-      options.onOutput?.('{"jsonrpc":"2.0","id":2,"result":{}}\n', write, stop, true);
+      await Promise.resolve();
+      expect(write).toHaveBeenCalledExactlyOnceWith("fake-code\n");
+      options.onOutput?.("Authentication suc", write, stop, false);
+      options.onOutput?.("cessful!\n", write, stop, false);
       return "";
     });
-    await loginCliModel("gemini-cli", { notify, prompt: vi.fn() });
-    expect(stop).toHaveBeenCalledOnce();
+    await loginCliModel("antigravity-cli", {
+      notify,
+      prompt: vi.fn().mockResolvedValue("fake-code"),
+    });
+    expect(stop).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledOnce();
+  });
+
+  it("does not treat an Antigravity authorization URL alone as a completed login", async () => {
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      options.onOutput?.(
+        "https://accounts.google.com/o/oauth2/auth?state=fake\n",
+        vi.fn(),
+        vi.fn(),
+        false,
+      );
+      return "";
+    });
+    const prompt = vi.fn().mockReturnValue(new Promise(() => undefined));
+    await expect(
+      loginCliModel("antigravity-cli", { notify: vi.fn(), prompt }),
+    ).rejects.toBeInstanceOf(CliModelSignInError);
+    expect(prompt.mock.calls[0]?.[0].signal.aborted).toBe(true);
+    expect(await readdir(join(directory, "model-cli"))).toEqual([]);
   });
 
   it("removes a failed login's private directory", async () => {
@@ -226,9 +239,9 @@ describe("official CLI login", () => {
     const started = await logins.begin({
       userId: "test-user",
       spaceId: "test-space",
-      provider: "gemini-cli",
+      provider: "antigravity-cli",
     });
-    expect(started.mode).toBe("browser");
+    expect(started).toMatchObject({ mode: "auth-url", callbackOwner: "provider" });
     expect(
       logins.complete(started.loginId, { userId: "another-user", spaceId: "test-space" }).status,
     ).toBe("error");

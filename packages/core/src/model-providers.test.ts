@@ -58,7 +58,7 @@ describe("featuredModelProviders", () => {
       provider("openai-codex"),
       provider("openrouter"),
       provider("grok-cli"),
-      provider("gemini-cli"),
+      provider("antigravity-cli"),
       provider("claude-code"),
       provider("codex-cli"),
     ];
@@ -67,7 +67,7 @@ describe("featuredModelProviders", () => {
       "openai-codex",
       "codex-cli",
       "claude-code",
-      "gemini-cli",
+      "antigravity-cli",
       "grok-cli",
       "openrouter",
     ]);

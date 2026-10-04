@@ -47,7 +47,7 @@ export const POPULAR_MODEL_PROVIDER_IDS = [
   "openai-codex",
   "codex-cli",
   "claude-code",
-  "gemini-cli",
+  "antigravity-cli",
   "grok-cli",
   "openrouter",
 ] as const;

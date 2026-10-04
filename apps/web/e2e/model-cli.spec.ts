@@ -13,7 +13,7 @@ test("subscription CLI providers use official sign-in without API-key controls",
   for (const [provider, name] of [
     ["codex-cli", "Codex CLI"],
     ["claude-code", "Claude Code"],
-    ["gemini-cli", "Gemini CLI"],
+    ["antigravity-cli", "Antigravity CLI"],
     ["grok-cli", "Grok CLI"],
   ]) {
     await search.fill(provider!);
@@ -22,22 +22,32 @@ test("subscription CLI providers use official sign-in without API-key controls",
     await expect(page.getByLabel("API key", { exact: true })).toBeHidden();
     await expect(page.getByLabel("Maximum output tokens")).toBeHidden();
     await expect(page.getByText("Advanced", { exact: true })).toBeHidden();
+    if (provider === "antigravity-cli") {
+      await expect(page.getByRole("combobox", { name: "Model", exact: true })).toHaveText(
+        "Gemini 3.8 Flash (High)",
+      );
+      await captureScreenshot(page, testInfo, "antigravity-cli-subscription");
+    }
   }
   await captureScreenshot(page, testInfo, "grok-cli-subscription");
 
   let manualCode = false;
   await page.route("**/rpc/models/beginOAuth", async (route) => {
+    const provider = route.request().postDataJSON().json.provider;
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
         json: {
           loginId: "fake-cli-login",
-          provider: "claude-code",
+          provider,
           mode: manualCode ? "auth-url" : "browser",
           ...(manualCode ? { callbackOwner: "provider" } : {}),
-          verificationUri: manualCode
-            ? "https://claude.com/cai/oauth/authorize?state=fake&redirect_uri=https%3A%2F%2Fplatform.claude.com%2Foauth%2Fcode%2Fcallback"
-            : "https://claude.ai/oauth/authorize?fake=1",
+          verificationUri:
+            provider === "antigravity-cli"
+              ? "https://accounts.google.com/o/oauth2/auth?state=fake&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback"
+              : manualCode
+                ? "https://claude.com/cai/oauth/authorize?state=fake&redirect_uri=https%3A%2F%2Fplatform.claude.com%2Foauth%2Fcode%2Fcallback"
+                : "https://claude.ai/oauth/authorize?fake=1",
           expiresInSeconds: 900,
         },
       }),
@@ -108,6 +118,15 @@ test("subscription CLI providers use official sign-in without API-key controls",
   );
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await codeCancelled;
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+
+  await search.fill("antigravity-cli");
+  await page.getByRole("button", { name: /Antigravity CLI/ }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByLabel("Authorization code or callback URL")).toBeVisible();
+  expect(await page.evaluate(() => Reflect.get(window, "oauthCallbackOwner"))).toBe("provider");
+  await captureScreenshot(page, testInfo, "antigravity-cli-code-signin");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 
   await page.route("**/rpc/models/beginOAuth", async (route) => {

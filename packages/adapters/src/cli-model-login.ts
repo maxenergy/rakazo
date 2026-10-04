@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import type { AuthInteraction } from "@earendil-works/pi-ai";
 import type { CliModelCredential, CliModelProvider } from "./cli-model-process.js";
@@ -17,24 +15,11 @@ export async function loginCliModel(
   const profileId = randomUUID();
   let buffer = "";
   let announced = false;
-  let authenticated = provider !== "gemini-cli";
-  let acpBuffer = "";
+  let authenticated = provider !== "antigravity-cli";
   const codeAbort = new AbortController();
   let codeFailure = false;
   try {
-    const directory = await prepareCliProfile(profileId);
-    if (provider === "gemini-cli") {
-      await mkdir(join(directory, ".gemini"), { mode: 0o700 });
-      await writeFile(
-        join(directory, ".gemini", "settings.json"),
-        JSON.stringify({
-          security: { auth: { enforcedType: "oauth-personal" } },
-          hooks: { enabled: false },
-          mcpServers: {},
-        }),
-        { mode: 0o600 },
-      );
-    }
+    await prepareCliProfile(profileId);
     await runCliProcess({
       provider,
       profileId,
@@ -45,13 +30,10 @@ export async function loginCliModel(
           ? ["login", "--device-auth"]
           : provider === "claude-code"
             ? ["auth", "login", "--claudeai"]
-            : ["--acp", "--extensions", "none"],
-      ...(provider === "gemini-cli"
-        ? {
-            initialInput: `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: 1, clientCapabilities: {}, clientInfo: { name: "rakazo", version: "0.1.0" } } })}\n`,
-          }
-        : {}),
-      onOutput(text, write, stop, stdout) {
+            : // /usage is a CLI-owned command: validates access without a model turn.
+              ["--print", "/usage", "--output-format", "json"],
+      interactiveAuth: provider === "antigravity-cli",
+      onOutput(text, write, stop) {
         buffer = stripVTControlCharacters(buffer + text).slice(-64 * 1024);
         if (!announced) {
           const uri = buffer.match(/https:\/\/[^\s<>"]+(?=[\s<>"])/)?.[0];
@@ -81,10 +63,9 @@ export async function loginCliModel(
             } else {
               interaction.notify({ type: "auth_url", url: url.href });
               announced = true;
-              if (provider === "claude-code") {
-                // The CLI's printed URL may finish at a hosted code page rather
-                // than its loopback listener. Keep its native stdin prompt wired
-                // to the existing paste-code flow; the CLI still validates PKCE.
+              if (provider === "claude-code" || provider === "antigravity-cli") {
+                // Hosted callbacks display a code for the native stdin prompt.
+                // The vendor CLI remains responsible for token exchange/validation.
                 void interaction
                   .prompt({
                     type: "manual_code",
@@ -105,29 +86,8 @@ export async function loginCliModel(
             }
           }
         }
-        if (provider === "gemini-cli" && stdout) {
-          acpBuffer += text;
-          const lines = acpBuffer.split("\n");
-          acpBuffer = lines.pop() || "";
-          for (const line of lines) {
-            let event: { id?: number; result?: unknown; error?: unknown };
-            try {
-              event = JSON.parse(line);
-            } catch {
-              continue;
-            }
-            if (event.id === 1 && event.result) {
-              write(
-                `${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "authenticate", params: { methodId: "oauth-personal" } })}\n`,
-              );
-            }
-            if (event.id === 2) {
-              if (event.error) throw new Error("Gemini CLI authentication failed.");
-              authenticated = true;
-              stop();
-            }
-          }
-        }
+        if (provider === "antigravity-cli" && buffer.includes("Authentication successful!"))
+          authenticated = true;
       },
     });
     if (!announced || !authenticated || codeFailure)

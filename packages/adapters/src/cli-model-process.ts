@@ -1,6 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, realpath, rm } from "node:fs/promises";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -10,9 +11,9 @@ let windowsSid: Promise<string> | undefined;
 export const CLI_MODEL_PROVIDERS = {
   "codex-cli": { command: "codex", name: "Codex CLI", source: "openai-codex", plan: "ChatGPT" },
   "claude-code": { command: "claude", name: "Claude Code", source: "anthropic", plan: "Claude" },
-  "gemini-cli": {
-    command: "gemini",
-    name: "Gemini CLI",
+  "antigravity-cli": {
+    command: "agy",
+    name: "Antigravity CLI",
     source: "google",
     plan: "Google AI Pro / Ultra",
   },
@@ -89,27 +90,31 @@ export async function removeCliProfile(profileId: string): Promise<void> {
 export function cliExecutable(provider: CliModelProvider): { file: string; prefix: string[] } {
   const command = CLI_MODEL_PROVIDERS[provider].command;
   const directories = (process.env.PATH || process.env.Path || "").split(delimiter).filter(Boolean);
+  // The official installer may update PATH after the server has already started.
+  if (provider === "antigravity-cli")
+    directories.push(
+      process.platform === "win32"
+        ? join(process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local"), "agy", "bin")
+        : join(homedir(), ".local", "bin"),
+    );
   for (const directory of directories) {
     const native = join(directory, process.platform === "win32" ? `${command}.exe` : command);
     if (existsSync(native)) return { file: native, prefix: [] };
+    if (provider === "antigravity-cli") continue;
     if (process.platform !== "win32") continue;
     // npm's .cmd wrappers require a shell. Invoke their official JS bin directly instead.
     const packageName =
-      provider === "gemini-cli"
-        ? "@google/gemini-cli"
-        : provider === "codex-cli"
-          ? "@openai/codex"
-          : provider === "grok-cli"
-            ? "@xai-official/grok"
-            : "@anthropic-ai/claude-code";
+      provider === "codex-cli"
+        ? "@openai/codex"
+        : provider === "grok-cli"
+          ? "@xai-official/grok"
+          : "@anthropic-ai/claude-code";
     const bins =
-      provider === "gemini-cli"
-        ? ["bundle/gemini.js", "dist/index.js"]
-        : provider === "codex-cli"
-          ? ["bin/codex.js"]
-          : provider === "grok-cli"
-            ? ["bin/grok"]
-            : ["cli.js"];
+      provider === "codex-cli"
+        ? ["bin/codex.js"]
+        : provider === "grok-cli"
+          ? ["bin/grok"]
+          : ["cli.js"];
     for (const bin of bins) {
       const entry = join(directory, "node_modules", packageName, bin);
       if (existsSync(entry)) return { file: process.execPath, prefix: [entry] };
@@ -138,9 +143,10 @@ export function cliEnvironment(provider: CliModelProvider, directory: string): N
     env.BROWSER = "none";
   }
   if (provider === "grok-cli") env.GROK_HOME = join(directory, ".grok");
-  if (provider === "gemini-cli") {
-    env.GEMINI_CLI_HOME = directory;
-    env.GEMINI_CLI_NO_RELAUNCH = "true";
+  if (provider === "antigravity-cli") {
+    env.AGY_CLI_DISABLE_AUTO_UPDATE = "true";
+    // Inference must fail when sign-in expires instead of starting an OAuth flow.
+    env.AGY_CLI_NONINTERACTIVE_HEADLESS = "true";
   }
   return env;
 }
@@ -151,7 +157,7 @@ export type CliProcessOptions = {
   args: string[];
   cwd?: string;
   input?: string;
-  initialInput?: string;
+  interactiveAuth?: boolean;
   signal?: AbortSignal;
   timeoutMs?: number;
   onOutput?: (
@@ -169,11 +175,41 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
     recursive: true,
     mode: 0o700,
   });
+  if (options.provider === "antigravity-cli") {
+    const config = join(directory, ".gemini", "antigravity-cli");
+    await mkdir(config, { recursive: true, mode: 0o700 });
+    await writeFile(
+      join(config, "settings.json"),
+      JSON.stringify({
+        enableTelemetry: false,
+        useG1Credits: false,
+        permissions: {
+          deny: [
+            "read_file(*)",
+            "write_file(*)",
+            "read_url(*)",
+            "execute_url(*)",
+            "command(*)",
+            "unsandboxed(*)",
+            "mcp(*)",
+          ],
+        },
+      }),
+      { mode: 0o600 },
+    );
+  }
   const executable = cliExecutable(options.provider);
+  const env = cliEnvironment(options.provider, directory);
+  if (options.provider === "antigravity-cli" && options.interactiveAuth) {
+    delete env.AGY_CLI_NONINTERACTIVE_HEADLESS;
+    env.AGY_CLI_INTERACTIVE_HEADLESS = "true";
+    // Use the CLI's documented remote code flow; Rakazo opens the URL on the client.
+    env.SSH_CONNECTION = "127.0.0.1 0 127.0.0.1 0";
+  }
   return new Promise<string>((resolveResult, reject) => {
     const child = spawn(executable.file, [...executable.prefix, ...options.args], {
       cwd: options.cwd || directory,
-      env: cliEnvironment(options.provider, directory),
+      env,
       shell: false,
       windowsHide: true,
       detached: process.platform !== "win32",
@@ -252,7 +288,6 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
         );
       else resolveResult(output);
     });
-    if (options.initialInput !== undefined) write(options.initialInput);
     if (options.input !== undefined) child.stdin.end(options.input);
   });
 }

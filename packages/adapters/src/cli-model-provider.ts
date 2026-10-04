@@ -35,6 +35,42 @@ const RESPONSE_SCHEMA = {
 
 type CliReply = { text: string; calls: { name: string; argumentsJson: string }[] };
 
+// Official `agy models` slugs. API model IDs are not interchangeable with these.
+const ANTIGRAVITY_MODELS = [
+  ...["3.8", "3.7", "3.6"].flatMap((version) =>
+    ["high", "medium", "low"].map((effort) => ({
+      id: `gemini-${version}-flash-${effort}`,
+      name: `Gemini ${version} Flash (${effort[0]!.toUpperCase()}${effort.slice(1)})`,
+      contextWindow: 1_000_000,
+      maxTokens: 64_000,
+    })),
+  ),
+  ...["high", "low"].map((effort) => ({
+    id: `gemini-3.1-pro-${effort}`,
+    name: `Gemini 3.1 Pro (${effort[0]!.toUpperCase()}${effort.slice(1)})`,
+    contextWindow: 1_000_000,
+    maxTokens: 64_000,
+  })),
+  {
+    id: "claude-sonnet-4-6",
+    name: "Claude Sonnet 4.6 (Thinking)",
+    contextWindow: 200_000,
+    maxTokens: 64_000,
+  },
+  {
+    id: "claude-opus-4-6-thinking",
+    name: "Claude Opus 4.6 (Thinking)",
+    contextWindow: 200_000,
+    maxTokens: 64_000,
+  },
+  {
+    id: "gpt-oss-120b-medium",
+    name: "GPT-OSS 120B (Medium)",
+    contextWindow: 131_072,
+    maxTokens: 32_000,
+  },
+];
+
 export function parseCliReply(text: string, tools: ReadonlySet<string>): CliReply {
   const stripped = text
     .trim()
@@ -76,12 +112,14 @@ export function cliResponseText(provider: CliModelProvider, output: string): str
     return text;
   }
   const result = JSON.parse(output);
+  if (provider === "antigravity-cli" && result.status !== "SUCCESS")
+    throw new Error("Antigravity request failed. Check sign-in and subscription limits.");
   if (result.is_error || result.error)
     throw new Error("CLI request failed. Check sign-in and subscription limits.");
-  if (provider === "claude-code" && result.structured_output)
+  if ((provider === "claude-code" || provider === "antigravity-cli") && result.structured_output)
     return JSON.stringify(result.structured_output);
   const text =
-    provider === "gemini-cli"
+    provider === "antigravity-cli"
       ? result.response
       : provider === "grok-cli"
         ? result.text
@@ -115,7 +153,6 @@ export function cliInferenceArgs(
   provider: CliModelProvider,
   modelId: string,
   schemaPath: string,
-  policyPath: string,
 ): string[] {
   if (provider === "codex-cli")
     return [
@@ -222,16 +259,17 @@ export function cliInferenceArgs(
       ].flatMap((rule) => ["--deny", rule]),
     ];
   return [
-    "--prompt",
+    "--print",
     "Return the requested JSON response.",
     "--output-format",
     "json",
     "--model",
     modelId,
-    "--extensions",
-    "none",
-    "--admin-policy",
-    policyPath,
+    "--json-schema",
+    schemaPath,
+    "--disable-slash-commands",
+    "--print-timeout",
+    "10m",
   ];
 }
 
@@ -268,17 +306,13 @@ function streamCliModel(
       stream.push({ type: "start", partial: message });
       directory = await mkdtemp(join(tmpdir(), "rakazo-cli-request-"));
       const schemaPath = join(directory, "response.json");
-      const policyPath = join(directory, "tools.toml");
       await writeFile(schemaPath, JSON.stringify(RESPONSE_SCHEMA), { mode: 0o600 });
       await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
-      await writeFile(policyPath, '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 999\n', {
-        mode: 0o600,
-      });
       const provider = model.provider as CliModelProvider;
       const output = await runCliProcess({
         provider,
         profileId: options.apiKey,
-        args: cliInferenceArgs(provider, model.id, schemaPath, policyPath),
+        args: cliInferenceArgs(provider, model.id, schemaPath),
         cwd: directory,
         input: prompt,
         signal: options.signal,
@@ -327,9 +361,11 @@ export function registerCliModelProviders(models: MutableModels): MutableModels 
   for (const [provider, meta] of Object.entries(CLI_MODEL_PROVIDERS)) {
     const source = models.getProvider(meta.source)?.getModels() || [];
     const entries =
-      provider === "grok-cli" && source[0]
-        ? [{ ...source[0], id: "grok-build", name: "Grok Build" }, ...source]
-        : source;
+      provider === "antigravity-cli"
+        ? ANTIGRAVITY_MODELS
+        : provider === "grok-cli" && source[0]
+          ? [{ ...source[0], id: "grok-build", name: "Grok Build" }, ...source]
+          : source;
     models.setProvider(
       createProvider({
         id: provider,

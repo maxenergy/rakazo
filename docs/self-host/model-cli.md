@@ -1,6 +1,6 @@
 # Subscription CLI connections
 
-Model settings offer Codex CLI, Claude Code, Gemini CLI, and Grok CLI separately
+Model settings offer Codex CLI, Claude Code, Antigravity CLI, and Grok CLI separately
 from API-key providers. These connections invoke the unmodified official CLI;
 Rakazo does not copy subscription tokens into an API adapter. Subscription
 availability, models, rate limits, and any extra usage remain governed by the
@@ -15,7 +15,7 @@ desktop alone does not install it inside an API or worker container.
 | --- | --- | --- |
 | Codex CLI | `@openai/codex` | ChatGPT device code |
 | Claude Code | `@anthropic-ai/claude-code` or native installer | Official browser flow |
-| Gemini CLI | `@google/gemini-cli` | Google account through ACP |
+| Antigravity CLI | Native `agy` installer | Google browser sign-in with a pasted code |
 | Grok CLI | `@xai-official/grok` | xAI device code |
 
 Choose the connection and model, then sign in. Each new login gets its own
@@ -29,10 +29,16 @@ owner-only permissions; Windows profiles restrict access to the service account
 and SYSTEM.
 
 Codex and Grok device codes can be approved from another device. Claude Code and
-Gemini CLI own a loopback callback on the API host, so complete their browser
-login on that host. Mobile waits for that login rather than opening a callback
-to the phone's loopback address. Electron leaves these callbacks to the vendor
-CLI instead of trying to bind their ports.
+Antigravity CLI use their own browser authorization flow; paste the displayed
+authorization code into Rakazo when prompted. Electron leaves these callbacks
+to the vendor CLI instead of trying to bind their ports.
+
+Antigravity CLI replaces the retired personal-subscription Gemini CLI connection.
+Connect it again and choose an Antigravity model slug; old Gemini CLI credentials
+and API model IDs are not migrated. Rakazo checks subscription access using the
+CLI's `/usage` command without an inference turn, disables automatic AI-credit
+spending, and denies native file, shell, browser, and MCP actions. The installer's
+standard binary location is also checked when PATH has not refreshed yet.
 
 CLI connections currently accept text. The model catalog advertises this so
 image workflows can select another connection. Replies arrive when the CLI
@@ -47,6 +53,7 @@ Official references:
 
 - [Codex authentication](https://learn.chatgpt.com/docs/auth)
 - [Claude Code authentication and credential use](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)
-- [Gemini CLI authentication](https://geminicli.com/docs/get-started/authentication/)
+- [Antigravity CLI installation and authentication](https://antigravity.google/docs/cli/install/)
+- [Antigravity CLI headless protocol](https://antigravity.google/docs/cli/headless/)
 - [Grok CLI authentication](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/02-authentication.md)
 - [Grok headless interface](https://docs.x.ai/build/cli/headless-scripting)

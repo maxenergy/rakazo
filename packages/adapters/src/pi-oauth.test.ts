@@ -1270,6 +1270,45 @@ describe("PiOAuthLogins", () => {
     await logins.cancel(started.loginId, { userId: "u", spaceId: "w" });
   });
 
+  it("keeps manual-code cancellation safe when listener cleanup clears the event target", async () => {
+    const promptAbort = new AbortController();
+    const reason = new Error("Provider callback cancelled");
+    let onAbort: EventListener | undefined;
+    vi.spyOn(promptAbort.signal, "addEventListener").mockImplementation((type, listener) => {
+      if (type === "abort") onAbort = listener as EventListener;
+    });
+    const event = new Event("abort");
+    Object.defineProperty(event, "currentTarget", {
+      configurable: true,
+      value: promptAbort.signal,
+    });
+    vi.spyOn(promptAbort.signal, "removeEventListener").mockImplementation(() => {
+      Object.defineProperty(event, "currentTarget", { configurable: true, value: null });
+    });
+    Object.defineProperty(promptAbort.signal, "reason", { value: reason });
+    let caught: unknown;
+    const logins = new PiOAuthLogins(async (_provider, _type, interaction) => {
+      interaction.notify({ type: "auth_url", url: "https://claude.com/cai/oauth/authorize" });
+      try {
+        await interaction.prompt({
+          type: "manual_code",
+          message: "paste",
+          signal: promptAbort.signal,
+        });
+      } catch (error) {
+        caught = error;
+        throw error;
+      }
+      return oauthCred();
+    });
+    const scope = { userId: "u", spaceId: "w" };
+    const started = await logins.begin({ ...scope, provider: "claude-code" });
+    expect(() => onAbort?.(event)).not.toThrow();
+    await flushMicrotasks();
+    expect(caught).toBe(reason);
+    await logins.cancel(started.loginId, scope);
+  });
+
   it("rejects non-HTTPS authorization URLs", async () => {
     const logins = new PiOAuthLogins(async (_provider, _type, interaction) => {
       interaction.notify({ type: "auth_url", url: "javascript:alert(1)" });

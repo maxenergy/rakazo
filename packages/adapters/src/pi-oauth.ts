@@ -860,10 +860,12 @@ export class PiOAuthLogins {
                 for (const signal of signals) signal.removeEventListener("abort", onAbort);
               };
               const onAbort = (event: Event) => {
+                // Cleanup can trigger nested abort dispatch in the CLI flow;
+                // capture the source before removing either signal's listener.
+                const reason = (event.currentTarget as AbortSignal | null)?.reason;
                 removeAbortListeners();
                 session.submitCode = undefined;
-                const signal = event.currentTarget as AbortSignal;
-                reject(signal.reason ?? new Error("Sign-in cancelled."));
+                reject(reason ?? new Error("Sign-in cancelled."));
               };
               session.submitCode = (code) => {
                 removeAbortListeners();

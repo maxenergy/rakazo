@@ -23,6 +23,8 @@ import {
   isRunTerminalEvent,
   isSecretAskBlock,
   latestAnswerableAskMessageId,
+  localizeOnboardingMessage,
+  localizeSubagentProgress,
   mentionChipKey,
   plainTextFromMarkdown,
   projectMessageReactions,
@@ -74,6 +76,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppConnectCard } from "../components/AppConnectCard";
 import { AskActions } from "../components/AskActions";
 import { BotAvatar } from "../components/bot-avatar";
+import { ChoiceCard } from "../components/ChoiceCard";
 import { McpApprovalCard } from "../components/McpApprovalCard";
 import {
   MarkdownArtifactPreview,
@@ -110,7 +113,7 @@ import { setCallProviderTranscribe, startCall, useCallSession } from "../lib/cal
 import { loadDeviceVoiceEnabled } from "../lib/device-voice";
 import { available as dictationAvailable } from "../lib/dictation";
 import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt";
-import { dateLocaleForUi, t, useI18n } from "../lib/i18n";
+import { dateLocaleForUi, getActiveUiLocale, t, useI18n } from "../lib/i18n";
 import { saveLastBotId } from "../lib/last-bot";
 import {
   dismissThreadNotifications,
@@ -2605,6 +2608,7 @@ const MessageBubble = memo(function MessageBubble({
   const colorScheme = useResolvedAppearance();
   const tokens = mobileTokens();
   const { t } = useI18n();
+  message = localizeOnboardingMessage(message, getActiveUiLocale());
   const [peerExpanded, setPeerExpanded] = useState(false);
   const artifactTarget: MobileArtifactTarget = groupId ? { groupId } : { botId };
   const cardBotId = message.botId ?? botId;
@@ -2616,6 +2620,8 @@ const MessageBubble = memo(function MessageBubble({
     (block): block is Extract<MessageBlock, { kind: "mcp_approval" }> =>
       block.kind === "mcp_approval",
   );
+  const choice = message.blocks.find((block) => block.kind === "choice");
+  if (choice?.kind === "choice") return <ChoiceCard botId={cardBotId} block={choice} />;
   const ask = message.blocks.find(
     (block): block is Extract<MessageBlock, { kind: "ask" }> =>
       block.kind === "ask" && !isApprovalAskBlock(block) && !block.actions?.length,
@@ -2778,7 +2784,8 @@ const MessageBubble = memo(function MessageBubble({
         {special.result || special.progress ? (
           <View style={{ marginTop: 8 }}>
             <ChatMarkdown palette={tokens} colorScheme={colorScheme} streaming={running}>
-              {special.result || special.progress || ""}
+              {special.result ||
+                localizeSubagentProgress(special.progress || "", getActiveUiLocale())}
             </ChatMarkdown>
           </View>
         ) : null}

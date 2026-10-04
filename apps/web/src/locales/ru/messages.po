@@ -26,13 +26,13 @@ msgstr "{0, plural, one {# модель} few {# модели} many {# модел
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "{0, plural, one {Waiting for sign-in — the code expires in about # minute.} other {Waiting for sign-in — the code expires in about # minutes.}}"
-msgstr ""
+msgstr "{0, plural, one {Ожидание входа — код истечёт примерно через # минуту.} few {Ожидание входа — код истечёт примерно через # минуты.} many {Ожидание входа — код истечёт примерно через # минут.} other {Ожидание входа — код истечёт примерно через # минуты.}}"
 
 #. placeholder {0}: Math.ceil(oauth.expiresInSeconds / 60)
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
-msgstr ""
+msgstr "{0, plural, one {Ожидание входа — ссылка истечёт примерно через # минуту.} few {Ожидание входа — ссылка истечёт примерно через # минуты.} many {Ожидание входа — ссылка истечёт примерно через # минут.} other {Ожидание входа — ссылка истечёт примерно через # минуты.}}"
 
 #. placeholder {0}: file.name
 #: src/pages/Shell.tsx
@@ -106,7 +106,7 @@ msgstr "{days} дн. назад"
 
 #: src/components/ToolActivityDisclosure.tsx
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
-msgstr ""
+msgstr "{hidden, plural, one {+# предыдущий шаг} few {+# предыдущих шага} many {+# предыдущих шагов} other {+# предыдущего шага}}"
 
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
@@ -133,6 +133,10 @@ msgstr "{name}: завершено"
 msgid "{name} stopped"
 msgstr "{name}: остановлено"
 
+#: src/lib/model-catalog.ts
+msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+msgstr "Вход по подписке {provider} пока недоступен в интерфейсе Rakazo. Пропустите этот шаг, если в развёртывании уже есть учётные данные."
+
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "Осталось: {remaining} · бот наблюдает, но не действует"
@@ -143,11 +147,11 @@ msgstr "{size} Б"
 
 #: src/components/ToolActivityDisclosure.tsx
 msgid "{stepCount, plural, one {Done · # tool} other {Done · # tools}}"
-msgstr ""
+msgstr "{stepCount, plural, one {Готово · # инструмент} few {Готово · # инструмента} many {Готово · # инструментов} other {Готово · # инструмента}}"
 
 #: src/components/ToolActivityDisclosure.tsx
 msgid "{stepCount, plural, one {Working… · # tool} other {Working… · # tools}}"
-msgstr ""
+msgstr "{stepCount, plural, one {Выполняется… · # инструмент} few {Выполняется… · # инструмента} many {Выполняется… · # инструментов} other {Выполняется… · # инструмента}}"
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -166,15 +170,11 @@ msgstr "{workingBotName} работает"
 msgid "@{0}"
 msgstr "@{0}"
 
-#: src/pages/shell/message-cards.tsx
-msgid "A bit of everything"
-msgstr ""
-
 #. placeholder {0}: oauth.verificationUri.replace(/^https:\/\//, "")
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "A sign-in tab opened at <0>{0}</0>. Enter this code there — this window keeps waiting:"
-msgstr ""
+msgstr "Вкладка входа открылась на <0>{0}</0>. Введите там этот код — это окно продолжает ожидание:"
 
 #: src/pages/shell/bot-picker.tsx
 msgid "About groups"
@@ -274,6 +274,10 @@ msgstr "Добавьте URL-адрес HTTPS-сервера."
 msgid "Add another"
 msgstr "Добавить еще"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Add credential"
+msgstr "Добавить учётные данные"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
 msgstr "Добавить Executor"
@@ -360,15 +364,15 @@ msgstr "Агенты:"
 
 #: src/pages/Artifacts.tsx
 msgid "All bots"
-msgstr ""
+msgstr "Все боты"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
-msgstr ""
+msgstr "Все провайдеры"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
-msgstr ""
+msgstr "За всё время"
 
 #. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
@@ -399,7 +403,7 @@ msgstr "Разрешить действия по покупке без запр�
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
-msgstr ""
+msgstr "Разрешить запись"
 
 #: src/components/AskCard.tsx
 msgid "Allowed once"
@@ -428,98 +432,6 @@ msgstr "Ответ"
 #: src/components/AskCard.tsx
 msgid "Answered"
 msgstr "Ответил"
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Add credential"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Basic auth"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Basic auth ({username})"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Could not load credentials."
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Could not remove the credential"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Could not save the credential"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Credentials"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Custom header"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Enter a username and password"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Header \"{header}\""
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Keys and passwords this bot can use, each for one site only. Values are encrypted and never shown again."
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "No credentials saved for this bot."
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Remove {secretName}? This bot will no longer be able to use it."
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Replace value"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Save credential"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Save new value"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Site"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "These saved settings can't be read. Remove it and add it again."
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Type"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Updated {updated}"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Value"
-msgstr ""
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Website login"
-msgstr ""
 
 #. placeholder {0}: selectedAskActionLabel(answer, actions)
 #: src/components/AskCard.tsx
@@ -587,7 +499,7 @@ msgstr "Аргументы"
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
-msgstr ""
+msgstr "Результаты"
 
 #. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
@@ -639,7 +551,7 @@ msgstr "Прикрепить файл"
 
 #: src/components/computer/TerminalApp.tsx
 msgid "Attached {path}"
-msgstr ""
+msgstr "Прикреплён {path}"
 
 #: src/pages/Shell.tsx
 msgid "Attachment"
@@ -660,7 +572,7 @@ msgstr "Авторизовать"
 
 #: src/pages/shell/message-cards.tsx
 msgid "Authorize this server so agents can use its tools. A popup opens."
-msgstr ""
+msgstr "Авторизуйте сервер, чтобы агенты могли использовать его инструменты. Откроется всплывающее окно."
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
@@ -696,8 +608,17 @@ msgstr "Вернуться ко входу"
 msgid "Base URL"
 msgstr "Базовый URL"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Basic auth"
+msgstr "Базовая авторизация"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Basic auth ({username})"
+msgstr "Базовая авторизация ({username})"
+
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-credentials.tsx
 msgid "Bearer token"
 msgstr "Bearer-токен"
 
@@ -739,7 +660,7 @@ msgstr "Бот для ссылки"
 
 #: src/pages/Artifacts.tsx
 msgid "Bots"
-msgstr ""
+msgstr "Боты"
 
 #: src/pages/Shell.tsx
 msgid "Bots are working"
@@ -747,7 +668,7 @@ msgstr "Боты работают"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Brain label"
-msgstr ""
+msgstr "Название памяти"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
@@ -755,7 +676,7 @@ msgstr "Просмотреть MCP-серверы"
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Browser"
-msgstr ""
+msgstr "Браузер"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -770,6 +691,7 @@ msgstr "Не удаётся связаться с сервером."
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Cancel"
 msgstr "Отмена"
@@ -797,7 +719,7 @@ msgstr "Отменено"
 
 #: src/pages/Artifacts.tsx
 msgid "Card view"
-msgstr ""
+msgstr "Карточки"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
@@ -910,7 +832,7 @@ msgstr "Закрыть"
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Close {title}"
-msgstr ""
+msgstr "Закрыть {title}"
 
 #: src/pages/shell/message-cards.tsx
 msgid "Close chart"
@@ -1033,11 +955,15 @@ msgstr "Компьютеры выключены. Установите SANDBOX_PR
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Configure a plugin catalog on the server to connect apps."
-msgstr ""
+msgstr "Настройте каталог плагинов на сервере для подключения приложений."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "Настраивается путем развертывания"
+
+#: src/lib/model-catalog.ts
+msgid "Configured model: {provider}"
+msgstr "Настроенная модель: {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -1134,7 +1060,7 @@ msgstr "Соединение с {0} все еще не завершено. Вы 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Context limit"
-msgstr ""
+msgstr "Лимит контекста"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
@@ -1148,7 +1074,7 @@ msgstr "Продолжить в фоне"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue sign-in"
-msgstr ""
+msgstr "Продолжить вход"
 
 #: src/pages/Auth.tsx
 msgid "Continue with email"
@@ -1157,7 +1083,7 @@ msgstr "Продолжить по электронной почте"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Copied"
-msgstr ""
+msgstr "Скопировано"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1282,7 +1208,7 @@ msgstr "Не удалось удалить пространство"
 
 #: src/pages/Artifacts.tsx
 msgid "Could not delete this artifact."
-msgstr ""
+msgstr "Не удалось удалить результат."
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "Could not disconnect memory provider"
@@ -1294,7 +1220,7 @@ msgstr "Не удалось отключить OAuth"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not disconnect this provider"
-msgstr ""
+msgstr "Не удалось отключить этого провайдера"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Could not disconnect this voice provider"
@@ -1306,7 +1232,7 @@ msgstr "Не удалось отклонить"
 
 #: src/pages/shell/message-cards.tsx
 msgid "Could not dismiss this server"
-msgstr ""
+msgstr "Не удалось закрыть сервер"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -1319,7 +1245,7 @@ msgstr "Не удалось загрузить {name}. Попробуйте ещ
 
 #: src/components/computer/FilesApp.tsx
 msgid "Could not download file"
-msgstr ""
+msgstr "Не удалось скачать файл"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not install connector"
@@ -1327,7 +1253,7 @@ msgstr "Не удалось установить коннектор"
 
 #: src/components/computer/FilesApp.tsx
 msgid "Could not list files"
-msgstr ""
+msgstr "Не удалось получить список файлов"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load"
@@ -1339,7 +1265,7 @@ msgstr "Не удалось загрузить правила одобрения
 
 #: src/pages/Artifacts.tsx
 msgid "Could not load artifacts."
-msgstr ""
+msgstr "Не удалось загрузить результаты."
 
 #: src/pages/IntegrationSetup.tsx
 msgid "Could not load bots. Reload to try again."
@@ -1347,7 +1273,11 @@ msgstr "Не удалось загрузить ботов. Обновите ст
 
 #: src/components/computer/TerminalApp.tsx
 msgid "Could not load commands"
-msgstr ""
+msgstr "Не удалось загрузить команды"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Could not load credentials."
+msgstr "Не удалось загрузить учётные данные."
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -1372,7 +1302,7 @@ msgstr "Не удалось загрузить навык"
 
 #: src/pages/Artifacts.tsx
 msgid "Could not load this artifact."
-msgstr ""
+msgstr "Не удалось загрузить этот результат."
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "Could not load this chat."
@@ -1392,7 +1322,7 @@ msgstr "Не удалось загрузить голосовые настрой
 
 #: src/components/computer/FilesApp.tsx
 msgid "Could not open file"
-msgstr ""
+msgstr "Не удалось открыть файл"
 
 #: src/pages/LocalSettings.tsx
 msgid "Could not open local settings. Start the local server and create its owner account, then try again."
@@ -1431,6 +1361,10 @@ msgstr "Не удалось удалить группу"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not remove rule"
 msgstr "Не удалось удалить правило"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Could not remove the credential"
+msgstr "Не удалось удалить учётные данные"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not rename connection"
@@ -1498,6 +1432,10 @@ msgstr "Не удалось сохранить речевую модель"
 msgid "Could not save that voice"
 msgstr "Не удалось сохранить этот голос"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Could not save the credential"
+msgstr "Не удалось сохранить учётные данные"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Could not save this choice"
 msgstr "Не удалось сохранить этот выбор."
@@ -1552,7 +1490,7 @@ msgstr "Не удалось обновить область памяти по у
 
 #: src/components/computer/FilesApp.tsx
 msgid "Could not upload file"
-msgstr ""
+msgstr "Не удалось отправить файл"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Couldn't load messaging settings"
@@ -1630,6 +1568,10 @@ msgstr "Учётные данные"
 msgid "credential saved"
 msgstr "учетные данные сохранены"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Credentials"
+msgstr "Учётные данные"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Credentials are encrypted and never sent to the model."
 msgstr "Учётные данные зашифрованы и никогда не передаются модели."
@@ -1645,6 +1587,14 @@ msgstr "Выражение Cron"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Current password"
 msgstr "Текущий пароль"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Custom header"
+msgstr "Пользовательский заголовок"
+
+#: src/lib/localized-provider-hint.ts
+msgid "Custom server"
+msgstr "Пользовательский сервер"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
@@ -1662,10 +1612,6 @@ msgstr "Тёмная"
 msgid "day"
 msgstr "день"
 
-#: src/pages/shell/message-cards.tsx
-msgid "Day-to-day work"
-msgstr ""
-
 #: src/pages/RoutineSchedule.tsx
 msgid "days"
 msgstr "дни"
@@ -1677,13 +1623,13 @@ msgstr "Отклонить"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Default"
-msgstr ""
+msgstr "По умолчанию"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Default ({0})"
-msgstr ""
+msgstr "По умолчанию ({0})"
 
 #. placeholder {0}: thinkingLevelLabel("medium")
 #. placeholder {0}: thinkingLevelLabel(defaultThinkingLevel)
@@ -1709,7 +1655,7 @@ msgstr "Удалить"
 #. placeholder {0}: pendingDelete.name
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr ""
+msgstr "Удалить \"{0}\"?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -1788,12 +1734,12 @@ msgstr "Отключить"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Disconnect {disconnectName}?"
-msgstr ""
+msgstr "Отключить {disconnectName}?"
 
 #. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Disconnected {0}."
-msgstr ""
+msgstr "{0} отключён."
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -1832,6 +1778,7 @@ msgid "Don’t have an account?"
 msgstr "У вас нет учетной записи?"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
 msgstr "Готово"
@@ -1839,7 +1786,7 @@ msgstr "Готово"
 #: src/components/computer/FilesApp.tsx
 #: src/pages/Artifacts.tsx
 msgid "Download"
-msgstr ""
+msgstr "Скачать"
 
 #. placeholder {0}: basename(entry.path)
 #. placeholder {0}: props.name
@@ -1880,6 +1827,10 @@ msgstr "Дублировать"
 msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
 msgstr "напр. Hivenet Agent, Presales, бот табелей"
 
+#: src/pages/McpServersOverlay.tsx
+msgid "e.g. Mobbin"
+msgstr "например, Mobbin"
+
 #: src/pages/Shell.tsx
 msgid "Earlier message"
 msgstr "Предыдущее сообщение"
@@ -1900,20 +1851,24 @@ msgstr "Электронная почта"
 msgid "Engage when... Ignore..."
 msgstr "Включайтесь, когда... Игнорируйте..."
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Enter a username and password"
+msgstr "Введите имя пользователя и пароль"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Enter a whole number from 1 to {MAX_MODEL_CONTEXT_WINDOW} for the context limit."
-msgstr ""
+msgstr "Введите целое число от 1 до {MAX_MODEL_CONTEXT_WINDOW} для ограничения контекста."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Enter a whole number from 1 to {MAX_MODEL_MAX_TOKENS} for maximum output tokens."
-msgstr ""
+msgstr "Введите целое число от 1 до {MAX_MODEL_MAX_TOKENS} для максимального количества выходных токенов."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Enter a whole number from 1 to 1000 for the image limit."
-msgstr ""
+msgstr "Введите целое число от 1 до 1000 для лимита изображений."
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/RoutineSchedule.tsx
@@ -1975,13 +1930,13 @@ msgstr "Экспортируйте список этой недели из CRM �
 msgid "External conversation"
 msgstr "Внешний диалог"
 
-#. js-lingui-explicit-id
-#: src/lib/model-catalog.ts
-msgid "Extra high"
-msgstr ""
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+msgid "Extra high"
+msgstr "Очень высокий"
+
+#. js-lingui-explicit-id
+#: src/lib/model-catalog.ts
 msgid "Extra high"
 msgstr "Очень высокий"
 
@@ -1990,6 +1945,7 @@ msgid "failed"
 msgstr "неуспешный"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/Shell.tsx
 msgid "Failed"
 msgstr "Ошибка"
 
@@ -2012,19 +1968,19 @@ msgstr "Обработка сбоев"
 
 #: src/components/computer/FilesApp.tsx
 msgid "File is too large to upload."
-msgstr ""
+msgstr "Файл слишком большой для отправки."
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Files"
-msgstr ""
+msgstr "Файлы"
 
 #: src/pages/Artifacts.tsx
 msgid "Filter by date"
-msgstr ""
+msgstr "Фильтр по дате"
 
 #: src/pages/Artifacts.tsx
 msgid "Filters"
-msgstr ""
+msgstr "Фильтры"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -2124,8 +2080,13 @@ msgstr "Повесьте трубку, затем введите код на э�
 msgid "header"
 msgstr "заголовок"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Header \"{header}\""
+msgstr "Заголовок \"{header}\""
+
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-credentials.tsx
 msgid "Header name"
 msgstr "Название заголовка"
 
@@ -2153,13 +2114,13 @@ msgstr "Скрыть пароль"
 msgid "Hide transcript"
 msgstr "Скрыть расшифровку"
 
-#. js-lingui-explicit-id
-#: src/lib/model-catalog.ts
-msgid "High"
-msgstr ""
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+msgid "High"
+msgstr "Высокий"
+
+#. js-lingui-explicit-id
+#: src/lib/model-catalog.ts
 msgid "High"
 msgstr "Высокий"
 
@@ -2199,10 +2160,6 @@ msgstr "Область загрузки изображения"
 #: src/pages/PluginsOverlay.tsx
 msgid "Import OpenAPI JSON"
 msgstr "Импортировать OpenAPI JSON"
-
-#: src/pages/shell/message-cards.tsx
-msgid "Inbox & email"
-msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
@@ -2253,7 +2210,7 @@ msgstr "изолированный"
 
 #: src/pages/Artifacts.tsx
 msgid "Isolated preview — no access to your account"
-msgstr ""
+msgstr "Изолированный просмотр — без доступа к вашей учётной записи"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."
@@ -2270,12 +2227,12 @@ msgstr "Перейти к ответному сообщению"
 #. placeholder {0}: accessibleReplyExcerpt(message.replyQuote)
 #: src/pages/Shell.tsx
 msgid "Jump to replied message: “{0}”"
-msgstr ""
+msgstr "Перейти к сообщению, на которое вы отвечаете: «{0}»"
 
 #. placeholder {0}: accessibleReplyExcerpt(previewMessageText(replyPreview))
 #: src/pages/Shell.tsx
 msgid "Jump to replied message: {0}"
-msgstr ""
+msgstr "Перейти к сообщению, на которое вы отвечаете: {0}"
 
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
@@ -2289,6 +2246,10 @@ msgstr "Сохранить память"
 #: src/pages/RoutineEditor.tsx
 msgid "key"
 msgstr "ключ"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Keys and passwords this bot can use, each for one site only. Values are encrypted and never shown again."
+msgstr "Ключи и пароли, доступные этому боту, каждый только для одного сайта. Значения зашифрованы и больше не показываются."
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Knowledge"
@@ -2304,7 +2265,7 @@ msgstr "Позже"
 
 #: src/components/computer/TerminalApp.tsx
 msgid "Launched {app}"
-msgstr ""
+msgstr "Запущено {app}"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Leave"
@@ -2324,7 +2285,7 @@ msgstr "Связать приложение чата"
 
 #: src/pages/Artifacts.tsx
 msgid "List view"
-msgstr ""
+msgstr "Список"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Listen"
@@ -2340,7 +2301,7 @@ msgstr "Загрузить более ранние сообщения"
 
 #: src/pages/Artifacts.tsx
 msgid "Load more"
-msgstr ""
+msgstr "Загрузить ещё"
 
 #: src/pages/RoutineRunHistory.tsx
 msgid "Load older runs"
@@ -2404,19 +2365,23 @@ msgstr "Настройки локального сервера"
 msgid "Log out"
 msgstr "Выйти"
 
-#. js-lingui-explicit-id
-#: src/lib/model-catalog.ts
-msgid "Low"
-msgstr ""
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
 msgstr "Низкий"
 
+#. js-lingui-explicit-id
+#: src/lib/model-catalog.ts
+msgid "Low"
+msgstr "Низкий"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
+msgstr "Строчные буквы, цифры, дефисы и подчёркивания; первый символ — буква."
+
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Make sure nothing is still running on this computer."
-msgstr ""
+msgstr "Убедитесь, что на этом компьютере ничего не запущено."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
@@ -2446,45 +2411,45 @@ msgstr "Отметить как прочитанное"
 msgid "Mark as Unread"
 msgstr "Отметить как непрочитанное"
 
-#. js-lingui-explicit-id
-#: src/lib/model-catalog.ts
-msgid "Max"
-msgstr ""
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
 msgstr "Макс"
 
+#. js-lingui-explicit-id
+#: src/lib/model-catalog.ts
+msgid "Max"
+msgstr "Макс"
+
 #: src/pages/Artifacts.tsx
 msgid "Maximize"
-msgstr ""
+msgstr "Развернуть"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Maximum images per request"
-msgstr ""
+msgstr "Максимум изображений в запросе"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
-msgstr ""
+msgstr "Максимум выходных токенов"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
-msgstr ""
+msgstr "Адрес MCP"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "MCP servers"
 msgstr "MCP-серверы"
 
-#. js-lingui-explicit-id
-#: src/lib/model-catalog.ts
-msgid "Medium"
-msgstr ""
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+msgid "Medium"
+msgstr "Средний"
+
+#. js-lingui-explicit-id
+#: src/lib/model-catalog.ts
 msgid "Medium"
 msgstr "Средний"
 
@@ -2556,13 +2521,13 @@ msgstr "Обмен сообщениями"
 msgid "Microphone failed"
 msgstr "Ошибка микрофона"
 
-#. js-lingui-explicit-id
-#: src/lib/model-catalog.ts
-msgid "Minimal"
-msgstr ""
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+msgid "Minimal"
+msgstr "Минимальный"
+
+#. js-lingui-explicit-id
+#: src/lib/model-catalog.ts
 msgid "Minimal"
 msgstr "Минимальный"
 
@@ -2648,6 +2613,7 @@ msgstr "Выключить микрофон"
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Name"
@@ -2717,7 +2683,7 @@ msgstr "Нет приложений, соответствующих вашему
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
-msgstr ""
+msgstr "Результаты не найдены."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "no auth"
@@ -2743,6 +2709,10 @@ msgstr "Ни один бот не подходит"
 msgid "No chat apps linked yet."
 msgstr "Приложения для чата пока не связаны."
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "No credentials saved for this bot."
+msgstr "Для этого бота нет сохранённых учётных данных."
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "Групповых чатов пока нет."
@@ -2757,7 +2727,7 @@ msgstr "В этом развертывании не настроен катал�
 
 #: src/pages/Artifacts.tsx
 msgid "No matching artifacts on this page."
-msgstr ""
+msgstr "На этой странице нет подходящих результатов."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No matching models"
@@ -2778,6 +2748,10 @@ msgstr "Сообщений с {peerBotName} пока нет."
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No model catalog is available."
 msgstr "Каталога моделей нет."
+
+#: src/lib/model-catalog.ts
+msgid "No model charges. Deterministic fixture for tests."
+msgstr "Без платы за модель. Детерминированная симуляция для тестов."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -2826,7 +2800,7 @@ msgstr "Не сейчас"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Nothing is still running"
-msgstr ""
+msgstr "Ничего не запущено"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
@@ -2893,13 +2867,13 @@ msgstr "Открыть {0}"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Open <0>{0}</0> and enter this code:"
-msgstr ""
+msgstr "Откройте <0>{0}</0> и введите этот код:"
 
 #. placeholder {0}: new URL(oauth.verificationUri).hostname
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Open <0>{0}</0> to finish signing in."
-msgstr ""
+msgstr "Откройте <0>{0}</0>, чтобы завершить вход."
 
 #: src/pages/Shell.tsx
 msgid "Open in full window"
@@ -2924,7 +2898,7 @@ msgstr "URL-адрес сервера, совместимого с OpenAI"
 
 #: src/components/computer/TerminalApp.tsx
 msgid "Opened {path}"
-msgstr ""
+msgstr "Открыт {path}"
 
 #: src/pages/Shell.tsx
 msgid "Opened its thread."
@@ -2932,7 +2906,7 @@ msgstr "Диалог открыт."
 
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
-msgstr ""
+msgstr "Открытие чата…"
 
 #: src/App.tsx
 msgid "Opening your Space…"
@@ -2980,6 +2954,7 @@ msgstr "Приостановить"
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
+#: src/pages/shell/bot-credentials.tsx
 msgid "Password"
 msgstr "Пароль"
 
@@ -3013,6 +2988,10 @@ msgstr "Вставьте свой ключ API"
 msgid "Paused"
 msgstr "Приостановлено"
 
+#: src/pages/memory-providers/SerenitySettingsForm.tsx
+msgid "personal"
+msgstr "личная"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "Закрепить"
@@ -3032,7 +3011,7 @@ msgstr "Предварительный просмотр {0}"
 
 #: src/pages/Artifacts.tsx
 msgid "Preview isn't available for this file type — download it to view it."
-msgstr ""
+msgstr "Предпросмотр этого типа файла недоступен — скачайте его для просмотра."
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Private"
@@ -3048,7 +3027,7 @@ msgstr "ID проекта"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
-msgstr ""
+msgstr "Защищённый ввод"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3070,15 +3049,15 @@ msgstr "В очереди"
 
 #: src/pages/Shell.tsx
 msgid "Quote"
-msgstr ""
+msgstr "Цитировать"
 
 #: src/pages/Shell.tsx
 msgid "React"
-msgstr ""
+msgstr "Реакция"
 
 #: src/pages/Shell.tsx
 msgid "Reactions"
-msgstr ""
+msgstr "Реакции"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Read replies aloud"
@@ -3091,15 +3070,15 @@ msgstr "только для чтения"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Reasoning effort"
-msgstr ""
+msgstr "Уровень рассуждений"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Recall and write"
-msgstr ""
+msgstr "Чтение и запись"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Recall only"
-msgstr ""
+msgstr "Только чтение"
 
 #: src/pages/ActivityList.tsx
 msgid "Recent"
@@ -3188,6 +3167,7 @@ msgstr "Освободить прерванный компьютер?"
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
+#: src/pages/shell/bot-credentials.tsx
 msgid "Remove"
 msgstr "Удалить"
 
@@ -3195,6 +3175,10 @@ msgstr "Удалить"
 #: src/pages/Shell.tsx
 msgid "Remove {0}"
 msgstr "Удалить {0}"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Remove {secretName}? This bot will no longer be able to use it."
+msgstr "Удалить {secretName}? Этот бот больше не сможет его использовать."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove Git event"
@@ -3252,18 +3236,22 @@ msgstr "Заменить ключ API"
 msgid "Replace key"
 msgstr "Заменить ключ"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Replace value"
+msgstr "Заменить значение"
+
 #: src/pages/Shell.tsx
 msgid "Reply"
 msgstr "Ответить"
 
 #: src/pages/Shell.tsx
 msgid "Reply cancelled"
-msgstr ""
+msgstr "Ответ отменён"
 
 #. placeholder {0}: replyNameRef.current
 #: src/pages/Shell.tsx
 msgid "Replying to {0}"
-msgstr ""
+msgstr "Ответ на {0}"
 
 #: src/pages/Shell.tsx
 msgid "Replying to {replyName}"
@@ -3271,11 +3259,7 @@ msgstr "Ответ на {replyName}"
 
 #: src/pages/Shell.tsx
 msgid "Replying to {replyName}: “{replyQuote}”"
-msgstr ""
-
-#: src/pages/shell/message-cards.tsx
-msgid "Research & writing"
-msgstr ""
+msgstr "Ответ для {replyName}: «{replyQuote}»"
 
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -3301,6 +3285,10 @@ msgstr "Сбросить пароль"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Resetting…"
 msgstr "Сброс…"
+
+#: src/pages/ResizableSidePanel.tsx
+msgid "Resize panel"
+msgstr "Изменить размер панели"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Restart to update"
@@ -3389,6 +3377,14 @@ msgstr "Выполняется · Остановить"
 msgid "Running…"
 msgstr "Выполняется…"
 
+#: src/lib/model-catalog.ts
+msgid "Runs on a URL you control. Rakazo does not pay for model usage."
+msgstr "Работает по URL, который вы контролируете. Rakazo не оплачивает использование модели."
+
+#: src/lib/model-catalog.ts
+msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
+msgstr "Работает на инфраструктуре, настроенной владельцем развёртывания. Rakazo не взимает плату за модель."
+
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "Запускается, когда этот бот получает проверенное сообщение от этого провайдера."
@@ -3405,9 +3401,17 @@ msgstr "Запускается, когда этот бот получает пр
 msgid "Save"
 msgstr "Сохранить"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Save credential"
+msgstr "Сохранить учётные данные"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Save limits"
-msgstr ""
+msgstr "Сохранить лимиты"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Save new value"
+msgstr "Сохранить новое значение"
 
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
@@ -3440,6 +3444,7 @@ msgstr "Сохранение..."
 #: src/pages/GroupPanel.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Saving…"
 msgstr "Сохранение…"
@@ -3463,7 +3468,7 @@ msgstr "Поиск приложений"
 
 #: src/pages/Artifacts.tsx
 msgid "Search artifacts…"
-msgstr ""
+msgstr "Поиск результатов…"
 
 #: src/pages/shell/command-palette.tsx
 msgid "Search bots and switch conversations"
@@ -3524,7 +3529,7 @@ msgstr "Оповещение Sentry"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Serenity endpoint is required."
-msgstr ""
+msgstr "Требуется адрес Serenity."
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/AccountSettingsOverlay.tsx
@@ -3590,11 +3595,11 @@ msgstr "Показать ботов"
 
 #: src/pages/Shell.tsx
 msgid "Show computer"
-msgstr ""
+msgstr "Показать компьютер"
 
 #: src/pages/Artifacts.tsx
 msgid "Show list"
-msgstr ""
+msgstr "Показать список"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Show more"
@@ -3610,7 +3615,7 @@ msgstr "Показать настройки"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Show tool activity"
-msgstr ""
+msgstr "Показать активность инструментов"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Show transcript"
@@ -3618,23 +3623,37 @@ msgstr "Показать расшифровку"
 
 #: src/lib/localized-provider-hint.ts
 #: src/pages/Auth.tsx
-#: src/pages/ModelSettingsOverlay.tsx
-#: src/pages/Onboarding.tsx
 msgid "Sign in"
 msgstr "Войти"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
-msgstr ""
+msgstr "Войти снова"
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
 msgstr "Войти в Rakazo"
 
+#: src/lib/localized-provider-hint.ts
+msgid "Sign in with {provider}"
+msgstr "Войти через {provider}"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
+msgstr "Войдите через {provider}, чтобы использовать свою подписку. Rakazo не оплачивает расходы."
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
+msgstr "Войдите через SuperGrok или X Premium либо вставьте API-ключ xAI. Rakazo не оплачивает расходы."
+
 #: src/pages/Auth.tsx
 #: src/pages/Welcome.tsx
 msgid "Sign up"
 msgstr "Зарегистрироваться"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Site"
+msgstr "Сайт"
 
 #. placeholder {0}: skill.name
 #: src/pages/Shell.tsx
@@ -3759,7 +3778,7 @@ msgstr "Отправить"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
-msgstr ""
+msgstr "Поддерживает изображения"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3808,7 +3827,7 @@ msgstr "Teams не настроен"
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Terminal"
-msgstr ""
+msgstr "Терминал"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Test"
@@ -3826,6 +3845,10 @@ msgstr "API не вернулся. Обновите эту страницу."
 msgid "The selected memory provider is not available in this build."
 msgstr "Выбранный поставщик памяти недоступен в этой сборке."
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "These saved settings can't be read. Remove it and add it again."
+msgstr "Не удалось прочитать сохранённые настройки. Удалите подключение и добавьте заново."
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3834,7 +3857,7 @@ msgstr "рассуждение"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Thinking: {activeThinkingLabel}"
-msgstr ""
+msgstr "Уровень размышления: {activeThinkingLabel}"
 
 #: src/pages/Shell.tsx
 msgid "This bot runs on this computer, not a Linux desktop. Shell and files use your home folder."
@@ -3842,7 +3865,7 @@ msgstr "Этот бот работает на этом компьютере, а 
 
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
-msgstr ""
+msgstr "Это действие нельзя отменить."
 
 #: src/pages/shell/dialogs.tsx
 msgid "This cannot be undone."
@@ -3859,11 +3882,11 @@ msgstr "этот компьютер"
 #. placeholder {0}: pendingDelete.versionCount
 #: src/pages/Artifacts.tsx
 msgid "This deletes all {0} versions of this artifact. This can't be undone."
-msgstr ""
+msgstr "Будут удалены все версии этого результата ({0}). Это действие нельзя отменить."
 
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is not valid UTF-8 text."
-msgstr ""
+msgstr "Этот файл не является корректным текстом UTF-8."
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
@@ -3871,7 +3894,7 @@ msgstr "этот Mac"
 
 #: src/pages/Artifacts.tsx
 msgid "This month"
-msgstr ""
+msgstr "Этот месяц"
 
 #: src/pages/shell/dialogs.tsx
 msgid "This permanently removes every message and stops current work. The chat remains available."
@@ -3879,7 +3902,7 @@ msgstr "Это навсегда удалит все сообщения и ост
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "This removes the connection from every space."
-msgstr ""
+msgstr "Подключение будет удалено во всех пространствах."
 
 #: src/pages/Auth.tsx
 msgid "This reset link is invalid or expired"
@@ -3903,7 +3926,7 @@ msgstr "Вход по этой подписке пока недоступен в
 
 #: src/pages/Artifacts.tsx
 msgid "This week"
-msgstr ""
+msgstr "Эта неделя"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
@@ -3919,7 +3942,7 @@ msgstr "К:"
 
 #: src/pages/Artifacts.tsx
 msgid "Today"
-msgstr ""
+msgstr "Сегодня"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Tool sources"
@@ -3943,11 +3966,15 @@ msgstr "Токен Treg"
 
 #: src/pages/Onboarding.tsx
 msgid "Try again"
-msgstr ""
+msgstr "Повторить"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Type"
+msgstr "Тип"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Type without recording"
-msgstr ""
+msgstr "Ввод без записи"
 
 #: src/components/AskCard.tsx
 msgid "Type your answer"
@@ -4016,6 +4043,10 @@ msgstr "Ход обновления"
 msgid "Updated"
 msgstr "Обновлено"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Updated {updated}"
+msgstr "Обновлено: {updated}"
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Updates"
 msgstr "Обновления"
@@ -4060,15 +4091,24 @@ msgstr "Использовать рекомендации по умолчани�
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
-msgstr ""
+msgstr "Используйте защищённый ввод для паролей."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Use this model"
 msgstr "Используйте эту модель"
 
 #: src/components/AskCard.tsx
+#: src/pages/shell/bot-credentials.tsx
 msgid "Username"
-msgstr ""
+msgstr "Имя пользователя"
+
+#: src/lib/model-catalog.ts
+msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
+msgstr "Используется ваш API-ключ {provider}. Rakazo не оплачивает использование модели."
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Value"
+msgstr "Значение"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Verify and add"
@@ -4080,7 +4120,7 @@ msgstr "Проверка…"
 
 #: src/pages/Artifacts.tsx
 msgid "Version"
-msgstr ""
+msgstr "Версия"
 
 #: src/pages/RoutineRunHistory.tsx
 msgid "View chat"
@@ -4113,6 +4153,10 @@ msgstr "Ожидание…"
 msgid "Webhook"
 msgstr "Вебхук"
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Website login"
+msgstr "Вход на сайт"
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Weekdays"
@@ -4121,10 +4165,6 @@ msgstr "Будни"
 #: src/pages/shell/dialogs.tsx
 msgid "What about its memories?"
 msgstr "Что делать с его памятью?"
-
-#: src/pages/shell/message-cards.tsx
-msgid "What do you want me on first?"
-msgstr ""
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "What result will you demonstrate?"
@@ -4165,7 +4205,7 @@ msgstr "Выполняется…"
 
 #: src/components/computer/TerminalApp.tsx
 msgid "Wrote {path}"
-msgstr ""
+msgstr "Записан {path}"
 
 #: src/pages/Shell.tsx
 msgid "Yesterday"
@@ -4198,7 +4238,3 @@ msgstr "Ваше имя"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Ваша команда постоянно работающих агентов<0/>, которым вы можете дать настоящую работу."
-
-#: src/pages/ResizableSidePanel.tsx
-msgid "Resize panel"
-msgstr "Изменить размер панели"

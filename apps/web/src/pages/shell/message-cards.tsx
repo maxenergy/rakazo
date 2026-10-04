@@ -1,12 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
-import { abortableDelay } from "@rakazo/core";
+import { abortableDelay, localizeOnboardingBlock } from "@rakazo/core";
 import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BuiCard, SuccessPop } from "../../components/ai/primitives";
 import { type ArtifactTarget, decodeArtifactBase64 } from "../../lib/artifact-open";
 import { chartViewport } from "../../lib/chart-viewport";
+import { getActiveUiLocale } from "../../lib/i18n";
 import { connectMcpOauth } from "../../lib/mcp-connect";
 import { rpc } from "../../lib/rpc";
 
@@ -20,6 +21,8 @@ export function ChoiceCard({
   onBotChanged: () => Promise<void>;
 }) {
   const { t } = useLingui();
+  const localized = localizeOnboardingBlock(block, getActiveUiLocale());
+  if (localized.kind === block.kind) block = localized as typeof block;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locallyDismissed, setLocallyDismissed] = useState(false);
@@ -67,9 +70,7 @@ export function ChoiceCard({
             <X size={16} strokeWidth={1.8} />
           </Button>
         ) : null}
-        <div className="pe-8 text-[15.5px] text-foreground/90">
-          <OnboardingFocusQuestion question={block.question} />
-        </div>
+        <div className="pe-8 text-[15.5px] text-foreground/90">{block.question}</div>
         {block.subtitle ? (
           <div className="mt-0.5 text-[13px] text-foreground/75">{block.subtitle}</div>
         ) : null}
@@ -90,11 +91,7 @@ export function ChoiceCard({
                 <span
                   className={`flex-1 text-[15px] leading-[1.35] ${block.answerId ? "text-foreground/75" : "text-foreground"}`}
                 >
-                  <OnboardingFocusOptionLabel
-                    id={option.id}
-                    label={option.label}
-                    question={block.question}
-                  />
+                  {option.label}
                 </span>
                 {block.answerId === option.id ? (
                   <span className="mt-0.5 text-foreground/75">✓</span>
@@ -108,38 +105,6 @@ export function ChoiceCard({
   );
 }
 
-/** First-run Chief focus card: API stores English; UI locale catalogs translate it. */
-function OnboardingFocusQuestion({ question }: { question: string }) {
-  if (question === "What do you want me on first?") {
-    return <Trans>What do you want me on first?</Trans>;
-  }
-  return question;
-}
-
-function OnboardingFocusOptionLabel({
-  id,
-  label,
-  question,
-}: {
-  id: string;
-  label: string;
-  question: string;
-}) {
-  if (question !== "What do you want me on first?") return label;
-  switch (id) {
-    case "day":
-      return <Trans>Day-to-day work</Trans>;
-    case "inbox":
-      return <Trans>Inbox & email</Trans>;
-    case "research":
-      return <Trans>Research & writing</Trans>;
-    case "everything":
-      return <Trans>A bit of everything</Trans>;
-    default:
-      return label;
-  }
-}
-
 export function AppConnectCard({
   botId,
   block,
@@ -148,6 +113,8 @@ export function AppConnectCard({
   block: Extract<MessageBlock, { kind: "app_connect" }>;
 }) {
   const { t } = useLingui();
+  const localized = localizeOnboardingBlock(block, getActiveUiLocale());
+  if (localized.kind === block.kind) block = localized as typeof block;
   const [busy, setBusy] = useState(false);
   const [localStatus, setLocalStatus] = useState<"pending" | "connected">(block.status);
   const [error, setError] = useState<string | null>(null);

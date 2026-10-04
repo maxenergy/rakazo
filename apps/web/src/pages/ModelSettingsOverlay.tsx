@@ -53,9 +53,9 @@ import {
   useState,
 } from "react";
 import { useCopyText } from "../lib/copy-text";
-import { localizedProviderHint } from "../lib/localized-provider-hint";
+import { localizedProviderHint, localizedSignInLabel } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry, ModelCredential } from "../lib/model-auth";
-import { thinkingLevelLabel } from "../lib/model-catalog";
+import { modelBillingLabel, thinkingLevelLabel } from "../lib/model-catalog";
 import { rpc } from "../lib/rpc";
 import { useModelOAuthSignIn } from "../lib/use-model-oauth-signin";
 
@@ -667,7 +667,9 @@ export function ModelSettingsOverlay({
           </label>
         ) : null}
         {selected.billing ? (
-          <p className="mt-2 text-[13px] leading-[1.5] text-muted-foreground">{selected.billing}</p>
+          <p className="mt-2 text-[13px] leading-[1.5] text-muted-foreground">
+            {modelBillingLabel(selected.billing)}
+          </p>
         ) : null}
       </>
     ) : null;
@@ -829,7 +831,7 @@ export function ModelSettingsOverlay({
               ) : credential ? (
                 <Trans>Sign in again</Trans>
               ) : (
-                (selected.oauthLabel ?? t`Sign in`)
+                localizedSignInLabel(selected.oauthLabel)
               )}
             </Button>
           )}

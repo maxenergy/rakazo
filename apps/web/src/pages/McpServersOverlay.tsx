@@ -285,7 +285,7 @@ export function McpServersOverlay({ onClose }: { onClose: () => void }) {
                     id="mcp-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Mobbin"
+                    placeholder={t`e.g. Mobbin`}
                   />
                 </Field>
                 <Tabs

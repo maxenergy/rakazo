@@ -1,4 +1,4 @@
-import type { ConnectionCatalogItem, SandboxKind } from "@rakazo/contracts";
+import type { ConnectionCatalogItem, SandboxKind, UiLocale } from "@rakazo/contracts";
 
 export interface AdapterContext {
   operationId: string;
@@ -423,6 +423,8 @@ export interface AgentRunModel {
 }
 
 export interface AgentRunRequest {
+  /** Selected product locale, inherited by helpers within this turn. */
+  uiLocale?: UiLocale;
   botId: string;
   threadId: string;
   runId: string;

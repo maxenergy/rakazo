@@ -213,6 +213,7 @@ export default function Account() {
     setLocaleSaving(true);
     setLocaleError(null);
     void setUiLocale(code)
+      .then((activated) => rpc("preferences/update", { uiLocale: activated }))
       .catch(() => {
         setLocaleError(t("Could not change language"));
       })

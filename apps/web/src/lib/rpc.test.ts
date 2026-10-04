@@ -1,11 +1,27 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearSpaceSelection, selectedSpaceId, selectSpace } from "./rpc.js";
+import { clearSpaceSelection, selectedSpaceId, selectSpace, withSpaceHeaders } from "./rpc.js";
+
+vi.mock("./i18n", () => ({ getActiveUiLocale: () => "zh-CN" }));
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("space selection storage", () => {
+  it("sends the selected interface language while preserving other request headers", () => {
+    const headers = withSpaceHeaders(
+      {
+        "accept-language": "en-US,en;q=0.9",
+        authorization: "Bearer test-token",
+        "content-type": "application/json",
+      },
+      "space-support",
+    );
+    expect(headers.get("accept-language")).toBe("zh-CN");
+    expect(headers.get("x-rakazo-space-id")).toBe("space-support");
+    expect(headers.get("authorization")).toBe("Bearer test-token");
+    expect(headers.get("content-type")).toBe("application/json");
+  });
   it("reports localStorage write failures without throwing", () => {
     const localStorage = {
       getItem: () => null,

@@ -1,4 +1,23 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
+    "Rakazo 界面暂不支持 {provider} 订阅登录。如果此部署已配置凭据，可以跳过。",
+  "Configured model: {provider}": "已配置模型：{provider}",
+  "No model charges. Deterministic fixture for tests.": "不产生模型费用。用于测试的确定性模拟。",
+  "Runs on a URL you control. Rakazo does not pay for model usage.":
+    "在你控制的 URL 上运行。Rakazo 不承担模型使用费用。",
+  "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.":
+    "在部署所有者配置的基础设施上运行。Rakazo 不收取模型费用。",
+  "Sign in with {provider}": "使用 {provider} 登录",
+  "Sign in with {provider}. Uses your subscription. Rakazo does not pay.":
+    "使用 {provider} 登录并使用你的订阅。Rakazo 不承担费用。",
+  "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay.":
+    "使用 SuperGrok 或 X Premium 登录，或粘贴 xAI API 密钥。Rakazo 不承担费用。",
+  "Uses your {provider} API key. Rakazo does not pay for model usage.":
+    "使用你的 {provider} API 密钥。Rakazo 不承担模型使用费用。",
+
+  "Could not save this choice": "无法保存此选择",
+  "Could not dismiss": "无法关闭",
+
   "Update your server to use AI data sharing in this mobile version.":
     "请更新服务器，以便在此移动版本中使用 AI 数据共享功能。",
   "Release computer": "释放电脑",
@@ -639,4 +658,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Voice chat": "语音通话",
   "Show transcript": "显示字幕",
   "Hide transcript": "隐藏字幕",
+  Chart: "图表",
+  "{size} bytes": "{size} 字节",
 };

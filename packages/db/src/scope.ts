@@ -1,4 +1,5 @@
-import type { Actor } from "@rakazo/contracts";
+import type { Actor, UiLocale } from "@rakazo/contracts";
+import { isUiLocale } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 
 export class IsolationError extends Error {
@@ -20,6 +21,7 @@ export async function requireMembership(
   prisma: PrismaClient,
   userId: string,
   requestedSpaceId?: string | null,
+  requestedLocale?: UiLocale,
 ): Promise<Actor> {
   const membership = await prisma.spaceMember.findFirst({
     where: {
@@ -32,6 +34,11 @@ export async function requireMembership(
   if (!membership) {
     throw new IsolationError("No personal space");
   }
+  const storedLocale = membership.member.user.uiLocale;
+  const uiLocale = requestedLocale ?? (isUiLocale(storedLocale) ? storedLocale : undefined);
+  if (requestedLocale && requestedLocale !== storedLocale) {
+    await prisma.user.update({ where: { id: userId }, data: { uiLocale: requestedLocale } });
+  }
   const settings = await prisma.deploymentSettings.findUnique({
     where: { id: "default" },
   });
@@ -40,6 +47,7 @@ export async function requireMembership(
     spaceId: membership.spaceId,
     email: membership.member.user.email,
     isDeploymentOwner: settings?.ownerUserId === membership.userId,
+    ...(uiLocale ? { uiLocale } : {}),
   };
 }
 

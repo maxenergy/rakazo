@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { i18n } from "@lingui/core";
+import { formatter } from "@lingui/format-po";
+import { UI_LOCALES } from "@rakazo/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import de from "../../scripts/translations-de.json";
 import es from "../../scripts/translations-es.json";
@@ -11,6 +13,28 @@ import tr from "../../scripts/translations-tr.json";
 import zhCN from "../../scripts/translations-zh-CN.json";
 
 describe("lingui catalogs", () => {
+  it.each(UI_LOCALES)(
+    "has complete translations and preserves variables and links in %s",
+    async (locale) => {
+      const catalog = await formatter().parse(
+        readFileSync(
+          fileURLToPath(new URL(`../locales/${locale}/messages.po`, import.meta.url)),
+          "utf8",
+        ),
+        { locale, sourceLocale: "en", filename: "messages.po" },
+      );
+      const variables = (text: string) =>
+        [...new Set([...text.matchAll(/\{(\w+)[,}]/g)].map((match) => match[1]))].sort();
+      const links = (text: string) =>
+        [...new Set([...text.matchAll(/<\/?(\d+)>/g)].map((match) => match[1]))].sort();
+      for (const [id, entry] of Object.entries(catalog)) {
+        const translation = entry.translation ?? "";
+        expect(translation.trim(), entry.message ?? id).not.toBe("");
+        expect(variables(translation), entry.message ?? id).toEqual(variables(entry.message ?? id));
+        expect(links(translation), entry.message ?? id).toEqual(links(entry.message ?? id));
+      }
+    },
+  );
   beforeEach(() => {
     i18n.load("en", {});
     i18n.activate("en");
@@ -212,41 +236,24 @@ describe("lingui catalogs", () => {
     expect(i18n._({ id: "Cancel", message: "Cancel" })).toBe("Cancelar");
   });
 
-  it("ships Simplified Chinese translations for the Chief onboarding focus card", () => {
+  it("has no untranslated Simplified Chinese messages, including credentials and setup", () => {
     const catalog = readFileSync(
       fileURLToPath(new URL("../locales/zh-CN/messages.po", import.meta.url)),
       "utf8",
-    );
-
-    expect(catalog).toContain('msgid "What do you want me on first?"\nmsgstr "你想让我先做什么？"');
-    expect(catalog).toContain('msgid "Day-to-day work"\nmsgstr "日常工作"');
-    expect(catalog).toContain('msgid "Inbox & email"\nmsgstr "收件箱和邮件"');
-    expect(catalog).toContain('msgid "Research & writing"\nmsgstr "调研和写作"');
-    expect(catalog).toContain('msgid "A bit of everything"\nmsgstr "什么都做一点"');
-
-    i18n.load("zh-CN", {
-      "What do you want me on first?": "你想让我先做什么？",
-      "Day-to-day work": "日常工作",
-      "Inbox & email": "收件箱和邮件",
-      "Research & writing": "调研和写作",
-      "A bit of everything": "什么都做一点",
-    });
-    i18n.activate("zh-CN");
-    expect(
-      i18n._({
-        id: "What do you want me on first?",
-        message: "What do you want me on first?",
-      }),
-    ).toBe("你想让我先做什么？");
-    expect(i18n._({ id: "Day-to-day work", message: "Day-to-day work" })).toBe("日常工作");
-    expect(i18n._({ id: "Inbox & email", message: "Inbox & email" })).toBe("收件箱和邮件");
+    ).replace(/\r\n/g, "\n");
+    const entries = catalog
+      .split("\n\n")
+      .filter((entry) => entry.includes("msgid ") && !entry.startsWith('msgid ""'));
+    expect(entries.filter((entry) => /msgstr ""\s*$/.test(entry))).toEqual([]);
+    expect(catalog).toContain('msgid "Credentials"\nmsgstr "凭据"');
+    expect(catalog).toContain('msgid "Add credential"\nmsgstr "添加凭据"');
   });
 
   it("ships the Russian runtime catalog with translated chrome and Russian plurals", () => {
     const catalog = readFileSync(
       fileURLToPath(new URL("../locales/ru/messages.po", import.meta.url)),
       "utf8",
-    );
+    ).replace(/\r\n/g, "\n");
 
     expect(catalog).toContain('msgid "Settings"\nmsgstr "Настройки"');
     expect(catalog).toContain('msgid "Language"\nmsgstr "Язык"');
@@ -263,7 +270,7 @@ describe("lingui catalogs", () => {
     const catalog = readFileSync(
       fileURLToPath(new URL("../locales/fr/messages.po", import.meta.url)),
       "utf8",
-    );
+    ).replace(/\r\n/g, "\n");
 
     expect(catalog).toContain('msgid "Settings"\nmsgstr "Paramètres"');
     expect(catalog).toContain('msgid "Language"\nmsgstr "Langue"');
@@ -293,7 +300,7 @@ describe("lingui catalogs", () => {
       const catalog = readFileSync(
         fileURLToPath(new URL(`../locales/${locale}/messages.po`, import.meta.url)),
         "utf8",
-      );
+      ).replace(/\r\n/g, "\n");
       expect(catalog).toContain(`msgid "No bot activity yet."\nmsgstr "${msgstr}"`);
     }
   });

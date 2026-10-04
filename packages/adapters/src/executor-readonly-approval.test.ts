@@ -163,6 +163,7 @@ function fixture({
     ),
   };
   const prisma = {
+    user: { findUnique: vi.fn(async () => ({ uiLocale: "en" })) },
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => run),

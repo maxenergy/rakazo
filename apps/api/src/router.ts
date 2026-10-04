@@ -746,7 +746,10 @@ export function createRouter(deps: RouterDeps) {
       update: authed.preferences.update.handler(async ({ context, input }): Promise<Me> => {
         await deps.prisma.user.update({
           where: { id: context.actor.userId },
-          data: { avatarStyle: input.avatarStyle },
+          data: {
+            ...(input.avatarStyle ? { avatarStyle: input.avatarStyle } : {}),
+            ...(input.uiLocale ? { uiLocale: input.uiLocale } : {}),
+          },
         });
         return meDto(deps, context.actor);
       }),

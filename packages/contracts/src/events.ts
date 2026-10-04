@@ -2,6 +2,7 @@ import * as z from "zod";
 import { botSecretDestinationSchema } from "./bot-secrets.js";
 import { Id } from "./ids.js";
 import { McpTransportSchema } from "./mcp.js";
+import { OnboardingApp, OnboardingText } from "./onboarding.js";
 
 export const ProductEventType = z.enum([
   "thread.message.created",
@@ -93,7 +94,7 @@ export const SecretAskPurpose = z.enum(["otp", "password", "api_key"]);
 export type SecretAskPurpose = z.infer<typeof SecretAskPurpose>;
 
 export const MessageBlock = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("text"), text: z.string() }),
+  z.object({ kind: z.literal("text"), text: z.string(), onboarding: OnboardingText.optional() }),
   z.object({
     kind: z.literal("card"),
     lines: z.array(z.object({ k: z.string(), v: z.string() })),
@@ -125,6 +126,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("choice"),
     question: z.string(),
+    onboarding: z.literal("focus").optional(),
     subtitle: z.string().optional(),
     options: z.array(z.object({ id: z.string(), letter: z.string(), label: z.string() })),
     /** Set once the user picks an option; renders the picker as answered. */
@@ -138,6 +140,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     provider: z.string(),
     name: z.string(),
     description: z.string(),
+    onboardingApp: OnboardingApp.optional(),
     logo: z.string().nullable(),
     status: z.enum(["pending", "connected"]),
   }),

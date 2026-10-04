@@ -46,6 +46,8 @@ import {
   isRunTerminalEvent,
   isToolActivityBlock,
   latestAnswerableAskMessageId,
+  localizeOnboardingMessage,
+  localizeSubagentProgress,
   mentionChipKey,
   nestRosterByParent,
   plainTextFromMarkdown,
@@ -183,6 +185,7 @@ import {
 import { publishComputerCommand } from "../lib/computer-workspace";
 import { desktopBridge } from "../lib/desktop";
 import { scheduleFocusPrompt } from "../lib/focus-prompt";
+import { getActiveUiLocale } from "../lib/i18n";
 import { localTimezone } from "../lib/local-timezone";
 import { copyableMessageText } from "../lib/message-text";
 import { messageProviderLabel } from "../lib/messaging";
@@ -6202,6 +6205,7 @@ const MessageView = memo(function MessageView({
   showToolActivity: boolean;
 }) {
   const { t } = useLingui();
+  message = localizeOnboardingMessage(message, getActiveUiLocale());
   const isNarration =
     message.role === "bot" &&
     message.blocks.length > 0 &&
@@ -6433,14 +6437,21 @@ const MessageView = memo(function MessageView({
                     animation: running ? "rkPulse 1.2s ease-in-out infinite" : undefined,
                   }}
                 >
-                  {running ? <Trans>subagent</Trans> : block.status}
+                  {running ? (
+                    <Trans>subagent</Trans>
+                  ) : failed ? (
+                    <Trans>Failed</Trans>
+                  ) : (
+                    <Trans>Done</Trans>
+                  )}
                 </span>
               </div>
               <div className="mt-2 text-[13.5px] text-muted-foreground">{block.task}</div>
               {block.progress || block.result ? (
                 <div className="mt-2.5 text-[14.5px] leading-[1.5] text-foreground/75">
                   <ChatMarkdown streaming={running}>
-                    {block.result || block.progress || ""}
+                    {block.result ||
+                      localizeSubagentProgress(block.progress || "", getActiveUiLocale())}
                   </ChatMarkdown>
                 </div>
               ) : null}

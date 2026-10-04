@@ -47,6 +47,7 @@ import {
   finishModelOAuthAttempt,
   waitForModelOAuth,
 } from "../lib/model-auth";
+import { modelBillingLabel, modelSignInLabel } from "../lib/model-catalog-copy";
 import { native, useResolvedAppearance, useThemedStyles } from "../lib/native";
 
 function connectionMaxTokensField(providerId: string, stored: number | undefined): string {
@@ -1049,7 +1050,7 @@ export default function Models() {
           </View>
         ) : null}
         {!isOpenAiCompatible && selected.billing ? (
-          <Text style={styles.billing}>{selected.billing}</Text>
+          <Text style={styles.billing}>{modelBillingLabel(selected.billing)}</Text>
         ) : null}
       </>
     ) : null;
@@ -1146,7 +1147,7 @@ export default function Models() {
                   ? t("Starting…")
                   : credential
                     ? t("Sign in again")
-                    : (selected.oauthLabel ?? t("Sign in"))}
+                    : modelSignInLabel(selected.oauthLabel)}
               </Text>
             </Pressable>
           )

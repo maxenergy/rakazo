@@ -69,6 +69,7 @@ async function runWithModel(modelId: string) {
     yield { type: "done" as const, text: "Done" };
   });
   const prisma = {
+    user: { findUnique: vi.fn(async () => ({ uiLocale: "zh-CN" })) },
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => run),
@@ -155,6 +156,11 @@ async function runWithModel(modelId: string) {
 }
 
 describe("recent turn images follow model vision", () => {
+  it("includes the user's saved language in runtime instructions and helper context", async () => {
+    const { request } = await runWithModel(TEXT_ONLY_MODEL);
+    expect(request.uiLocale).toBe("zh-CN");
+    expect(request.instructions).toContain("Use Simplified Chinese");
+  });
   it("does not send history images to a text-only model", async () => {
     const { request, get } = await runWithModel(TEXT_ONLY_MODEL);
 

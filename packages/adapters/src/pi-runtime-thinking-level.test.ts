@@ -1,8 +1,10 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { UiLocale } from "@rakazo/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fakeAgentState = vi.hoisted(() => ({
   thinkingLevels: [] as string[],
+  systemPrompts: [] as string[],
   transforms: [] as Array<(messages: AgentMessage[]) => Promise<AgentMessage[]>>,
   models: [] as Array<{
     id: string;
@@ -32,6 +34,7 @@ vi.mock("@earendil-works/pi-agent-core", () => ({
       sessionId?: string;
       transformContext: (messages: AgentMessage[]) => Promise<AgentMessage[]>;
       initialState: {
+        systemPrompt: string;
         thinkingLevel: string;
         tools: FakeAgentTool[];
         model: (typeof fakeAgentState.models)[number];
@@ -41,6 +44,7 @@ vi.mock("@earendil-works/pi-agent-core", () => ({
       fakeAgentState.transforms.push(options.transformContext);
       fakeAgentState.sessionIds.push(options.sessionId);
       fakeAgentState.thinkingLevels.push(options.initialState.thinkingLevel);
+      fakeAgentState.systemPrompts.push(options.initialState.systemPrompt);
       fakeAgentState.models.push(options.initialState.model);
     }
 
@@ -93,6 +97,10 @@ vi.mock("./pi-current-models.js", () => ({
   supplementPiModels: (models: unknown) => models,
 }));
 
+vi.mock("./cli-model-provider.js", () => ({
+  registerCliModelProviders: (models: unknown) => models,
+}));
+
 vi.mock("./pi-local-provider.js", () => ({
   registerLocalProvider: (models: unknown) => models,
 }));
@@ -122,6 +130,7 @@ async function runWithModel(
     thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | null;
   }>,
   maxImagesPerPrompt?: number,
+  uiLocale?: UiLocale,
 ) {
   const runtime = new PiAgentRuntime();
   for await (const _event of runtime.run(
@@ -131,6 +140,7 @@ async function runWithModel(
       runId: "r",
       prompt: "hello",
       instructions: "",
+      uiLocale,
       history: [],
       tools: [],
       model: { provider, id: modelId, thinkingLevel, maxImagesPerPrompt },
@@ -153,6 +163,7 @@ async function runWithModel(
 describe("Pi agent thinking level", () => {
   beforeEach(() => {
     fakeAgentState.thinkingLevels = [];
+    fakeAgentState.systemPrompts = [];
     fakeAgentState.transforms = [];
     fakeAgentState.models = [];
     fakeAgentState.sessionIds = [];
@@ -174,6 +185,24 @@ describe("Pi agent thinking level", () => {
     await runWithModel("plain-model");
 
     expect(fakeAgentState.sessionIds[0]).toBe("t:b");
+  });
+
+  it("passes the interface language and user override policy to subagents", async () => {
+    await runWithModel(
+      "plain-model",
+      "test",
+      new AbortController().signal,
+      null,
+      undefined,
+      undefined,
+      "zh-CN",
+    );
+    expect(fakeAgentState.systemPrompts).toHaveLength(2);
+    expect(fakeAgentState.systemPrompts[1]).toContain("Use Simplified Chinese");
+    expect(fakeAgentState.systemPrompts[1]).toContain(
+      "Follow an explicit user request for a different language",
+    );
+    expect(fakeAgentState.systemPrompts[1]).toContain("Preserve code, commands, identifiers");
   });
 
   it("honors a per-bot thinking level on reasoning models", async () => {

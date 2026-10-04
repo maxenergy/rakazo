@@ -66,6 +66,7 @@ import {
   toTeamChatInbound,
 } from "@rakazo/adapters";
 import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@rakazo/auth";
+import { requestedUiLocale } from "@rakazo/contracts";
 import { signupAllowlistBootUpdate, signupPolicyFromEnv } from "@rakazo/core";
 import type { Pool, PrismaClient } from "@rakazo/db";
 import {
@@ -552,7 +553,12 @@ export async function createApp(
     const session = await auth.api.getSession({ headers: sessionHeaders(c.req.raw) });
     const requestedSpaceId = c.req.header("x-rakazo-space-id");
     const actor = session?.user
-      ? await requireMembership(prisma, session.user.id, requestedSpaceId).catch(() => null)
+      ? await requireMembership(
+          prisma,
+          session.user.id,
+          requestedSpaceId,
+          requestedUiLocale(c.req.header("accept-language")),
+        ).catch(() => null)
       : null;
     if (actor) {
       enrichLogContext({ "user.id": actor.userId, "space.id": actor.spaceId });
@@ -571,6 +577,7 @@ export async function createApp(
       prisma,
       session.user.id,
       c.req.header("x-rakazo-space-id"),
+      requestedUiLocale(c.req.header("accept-language")),
     ).catch(() => null);
     if (actor) enrichLogContext({ "user.id": actor.userId, "space.id": actor.spaceId });
     return actor;

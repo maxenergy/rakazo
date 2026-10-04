@@ -1,6 +1,6 @@
 import type * as db from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
-import { chooseFocus, markAppConnected } from "./onboarding.js";
+import { chooseFocus, markAppConnected, promptFocus } from "./onboarding.js";
 
 const posted = vi.hoisted(() => [] as Array<{ blocks: unknown[] }>);
 vi.mock("@rakazo/db", async (original) => ({
@@ -37,6 +37,46 @@ function fixture(catalog: unknown[]) {
   return { deps, actor, tx };
 }
 describe("onboarding connection suggestions", () => {
+  it("persists a translated focus card with a locale-independent reference", async () => {
+    const { deps, actor, tx } = fixture([]);
+    tx.message.findMany.mockResolvedValue([]);
+    await promptFocus(deps, { ...actor, uiLocale: "zh-CN" }, "bot");
+    expect(posted[0]?.blocks[0]).toMatchObject({
+      kind: "choice",
+      onboarding: "focus",
+      question: "你想让我先做什么？",
+      options: expect.arrayContaining([expect.objectContaining({ id: "day", label: "日常工作" })]),
+    });
+  });
+  it("uses Chinese copy for follow-ups, application descriptions, and the no-catalog fallback", async () => {
+    const { deps, actor } = fixture([
+      { connectorId: "pipedream", slug: "slack", name: "Slack", connected: false, logo: null },
+    ]);
+    await chooseFocus(deps, { ...actor, uiLocale: "zh-CN" }, "bot", "day");
+    expect(posted.flatMap((message) => message.blocks)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "text",
+          text: "明白了，先处理Slack、日历和邮件。我会先检查已有的连接，避免让你重复设置。",
+          onboarding: { id: "focus.ack", focus: "day" },
+        }),
+        expect.objectContaining({
+          kind: "app_connect",
+          description: "搜索、阅读和发送消息。",
+          onboardingApp: "slack",
+        }),
+        expect.objectContaining({
+          kind: "text",
+          text: "连接这 1 个应用后，我就开始整理相关信息。",
+        }),
+      ]),
+    );
+    const empty = fixture([]);
+    await chooseFocus(empty.deps, { ...empty.actor, uiLocale: "zh-CN" }, "bot", "research");
+    expect(posted.at(-1)?.blocks).toEqual([
+      expect.objectContaining({ text: "你想先从哪项任务开始？", onboarding: { id: "focus.next" } }),
+    ]);
+  });
   it("does not invent authorization cards when no connector has an app catalog", async () => {
     const { deps, actor } = fixture([]);
     await chooseFocus(deps, actor, "bot", "day");

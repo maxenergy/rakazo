@@ -91,6 +91,7 @@ import {
 import { MessageReactionSchema } from "./reactions.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
 import { SearchQueryOutputSchema } from "./search.js";
+import { UiLocaleSchema } from "./ui-locale.js";
 
 const botId = z.object({ botId: Id });
 const groupId = z.object({ groupId: Id });
@@ -168,7 +169,16 @@ export const appContract = {
   health: oc.output(z.object({ ok: z.literal(true), version: z.string() })),
   me: oc.output(MeSchema),
   preferences: {
-    update: oc.input(z.object({ avatarStyle: AvatarStyleSchema })).output(MeSchema),
+    update: oc
+      .input(
+        z
+          .object({
+            avatarStyle: AvatarStyleSchema.optional(),
+            uiLocale: UiLocaleSchema.optional(),
+          })
+          .refine((input) => input.avatarStyle !== undefined || input.uiLocale !== undefined),
+      )
+      .output(MeSchema),
   },
   spaces: {
     list: oc.output(SpaceNavigationSchema),

@@ -1,4 +1,25 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
+    "Вход по подписке {provider} пока недоступен в интерфейсе Rakazo. Пропустите этот шаг, если в развёртывании уже есть учётные данные.",
+  "Configured model: {provider}": "Настроенная модель: {provider}",
+  "No model charges. Deterministic fixture for tests.":
+    "Без платы за модель. Детерминированная симуляция для тестов.",
+  "Runs on a URL you control. Rakazo does not pay for model usage.":
+    "Работает по URL, который вы контролируете. Rakazo не оплачивает использование модели.",
+  "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.":
+    "Работает на инфраструктуре, настроенной владельцем развёртывания. Rakazo не взимает плату за модель.",
+  "Sign in with {provider}": "Войти через {provider}",
+  "Sign in with {provider}. Uses your subscription. Rakazo does not pay.":
+    "Войдите через {provider}, чтобы использовать свою подписку. Rakazo не оплачивает расходы.",
+  "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay.":
+    "Войдите через SuperGrok или X Premium либо вставьте API-ключ xAI. Rakazo не оплачивает расходы.",
+  "Uses your {provider} API key. Rakazo does not pay for model usage.":
+    "Используется ваш API-ключ {provider}. Rakazo не оплачивает использование модели.",
+  "Complete sign-in on the server.": "Завершите вход на сервере.",
+
+  "Could not save this choice": "Не удалось сохранить выбор",
+  "Could not dismiss": "Не удалось закрыть",
+
   "Update your server to use AI data sharing in this mobile version.":
     "Обновите сервер, чтобы использовать обмен данными с ИИ в этой версии мобильного приложения.",
   "Ask the server owner to configure this provider.":
@@ -658,4 +679,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Voice chat": "Голосовой чат",
   "Show transcript": "Показать расшифровку",
   "Hide transcript": "Скрыть расшифровку",
+  Chart: "Диаграмма",
+  "{size} bytes": "{size} байт",
 };

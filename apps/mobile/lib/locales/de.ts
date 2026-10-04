@@ -1,4 +1,25 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
+    "Die Anmeldung mit einem {provider}-Abonnement ist in der Rakazo-Oberfläche noch nicht verfügbar. Überspringe sie, wenn bereits Zugangsdaten eingerichtet sind.",
+  "Configured model: {provider}": "Konfiguriertes Modell: {provider}",
+  "No model charges. Deterministic fixture for tests.":
+    "Keine Modellkosten. Deterministische Testsimulation.",
+  "Runs on a URL you control. Rakazo does not pay for model usage.":
+    "Läuft unter einer URL, die du kontrollierst. Rakazo trägt keine Modellkosten.",
+  "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.":
+    "Läuft auf der vom Betreiber eingerichteten Infrastruktur. Keine Modellkosten durch Rakazo.",
+  "Sign in with {provider}": "Mit {provider} anmelden",
+  "Sign in with {provider}. Uses your subscription. Rakazo does not pay.":
+    "Mit {provider} anmelden und dein Abonnement nutzen. Rakazo trägt keine Kosten.",
+  "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay.":
+    "Mit SuperGrok oder X Premium anmelden oder einen xAI-API-Schlüssel einfügen. Rakazo trägt keine Kosten.",
+  "Uses your {provider} API key. Rakazo does not pay for model usage.":
+    "Verwendet deinen {provider}-API-Schlüssel. Rakazo trägt keine Modellkosten.",
+  "Complete sign-in on the server.": "Schließe die Anmeldung auf dem Server ab.",
+
+  "Could not save this choice": "Auswahl konnte nicht gespeichert werden",
+  "Could not dismiss": "Konnte nicht geschlossen werden",
+
   // shared/const
   "Chat Settings": "Chat-Einstellungen",
   "Configure a plugin catalog on the server to connect apps.":
@@ -657,4 +678,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Transcript: "Transkript",
   Unmute: "Stummschaltung aufheben",
   "Voice chat": "Sprachchat",
+  Chart: "Diagramm",
+  "{size} bytes": "{size} Byte",
 };

@@ -42,7 +42,9 @@ import {
   botSecretSubmissionSchema,
   COMPUTER_COMMAND_OUTPUT_MAX_CHARS,
   isAttachmentImageMimeType,
+  normalizeUiLocale,
   OPENAI_COMPATIBLE_PROVIDER_ID,
+  responseLanguageInstruction,
 } from "@rakazo/contracts";
 import {
   type ActionApprovalRule,
@@ -1277,6 +1279,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           savedSkills,
           agentSkills,
           agentSecretRows,
+          user,
         ] = await Promise.all([
           deps.prisma.bot.findUniqueOrThrow({
             where: { id: run.botId },
@@ -1316,6 +1319,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               secret: { select: { id: true, ciphertext: true } },
             },
           }),
+          deps.prisma.user.findUnique({ where: { id: run.userId }, select: { uiLocale: true } }),
         ]);
         const agentEnvironment = decryptAgentEnvironment(agentSecretRows, deps.secretStore);
         runSecrets.push(...Object.values(agentEnvironment));
@@ -4138,7 +4142,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               runId,
               sourceMessageId: run.sourceMessageId,
               prompt,
+              uiLocale: normalizeUiLocale(user?.uiLocale),
               instructions: userTurnInstructions({
+                uiLocale: user?.uiLocale,
                 botInstructions: runIdentityInstruction(bot, run.trigger),
                 groupContext,
                 messagingContext,
@@ -5058,6 +5064,7 @@ export function dockerComputerToolInstruction(computerKind: string): string | un
 
 // Ordering matters: stable blocks first, volatile ones last, so the prefix stays cacheable.
 export function userTurnInstructions(parts: {
+  uiLocale?: string | null;
   botInstructions: string;
   groupContext: string | undefined;
   messagingContext: string | undefined;
@@ -5077,6 +5084,7 @@ export function userTurnInstructions(parts: {
 }): (string | undefined)[] {
   return [
     parts.botInstructions,
+    responseLanguageInstruction(parts.uiLocale),
     parts.groupContext,
     parts.messagingContext,
     parts.redactedMemoryContext,

@@ -35,6 +35,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import { useCopyText } from "../lib/copy-text";
+import { localizedSignInLabel } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry } from "../lib/model-auth";
 import { thinkingLevelLabel } from "../lib/model-catalog";
 import { rpc } from "../lib/rpc";
@@ -217,7 +218,7 @@ export function OnboardingPage() {
       : [];
   const subscriptionSignIn = selected?.signIn !== undefined;
   const acceptsKey = selected?.auth !== "oauth";
-  const signInLabel = selected?.oauthLabel ?? t`Sign in`;
+  const signInLabel = localizedSignInLabel(selected?.oauthLabel);
   const openAiCompatibleReady = openAiCompatibleConnectReady({
     baseUrl,
     modelId,

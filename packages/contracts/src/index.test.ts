@@ -216,6 +216,9 @@ describe("contracts", () => {
       expiresInSeconds: 900,
     };
     expect(ModelOAuthBeginSchema.safeParse({ ...shared, mode: "auth-url" }).success).toBe(true);
+    expect(
+      ModelOAuthBeginSchema.parse({ ...shared, mode: "auth-url", callbackOwner: "provider" }),
+    ).toMatchObject({ callbackOwner: "provider" });
     expect(ModelOAuthBeginSchema.safeParse({ ...shared, mode: "device-code" }).success).toBe(false);
     expect(
       ModelOAuthBeginSchema.safeParse({ ...shared, mode: "device-code", userCode: "ABCD-1234" })

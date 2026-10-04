@@ -37,7 +37,7 @@ export const SUBSCRIPTION_SIGN_IN_PROVIDERS: Record<
     billing: "",
   },
   "claude-code": {
-    mode: "browser",
+    mode: "auth-url",
     hint: "Claude Pro / Max",
     billing: "",
   },
@@ -896,7 +896,11 @@ export class PiOAuthLogins {
           }
           if (event.type === "auth_url") {
             signInStarted.resolve({
-              mode: isCliModelProvider(input.provider) ? "browser" : "auth-url",
+              mode:
+                SUBSCRIPTION_SIGN_IN_PROVIDERS[input.provider]?.mode === "browser"
+                  ? "browser"
+                  : "auth-url",
+              ...(isCliModelProvider(input.provider) ? { callbackOwner: "provider" as const } : {}),
               verificationUri: httpsAuthorizationUrl(event.url),
               expiresInSeconds: 15 * 60,
             });

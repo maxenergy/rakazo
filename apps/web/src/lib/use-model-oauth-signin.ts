@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import type { ModelOAuthBegin, ThinkingLevel } from "@rakazo/contracts";
 import { cancelModelOAuthAttempt, finishModelOAuthAttempt } from "@rakazo/core";
 import { useEffect, useRef, useState } from "react";
@@ -23,6 +24,7 @@ export function useModelOAuthSignIn(options: {
   onClearError?: () => void;
 }) {
   const { onFinished, onError, onClearError } = options;
+  const { t } = useLingui();
   const [oauth, setOauth] = useState<ModelOAuthBegin | null>(null);
   const [pasteCode, setPasteCode] = useState("");
   const [oauthPending, setOauthPending] = useState(false);
@@ -162,7 +164,12 @@ export function useModelOAuthSignIn(options: {
           cancelBrowser();
         };
         await browserAuth.open(started.verificationUri, {
-          callbackOwner: started.mode === "browser" ? "provider" : "app",
+          callbackOwner:
+            started.mode === "browser"
+              ? "provider"
+              : started.mode === "auth-url"
+                ? (started.callbackOwner ?? "app")
+                : "app",
         });
         if (controller.signal.aborted) return;
       } else {
@@ -179,7 +186,11 @@ export function useModelOAuthSignIn(options: {
       const loginId = oauthLoginIdRef.current;
       oauthLoginIdRef.current = null;
       if (loginId) void rpc.models.cancelOAuth({ loginId }).catch(() => undefined);
-      onErrorRef.current(err instanceof Error ? err.message : "Could not start sign-in");
+      onErrorRef.current(
+        err instanceof Error && err.message !== "Could not connect this provider"
+          ? err.message
+          : t`Could not connect this provider`,
+      );
       setOauth(null);
     } finally {
       if (!waitingForCode) {

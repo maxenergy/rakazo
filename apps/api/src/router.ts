@@ -38,6 +38,7 @@ import {
   buildMcpCredentialBlob,
   buildModelConnectPlaintext,
   CHATGPT_OAUTH_PROVIDER,
+  CliModelSignInError,
   CodexCatalogCache,
   ComputerBusyError,
   cancelComputerRunWork,
@@ -1126,15 +1127,21 @@ export function createRouter(deps: RouterDeps) {
         },
       ),
       beginOAuth: authed.models.beginOAuth.handler(async ({ context, input }) => {
-        return deps.oauthLogins.begin({
-          userId: context.actor.userId,
-          spaceId: context.actor.spaceId,
-          provider: input.provider,
-          modelId: input.modelId,
-          thinkingLevel: input.thinkingLevel,
-          label: input.label,
-          signal: context.signal,
-        });
+        try {
+          return await deps.oauthLogins.begin({
+            userId: context.actor.userId,
+            spaceId: context.actor.spaceId,
+            provider: input.provider,
+            modelId: input.modelId,
+            thinkingLevel: input.thinkingLevel,
+            label: input.label,
+            signal: context.signal,
+          });
+        } catch (error) {
+          if (error instanceof CliModelSignInError)
+            throw new ORPCError("BAD_REQUEST", { message: "Could not connect this provider" });
+          throw error;
+        }
       }),
       submitOAuthCode: authed.models.submitOAuthCode.handler(async ({ context, input }) => {
         return deps.oauthLogins.submit(input.loginId, context.actor, input.code);

@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loginCliModel } from "./cli-model-login.js";
+import { CliModelSignInError, loginCliModel } from "./cli-model-login.js";
 import { runCliProcess } from "./cli-model-process.js";
 import {
   PiOAuthLogins,
@@ -67,7 +67,9 @@ describe("official CLI login", () => {
       );
       return "Login complete\n";
     });
-    await loginCliModel("claude-code", { notify, prompt: vi.fn() });
+    const prompt = vi.fn().mockReturnValue(new Promise(() => undefined));
+    await loginCliModel("claude-code", { notify, prompt });
+    expect(prompt.mock.calls[0]?.[0].signal.aborted).toBe(true);
     expect(vi.mocked(runCliProcess).mock.calls[0]?.[0].args).toEqual([
       "auth",
       "login",
@@ -76,6 +78,84 @@ describe("official CLI login", () => {
     expect(notify).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ type: "auth_url", url: expect.stringContaining("state=partial&") }),
     );
+  });
+
+  it("supports the hosted Claude code fallback without exposing or collecting OAuth tokens", async () => {
+    const write = vi.fn();
+    let acceptCode: () => void;
+    const receivedCode = new Promise<void>((resolve) => {
+      acceptCode = resolve;
+    });
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      options.onOutput?.(
+        "Opening browser to sign in…\nIf the browser didn't open, visit: https://claude.com/cai/oauth/authorize?state=fake&redirect_uri=https%3A%2F%2Fplatform.claude.com%2Foauth%2Fcode%2Fcallback\nPaste code here if prompted > ",
+        (code) => {
+          write(code);
+          acceptCode();
+        },
+        vi.fn(),
+        true,
+      );
+      await receivedCode;
+      return "Login successful\n";
+    });
+    const logins = new PiOAuthLogins();
+    const scope = { userId: "test-user", spaceId: "test-space" };
+    const started = await logins.begin({ ...scope, provider: "claude-code" });
+    expect(started).toMatchObject({ mode: "auth-url", callbackOwner: "provider" });
+    expect(new URL(started.verificationUri).hostname).toBe("claude.com");
+    expect(() =>
+      logins.submit(started.loginId, { ...scope, userId: "other-user" }, "code#state"),
+    ).toThrow("not found");
+    expect(write).not.toHaveBeenCalled();
+    logins.submit(started.loginId, scope, "fake-code#fake-state");
+    await receivedCode;
+    await vi.waitFor(() =>
+      expect(logins.complete(started.loginId, scope).status).toBe("connected"),
+    );
+    const finished = await logins.finish(started.loginId, scope, async (login) => login.credential);
+    expect(finished).toEqual({
+      status: "connected",
+      value: { type: "cli", profileId: expect.any(String) },
+    });
+    expect(write).toHaveBeenCalledExactlyOnceWith("fake-code#fake-state\n");
+  });
+
+  it.each([
+    "https://claude.com.attacker.invalid/authorize",
+    "https://claude.com@attacker.invalid/authorize",
+    "https://user:password@claude.com/authorize",
+    "https://claude.com:8443/authorize",
+  ])("rejects untrusted Claude sign-in URLs: %s", async (url) => {
+    const notify = vi.fn();
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      options.onOutput?.(`${url}\n`, vi.fn(), vi.fn(), true);
+      return "";
+    });
+    await expect(loginCliModel("claude-code", { notify, prompt: vi.fn() })).rejects.toBeInstanceOf(
+      CliModelSignInError,
+    );
+    expect(notify).not.toHaveBeenCalled();
+    expect(await readdir(join(directory, "model-cli"))).toEqual([]);
+  });
+
+  it("does not forward multiple lines to the Claude CLI code prompt", async () => {
+    const write = vi.fn();
+    const stop = vi.fn();
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      options.onOutput?.("https://claude.com/cai/oauth/authorize?state=fake\n", write, stop, true);
+      await Promise.resolve();
+      await Promise.resolve();
+      return "";
+    });
+    await expect(
+      loginCliModel("claude-code", {
+        notify: vi.fn(),
+        prompt: vi.fn().mockResolvedValue("fake-code\nextra-input"),
+      }),
+    ).rejects.toBeInstanceOf(CliModelSignInError);
+    expect(write).not.toHaveBeenCalled();
+    expect(stop).toHaveBeenCalledOnce();
   });
 
   it("drives Gemini's ACP initialize/authenticate handshake and stops after success", async () => {

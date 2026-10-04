@@ -617,7 +617,11 @@ export default function Models() {
       const loginId = oauthLoginIdRef.current;
       oauthLoginIdRef.current = null;
       if (loginId) void rpc("models/cancelOAuth", { loginId }).catch(() => undefined);
-      setError(err instanceof Error ? err.message : t("Could not start sign-in"));
+      setError(
+        err instanceof Error && err.message !== "Could not connect this provider"
+          ? err.message
+          : t("Could not connect this provider"),
+      );
       setOauth(null);
     } finally {
       if (!waitingForCode) {

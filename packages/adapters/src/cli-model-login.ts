@@ -6,6 +6,9 @@ import type { AuthInteraction } from "@earendil-works/pi-ai";
 import type { CliModelCredential, CliModelProvider } from "./cli-model-process.js";
 import { prepareCliProfile, removeCliProfile, runCliProcess } from "./cli-model-process.js";
 
+/** Only adapter-owned messages may cross the public RPC boundary. */
+export class CliModelSignInError extends Error {}
+
 /** Login remains inside the unmodified vendor CLI, including credential storage/refresh. */
 export async function loginCliModel(
   provider: CliModelProvider,
@@ -16,6 +19,8 @@ export async function loginCliModel(
   let announced = false;
   let authenticated = provider !== "gemini-cli";
   let acpBuffer = "";
+  const codeAbort = new AbortController();
+  let codeFailure = false;
   try {
     const directory = await prepareCliProfile(profileId);
     if (provider === "gemini-cli") {
@@ -58,9 +63,10 @@ export async function loginCliModel(
                 : provider === "grok-cli"
                   ? ["auth.x.ai", "grok.com", "accounts.x.ai"]
                   : provider === "claude-code"
-                    ? ["claude.ai", "platform.claude.com", "console.anthropic.com"]
+                    ? ["claude.com", "claude.ai", "platform.claude.com", "console.anthropic.com"]
                     : ["accounts.google.com"];
-            if (!hosts.includes(url.hostname)) throw new Error("Untrusted CLI sign-in URL.");
+            if (!hosts.includes(url.hostname) || url.username || url.password || url.port)
+              throw new Error("Untrusted CLI sign-in URL.");
             if (provider === "codex-cli" || provider === "grok-cli") {
               const userCode = buffer.match(/\b[A-Z0-9]{4,6}-[A-Z0-9]{4,6}\b/)?.[0];
               if (userCode) {
@@ -75,6 +81,27 @@ export async function loginCliModel(
             } else {
               interaction.notify({ type: "auth_url", url: url.href });
               announced = true;
+              if (provider === "claude-code") {
+                // The CLI's printed URL may finish at a hosted code page rather
+                // than its loopback listener. Keep its native stdin prompt wired
+                // to the existing paste-code flow; the CLI still validates PKCE.
+                void interaction
+                  .prompt({
+                    type: "manual_code",
+                    message: "Paste authorization code.",
+                    signal: codeAbort.signal,
+                  })
+                  .then((code) => {
+                    if (codeAbort.signal.aborted) return;
+                    if (!code.trim() || /[\r\n]/.test(code)) throw new Error("Invalid code.");
+                    write(`${code.trim()}\n`);
+                  })
+                  .catch(() => {
+                    if (codeAbort.signal.aborted) return;
+                    codeFailure = true;
+                    stop();
+                  });
+              }
             }
           }
         }
@@ -103,7 +130,7 @@ export async function loginCliModel(
         }
       },
     });
-    if (!announced || !authenticated)
+    if (!announced || !authenticated || codeFailure)
       throw new Error("CLI sign-in did not complete. Start sign-in again.");
     return { type: "cli", profileId };
   } catch (error) {
@@ -114,7 +141,9 @@ export async function loginCliModel(
         error.message,
       )
     )
-      throw error;
-    throw new Error("CLI sign-in failed. Start sign-in again.");
+      throw new CliModelSignInError(error.message);
+    throw new CliModelSignInError("CLI sign-in failed. Start sign-in again.");
+  } finally {
+    codeAbort.abort();
   }
 }

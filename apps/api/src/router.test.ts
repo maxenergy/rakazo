@@ -1,5 +1,6 @@
 import { RPCHandler } from "@orpc/server/fetch";
 import {
+  CliModelSignInError,
   COMPUTER_SCREEN_UNAVAILABLE,
   CodexCatalogCache,
   ComputerScreenUnavailableError,
@@ -1406,6 +1407,30 @@ describe("model credential persistence", () => {
     );
     return response;
   }
+
+  it("returns a public connection error for a failed CLI login without reflecting diagnostics", async () => {
+    const { deps } = persistDeps();
+    deps.oauthLogins.begin = vi
+      .fn()
+      .mockRejectedValue(new CliModelSignInError("CLI sign-in failed. Start sign-in again."));
+    const response = await call(new RPCHandler(createRouter(deps)), "models/beginOAuth", {
+      provider: "claude-code",
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      json: { code: "BAD_REQUEST", message: "Could not connect this provider" },
+    });
+  });
+
+  it("keeps unexpected login errors private", async () => {
+    const { deps } = persistDeps();
+    deps.oauthLogins.begin = vi.fn().mockRejectedValue(new Error("private-host-diagnostic"));
+    const response = await call(new RPCHandler(createRouter(deps)), "models/beginOAuth", {
+      provider: "claude-code",
+    });
+    expect(response.status).toBe(500);
+    expect(await response.text()).not.toContain("private-host-diagnostic");
+  });
 
   it("does not persist a stringified null model id from subscription sign-in", async () => {
     const { upsert, finish, handler } = persistDeps();

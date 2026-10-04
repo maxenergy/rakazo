@@ -35,6 +35,7 @@ describe("CLI credential and command boundary", () => {
       "CODEX_HOME",
       "CLAUDE_CONFIG_DIR",
       "GROK_HOME",
+      "BROWSER",
     ])
       vi.stubEnv(name, "private-host-setting");
     for (const provider of ["codex-cli", "claude-code", "gemini-cli", "grok-cli"] as const) {
@@ -43,6 +44,7 @@ describe("CLI credential and command boundary", () => {
       expect(env.HOME).toBe("managed-profile");
       expect(env.USERPROFILE).toBe("managed-profile");
       expect(env.OPENAI_API_KEY).toBeUndefined();
+      expect(env.BROWSER).toBe(provider === "claude-code" ? "none" : undefined);
     }
   });
 

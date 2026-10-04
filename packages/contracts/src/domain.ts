@@ -1039,7 +1039,11 @@ export const ModelOAuthBeginSchema = z.discriminatedUnion("mode", [
     mode: z.literal("device-code"),
     userCode: z.string().min(1),
   }),
-  ModelOAuthBeginBaseSchema.extend({ mode: z.literal("auth-url") }),
+  ModelOAuthBeginBaseSchema.extend({
+    mode: z.literal("auth-url"),
+    // Official CLIs own token exchange even when their fallback URL returns a code.
+    callbackOwner: z.enum(["app", "provider"]).optional(),
+  }),
   ModelOAuthBeginBaseSchema.extend({ mode: z.literal("browser") }),
 ]);
 export type ModelOAuthBegin = z.infer<typeof ModelOAuthBeginSchema>;

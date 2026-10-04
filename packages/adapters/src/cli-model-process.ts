@@ -131,7 +131,12 @@ export function cliEnvironment(provider: CliModelProvider, directory: string): N
   env.APPDATA = join(directory, "AppData", "Roaming");
   env.LOCALAPPDATA = join(directory, "AppData", "Local");
   if (provider === "codex-cli") env.CODEX_HOME = join(directory, ".codex");
-  if (provider === "claude-code") env.CLAUDE_CONFIG_DIR = join(directory, ".claude");
+  if (provider === "claude-code") {
+    env.CLAUDE_CONFIG_DIR = join(directory, ".claude");
+    // Rakazo opens the announced URL on the user's device. Do not let the CLI
+    // start a second browser on the API host inside this credential profile.
+    env.BROWSER = "none";
+  }
   if (provider === "grok-cli") env.GROK_HOME = join(directory, ".grok");
   if (provider === "gemini-cli") {
     env.GEMINI_CLI_HOME = directory;

@@ -1,5 +1,31 @@
 import { describe, expect, it, vi } from "vitest";
-import { waitForModelOAuthCompletion } from "./model-oauth.js";
+import { modelOAuthErrorMessage, waitForModelOAuthCompletion } from "./model-oauth.js";
+
+describe("modelOAuthErrorMessage", () => {
+  it("uses translated catalog keys for failed, expired, and rejected CLI sign-ins", () => {
+    expect(modelOAuthErrorMessage(new Error("CLI sign-in failed. Start sign-in again."))).toBe(
+      "Could not connect this provider",
+    );
+    expect(modelOAuthErrorMessage(new Error("CLI request timed out. Try again."))).toBe(
+      "Authorization timed out. Please try again.",
+    );
+    expect(
+      modelOAuthErrorMessage(new Error("Sign-in session not found. Start sign-in again.")),
+    ).toBe("Authorization timed out. Please try again.");
+    expect(
+      modelOAuthErrorMessage(new Error("Authorization code is invalid. Start sign-in again.")),
+    ).toBe("Authorization code is invalid. Start sign-in again.");
+  });
+
+  it("does not expose vendor diagnostics or non-error payloads", () => {
+    for (const error of [
+      new Error("OAuth rejected for private@example.test; token=fake-secret"),
+      { message: "private diagnostic" },
+      null,
+    ])
+      expect(modelOAuthErrorMessage(error)).toBe("Could not connect this provider");
+  });
+});
 
 describe("waitForModelOAuthCompletion", () => {
   it("stops polling when its signal is aborted", async () => {

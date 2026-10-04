@@ -18,6 +18,7 @@ import {
   featuredModelProviders,
   filterModelCatalog,
   initialModelProbeState,
+  modelOAuthErrorMessage,
   pickCatalogModelId,
 } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
@@ -617,11 +618,7 @@ export default function Models() {
       const loginId = oauthLoginIdRef.current;
       oauthLoginIdRef.current = null;
       if (loginId) void rpc("models/cancelOAuth", { loginId }).catch(() => undefined);
-      setError(
-        err instanceof Error && err.message !== "Could not connect this provider"
-          ? err.message
-          : t("Could not connect this provider"),
-      );
+      setError(t(modelOAuthErrorMessage(err)));
       setOauth(null);
     } finally {
       if (!waitingForCode) {
@@ -660,7 +657,7 @@ export default function Models() {
         retryable = true;
         setPasteCode(code);
       }
-      setError(err instanceof Error ? err.message : t("Could not finish sign-in"));
+      setError(t(modelOAuthErrorMessage(err)));
     } finally {
       oauthCodeSubmittingRef.current = false;
       if (!retryable) {

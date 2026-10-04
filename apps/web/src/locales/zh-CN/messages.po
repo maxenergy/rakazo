@@ -557,11 +557,16 @@ msgstr "已附加 {path}"
 msgid "Attachment"
 msgstr "附件"
 
+#: src/lib/use-model-oauth-signin.ts
+msgid "Authorization code is invalid. Start sign-in again."
+msgstr "授权码无效，请重新登录。"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code or callback URL"
 msgstr "授权码或回调 URL"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/shell/message-cards.tsx
 msgid "Authorization timed out. Please try again."
 msgstr "授权超时，请重试。"
@@ -1145,6 +1150,7 @@ msgstr "无法连接"
 msgid "Could not connect {0}"
 msgstr "无法连接 {0}"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not connect this provider"
 msgstr "无法连接此提供方"

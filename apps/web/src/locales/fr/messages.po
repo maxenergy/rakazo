@@ -557,11 +557,16 @@ msgstr "{path} joint"
 msgid "Attachment"
 msgstr "Pièce jointe"
 
+#: src/lib/use-model-oauth-signin.ts
+msgid "Authorization code is invalid. Start sign-in again."
+msgstr "Le code d’autorisation est invalide. Reconnectez-vous."
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code or callback URL"
 msgstr "Code d'autorisation ou URL de rappel"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/shell/message-cards.tsx
 msgid "Authorization timed out. Please try again."
 msgstr "L'autorisation a expiré. Veuillez réessayer."
@@ -1145,6 +1150,7 @@ msgstr "Impossible de se connecter"
 msgid "Could not connect {0}"
 msgstr "Impossible de se connecter à {0}"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not connect this provider"
 msgstr "Impossible de se connecter à ce fournisseur"

@@ -39,6 +39,10 @@ and API model IDs are not migrated. Rakazo checks subscription access using the
 CLI's `/usage` command without an inference turn, disables automatic AI-credit
 spending, and denies native file, shell, browser, and MCP actions. The installer's
 standard binary location is also checked when PATH has not refreshed yet.
+Its browser login runs in a private interactive terminal: print mode cannot
+reliably accept pasted authorization codes and times out after one minute.
+Rakazo allows up to fifteen minutes for the interactive login, then checks the
+saved credential from a new headless process before storing the connection.
 
 CLI connections currently accept text. The model catalog advertises this so
 image workflows can select another connection. Replies arrive when the CLI

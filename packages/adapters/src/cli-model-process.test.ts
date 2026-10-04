@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { PassThrough } from "node:stream";
+import { spawn as spawnTerminal } from "node-pty";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cliEnvironment,
@@ -17,6 +18,7 @@ vi.mock("node:child_process", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   spawn: vi.fn(),
 }));
+vi.mock("node-pty", () => ({ spawn: vi.fn() }));
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -83,12 +85,21 @@ describe("CLI credential and command boundary", () => {
         queueMicrotask(() => child.emit("close", 0));
         return child;
       });
+      vi.mocked(spawnTerminal).mockReturnValue({
+        onData: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+        onExit: vi.fn().mockImplementation((listener) => {
+          queueMicrotask(() => listener({ exitCode: 0 }));
+          return { dispose: vi.fn() };
+        }),
+      } as unknown as ReturnType<typeof spawnTerminal>);
       const profileId = "11111111-1111-4111-8111-111111111111";
       await runCliProcess({ provider: "antigravity-cli", profileId, args: [], interactiveAuth });
-      const env = vi.mocked(spawn).mock.calls[0]?.[2]?.env;
+      const env = interactiveAuth
+        ? vi.mocked(spawnTerminal).mock.calls[0]?.[2]?.env
+        : vi.mocked(spawn).mock.calls[0]?.[2]?.env;
       expect(env?.USERPROFILE).toBe(cliProfileDirectory(profileId));
       expect(env?.AGY_CLI_NONINTERACTIVE_HEADLESS).toBe(interactiveAuth ? undefined : "true");
-      expect(env?.AGY_CLI_INTERACTIVE_HEADLESS).toBe(interactiveAuth ? "true" : undefined);
+      expect(env?.AGY_CLI_INTERACTIVE_HEADLESS).toBeUndefined();
       expect(env?.SSH_CONNECTION).toBe(interactiveAuth ? "127.0.0.1 0 127.0.0.1 0" : undefined);
       const settings = JSON.parse(
         await readFile(
@@ -108,6 +119,45 @@ describe("CLI credential and command boundary", () => {
       ])
         expect(settings.permissions.deny).toContain(`${action}(*)`);
       expect(settings).not.toHaveProperty("modelProvider");
+      if (interactiveAuth) expect(spawn).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    "cancels an interactive sign-in and disposes its terminal listeners (already exited: %s)",
+    async (alreadyExited) => {
+      const root = await mkdtemp(join(tmpdir(), "rakazo-agy-cancel-test-"));
+      roots.push(root);
+      vi.stubEnv("DATA_DIR", root);
+      vi.stubEnv("PATH", `${root}${delimiter}${process.env.PATH || process.env.Path || ""}`);
+      await writeFile(join(root, process.platform === "win32" ? "agy.exe" : "agy"), "fixture");
+      const dispose = vi.fn();
+      let exit: (event: { exitCode: number }) => void;
+      const kill = vi.fn(() => {
+        queueMicrotask(() => exit({ exitCode: 1 }));
+        if (alreadyExited) throw new Error("Terminal has already exited");
+      });
+      vi.mocked(spawnTerminal).mockReturnValue({
+        kill,
+        onData: vi.fn().mockReturnValue({ dispose }),
+        onExit: vi.fn((listener) => {
+          exit = listener;
+          return { dispose };
+        }),
+      } as unknown as ReturnType<typeof spawnTerminal>);
+      const controller = new AbortController();
+      const request = runCliProcess({
+        provider: "antigravity-cli",
+        profileId: "11111111-1111-4111-8111-111111111111",
+        args: [],
+        interactiveAuth: true,
+        signal: controller.signal,
+      });
+      await vi.waitFor(() => expect(spawnTerminal).toHaveBeenCalledOnce());
+      controller.abort();
+      await expect(request).rejects.toThrow("CLI request cancelled.");
+      expect(kill).toHaveBeenCalledOnce();
+      expect(dispose).toHaveBeenCalledTimes(2);
     },
   );
 

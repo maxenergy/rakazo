@@ -202,9 +202,9 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
   const env = cliEnvironment(options.provider, directory);
   if (options.provider === "antigravity-cli" && options.interactiveAuth) {
     delete env.AGY_CLI_NONINTERACTIVE_HEADLESS;
-    env.AGY_CLI_INTERACTIVE_HEADLESS = "true";
     // Use the CLI's documented remote code flow; Rakazo opens the URL on the client.
     env.SSH_CONNECTION = "127.0.0.1 0 127.0.0.1 0";
+    return runCliTerminal(options, directory, executable, env);
   }
   return new Promise<string>((resolveResult, reject) => {
     const child = spawn(executable.file, [...executable.prefix, ...options.args], {
@@ -289,5 +289,75 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
       else resolveResult(output);
     });
     if (options.input !== undefined) child.stdin.end(options.input);
+  });
+}
+
+/** Authentication needs the vendor's interactive terminal, not print-mode stdin. */
+async function runCliTerminal(
+  options: CliProcessOptions,
+  directory: string,
+  executable: { file: string; prefix: string[] },
+  env: NodeJS.ProcessEnv,
+): Promise<string> {
+  // Load native terminal support only when a connection needs interactive login.
+  const { spawn: spawnTerminal } = await import("node-pty");
+  options.signal?.throwIfAborted();
+  return new Promise<string>((resolveResult, reject) => {
+    const terminal = spawnTerminal(executable.file, [...executable.prefix, ...options.args], {
+      cwd: directory,
+      env,
+      name: "xterm-256color",
+      // Keep the OAuth URL on one line even when the CLI redraws its screen.
+      cols: 2048,
+      rows: 20,
+    });
+    let output = "";
+    let failure: Error | undefined;
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      // node-pty closes the terminal and terminates its attached processes.
+      try {
+        terminal.kill();
+      } catch {
+        // The process may already have exited before its exit event arrives.
+      }
+    };
+    const abort = () => {
+      failure = new Error("CLI request cancelled.");
+      stop();
+    };
+    const timer = setTimeout(
+      () => {
+        failure = new Error("CLI request timed out. Try again.");
+        stop();
+      },
+      options.timeoutMs ?? 15 * 60_000,
+    );
+    timer.unref();
+    const dataListener = terminal.onData((text) => {
+      if (stopped) return;
+      // Terminal redraws repeat the same screen. Bound retained output rather
+      // than counting redraws against the inference response size limit.
+      output = (output + text).slice(-64 * 1024);
+      try {
+        options.onOutput?.(text, (value) => terminal.write(value), stop, true);
+      } catch {
+        failure = new Error("CLI sign-in failed. Start sign-in again.");
+        stop();
+      }
+    });
+    const exitListener = terminal.onExit(({ exitCode }) => {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", abort);
+      dataListener.dispose();
+      exitListener.dispose();
+      if (failure) reject(failure);
+      else if (exitCode !== 0 && !stopped) reject(new Error("CLI sign-in failed."));
+      else resolveResult(output);
+    });
+    options.signal?.addEventListener("abort", abort, { once: true });
+    if (options.signal?.aborted) abort();
   });
 }

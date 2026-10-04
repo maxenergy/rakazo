@@ -557,11 +557,16 @@ msgstr "{path} adjunto"
 msgid "Attachment"
 msgstr "Archivo adjunto"
 
+#: src/lib/use-model-oauth-signin.ts
+msgid "Authorization code is invalid. Start sign-in again."
+msgstr "El código de autorización no es válido. Vuelve a iniciar sesión."
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code or callback URL"
 msgstr "Código de autorización o URL de callback"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/shell/message-cards.tsx
 msgid "Authorization timed out. Please try again."
 msgstr "Se agotó el tiempo de autorización. Inténtalo de nuevo."
@@ -1145,6 +1150,7 @@ msgstr "No se pudo conectar"
 msgid "Could not connect {0}"
 msgstr "No se pudo conectar {0}"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not connect this provider"
 msgstr "No se pudo conectar este proveedor"

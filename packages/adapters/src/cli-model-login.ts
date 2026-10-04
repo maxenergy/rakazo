@@ -16,8 +16,10 @@ export async function loginCliModel(
   let buffer = "";
   let announced = false;
   let authenticated = provider !== "antigravity-cli";
+  let selectedGoogleOAuth = false;
+  let authorizationUrl: URL | undefined;
   const codeAbort = new AbortController();
-  let codeFailure = false;
+  let codeFailure: string | undefined;
   try {
     await prepareCliProfile(profileId);
     await runCliProcess({
@@ -30,11 +32,18 @@ export async function loginCliModel(
           ? ["login", "--device-auth"]
           : provider === "claude-code"
             ? ["auth", "login", "--claudeai"]
-            : // /usage is a CLI-owned command: validates access without a model turn.
-              ["--print", "/usage", "--output-format", "json"],
+            : [],
       interactiveAuth: provider === "antigravity-cli",
       onOutput(text, write, stop) {
         buffer = stripVTControlCharacters(buffer + text).slice(-64 * 1024);
+        if (
+          provider === "antigravity-cli" &&
+          !selectedGoogleOAuth &&
+          /Select login method:[\s\S]*>\s*1\. Google OAuth/.test(buffer)
+        ) {
+          selectedGoogleOAuth = true;
+          write("\r");
+        }
         if (!announced) {
           const uri = buffer.match(/https:\/\/[^\s<>"]+(?=[\s<>"])/)?.[0];
           if (uri) {
@@ -49,6 +58,7 @@ export async function loginCliModel(
                     : ["accounts.google.com"];
             if (!hosts.includes(url.hostname) || url.username || url.password || url.port)
               throw new Error("Untrusted CLI sign-in URL.");
+            authorizationUrl = url;
             if (provider === "codex-cli" || provider === "grok-cli") {
               const userCode = buffer.match(/\b[A-Z0-9]{4,6}-[A-Z0-9]{4,6}\b/)?.[0];
               if (userCode) {
@@ -75,26 +85,66 @@ export async function loginCliModel(
                   .then((code) => {
                     if (codeAbort.signal.aborted) return;
                     if (!code.trim() || /[\r\n]/.test(code)) throw new Error("Invalid code.");
-                    write(`${code.trim()}\n`);
+                    if (provider === "antigravity-cli") {
+                      let value = code.trim();
+                      if (/^https?:\/\//i.test(value)) {
+                        const callback = new URL(value);
+                        if (
+                          callback.origin !== "https://antigravity.google" ||
+                          callback.pathname !== "/oauth-callback" ||
+                          callback.username ||
+                          callback.password ||
+                          callback.searchParams.get("state") !==
+                            authorizationUrl?.searchParams.get("state")
+                        )
+                          throw new Error("Invalid code.");
+                        value = callback.searchParams.get("code") ?? "";
+                      }
+                      // A pasted code must not inject terminal keys or CLI commands.
+                      if (!/^[A-Za-z0-9][A-Za-z0-9_./~-]{0,8191}$/.test(value))
+                        throw new Error("Invalid code.");
+                      write(`${value}\r`);
+                    } else write(`${code.trim()}\n`);
                   })
                   .catch(() => {
                     if (codeAbort.signal.aborted) return;
-                    codeFailure = true;
+                    codeFailure = "Authorization code is invalid. Start sign-in again.";
                     stop();
                   });
               }
             }
           }
         }
-        if (provider === "antigravity-cli" && buffer.includes("Authentication successful!"))
+        if (provider === "antigravity-cli" && buffer.includes("Authentication successful!")) {
           authenticated = true;
+          stop();
+        }
+        if (provider === "antigravity-cli" && buffer.includes("Got an error:")) {
+          codeFailure = buffer.includes("invalid_grant")
+            ? "Authorization code is invalid. Start sign-in again."
+            : "CLI sign-in failed. Start sign-in again.";
+          stop();
+        }
       },
     });
-    if (!announced || !authenticated || codeFailure)
+    if (codeFailure) throw new CliModelSignInError(codeFailure);
+    if (!announced || !authenticated)
       throw new Error("CLI sign-in did not complete. Start sign-in again.");
+    if (provider === "antigravity-cli") {
+      // Confirm that a new process can use the saved subscription credential.
+      // /usage is handled by the CLI itself and does not run model inference.
+      await runCliProcess({
+        provider,
+        profileId,
+        signal: interaction.signal,
+        timeoutMs: 60_000,
+        args: ["--print", "/usage", "--output-format", "json"],
+      });
+    }
     return { type: "cli", profileId };
   } catch (error) {
     await removeCliProfile(profileId).catch(() => undefined);
+    if (error instanceof CliModelSignInError) throw error;
     if (
       error instanceof Error &&
       /^(Install .+ host first\.|CLI request cancelled\.|CLI request timed out\.)/.test(

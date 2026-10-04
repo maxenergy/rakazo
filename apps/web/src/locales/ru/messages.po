@@ -557,11 +557,16 @@ msgstr "Прикреплён {path}"
 msgid "Attachment"
 msgstr "Вложение"
 
+#: src/lib/use-model-oauth-signin.ts
+msgid "Authorization code is invalid. Start sign-in again."
+msgstr "Код авторизации недействителен. Войдите снова."
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code or callback URL"
 msgstr "Код авторизации или URL обратного вызова"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/shell/message-cards.tsx
 msgid "Authorization timed out. Please try again."
 msgstr "Время авторизации истекло. Пожалуйста, попробуйте еще раз."
@@ -1145,6 +1150,7 @@ msgstr "Не удалось подключиться"
 msgid "Could not connect {0}"
 msgstr "Не удалось подключить {0}"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not connect this provider"
 msgstr "Не удалось подключить этого провайдера"

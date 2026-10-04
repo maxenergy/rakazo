@@ -163,9 +163,21 @@ describe("official CLI login", () => {
     const write = vi.fn();
     const stop = vi.fn();
     vi.mocked(runCliProcess).mockImplementation(async (options) => {
-      expect(options.args).toEqual(["--print", "/usage", "--output-format", "json"]);
+      if (!options.interactiveAuth) {
+        expect(options.args).toEqual(["--print", "/usage", "--output-format", "json"]);
+        return "Subscription quotas\n";
+      }
+      expect(options.args).toEqual([]);
       expect(options.interactiveAuth).toBe(true);
       expect(options).not.toHaveProperty("initialInput");
+      options.onOutput?.(
+        "Select login method:\n> 1. Google OAuth\n2. Use a Google Cloud project\n",
+        write,
+        stop,
+        true,
+      );
+      expect(write).toHaveBeenCalledExactlyOnceWith("\r");
+      write.mockClear();
       options.onOutput?.(
         "https://accounts.google.com/o/oauth2/auth?state=fake&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback\n",
         write,
@@ -173,7 +185,7 @@ describe("official CLI login", () => {
         false,
       );
       await Promise.resolve();
-      expect(write).toHaveBeenCalledExactlyOnceWith("fake-code\n");
+      expect(write).toHaveBeenCalledExactlyOnceWith("fake-code\r");
       options.onOutput?.("Authentication suc", write, stop, false);
       options.onOutput?.("cessful!\n", write, stop, false);
       return "";
@@ -182,8 +194,117 @@ describe("official CLI login", () => {
       notify,
       prompt: vi.fn().mockResolvedValue("fake-code"),
     });
-    expect(stop).not.toHaveBeenCalled();
+    expect(stop).toHaveBeenCalledOnce();
     expect(notify).toHaveBeenCalledOnce();
+    expect(runCliProcess).toHaveBeenCalledTimes(2);
+    const calls = vi.mocked(runCliProcess).mock.calls;
+    expect(calls[1]?.[0].profileId).toBe(calls[0]?.[0].profileId);
+  });
+
+  it("extracts a code only from the hosted callback for the current Antigravity attempt", async () => {
+    const write = vi.fn();
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      if (!options.interactiveAuth) return "Subscription quotas\n";
+      options.onOutput?.(
+        "https://accounts.google.com/o/oauth2/auth?state=current\n",
+        write,
+        vi.fn(),
+        true,
+      );
+      await Promise.resolve();
+      options.onOutput?.("Authentication successful!\n", write, vi.fn(), true);
+      return "";
+    });
+    await loginCliModel("antigravity-cli", {
+      notify: vi.fn(),
+      prompt: vi
+        .fn()
+        .mockResolvedValue(
+          "https://antigravity.google/oauth-callback?code=4%2Ffake-code&state=current",
+        ),
+    });
+    expect(write).toHaveBeenCalledExactlyOnceWith("4/fake-code\r");
+  });
+
+  it.each([
+    "https://antigravity.google/oauth-callback?code=fake&state=old",
+    "https://antigravity.google.attacker.invalid/oauth-callback?code=fake&state=current",
+    "https://attacker@antigravity.google/oauth-callback?code=fake&state=current",
+    "https://antigravity.google/oauth-callback?state=current",
+    "fake\u001b[Acode",
+    "fake\tcode",
+    "/logout",
+    "fake\nextra-command",
+  ])("rejects callback confusion and terminal input injection: %s", async (code) => {
+    const write = vi.fn();
+    const stop = vi.fn();
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      options.onOutput?.(
+        "https://accounts.google.com/o/oauth2/auth?state=current\n",
+        write,
+        stop,
+        true,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      return "";
+    });
+    await expect(
+      loginCliModel("antigravity-cli", {
+        notify: vi.fn(),
+        prompt: vi.fn().mockResolvedValue(code),
+      }),
+    ).rejects.toThrow("Authorization code is invalid.");
+    expect(write).not.toHaveBeenCalled();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(await readdir(join(directory, "model-cli"))).toEqual([]);
+  });
+
+  it("reports a native token rejection without leaking vendor diagnostics", async () => {
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      options.onOutput?.(
+        "https://accounts.google.com/o/oauth2/auth?state=current\n",
+        vi.fn(),
+        vi.fn(),
+        true,
+      );
+      options.onOutput?.(
+        'Got an error: token exchange failed: oauth2: "invalid_grant" "Private vendor details"\n',
+        vi.fn(),
+        vi.fn(),
+        true,
+      );
+      return "";
+    });
+    await expect(
+      loginCliModel("antigravity-cli", {
+        notify: vi.fn(),
+        prompt: vi.fn().mockReturnValue(new Promise(() => undefined)),
+      }),
+    ).rejects.toThrow("Authorization code is invalid. Start sign-in again.");
+    expect(await readdir(join(directory, "model-cli"))).toEqual([]);
+  });
+
+  it("removes the profile when the saved Antigravity credential cannot authenticate a new process", async () => {
+    vi.mocked(runCliProcess)
+      .mockImplementationOnce(async (options) => {
+        options.onOutput?.(
+          "https://accounts.google.com/o/oauth2/auth?state=current\n",
+          vi.fn(),
+          vi.fn(),
+          true,
+        );
+        options.onOutput?.("Authentication successful!\n", vi.fn(), vi.fn(), true);
+        return "";
+      })
+      .mockRejectedValueOnce(new Error("Native cached credential failed: private detail"));
+    await expect(
+      loginCliModel("antigravity-cli", {
+        notify: vi.fn(),
+        prompt: vi.fn().mockReturnValue(new Promise(() => undefined)),
+      }),
+    ).rejects.toThrow("CLI sign-in failed. Start sign-in again.");
+    expect(await readdir(join(directory, "model-cli"))).toEqual([]);
   });
 
   it("does not treat an Antigravity authorization URL alone as a completed login", async () => {

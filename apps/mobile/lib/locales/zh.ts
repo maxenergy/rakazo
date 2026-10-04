@@ -1,4 +1,5 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Authorization code is invalid. Start sign-in again.": "授权码无效，请重新登录。",
   "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
     "Rakazo 界面暂不支持 {provider} 订阅登录。如果此部署已配置凭据，可以跳过。",
   "Configured model: {provider}": "已配置模型：{provider}",

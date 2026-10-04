@@ -557,11 +557,16 @@ msgstr "{path} angehängt"
 msgid "Attachment"
 msgstr "Anhang"
 
+#: src/lib/use-model-oauth-signin.ts
+msgid "Authorization code is invalid. Start sign-in again."
+msgstr "Der Autorisierungscode ist ungültig. Melde dich erneut an."
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code or callback URL"
 msgstr "Autorisierungscode oder Callback-URL"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/shell/message-cards.tsx
 msgid "Authorization timed out. Please try again."
 msgstr "Zeitüberschreitung bei der Autorisierung. Versuche es erneut."
@@ -1145,6 +1150,7 @@ msgstr "Verbindung fehlgeschlagen"
 msgid "Could not connect {0}"
 msgstr "Verbindung mit {0} fehlgeschlagen"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not connect this provider"
 msgstr "Anbieter konnte nicht verbunden werden"

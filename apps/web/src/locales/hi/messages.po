@@ -557,11 +557,16 @@ msgstr "{path} संलग्न किया गया"
 msgid "Attachment"
 msgstr "अटैचमेंट"
 
+#: src/lib/use-model-oauth-signin.ts
+msgid "Authorization code is invalid. Start sign-in again."
+msgstr "प्राधिकरण कोड अमान्य है। फिर से साइन इन करें।"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code or callback URL"
 msgstr "ऑथराइज़ेशन कोड या कॉलबैक URL"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/shell/message-cards.tsx
 msgid "Authorization timed out. Please try again."
 msgstr "ऑथराइज़ेशन का समय समाप्त हो गया। कृपया पुनः प्रयास करें।"
@@ -1145,6 +1150,7 @@ msgstr "कनेक्ट नहीं हो सका"
 msgid "Could not connect {0}"
 msgstr "{0} कनेक्ट नहीं हो सका"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not connect this provider"
 msgstr "यह प्रोवाइडर कनेक्ट नहीं हो सका"

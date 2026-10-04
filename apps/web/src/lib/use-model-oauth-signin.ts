@@ -1,6 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
 import type { ModelOAuthBegin, ThinkingLevel } from "@rakazo/contracts";
-import { cancelModelOAuthAttempt, finishModelOAuthAttempt } from "@rakazo/core";
+import {
+  cancelModelOAuthAttempt,
+  finishModelOAuthAttempt,
+  modelOAuthErrorMessage,
+} from "@rakazo/core";
 import { useEffect, useRef, useState } from "react";
 import { desktopBridge, oauthStateOf, onDesktopOAuthCallback } from "./desktop";
 import { waitForModelOAuth } from "./model-auth";
@@ -39,6 +43,17 @@ export function useModelOAuthSignIn(options: {
   onFinishedRef.current = onFinished;
   onErrorRef.current = onError;
   onClearErrorRef.current = onClearError;
+
+  function signInErrorMessage(error: unknown) {
+    switch (modelOAuthErrorMessage(error)) {
+      case "Authorization timed out. Please try again.":
+        return t`Authorization timed out. Please try again.`;
+      case "Authorization code is invalid. Start sign-in again.":
+        return t`Authorization code is invalid. Start sign-in again.`;
+      default:
+        return t`Could not connect this provider`;
+    }
+  }
 
   function releaseOAuthCapture(expected?: (() => void) | null) {
     if (expected !== undefined && oauthCaptureRef.current !== expected) return;
@@ -107,7 +122,7 @@ export function useModelOAuthSignIn(options: {
         retryable = true;
         setPasteCode(code);
       }
-      onErrorRef.current(err instanceof Error ? err.message : "Could not finish sign-in");
+      onErrorRef.current(signInErrorMessage(err));
     } finally {
       // A cancelled attempt may already have started another sign-in; do not clear
       // its submitting guard or the newer desktop callback is dropped.
@@ -186,11 +201,7 @@ export function useModelOAuthSignIn(options: {
       const loginId = oauthLoginIdRef.current;
       oauthLoginIdRef.current = null;
       if (loginId) void rpc.models.cancelOAuth({ loginId }).catch(() => undefined);
-      onErrorRef.current(
-        err instanceof Error && err.message !== "Could not connect this provider"
-          ? err.message
-          : t`Could not connect this provider`,
-      );
+      onErrorRef.current(signInErrorMessage(err));
       setOauth(null);
     } finally {
       if (!waitingForCode) {

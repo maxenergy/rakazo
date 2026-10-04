@@ -147,3 +147,67 @@ test("subscription CLI providers use official sign-in without API-key controls",
   await expect(page.getByText("Could not connect this provider", { exact: true })).toBeVisible();
   await expect(page.getByText("Internal server error", { exact: true })).toBeHidden();
 });
+
+test("subscription sign-in failures are localized in Chinese", async ({ page }, testInfo) => {
+  const stamp = Date.now();
+  await signup(page, `cli-errors-${stamp}@rakazo.test`, "password12", `CLI ${stamp}`);
+  await completeOnboarding(page);
+  await page.evaluate(() => localStorage.setItem("rakazo.uiLocale", "zh-CN"));
+  await page.reload();
+  await page.getByTestId("user-menu-trigger").click();
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.getByTestId("settings-nav-models").click();
+  await page.getByPlaceholder("搜索提供方").fill("antigravity");
+  await page.getByRole("button", { name: /Antigravity CLI/ }).click();
+  await page.evaluate(() => {
+    window.open = () => null;
+  });
+  await page.route("**/rpc/models/beginOAuth", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        json: {
+          loginId: "fake-cli-login",
+          provider: "antigravity-cli",
+          mode: "auth-url",
+          callbackOwner: "provider",
+          expiresInSeconds: 900,
+          verificationUri: "https://accounts.google.com/o/oauth2/auth?state=fake",
+        },
+      }),
+    });
+  });
+  await page.route("**/rpc/models/submitOAuthCode", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ json: { ok: true } }),
+    });
+  });
+  await page.route("**/rpc/models/cancelOAuth", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ json: { ok: true } }),
+    });
+  });
+  let error = "";
+  await page.route("**/rpc/models/completeOAuth", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ json: { status: "error", error } }),
+    });
+  });
+  for (const [diagnostic, translated] of [
+    ["CLI sign-in failed. Start sign-in again.", "无法连接此提供方"],
+    ["CLI request timed out. Try again.", "授权超时，请重试。"],
+    ["Authorization code is invalid. Start sign-in again.", "授权码无效，请重新登录。"],
+  ]) {
+    error = diagnostic!;
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+    await page.getByLabel("授权码或回调 URL").fill("4/fake-code");
+    await page.getByRole("button", { name: "提交", exact: true }).click();
+    await expect(page.getByText(translated!, { exact: true })).toBeVisible();
+    await expect(page.getByText(diagnostic!, { exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "登录", exact: true })).toBeVisible();
+  }
+  await captureScreenshot(page, testInfo, "antigravity-cli-chinese-signin-error");
+});

@@ -557,11 +557,16 @@ msgstr "{path} eklendi"
 msgid "Attachment"
 msgstr "Ek"
 
+#: src/lib/use-model-oauth-signin.ts
+msgid "Authorization code is invalid. Start sign-in again."
+msgstr "Yetkilendirme kodu geçersiz. Yeniden giriş yapın."
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code or callback URL"
 msgstr "Yetkilendirme kodu veya callback URL'si"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/shell/message-cards.tsx
 msgid "Authorization timed out. Please try again."
 msgstr "Yetkilendirme zaman aşımına uğradı. Lütfen tekrar dene."
@@ -1145,6 +1150,7 @@ msgstr "Bağlanılamadı"
 msgid "Could not connect {0}"
 msgstr "{0} bağlanamadı"
 
+#: src/lib/use-model-oauth-signin.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not connect this provider"
 msgstr "Bu sağlayıcı bağlanamadı"

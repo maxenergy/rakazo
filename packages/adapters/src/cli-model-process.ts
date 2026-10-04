@@ -1,9 +1,11 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { promisify } from "node:util";
+import type { Terminal as HeadlessTerminal } from "@xterm/headless";
 
 const execFileAsync = promisify(execFile);
 let windowsSid: Promise<string> | undefined;
@@ -165,6 +167,7 @@ export type CliProcessOptions = {
     write: (text: string) => void,
     stop: () => void,
     stdout: boolean,
+    screen?: string,
   ) => void;
 };
 
@@ -301,6 +304,10 @@ async function runCliTerminal(
 ): Promise<string> {
   // Load native terminal support only when a connection needs interactive login.
   const { spawn: spawnTerminal } = await import("node-pty");
+  // The published package's ESM entry points to a missing file; use its Node entry.
+  const { Terminal: TerminalScreen } = createRequire(import.meta.url)("@xterm/headless") as {
+    Terminal: typeof HeadlessTerminal;
+  };
   options.signal?.throwIfAborted();
   return new Promise<string>((resolveResult, reject) => {
     const terminal = spawnTerminal(executable.file, [...executable.prefix, ...options.args], {
@@ -311,9 +318,16 @@ async function runCliTerminal(
       cols: 2048,
       rows: 20,
     });
+    const screen = new TerminalScreen({
+      cols: 2048,
+      rows: 20,
+      scrollback: 0,
+      allowProposedApi: true,
+    });
     let output = "";
     let failure: Error | undefined;
     let stopped = false;
+    let queuedScreenBytes = 0;
     const stop = () => {
       if (stopped) return;
       stopped = true;
@@ -341,18 +355,36 @@ async function runCliTerminal(
       // Terminal redraws repeat the same screen. Bound retained output rather
       // than counting redraws against the inference response size limit.
       output = (output + text).slice(-64 * 1024);
-      try {
-        options.onOutput?.(text, (value) => terminal.write(value), stop, true);
-      } catch {
-        failure = new Error("CLI sign-in failed. Start sign-in again.");
+      queuedScreenBytes += text.length;
+      if (queuedScreenBytes > 4 * 1024 * 1024) {
+        failure = new Error("CLI response exceeded the size limit.");
         stop();
+        return;
       }
+      // ConPTY updates individual cells and moves the cursor without newlines.
+      // Decode those updates before matching prompts or sending the next key.
+      screen.write(text, () => {
+        queuedScreenBytes -= text.length;
+        if (stopped) return;
+        try {
+          const buffer = screen.buffer.active;
+          const lines = Array.from(
+            { length: screen.rows },
+            (_, row) => buffer.getLine(buffer.baseY + row)?.translateToString(true) ?? "",
+          );
+          options.onOutput?.(text, (value) => terminal.write(value), stop, true, lines.join("\n"));
+        } catch {
+          failure = new Error("CLI sign-in failed. Start sign-in again.");
+          stop();
+        }
+      });
     });
     const exitListener = terminal.onExit(({ exitCode }) => {
       clearTimeout(timer);
       options.signal?.removeEventListener("abort", abort);
       dataListener.dispose();
       exitListener.dispose();
+      screen.dispose();
       if (failure) reject(failure);
       else if (exitCode !== 0 && !stopped) reject(new Error("CLI sign-in failed."));
       else resolveResult(output);

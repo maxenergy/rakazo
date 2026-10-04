@@ -39,8 +39,8 @@ export async function loginCliModel(
             ? ["auth", "login", "--claudeai"]
             : [],
       interactiveAuth: provider === "antigravity-cli",
-      onOutput(text, write, stop) {
-        buffer = stripVTControlCharacters(buffer + text).slice(-64 * 1024);
+      onOutput(text, write, stop, _stdout, screen) {
+        buffer = screen ?? stripVTControlCharacters(buffer + text).slice(-64 * 1024);
         if (provider === "antigravity-cli") {
           // Wait for a complete error: an output chunk may end before its region reason.
           const eligibilityError = buffer

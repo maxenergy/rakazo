@@ -14,6 +14,10 @@ export function modelOAuthErrorMessage(error: unknown) {
     return "Authorization timed out. Please try again.";
   if (message === "Authorization code is invalid. Start sign-in again.")
     return "Authorization code is invalid. Start sign-in again.";
+  if (message === "Antigravity is not available in this account's region.")
+    return "Antigravity is not available in this account's region.";
+  if (message === "This account is not eligible for Antigravity.")
+    return "This account is not eligible for Antigravity.";
   return "Could not connect this provider";
 }
 

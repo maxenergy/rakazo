@@ -25,6 +25,16 @@ describe("modelOAuthErrorMessage", () => {
     ])
       expect(modelOAuthErrorMessage(error)).toBe("Could not connect this provider");
   });
+
+  it.each([
+    "Antigravity is not available in this account's region.",
+    "This account is not eligible for Antigravity.",
+  ])("preserves only the owned eligibility catalog key: %s", (message) => {
+    expect(modelOAuthErrorMessage(new Error(message))).toBe(message);
+    expect(modelOAuthErrorMessage(new Error(`${message} private@example.test`))).toBe(
+      "Could not connect this provider",
+    );
+  });
 });
 
 describe("waitForModelOAuthCompletion", () => {

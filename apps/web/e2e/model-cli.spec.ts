@@ -190,7 +190,13 @@ test("subscription sign-in failures are localized in Chinese", async ({ page }, 
     });
   });
   let error = "";
+  let releaseCompletion: (() => void) | undefined;
+  let holdCompletion = false;
   await page.route("**/rpc/models/completeOAuth", async (route) => {
+    if (holdCompletion)
+      await new Promise<void>((resolve) => {
+        releaseCompletion = resolve;
+      });
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ json: { status: "error", error } }),
@@ -200,11 +206,23 @@ test("subscription sign-in failures are localized in Chinese", async ({ page }, 
     ["CLI sign-in failed. Start sign-in again.", "无法连接此提供方"],
     ["CLI request timed out. Try again.", "授权超时，请重试。"],
     ["Authorization code is invalid. Start sign-in again.", "授权码无效，请重新登录。"],
+    [
+      "Antigravity is not available in this account's region.",
+      "此账号所在地区暂不支持 Antigravity。",
+    ],
+    ["This account is not eligible for Antigravity.", "此账号暂不符合 Antigravity 的使用资格。"],
   ]) {
     error = diagnostic!;
+    holdCompletion = true;
     await page.getByRole("button", { name: "登录", exact: true }).click();
     await page.getByLabel("授权码或回调 URL").fill("4/fake-code");
     await page.getByRole("button", { name: "提交", exact: true }).click();
+    await expect(page.getByRole("button", { name: "正在连接…", exact: true })).toBeDisabled();
+    await expect(page.getByLabel("授权码或回调 URL")).toBeDisabled();
+    await expect.poll(() => Boolean(releaseCompletion)).toBe(true);
+    holdCompletion = false;
+    releaseCompletion?.();
+    releaseCompletion = undefined;
     await expect(page.getByText(translated!, { exact: true })).toBeVisible();
     await expect(page.getByText(diagnostic!, { exact: true })).toBeHidden();
     await expect(page.getByRole("button", { name: "登录", exact: true })).toBeVisible();

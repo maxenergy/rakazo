@@ -17,11 +17,16 @@ export async function loginCliModel(
   let announced = false;
   let authenticated = provider !== "antigravity-cli";
   let selectedGoogleOAuth = false;
+  let selectedTheme = false;
+  let declinedTelemetry = false;
+  let completedOnboarding = false;
+  let trustedProfile = false;
+  let requestedQuota = false;
   let authorizationUrl: URL | undefined;
   const codeAbort = new AbortController();
   let codeFailure: string | undefined;
   try {
-    await prepareCliProfile(profileId);
+    const directory = await prepareCliProfile(profileId);
     await runCliProcess({
       provider,
       profileId,
@@ -36,6 +41,77 @@ export async function loginCliModel(
       interactiveAuth: provider === "antigravity-cli",
       onOutput(text, write, stop) {
         buffer = stripVTControlCharacters(buffer + text).slice(-64 * 1024);
+        if (provider === "antigravity-cli") {
+          // Wait for a complete error: an output chunk may end before its region reason.
+          const eligibilityError = buffer
+            .match(/(?:Eligibility check failed:|Account ineligible:)[^\r\n]*(?:[.\r\n])/)?.[0]
+            ?.replace(/\s+/g, " ");
+          // Eligibility errors can arrive after Google has already saved a token.
+          // Quota information alone does not establish account eligibility.
+          if (eligibilityError) {
+            codeFailure = /not currently available in your location/i.test(eligibilityError)
+              ? "Antigravity is not available in this account's region."
+              : /not eligible for Antigravity|Account ineligible/i.test(eligibilityError)
+                ? "This account is not eligible for Antigravity."
+                : "CLI sign-in failed. Start sign-in again.";
+            stop();
+            return;
+          }
+          if (buffer.includes("Got an error:")) {
+            codeFailure = buffer.includes("invalid_grant")
+              ? "Authorization code is invalid. Start sign-in again."
+              : "CLI sign-in failed. Start sign-in again.";
+            stop();
+            return;
+          }
+          if (announced) {
+            // Finish the native first-run preferences without enabling data collection.
+            if (
+              !selectedTheme &&
+              buffer.includes("solarized dark") &&
+              buffer.includes("[Next]") &&
+              buffer.includes("enter Confirm")
+            ) {
+              selectedTheme = true;
+              write("\r");
+            }
+            if (
+              !declinedTelemetry &&
+              buffer.includes("[x] Yes, I agree to help improve Antigravity CLI")
+            ) {
+              declinedTelemetry = true;
+              write("\r");
+            }
+            if (
+              !completedOnboarding &&
+              buffer.includes("[ ] Yes, I agree to help improve Antigravity CLI") &&
+              buffer.includes("[Done]")
+            ) {
+              completedOnboarding = true;
+              write("\x1b[B\x1b[C\r");
+            }
+            if (!trustedProfile && buffer.includes("Do you trust the contents of this project?")) {
+              // The CLI may only trust its managed, private login directory.
+              const workspace = buffer.match(/Accessing workspace:\s*([^\r\n]+)/)?.[1]?.trim();
+              if (workspace !== directory) throw new Error("Unexpected CLI workspace.");
+              trustedProfile = true;
+              write("\r");
+            }
+            if (trustedProfile && !requestedQuota && /Antigravity CLI \d+\.\d+/.test(buffer)) {
+              // Use the native slash command after its prompt opens, never a model prompt.
+              requestedQuota = true;
+              write("/usage\r");
+            }
+            if (
+              buffer.includes("Authentication successful!") ||
+              (requestedQuota && buffer.includes("Weekly Limit Remaining"))
+            ) {
+              authenticated = true;
+              stop();
+              return;
+            }
+          }
+        }
         if (
           provider === "antigravity-cli" &&
           !selectedGoogleOAuth &&
@@ -115,16 +191,6 @@ export async function loginCliModel(
             }
           }
         }
-        if (provider === "antigravity-cli" && buffer.includes("Authentication successful!")) {
-          authenticated = true;
-          stop();
-        }
-        if (provider === "antigravity-cli" && buffer.includes("Got an error:")) {
-          codeFailure = buffer.includes("invalid_grant")
-            ? "Authorization code is invalid. Start sign-in again."
-            : "CLI sign-in failed. Start sign-in again.";
-          stop();
-        }
       },
     });
     if (codeFailure) throw new CliModelSignInError(codeFailure);
@@ -133,13 +199,16 @@ export async function loginCliModel(
     if (provider === "antigravity-cli") {
       // Confirm that a new process can use the saved subscription credential.
       // /usage is handled by the CLI itself and does not run model inference.
-      await runCliProcess({
+      const output = await runCliProcess({
         provider,
         profileId,
         signal: interaction.signal,
         timeoutMs: 60_000,
         args: ["--print", "/usage", "--output-format", "json"],
       });
+      const usage = JSON.parse(output);
+      if (usage.status !== "SUCCESS" || usage.command?.name !== "usage" || usage.num_turns !== 0)
+        throw new Error("CLI sign-in did not complete.");
     }
     return { type: "cli", profileId };
   } catch (error) {

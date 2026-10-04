@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CliModelSignInError, loginCliModel } from "./cli-model-login.js";
-import { runCliProcess } from "./cli-model-process.js";
+import { cliProfileDirectory, runCliProcess } from "./cli-model-process.js";
 import {
   PiOAuthLogins,
   parseModelSecret,
@@ -16,6 +16,7 @@ vi.mock("./cli-model-process.js", async (importOriginal) => ({
   runCliProcess: vi.fn(),
 }));
 let directory: string;
+const usageReport = JSON.stringify({ status: "SUCCESS", command: { name: "usage" }, num_turns: 0 });
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), "rakazo-cli-login-test-"));
   vi.stubEnv("DATA_DIR", directory);
@@ -165,7 +166,7 @@ describe("official CLI login", () => {
     vi.mocked(runCliProcess).mockImplementation(async (options) => {
       if (!options.interactiveAuth) {
         expect(options.args).toEqual(["--print", "/usage", "--output-format", "json"]);
-        return "Subscription quotas\n";
+        return usageReport;
       }
       expect(options.args).toEqual([]);
       expect(options.interactiveAuth).toBe(true);
@@ -204,7 +205,7 @@ describe("official CLI login", () => {
   it("extracts a code only from the hosted callback for the current Antigravity attempt", async () => {
     const write = vi.fn();
     vi.mocked(runCliProcess).mockImplementation(async (options) => {
-      if (!options.interactiveAuth) return "Subscription quotas\n";
+      if (!options.interactiveAuth) return usageReport;
       options.onOutput?.(
         "https://accounts.google.com/o/oauth2/auth?state=current\n",
         write,
@@ -282,6 +283,137 @@ describe("official CLI login", () => {
         prompt: vi.fn().mockReturnValue(new Promise(() => undefined)),
       }),
     ).rejects.toThrow("Authorization code is invalid. Start sign-in again.");
+    expect(await readdir(join(directory, "model-cli"))).toEqual([]);
+  });
+
+  it("finishes native first-run preferences with telemetry off and trusts only its own directory", async () => {
+    const write = vi.fn();
+    const stop = vi.fn();
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      if (!options.interactiveAuth) return usageReport;
+      const emit = (text: string) => options.onOutput?.(text, write, stop, true);
+      emit("https://accounts.google.com/o/oauth2/auth?state=fake\n");
+      await Promise.resolve();
+      expect(write).toHaveBeenCalledWith("fake-code\r");
+      write.mockClear();
+      emit("solarized dark\n[Next]\nenter Confirm\n");
+      expect(write.mock.calls).toEqual([["\r"]]);
+      emit("[x] Yes, I agree to help improve Antigravity CLI\n[Done]\n");
+      expect(write.mock.calls).toEqual([["\r"], ["\r"]]);
+      emit("[ ] Yes, I agree to help improve Antigravity CLI\n[Done]\n");
+      expect(write.mock.calls[2]).toEqual(["\x1b[B\x1b[C\r"]);
+      emit(
+        `Accessing workspace: ${cliProfileDirectory(options.profileId)}\nDo you trust the contents of this project?\n`,
+      );
+      expect(write.mock.calls[3]).toEqual(["\r"]);
+      emit("Antigravity CLI 1.2.16\n");
+      expect(write.mock.calls[4]).toEqual(["/usage\r"]);
+      expect(stop).not.toHaveBeenCalled();
+      emit("Gemini Models\nWeekly Limit Remaining\n");
+      return "";
+    });
+    await loginCliModel("antigravity-cli", {
+      notify: vi.fn(),
+      prompt: vi.fn().mockResolvedValue("fake-code"),
+    });
+    expect(stop).toHaveBeenCalledOnce();
+    expect(runCliProcess).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not trust a native workspace outside the managed profile", async () => {
+    const write = vi.fn();
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      options.onOutput?.(
+        "https://accounts.google.com/o/oauth2/auth?state=fake\n",
+        write,
+        vi.fn(),
+        true,
+      );
+      options.onOutput?.(
+        "Accessing workspace: /private/unrelated-folder\nDo you trust the contents of this project?\n",
+        write,
+        vi.fn(),
+        true,
+      );
+      return "";
+    });
+    await expect(
+      loginCliModel("antigravity-cli", {
+        notify: vi.fn(),
+        prompt: vi.fn().mockReturnValue(new Promise(() => undefined)),
+      }),
+    ).rejects.toThrow("CLI sign-in failed.");
+    expect(write).not.toHaveBeenCalled();
+    expect(await readdir(join(directory, "model-cli"))).toEqual([]);
+  });
+
+  it.each([
+    [
+      "Your current account is not eligible for Antigravity, because it is not currently available in your location.",
+      "Antigravity is not available in this account's region.",
+    ],
+    [
+      "Account ineligible: Your current account is not eligible for Antigravity.",
+      "This account is not eligible for Antigravity.",
+    ],
+  ])(
+    "reports account eligibility rejection after OAuth without leaking diagnostics: %s",
+    async (diagnostic, message) => {
+      const stop = vi.fn();
+      const prompt = vi.fn().mockReturnValue(new Promise(() => undefined));
+      vi.mocked(runCliProcess).mockImplementation(async (options) => {
+        options.onOutput?.(
+          "https://accounts.google.com/o/oauth2/auth?state=fake\n",
+          vi.fn(),
+          stop,
+          true,
+        );
+        options.onOutput?.(
+          "private@example.test\n\u001b[31mEligibility check failed: ",
+          vi.fn(),
+          stop,
+          true,
+        );
+        expect(stop).not.toHaveBeenCalled();
+        const halfway = Math.floor(diagnostic.length / 2);
+        options.onOutput?.(diagnostic.slice(0, halfway), vi.fn(), stop, true);
+        expect(stop).not.toHaveBeenCalled();
+        // A fragmented reason must not be replaced by a generic eligibility error.
+        options.onOutput?.(`${diagnostic.slice(halfway)}\u001b[0m\n`, vi.fn(), stop, true);
+        return "";
+      });
+      await expect(loginCliModel("antigravity-cli", { notify: vi.fn(), prompt })).rejects.toThrow(
+        message,
+      );
+      expect(stop).toHaveBeenCalled();
+      expect(runCliProcess).toHaveBeenCalledOnce();
+      expect(prompt.mock.calls[0]?.[0].signal.aborted).toBe(true);
+      expect(await readdir(join(directory, "model-cli"))).toEqual([]);
+    },
+  );
+
+  it.each([
+    "Subscription quotas without a command result",
+    JSON.stringify({ status: "ERROR", command: { name: "usage" }, num_turns: 0 }),
+    JSON.stringify({ status: "SUCCESS", command: { name: "chat" }, num_turns: 1 }),
+  ])("requires a successful native usage command with no model turn", async (output) => {
+    vi.mocked(runCliProcess).mockImplementation(async (options) => {
+      if (!options.interactiveAuth) return output;
+      options.onOutput?.(
+        "https://accounts.google.com/o/oauth2/auth?state=fake\n",
+        vi.fn(),
+        vi.fn(),
+        true,
+      );
+      options.onOutput?.("Authentication successful!\n", vi.fn(), vi.fn(), true);
+      return "";
+    });
+    await expect(
+      loginCliModel("antigravity-cli", {
+        notify: vi.fn(),
+        prompt: vi.fn().mockReturnValue(new Promise(() => undefined)),
+      }),
+    ).rejects.toThrow("CLI sign-in failed.");
     expect(await readdir(join(directory, "model-cli"))).toEqual([]);
   });
 

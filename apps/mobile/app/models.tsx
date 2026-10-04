@@ -115,6 +115,7 @@ export default function Models() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<"connect" | "default" | "disconnect" | null>(null);
   const [oauthPending, setOauthPending] = useState(false);
+  const [oauthCodeSubmitting, setOauthCodeSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const oauthAbortRef = useRef<AbortController | null>(null);
@@ -134,11 +135,13 @@ export default function Models() {
   }, []);
 
   const cancelOAuth = useCallback(() => {
+    oauthCodeSubmittingRef.current = false;
     const loginId = oauthLoginIdRef.current;
     oauthLoginIdRef.current = null;
     cancelModelOAuthAttempt(oauthAbortRef, () => {
       setOauth(null);
       setOauthPending(false);
+      setOauthCodeSubmitting(false);
     });
     if (loginId) void rpc("models/cancelOAuth", { loginId }).catch(() => undefined);
   }, []);
@@ -589,6 +592,7 @@ export default function Models() {
     setError(null);
     setNotice(null);
     setOauthPending(true);
+    setOauthCodeSubmitting(false);
     const controller = new AbortController();
     oauthAbortRef.current = controller;
     let waitingForCode = false;
@@ -633,6 +637,7 @@ export default function Models() {
     const code = pasteCode.trim();
     if (!controller || !code) return;
     oauthCodeSubmittingRef.current = true;
+    setOauthCodeSubmitting(true);
     setPasteCode("");
     setError(null);
     let submitted = false;
@@ -659,7 +664,10 @@ export default function Models() {
       }
       setError(t(modelOAuthErrorMessage(err)));
     } finally {
-      oauthCodeSubmittingRef.current = false;
+      if (oauthAbortRef.current === controller) {
+        oauthCodeSubmittingRef.current = false;
+        setOauthCodeSubmitting(false);
+      }
       if (!retryable) {
         finishModelOAuthAttempt(oauthAbortRef, controller, () => setOauthPending(false));
       }
@@ -1074,6 +1082,7 @@ export default function Models() {
                   <TextInput
                     accessibilityLabel={t("Authorization code")}
                     value={pasteCode}
+                    editable={!oauthCodeSubmitting}
                     onChangeText={setPasteCode}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -1083,15 +1092,18 @@ export default function Models() {
                   />
                   <Pressable
                     accessibilityRole="button"
-                    disabled={!pasteCode.trim()}
+                    disabled={oauthCodeSubmitting || !pasteCode.trim()}
+                    accessibilityState={{ busy: oauthCodeSubmitting }}
                     onPress={() => void submitOAuthCode()}
                     style={({ pressed }) => [
                       styles.outlineButton,
                       pressed && styles.pressed,
-                      !pasteCode.trim() && styles.disabled,
+                      (oauthCodeSubmitting || !pasteCode.trim()) && styles.disabled,
                     ]}
                   >
-                    <Text style={styles.outlineLabel}>{t("Submit")}</Text>
+                    <Text style={styles.outlineLabel}>
+                      {t(oauthCodeSubmitting ? "Connecting…" : "Submit")}
+                    </Text>
                   </Pressable>
                   <Text style={styles.secondary}>
                     {t("Waiting for sign-in — the link expires in about {minutes} minutes.", {

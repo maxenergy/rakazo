@@ -142,6 +142,7 @@ export function OnboardingPage() {
     pasteCode,
     setPasteCode,
     oauthPending,
+    oauthCodeSubmitting,
     popupBlocked,
     cancelOAuthAttempt,
     startSubscriptionSignIn,
@@ -690,6 +691,7 @@ export function OnboardingPage() {
                         <div className="mt-3 flex items-center gap-2">
                           <Input
                             value={pasteCode}
+                            disabled={oauthCodeSubmitting}
                             onChange={(e) => setPasteCode(e.target.value)}
                             aria-label={t`Authorization code or callback URL`}
                             autoComplete="off"
@@ -697,10 +699,14 @@ export function OnboardingPage() {
                             placeholder="http://localhost:53692/callback?code=…"
                           />
                           <Button
-                            disabled={!pasteCode.trim()}
+                            disabled={oauthCodeSubmitting || !pasteCode.trim()}
                             onClick={() => void submitOAuthCode()}
                           >
-                            <Trans>Submit</Trans>
+                            {oauthCodeSubmitting ? (
+                              <Trans>Connecting…</Trans>
+                            ) : (
+                              <Trans>Submit</Trans>
+                            )}
                           </Button>
                         </div>
                         <p className="mt-2 text-sm text-muted-foreground">

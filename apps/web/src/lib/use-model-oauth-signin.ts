@@ -32,6 +32,7 @@ export function useModelOAuthSignIn(options: {
   const [oauth, setOauth] = useState<ModelOAuthBegin | null>(null);
   const [pasteCode, setPasteCode] = useState("");
   const [oauthPending, setOauthPending] = useState(false);
+  const [oauthCodeSubmitting, setOauthCodeSubmitting] = useState(false);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const oauthAbortRef = useRef<AbortController | null>(null);
   const oauthLoginIdRef = useRef<string | null>(null);
@@ -50,6 +51,10 @@ export function useModelOAuthSignIn(options: {
         return t`Authorization timed out. Please try again.`;
       case "Authorization code is invalid. Start sign-in again.":
         return t`Authorization code is invalid. Start sign-in again.`;
+      case "Antigravity is not available in this account's region.":
+        return t`Antigravity is not available in this account's region.`;
+      case "This account is not eligible for Antigravity.":
+        return t`This account is not eligible for Antigravity.`;
       default:
         return t`Could not connect this provider`;
     }
@@ -70,6 +75,7 @@ export function useModelOAuthSignIn(options: {
       if (resetState) {
         setOauth(null);
         setOauthPending(false);
+        setOauthCodeSubmitting(false);
         setPopupBlocked(false);
       }
     });
@@ -101,6 +107,7 @@ export function useModelOAuthSignIn(options: {
     const code = (captured ?? pasteCode).trim();
     if (!controller || !code) return;
     oauthCodeSubmittingRef.current = true;
+    setOauthCodeSubmitting(true);
     setPasteCode("");
     onClearErrorRef.current?.();
     let submitted = false;
@@ -128,6 +135,7 @@ export function useModelOAuthSignIn(options: {
       // its submitting guard or the newer desktop callback is dropped.
       if (oauthAbortRef.current === controller) {
         oauthCodeSubmittingRef.current = false;
+        setOauthCodeSubmitting(false);
       }
       if (!retryable) {
         // Only drop this attempt's listener — a newer sign-in may already own the ref.
@@ -140,6 +148,7 @@ export function useModelOAuthSignIn(options: {
   async function startSubscriptionSignIn(begin: ModelOAuthSignInBegin) {
     onClearErrorRef.current?.();
     setOauthPending(true);
+    setOauthCodeSubmitting(false);
     setPopupBlocked(false);
     const controller = new AbortController();
     oauthAbortRef.current = controller;
@@ -218,6 +227,7 @@ export function useModelOAuthSignIn(options: {
     pasteCode,
     setPasteCode,
     oauthPending,
+    oauthCodeSubmitting,
     popupBlocked,
     cancelOAuthAttempt,
     startSubscriptionSignIn,

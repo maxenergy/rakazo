@@ -1,6 +1,55 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, openUserSettings, signup } from "./helpers";
 
+test("settings keep the same bounds across sections at each viewport size", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const stamp = Date.now();
+  await signup(page, `settings-size-${stamp}@rakazo.test`, "password12", "Settings size");
+  await completeOnboarding(page);
+  const settings = await openUserSettings(page);
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 700 },
+    { width: 600, height: 720 },
+  ]) {
+    await test.step(`${viewport.width} × ${viewport.height}`, async () => {
+      await page.setViewportSize(viewport);
+      await settings.evaluate(async (element) => {
+        await Promise.all(element.getAnimations().map((animation) => animation.finished));
+      });
+      const bounds = await settings.boundingBox();
+      expect(bounds).not.toBeNull();
+      if (!bounds) throw new Error("Settings dialog has no bounds");
+      expect(bounds.x).toBeGreaterThanOrEqual(16);
+      expect(bounds.y).toBeGreaterThanOrEqual(16);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width - 16);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height - 16);
+
+      const buttons = await settings.getByTestId("settings-nav").getByRole("button").all();
+      for (const button of buttons) {
+        await button.click();
+        await expect(button).toHaveAttribute("aria-current", "page");
+        await expect.poll(() => settings.boundingBox()).toEqual(bounds);
+        const section = await settings.getAttribute("data-settings-section");
+        if (section === "models") {
+          await expect(settings.getByRole("button", { name: /OpenAI-compatible/ })).toBeVisible();
+          await expect.poll(() => settings.boundingBox()).toEqual(bounds);
+        }
+        if (section === "general" || section === "models") {
+          await captureScreenshot(
+            page,
+            testInfo,
+            `settings-stable-size-${viewport.width}-${section}`,
+          );
+        }
+      }
+    });
+  }
+});
+
 test("settings shell is two-pane and deep-links Models Memory Voice Usage", async ({
   page,
 }, testInfo) => {

@@ -7,6 +7,7 @@ import {
   normalizeCreateBotProfile,
   type ThinkingLevel,
 } from "@rakazo/contracts";
+import { modelChoiceLabel } from "@rakazo/core";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
@@ -121,14 +122,14 @@ export default function BotSettingsScreen() {
                 key: modelOptionKey(credential.provider, credential.modelId),
                 provider: credential.provider,
                 modelId: credential.modelId,
-                label: `${credential.label} · ${credential.modelId}`,
+                label: modelChoiceLabel(catalog, credential.provider, credential.modelId),
               },
             ]
           : providerModels.map((entry) => ({
               key: modelOptionKey(entry.provider, entry.id),
               provider: entry.provider,
               modelId: entry.id,
-              label: `${entry.providerName ?? entry.provider} · ${entry.label}`,
+              label: modelChoiceLabel(catalog, entry.provider, entry.id),
             }));
       for (const option of nextOptions) {
         if (seen.has(option.key)) continue;
@@ -161,7 +162,7 @@ export default function BotSettingsScreen() {
   ).filter((level) => level !== "off");
 
   const spaceDefaultLabel = me?.defaultModel
-    ? `${t("Space default")} (${catalogLabel(catalog, me.defaultProvider, me.defaultModel) ?? me.defaultModel})`
+    ? `${t("Space default")} (${modelChoiceLabel(catalog, me.defaultProvider, me.defaultModel)})`
     : t("Space default");
 
   const modelChoices: PickerChoice[] = useMemo(() => {
@@ -169,14 +170,16 @@ export default function BotSettingsScreen() {
     if (modelKey && !connectedOptions.some((option) => option.key === modelKey)) {
       choices.push({
         key: modelKey,
-        label: parseModelOptionKey(modelKey)?.modelId ?? modelKey,
+        label: effectiveModelId
+          ? modelChoiceLabel(catalog, effectiveProvider, effectiveModelId)
+          : modelKey,
       });
     }
     for (const option of connectedOptions) {
       choices.push({ key: option.key, label: option.label });
     }
     return choices;
-  }, [connectedOptions, modelKey, spaceDefaultLabel]);
+  }, [catalog, connectedOptions, effectiveModelId, effectiveProvider, modelKey, spaceDefaultLabel]);
 
   const thinkingChoices: PickerChoice[] = useMemo(
     () => [
@@ -510,15 +513,6 @@ function parseModelOptionKey(key: string) {
   const separator = key.indexOf("::");
   if (separator <= 0) return null;
   return { provider: key.slice(0, separator), modelId: key.slice(separator + 2) };
-}
-
-function catalogLabel(
-  catalog: MobileModel[],
-  provider: string | null | undefined,
-  modelId: string,
-) {
-  if (!provider) return undefined;
-  return catalog.find((entry) => entry.provider === provider && entry.id === modelId)?.label;
 }
 
 function thinkingLevelLabel(level: ThinkingLevel, t: (message: string) => string) {

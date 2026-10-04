@@ -14,6 +14,7 @@ import {
   BOT_NAME_MAX_LENGTH,
   BOT_TITLE_MAX_LENGTH,
 } from "@rakazo/contracts";
+import { modelChoiceLabel } from "@rakazo/core";
 import {
   Button,
   Input,
@@ -289,14 +290,14 @@ export function BotSettings({
               key: modelOptionKey(credential.provider, credential.modelId),
               provider: credential.provider,
               modelId: credential.modelId,
-              label: `${credential.label} · ${credential.modelId}`,
+              label: modelChoiceLabel(catalog, credential.provider, credential.modelId),
             },
           ]
         : providerModels.map((entry) => ({
             key: modelOptionKey(entry.provider, entry.id),
             provider: entry.provider,
             modelId: entry.id,
-            label: `${entry.providerName ?? entry.provider} · ${entry.label}`,
+            label: modelChoiceLabel(catalog, entry.provider, entry.id),
           }));
     for (const option of options) {
       if (seenOptions.has(option.key)) continue;
@@ -495,6 +496,7 @@ export function BotSettings({
           <Trans>Model</Trans>
           <NativeSelect
             id={`${ids}-model`}
+            aria-label={t`Model`}
             className="mt-2 w-full"
             value={modelKey}
             onChange={(event) => {
@@ -505,12 +507,14 @@ export function BotSettings({
             <NativeSelectOption value="">
               {t`Space default`}
               {me?.defaultModel
-                ? ` (${catalogLabel(catalog, me.defaultProvider, me.defaultModel) ?? me.defaultModel})`
+                ? ` (${modelChoiceLabel(catalog, me.defaultProvider, me.defaultModel)})`
                 : ""}
             </NativeSelectOption>
             {modelKey && !connectedOptions.some((option) => option.key === modelKey) ? (
               <NativeSelectOption value={modelKey}>
-                {parseModelOptionKey(modelKey)?.modelId ?? modelKey}
+                {effectiveModelId
+                  ? modelChoiceLabel(catalog, effectiveProvider, effectiveModelId)
+                  : modelKey}
               </NativeSelectOption>
             ) : null}
             {connectedOptions.map((option) => (
@@ -638,13 +642,4 @@ function parseModelOptionKey(key: string) {
   const separator = key.indexOf("::");
   if (separator <= 0) return null;
   return { provider: key.slice(0, separator), modelId: key.slice(separator + 2) };
-}
-
-function catalogLabel(
-  catalog: ModelCatalogEntry[],
-  provider: string | null | undefined,
-  modelId: string,
-) {
-  if (!provider) return undefined;
-  return catalog.find((entry) => entry.provider === provider && entry.id === modelId)?.label;
 }

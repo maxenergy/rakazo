@@ -101,6 +101,21 @@ export function pickCatalogModelId(
   return entries[0]?.id ?? "";
 }
 
+/** Keep provider identity visible even for a custom or unavailable model. */
+export function modelChoiceLabel(
+  catalog: readonly Pick<ModelCatalogEntry, "provider" | "providerName" | "id" | "label">[],
+  provider: string | null | undefined,
+  modelId: string,
+): string {
+  const model = catalog.find((entry) => entry.provider === provider && entry.id === modelId);
+  const providerName =
+    model?.providerName ??
+    catalog.find((entry) => entry.provider === provider)?.providerName ??
+    provider;
+  const modelName = model?.label ?? modelId;
+  return providerName ? `${providerName} · ${modelName}` : modelName;
+}
+
 /** Return the active choice separately when it is not one of the search results. */
 export function selectedProviderOutsideSearchResults(
   filteredProviders: readonly ModelCatalogEntry[],

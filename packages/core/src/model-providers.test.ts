@@ -4,6 +4,7 @@ import {
   clampCatalogThinkingLevel,
   featuredModelProviders,
   filterModelCatalog,
+  modelChoiceLabel,
   pickCatalogModelId,
   selectedProviderOutsideSearchResults,
 } from "./model-providers.js";
@@ -17,6 +18,34 @@ function provider(provider: string): ModelCatalogEntry {
     billing: "",
   };
 }
+
+describe("modelChoiceLabel", () => {
+  const catalog = [
+    {
+      provider: "claude-code",
+      providerName: "Claude Code",
+      id: "shared-model",
+      label: "Shared model",
+    },
+    { provider: "gateway", providerName: "Gateway", id: "shared-model", label: "Shared model" },
+  ];
+
+  it("distinguishes the same model id on different providers", () => {
+    expect(modelChoiceLabel(catalog, "claude-code", "shared-model")).toBe(
+      "Claude Code · Shared model",
+    );
+    expect(modelChoiceLabel(catalog, "gateway", "shared-model")).toBe("Gateway · Shared model");
+  });
+
+  it("keeps the provider visible when a saved model is outside the catalog", () => {
+    expect(modelChoiceLabel(catalog, "claude-code", "custom-model")).toBe(
+      "Claude Code · custom-model",
+    );
+    expect(modelChoiceLabel(catalog, "custom-provider", "custom-model")).toBe(
+      "custom-provider · custom-model",
+    );
+  });
+});
 
 describe("featuredModelProviders", () => {
   it("shows popular providers in a stable order", () => {

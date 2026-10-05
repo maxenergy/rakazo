@@ -85,6 +85,7 @@ export interface BotAvatarProps {
   identity?: string;
   className?: string;
   variant?: AvatarStyle;
+  animated?: boolean;
 }
 
 export const BotAvatar = memo(function BotAvatar({
@@ -94,9 +95,10 @@ export const BotAvatar = memo(function BotAvatar({
   identity = "",
   className,
   variant,
+  animated = true,
 }: BotAvatarProps) {
   const id = useId().replace(/[^a-zA-Z0-9-_]/g, "");
-  const isWorking = ACTIVE_RUN_STATUSES.some((s) => s === status);
+  const isWorking = animated && ACTIVE_RUN_STATUSES.some((s) => s === status);
   const preferredVariant = useAvatarStyle();
 
   const parsed = useMemo(() => parseBotAvatar(color, identity), [color, identity]);
@@ -122,6 +124,7 @@ export const BotAvatar = memo(function BotAvatar({
           className,
         )}
         data-working={isWorking}
+        data-animated={animated}
         style={{
           width: size,
           height: size,
@@ -165,6 +168,7 @@ export const BotAvatar = memo(function BotAvatar({
         identity={effectiveId}
         size={size}
         isWorking={isWorking}
+        animated={animated}
         className={className}
       />
     );
@@ -181,6 +185,7 @@ export const BotAvatar = memo(function BotAvatar({
         height: size,
       }}
       data-working={isWorking}
+      data-animated={animated}
     >
       <svg
         className="rakazo-bot-avatar-ring absolute pointer-events-none"
@@ -219,9 +224,11 @@ export const BotAvatar = memo(function BotAvatar({
         aria-hidden="true"
         className={cn(
           "overflow-visible transition-transform duration-300",
-          isWorking
-            ? "animate-pulse scale-[1.04] motion-reduce:animate-none"
-            : "hover:scale-[1.03] motion-reduce:hover:scale-100",
+          !animated
+            ? undefined
+            : isWorking
+              ? "animate-pulse scale-[1.04] motion-reduce:animate-none"
+              : "hover:scale-[1.03] motion-reduce:hover:scale-100",
         )}
         style={{
           filter: isWorking
@@ -253,12 +260,14 @@ function OrganicAvatar({
   size,
   isWorking,
   className,
+  animated,
 }: {
   color: string;
   identity?: string;
   size: number;
   isWorking: boolean;
   className?: string;
+  animated: boolean;
 }) {
   const reducedMotion = useSyncExternalStore(
     subscribeToReducedMotion,
@@ -276,6 +285,7 @@ function OrganicAvatar({
       aria-hidden="true"
       className={cn("rakazo-organic-avatar overflow-visible select-none", className)}
       data-working={isWorking}
+      data-animated={animated}
       data-shape-family={seed % 10}
       data-eye-pattern={seed % 4}
       style={{
@@ -300,7 +310,7 @@ function OrganicAvatar({
             } as CSSProperties
           }
         >
-          {!reducedMotion ? (
+          {animated && !reducedMotion ? (
             <animate
               attributeName="d"
               values={`${shapeA};${shapeB};${shapeA}`}

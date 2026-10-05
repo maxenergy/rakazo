@@ -514,6 +514,16 @@
   }
 }
 
+.rakazo-bot-avatar[data-animated="false"],
+.rakazo-bot-avatar[data-animated="false"] *,
+.rakazo-organic-avatar[data-animated="false"],
+.rakazo-organic-avatar[data-animated="false"] *,
+.rakazo-organic-avatar[data-animated="false"] .rakazo-organic-avatar-body,
+.rakazo-organic-avatar[data-animated="false"] .rakazo-organic-avatar-eyes {
+  animation: none;
+  transition: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rakazo-bot-avatar-ring,
   .rakazo-bot-avatar-eyes {

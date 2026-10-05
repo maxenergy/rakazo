@@ -120,6 +120,24 @@ describe("string enums keep their allowed values in a plain enum", () => {
     expect(computerMode?.description).toMatch(/dedicated \(Private\)/);
   });
 
+  it("exposes provider-aware model choices for bot creation and reconfiguration", () => {
+    for (const name of ["spawn_bot", "set_bot_model"]) {
+      const tool = builtinAgentTools.find((entry) => entry.name === name)!;
+      const fields = wire(tool).properties;
+      expect(fields.model_provider).toMatchObject({
+        type: "string",
+        description: expect.stringContaining("list_models"),
+      });
+      expect(fields.model_id).toMatchObject({
+        type: "string",
+        description: expect.stringContaining("list_models"),
+      });
+      expect(() =>
+        validate(tool, { name: "CTO", model_provider: "claude-code", model_id: "claude-opus-5-5" }),
+      ).not.toThrow();
+    }
+  });
+
   it("still validates spawn_bot's computer_mode through Pi", () => {
     for (const args of [
       { name: "Media Manager" },

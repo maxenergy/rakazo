@@ -922,7 +922,17 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
           title: raw.title ? String(raw.title) : "",
           instructions: raw.instructions ? String(raw.instructions) : "",
           prompt: raw.prompt ? String(raw.prompt) : "",
-          computer_mode: raw.computer_mode ? String(raw.computer_mode) : "",
+          computer_mode: String(raw.computer_mode ?? "").trim() || "team",
+          ...(raw.model_provider != null ? { model_provider: raw.model_provider } : {}),
+          ...(raw.model_id != null ? { model_id: raw.model_id } : {}),
+        };
+      }
+      if (tool.name === "set_bot_model") {
+        const botId = typeof raw.bot_id === "string" ? raw.bot_id.trim() : raw.bot_id;
+        return {
+          ...(botId != null && botId !== "" ? { bot_id: botId } : {}),
+          model_provider: raw.model_provider,
+          model_id: raw.model_id,
         };
       }
       if (tool.name === "update_bot") {
@@ -1402,6 +1412,8 @@ function builtinParameters(tool: ConnectorTool) {
       instructions: Type.Optional(Type.String()),
       prompt: Type.Optional(Type.String()),
       computer_mode: Type.Optional(stringEnum(["team", "dedicated"], {})),
+      model_provider: Type.Optional(Type.String()),
+      model_id: Type.Optional(Type.String()),
     });
   }
   if (tool.name === "update_bot") {

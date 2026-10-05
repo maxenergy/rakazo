@@ -57,6 +57,8 @@ export async function spawnBot(
     instructions?: string;
     prompt?: string;
     computerMode?: ComputerMode;
+    modelProvider?: string;
+    modelId?: string;
   },
 ) {
   const name = input.name.trim();
@@ -69,7 +71,7 @@ export async function spawnBot(
     isDeploymentOwner: false,
   };
   let duplicate = false;
-  let created: Pick<Bot, "id" | "name" | "title" | "threadId">;
+  let created: Pick<Bot, "id" | "name" | "title" | "threadId" | "modelProvider" | "modelId">;
   try {
     created = await createRepos(deps.prisma).createBot(actor, {
       name,
@@ -80,6 +82,8 @@ export async function spawnBot(
       parentBotId: input.spawnedBy.id,
       spawnKey: input.spawnKey,
       computerMode: input.computerMode,
+      modelProvider: input.modelProvider,
+      modelId: input.modelId,
       initialMessage: {
         role: "system",
         blocks: [{ kind: "meta", text: `Created by ${input.spawnedBy.name}` }],
@@ -96,7 +100,13 @@ export async function spawnBot(
       },
       include: { thread: true },
     });
-    if (!existing) throw error;
+    if (
+      !existing ||
+      existing.userId !== actor.userId ||
+      existing.parentBotId !== input.spawnedBy.id ||
+      existing.archivedAt !== null
+    )
+      throw error;
     if (!existing.thread) throw new Error(`Spawned bot ${existing.id} is missing its thread`);
     duplicate = true;
     created = {
@@ -104,6 +114,8 @@ export async function spawnBot(
       name: existing.name,
       title: existing.title,
       threadId: existing.thread.id,
+      modelProvider: existing.modelProvider,
+      modelId: existing.modelId,
     };
   }
 
@@ -130,6 +142,8 @@ export async function spawnBot(
     name: created.name,
     title: created.title,
     threadId: created.threadId,
+    modelProvider: created.modelProvider ?? null,
+    modelId: created.modelId ?? null,
   };
 }
 

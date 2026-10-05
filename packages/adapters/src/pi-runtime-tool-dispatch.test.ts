@@ -269,6 +269,7 @@ vi.mock("./pi-openai-compatible-provider.js", () => ({
   registerOpenAiCompatibleRuntime: (models: unknown) => models,
 }));
 
+import { builtinAgentTools } from "./builtin-tools.js";
 import { toolCompletionAuditPayload } from "./executor.js";
 import {
   MISSING_TOOL_FINAL_RESPONSE_ERROR,
@@ -331,6 +332,82 @@ describe("Pi connector tool dispatch", () => {
       args: { collection: "notes", title: "Result", body: "Done" },
     };
     delete process.env.MAX_TOOL_CALLS_PER_TURN;
+  });
+
+  it.each([undefined, null, ""])(
+    "keeps a spawned bot's model and defaults an unused computer mode (%s)",
+    async (computerMode) => {
+      fakeAgentState.invoke = {
+        name: "spawn_bot",
+        args: {
+          name: "CTO",
+          model_provider: "claude-code",
+          model_id: "claude-opus-5-5",
+          ...(computerMode === undefined ? {} : { computer_mode: computerMode }),
+        },
+      };
+      const executeTool = vi.fn(async () => ({ ok: true }));
+      const runtime = new PiAgentRuntime();
+      for await (const _event of runtime.run(
+        {
+          botId: "parent-1",
+          threadId: "thread-1",
+          runId: "run-1",
+          prompt: "Create the CTO with the requested provider and model.",
+          instructions: "Use spawn_bot.",
+          history: [],
+          tools: [builtinAgentTools.find((tool) => tool.name === "spawn_bot")!],
+          model: { provider: "test", id: "dispatch-test-model" },
+          executeTool,
+        },
+        { signal: new AbortController().signal },
+      )) {
+        // Exhaust the runtime event stream.
+      }
+      expect(executeTool).toHaveBeenCalledWith(
+        "spawn_bot",
+        expect.objectContaining({
+          name: "CTO",
+          computer_mode: "team",
+          model_provider: "claude-code",
+          model_id: "claude-opus-5-5",
+        }),
+        "call-1",
+        undefined,
+        expect.any(Object),
+      );
+    },
+  );
+
+  it("preserves an existing bot's model selection while omitting an unused target", async () => {
+    fakeAgentState.invoke = {
+      name: "set_bot_model",
+      args: { bot_id: null, model_provider: "claude-code", model_id: "claude-opus-5-5" },
+    };
+    const executeTool = vi.fn(async () => ({ ok: true }));
+    for await (const _event of new PiAgentRuntime().run(
+      {
+        botId: "parent-1",
+        threadId: "thread-1",
+        runId: "run-1",
+        prompt: "Use the requested model.",
+        instructions: "Use set_bot_model.",
+        history: [],
+        tools: [builtinAgentTools.find((tool) => tool.name === "set_bot_model")!],
+        model: { provider: "test", id: "dispatch-test-model" },
+        executeTool,
+      },
+      { signal: new AbortController().signal },
+    )) {
+      // Exhaust the runtime event stream.
+    }
+    expect(executeTool).toHaveBeenCalledWith(
+      "set_bot_model",
+      { model_provider: "claude-code", model_id: "claude-opus-5-5" },
+      "call-1",
+      undefined,
+      expect.any(Object),
+    );
   });
 
   it("injects durable steering at Pi's next safe turn boundary", async () => {

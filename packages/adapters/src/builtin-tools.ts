@@ -62,6 +62,7 @@ function secretAskToolSurface() {
 export const DELEGATION_TOOL_NAMES = new Set([
   "run_subagent",
   "spawn_bot",
+  "set_bot_model",
   "archive_bot",
   "delete_bot",
   "handoff_to_bot",
@@ -889,7 +890,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "spawn_bot",
     description:
-      "Create a full, regular bot — the same kind the user creates from the + button. It gets its own thread, computer, and memory, and appears as a peer in the bot list. Do not also call run_subagent. Creating the bot is the whole action. Only set prompt if the user asked that new bot to start work immediately.",
+      "Create a full, regular bot with its own thread, computer, and memory. Use list_models for exact connected provider/model IDs and pass both model_provider and model_id when the user specifies a model. Otherwise the bot inherits its parent's model. Do not also call run_subagent. Only set prompt if the user asked the new bot to start work immediately.",
     inputSchema: {
       type: "object",
       properties: {
@@ -906,8 +907,41 @@ export const builtinAgentTools: ConnectorTool[] = [
           description:
             "Optional. team shares one screen with other Team bots; dedicated (Private) gets its own. Defaults to team.",
         },
+        model_provider: {
+          type: "string",
+          description: "Connected provider ID from list_models. Set together with model_id.",
+        },
+        model_id: {
+          type: "string",
+          description:
+            "Exact model ID from list_models for that provider. Set together with model_provider.",
+        },
       },
       required: ["name"],
+    },
+  },
+  {
+    name: "list_models",
+    description:
+      "List models available through the user's connected providers in this space. Use the exact provider and model IDs with spawn_bot or set_bot_model. Provider identity matters even when model names match. No credentials are returned.",
+    readOnly: true,
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "set_bot_model",
+    description:
+      "Set the model for this bot or an active bot it created. Use bot_id from the teammate directory for a child bot; omit it to configure yourself. Call list_models first, use exact provider/model IDs, and report the saved pair returned by this tool. Do not use the browser to change bot settings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot_id: { type: "string", description: "Child bot ID. Omit to configure this bot." },
+        model_provider: { type: "string", description: "Connected provider ID from list_models." },
+        model_id: {
+          type: "string",
+          description: "Exact model ID for that provider from list_models.",
+        },
+      },
+      required: ["model_provider", "model_id"],
     },
   },
   {

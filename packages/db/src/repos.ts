@@ -418,7 +418,12 @@ export function createRepos(prisma: PrismaClient) {
           modelProvider = parent.modelProvider ?? null;
           modelId = parent.modelId ?? null;
         }
-        if (thinkingLevel == null) thinkingLevel = parent.thinkingLevel ?? null;
+        if (
+          thinkingLevel == null &&
+          modelProvider === parent.modelProvider &&
+          modelId === parent.modelId
+        )
+          thinkingLevel = parent.thinkingLevel ?? null;
       }
       const settings = await prisma.deploymentSettings.findUnique({ where: { id: "default" } });
       const envKind = process.env.SANDBOX_PROVIDER ?? "docker";

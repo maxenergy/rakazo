@@ -12,6 +12,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { browserProfilePathForScreen } from "@rakazo/core/node/desktop-runtime";
 import type { createRepos, PrismaClient } from "@rakazo/db";
+import * as database from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   archiveBot,
@@ -44,12 +45,57 @@ function noGroupMemberships() {
 }
 
 describe("spawned bot creation", () => {
+  it("persists the requested model during creation and returns the saved pair", async () => {
+    const createBot = vi.fn().mockResolvedValue({
+      id: "child-model",
+      name: "CTO",
+      title: "Technical lead",
+      threadId: "child-thread",
+      modelProvider: "claude-code",
+      modelId: "claude-opus-5-5",
+    });
+    const spy = vi.spyOn(database, "createRepos").mockReturnValue({
+      createBot,
+    } as unknown as ReturnType<typeof createRepos>);
+    try {
+      const input = {
+        spawnedBy: { id: "parent-1", name: "Chief", spaceId: "workspace-1", userId: "user-1" },
+        runId: "run-1",
+        spawnKey: "model-spawn",
+        name: "CTO",
+        title: "Technical lead",
+        modelProvider: "claude-code",
+        modelId: "claude-opus-5-5",
+      };
+      const result = await spawnBot(
+        { prisma: {} as PrismaClient, jobs: { enqueue: vi.fn() } as unknown as JobPublisher },
+        input,
+      );
+      expect(createBot).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "user-1", spaceId: "workspace-1" }),
+        expect.objectContaining({ modelProvider: "claude-code", modelId: "claude-opus-5-5" }),
+      );
+      expect(result).toMatchObject({
+        ok: true,
+        modelProvider: "claude-code",
+        modelId: "claude-opus-5-5",
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("returns the existing child when a spawn is retried", async () => {
     const findUnique = vi.fn().mockResolvedValue({
       id: "child-1",
+      userId: "user-1",
+      parentBotId: "parent-1",
+      archivedAt: null,
       name: "Scout",
       title: "Venue researcher",
       thread: { id: "thread-1" },
+      modelProvider: "claude-code",
+      modelId: "claude-opus-4-6",
     });
     const enqueue = vi.fn().mockResolvedValue(undefined);
     const prisma = {
@@ -80,6 +126,8 @@ describe("spawned bot creation", () => {
         name: " Scout ",
         title: "Ignored on a retry",
         prompt: "Do not enqueue this twice",
+        modelProvider: "codex-cli",
+        modelId: "gpt-6-astra",
       },
     );
 
@@ -99,9 +147,49 @@ describe("spawned bot creation", () => {
       name: "Scout",
       title: "Venue researcher",
       threadId: "thread-1",
+      modelProvider: "claude-code",
+      modelId: "claude-opus-4-6",
     });
     expect(enqueue).toHaveBeenCalledOnce();
   });
+
+  it.each([
+    { userId: "other-user", parentBotId: "parent-1", archivedAt: null },
+    { userId: "user-1", parentBotId: "other-parent", archivedAt: null },
+    { userId: "user-1", parentBotId: "parent-1", archivedAt: new Date("2026-01-01") },
+  ])(
+    "does not report a mismatched or archived child as a successful retry: %j",
+    async (existing) => {
+      const failure = new Error("creation failed");
+      const createBot = vi.fn().mockRejectedValue(failure);
+      const spy = vi
+        .spyOn(database, "createRepos")
+        .mockReturnValue({ createBot } as unknown as ReturnType<typeof createRepos>);
+      try {
+        const prisma = {
+          bot: { findUnique: vi.fn().mockResolvedValue({ id: "child-1", ...existing }) },
+        } as unknown as PrismaClient;
+        await expect(
+          spawnBot(
+            { prisma, jobs: { enqueue: vi.fn() } as unknown as JobPublisher },
+            {
+              spawnedBy: {
+                id: "parent-1",
+                name: "Chief",
+                spaceId: "workspace-1",
+                userId: "user-1",
+              },
+              runId: "run-1",
+              spawnKey: "tool-retry",
+              name: "CTO",
+            },
+          ),
+        ).rejects.toBe(failure);
+      } finally {
+        spy.mockRestore();
+      }
+    },
+  );
 
   it("passes computerMode through to createBot", async () => {
     const createBot = vi.fn().mockResolvedValue({
@@ -109,6 +197,8 @@ describe("spawned bot creation", () => {
       name: "Painter",
       title: "",
       threadId: "thread-2",
+      modelProvider: null,
+      modelId: null,
     });
     const createReposSpy = vi.spyOn(await import("@rakazo/db"), "createRepos").mockReturnValue({
       createBot,
@@ -147,6 +237,8 @@ describe("spawned bot creation", () => {
       name: "Painter",
       title: "",
       threadId: "thread-2",
+      modelProvider: null,
+      modelId: null,
     });
     createReposSpy.mockRestore();
   });

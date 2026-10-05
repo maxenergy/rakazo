@@ -160,6 +160,12 @@ import { createAutoReviewProvider } from "./auto-review-factory.js";
 import { attachedImageArtifactIds, resolveUpdateBotAvatar } from "./bot-avatar.js";
 import { loadBotMessageContext, messageBot, returnBotMessageOutcome } from "./bot-messages.js";
 import {
+  listConnectedBotModels,
+  parseBotModelSelection,
+  setBotModelFromTool,
+  validateBotModelSelection,
+} from "./bot-model-tools.js";
+import {
   allowPrivateHttpSecretOrigins,
   findBotSecret,
   forgetBotSecret,
@@ -5699,7 +5705,37 @@ export function createRunExecutor(deps: ExecutorDeps) {
               throw error;
             }
           }
+          if (name === "list_models") {
+            return finish(await listConnectedBotModels(deps, run));
+          }
+          if (name === "set_bot_model") {
+            const changed = await setBotModelFromTool(deps, { ...run, botId: bot.id }, args);
+            if ("error" in changed) return finish(changed);
+            if (!(await persistEffectResult(changed))) return uncertainEffectResult(name);
+            await deps.events
+              .append({
+                spaceId: run.spaceId,
+                threadId: thread.id,
+                botId: bot.id,
+                runId: run.id,
+                type: "bot.updated",
+                payload: { botId: changed.botId, name: changed.name },
+              })
+              .catch((error) => getLogger().error("bot model update notification", error));
+            return changed;
+          }
           if (name === "spawn_bot") {
+            const model = parseBotModelSelection(args);
+            if ("error" in model) return finish(model);
+            if (model.modelProvider && model.modelId) {
+              const error = await validateBotModelSelection(
+                deps,
+                run,
+                model.modelProvider,
+                model.modelId,
+              );
+              if (error) return finish({ error });
+            }
             const computerModeArg = args.computer_mode;
             let computerMode: "team" | "dedicated" | undefined;
             if (computerModeArg != null && computerModeArg !== "") {
@@ -5725,6 +5761,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               instructions: args.instructions ? String(args.instructions) : undefined,
               prompt: args.prompt ? String(args.prompt) : undefined,
               computerMode,
+              ...model,
             });
             if ("error" in spawned) return finish(spawned);
             if (!(await persistEffectResult(spawned))) return uncertainEffectResult(name);
@@ -7109,7 +7146,7 @@ export function userTurnInstructions(parts: {
     parts.agentEnvironmentInstruction,
     "A bot and a subagent are different. Never use both for the same request.",
     "create_space proposes a new privacy boundary inside the current organization. Use it when the user asks to create a space or separate data between teams or projects. It always pauses for explicit user approval; never claim the space exists before the tool succeeds.",
-    "spawn_bot creates a lasting regular bot (own chat, computer, memory) that appears in the user's bot list. If the user asked to create a bot, call spawn_bot once and stop. Do not run_subagent to demo it.",
+    "spawn_bot creates a lasting regular bot (own chat, computer, memory). When a user specifies its model, call list_models and pass the exact provider/model pair to spawn_bot; verify the saved pair in the result. Use set_bot_model to configure yourself or an existing bot you created. Do not use the browser for bot model settings or run_subagent to demo a new bot. When proposing a team, show the number of bots, roles, and provider/model choices and ask_user for confirmation before creating them. An explicit request to create a named bot with a specified model already authorizes that configuration.",
     "update_bot updates this bot's own name (chat header / list label), title, description, avatar, and notifyOnFinish. When the user asks you to rename yourself, change your title or description, change your profile picture, or turn finish notifications on or off, call update_bot — do not claim you changed them without the tool. Pass color for a hex or encoded shape, artifact_id for an image in this space, or use_attached_image when they attached a picture on this message.",
     "run_subagent is a short helper inside this turn only. It is not a bot, has no thread, and does not show in the list. Use it for parallel work you will summarize here.",
     parts.botDirectory,

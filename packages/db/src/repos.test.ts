@@ -1,8 +1,10 @@
 import type { Actor } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "./client.js";
+import * as computers from "./computers.js";
 import { createRepos } from "./repos.js";
 import { IsolationError } from "./scope.js";
+import * as spaces from "./spaces.js";
 
 const actor: Actor = {
   userId: "user-1",
@@ -45,6 +47,89 @@ function reposFor(memoryScope: string | null) {
   };
   return createRepos(prisma as unknown as PrismaClient);
 }
+
+describe("createRepos.createBot model inheritance", () => {
+  it.each([
+    { override: {}, provider: "codex-cli", modelId: "gpt-6-astra", thinkingLevel: "high" },
+    {
+      override: { modelProvider: "claude-code", modelId: "claude-opus-5-5" },
+      provider: "claude-code",
+      modelId: "claude-opus-5-5",
+      thinkingLevel: null,
+    },
+    {
+      override: { modelProvider: "codex-cli", modelId: "gpt-6-astra" },
+      provider: "codex-cli",
+      modelId: "gpt-6-astra",
+      thinkingLevel: "high",
+    },
+  ])(
+    "keeps the model and thinking preference together: $provider",
+    async ({ override, provider, modelId, thinkingLevel }) => {
+      const lock = vi
+        .spyOn(spaces, "lockSpaceForContentCreation")
+        .mockResolvedValue({ organizationId: "org-1" });
+      const computer = vi
+        .spyOn(computers, "ensureComputerRecord")
+        .mockResolvedValue({ id: "computer-1" } as never);
+      let created = {
+        ...baseBot,
+        modelProvider: null as string | null,
+        modelId: null as string | null,
+        thinkingLevel: null as string | null,
+      };
+      const create = vi.fn(async ({ data }: { data: Partial<typeof created> }) => {
+        created = { ...created, ...data };
+        return created;
+      });
+      const tx = {
+        bot: {
+          aggregate: vi.fn(async () => ({ _max: { position: 0 } })),
+          create,
+          findFirstOrThrow: vi.fn(async () => created),
+        },
+        thread: { create: vi.fn(async () => ({ id: "thread-1" })) },
+        browserProfile: { create: vi.fn(async () => ({})) },
+        memoryDocument: { create: vi.fn(async () => ({})) },
+      };
+      const prisma = {
+        bot: {
+          findFirst: vi.fn(async () => ({
+            ...baseBot,
+            modelProvider: "codex-cli",
+            modelId: "gpt-6-astra",
+            thinkingLevel: "high",
+          })),
+        },
+        deploymentSettings: { findUnique: vi.fn(async () => null) },
+        $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+        ),
+      } as unknown as PrismaClient;
+      try {
+        const result = await createRepos(prisma).createBot(actor, {
+          name: "CTO",
+          title: "",
+          description: "",
+          instructions: "",
+          notifyOnFinish: true,
+          color: "ink",
+          parentBotId: "parent-1",
+          ...override,
+        });
+        expect(result).toMatchObject({ modelProvider: provider, modelId, thinkingLevel });
+        expect(create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ modelProvider: provider, modelId, thinkingLevel }),
+          }),
+        );
+      } finally {
+        lock.mockRestore();
+        computer.mockRestore();
+      }
+    },
+  );
+});
 
 describe("createRepos.listBots", () => {
   it("passes memoryScope through as null when unset", async () => {

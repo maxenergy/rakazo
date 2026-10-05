@@ -37,6 +37,10 @@ vi.mock("./pi-current-models.js", () => ({
   supplementPiModels: (models: unknown) => models,
 }));
 
+vi.mock("./cli-model-provider.js", () => ({
+  registerCliModelProviders: (models: unknown) => models,
+}));
+
 vi.mock("./pi-local-provider.js", () => ({
   registerLocalProvider: (models: unknown) => models,
 }));

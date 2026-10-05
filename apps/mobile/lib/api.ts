@@ -1,4 +1,5 @@
 import type {
+  AvatarStyle,
   Bot,
   BotSection,
   ComputerMode,
@@ -32,6 +33,7 @@ import {
 } from "@rakazo/core";
 import * as SecureStore from "expo-secure-store";
 import { promptAiConsent } from "./ai-consent";
+import { getCachedAvatarStyle, saveAvatarStyle } from "./avatar-style";
 import type { EndpointResult } from "./endpoint";
 import { defaultApiBase, normalizeApiBase } from "./endpoint";
 import { getActiveUiLocale, t } from "./i18n";
@@ -61,6 +63,9 @@ let cachedSpaceId = "";
 /** Bumped on every in-memory Space selection change so a delayed response
  * cannot treat a later reselection of the same Space id as its own. */
 let spaceSelectionGeneration = 0;
+/** Counts selectSpace attempts so one still cleaning up a rollback record
+ * cannot claim the selection after a newer attempt has started. */
+let spaceSelectionRequestGeneration = 0;
 
 function bumpSpaceSelectionGeneration(): void {
   spaceSelectionGeneration += 1;
@@ -106,7 +111,11 @@ export async function loadApiBase() {
 }
 
 export async function selectSpace(id: string) {
+  const requestGeneration = ++spaceSelectionRequestGeneration;
   if (!(await clearStoredValue(SPACE_ROLLBACK_KEY))) return false;
+  // Rollback cleanup is the first await. A newer selection may have claimed
+  // the live space while this call was still deleting the rollback record.
+  if (requestGeneration !== spaceSelectionRequestGeneration) return false;
   // Claim memory before persisting: recovery paths reconcile against the
   // in-memory selection, so a durable write must never precede its owner.
   const previousSpaceId = cachedSpaceId;
@@ -224,10 +233,17 @@ async function snapshotSpace(): Promise<{ ok: true; value: string } | { ok: fals
 
 /** Clears session + space for an endpoint change. Restores both if either wipe fails. */
 async function clearCredentialsForEndpointChange(): Promise<
-  { ok: true; previousToken: string; previousSpace: string } | { ok: false; result: EndpointResult }
+  | {
+      ok: true;
+      previousToken: string;
+      previousSpace: string;
+      previousAvatarStyle: AvatarStyle;
+    }
+  | { ok: false; result: EndpointResult }
 > {
   const previousToken = await snapshotSessionToken();
   const previousSpace = await snapshotSpace();
+  const previousAvatarStyle = getCachedAvatarStyle();
   if (!previousToken.ok || !previousSpace.ok) {
     return {
       ok: false,
@@ -248,18 +264,28 @@ async function clearCredentialsForEndpointChange(): Promise<
   bumpSpaceSelectionGeneration();
   const spaceCleared = await clearStoredValue(SPACE_KEY);
   if (sessionCleared && spaceCleared) {
-    return { ok: true, previousToken: previousToken.value, previousSpace: previousSpace.value };
+    return {
+      ok: true,
+      previousToken: previousToken.value,
+      previousSpace: previousSpace.value,
+      previousAvatarStyle,
+    };
   }
 
-  await restoreCredentials(previousToken.value, previousSpace.value);
+  await restoreCredentials(previousToken.value, previousSpace.value, previousAvatarStyle);
   return {
     ok: false,
     result: { ok: false, error: t("Could not clear the previous server session") },
   };
 }
 
-async function restoreCredentials(previousToken: string, previousSpace: string) {
+async function restoreCredentials(
+  previousToken: string,
+  previousSpace: string,
+  previousAvatarStyle: AvatarStyle,
+) {
   if (previousToken) await restoreSessionToken(previousToken);
+  await saveAvatarStyle(previousAvatarStyle);
   if (previousSpace) {
     cachedSpaceId = previousSpace;
     bumpSpaceSelectionGeneration();
@@ -319,7 +345,13 @@ export async function saveApiBase(input: string): Promise<EndpointResult> {
   if (!parsed.ok) return parsed;
   if (parsed.url === defaultApiBase()) return resetApiBase();
   const previous = currentApiBase();
-  let cleared: { previousToken: string; previousSpace: string } | undefined;
+  let cleared:
+    | {
+        previousToken: string;
+        previousSpace: string;
+        previousAvatarStyle: AvatarStyle;
+      }
+    | undefined;
   if (parsed.url !== previous) {
     const result = await clearCredentialsForEndpointChange();
     if (!result.ok) return result.result;
@@ -328,7 +360,13 @@ export async function saveApiBase(input: string): Promise<EndpointResult> {
   try {
     await SecureStore.setItemAsync(ENDPOINT_KEY, parsed.url);
   } catch {
-    if (cleared) await restoreCredentials(cleared.previousToken, cleared.previousSpace);
+    if (cleared) {
+      await restoreCredentials(
+        cleared.previousToken,
+        cleared.previousSpace,
+        cleared.previousAvatarStyle,
+      );
+    }
     return { ok: false, error: t("Could not save the server URL") };
   }
   cachedApiBase = parsed.url;
@@ -339,7 +377,13 @@ export async function saveApiBase(input: string): Promise<EndpointResult> {
 export async function resetApiBase(): Promise<EndpointResult> {
   const previous = currentApiBase();
   const url = defaultApiBase();
-  let cleared: { previousToken: string; previousSpace: string } | undefined;
+  let cleared:
+    | {
+        previousToken: string;
+        previousSpace: string;
+        previousAvatarStyle: AvatarStyle;
+      }
+    | undefined;
   if (url !== previous) {
     const result = await clearCredentialsForEndpointChange();
     if (!result.ok) return result.result;
@@ -349,7 +393,11 @@ export async function resetApiBase(): Promise<EndpointResult> {
     await SecureStore.deleteItemAsync(ENDPOINT_KEY);
   } catch {
     if (cleared) {
-      await restoreCredentials(cleared.previousToken, cleared.previousSpace);
+      await restoreCredentials(
+        cleared.previousToken,
+        cleared.previousSpace,
+        cleared.previousAvatarStyle,
+      );
       return { ok: false, error: t("Could not clear the custom server URL") };
     }
   }
@@ -848,6 +896,27 @@ export function shouldApplyMobileThreadRefresh(input: {
     input.targetBotId === input.activeBotId &&
     input.targetGroupId === input.activeGroupId
   );
+}
+
+/**
+ * What a refresh may hand the live subscription. The server replays events
+ * after this snapshot's cursor, so an uncommitted fetch must not supply it.
+ */
+export function mobileThreadRefreshResult(input: {
+  fetched: MobileSnapshot;
+  onScreen: MobileSnapshot | null;
+  requestGeneration: number;
+  currentGeneration: number;
+  requestEpoch: number;
+  currentEpoch: number;
+  targetBotId: string | undefined;
+  targetGroupId: string | undefined;
+  activeBotId: string | undefined;
+  activeGroupId: string | undefined;
+}): { commit: boolean; snapshot: MobileSnapshot | null } {
+  const commit =
+    input.requestGeneration === input.currentGeneration && shouldApplyMobileThreadRefresh(input);
+  return { commit, snapshot: commit ? input.fetched : input.onScreen };
 }
 
 export type MobileMessagePage = ThreadHistory<MobileMessage>;

@@ -11,12 +11,14 @@ import { CallCard } from "../components/CallCard";
 import { ComputerUpdateProgress } from "../components/computer-update-progress";
 import { currentApiBase, loadApiBase, loadSessionToken, selectedSpaceId } from "../lib/api";
 import { loadAppearancePreference, mobileTokens } from "../lib/appearance";
+import { loadAvatarStyle } from "../lib/avatar-style";
 import { bootstrapI18n, useI18n } from "../lib/i18n";
 import {
   configureForegroundNotifications,
   resumeLiveNotifications,
 } from "../lib/live-notifications";
 import { native, useResolvedAppearance } from "../lib/native";
+import { useNotificationResponses } from "../lib/open-notification";
 import { loadResponseStreamingPreference } from "../lib/response-streaming";
 
 configureForegroundNotifications();
@@ -32,6 +34,7 @@ export default function Layout() {
   }, []);
   const { t } = useI18n();
   const [ready, setReady] = useState(false);
+  useNotificationResponses(ready);
   const [appearanceReady, setAppearanceReady] = useState(false);
   const resolved = useResolvedAppearance();
   const navigationTheme = useMemo(() => {
@@ -61,6 +64,7 @@ export default function Layout() {
         loadApiBase(),
         loadAppearancePreference().finally(() => setAppearanceReady(true)),
         loadResponseStreamingPreference(),
+        loadAvatarStyle(),
       ])
         .then(async () =>
           resumeLiveNotifications(

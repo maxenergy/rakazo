@@ -6230,6 +6230,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               resumeFromCheckpoint: takeoverResume?.checkpoint,
               script,
               allowSilentEmpty: allowSilentEmptyRun,
+              shouldEndTurn: () => handedOff,
               emptyResponseText,
               executeTool: scripted ? undefined : applyTool,
               resolveModel: scripted

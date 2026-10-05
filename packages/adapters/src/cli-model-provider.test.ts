@@ -111,6 +111,22 @@ describe("subscription CLI provider conformance", () => {
     expect(vi.mocked(runCliProcess).mock.calls[0]?.[0].input).toContain("Found the test");
   });
 
+  it.each(Object.keys(CLI_MODEL_PROVIDERS) as CliModelProvider[])(
+    "accepts a valid silent completion from %s",
+    async (provider) => {
+      vi.mocked(runCliProcess).mockResolvedValue(output(provider, { text: "", calls: [] }));
+      const models = registerCliModelProviders(builtinModels());
+      const model = models.getProvider(provider)!.getModels()[0]!;
+      const result = await models
+        .streamSimple(model, { messages: [] }, { apiKey: profileId })
+        .result();
+      expect(result.stopReason).toBe("stop");
+      expect(result.content).toEqual([]);
+      expect(result.errorMessage).toBeUndefined();
+      expect(runCliProcess).toHaveBeenCalledOnce();
+    },
+  );
+
   it("rejects an unbound profile and images before any process runs", async () => {
     const models = registerCliModelProviders(builtinModels());
     const model = models.getProvider("codex-cli")!.getModels()[0]!;
@@ -174,7 +190,8 @@ describe("subscription CLI provider conformance", () => {
         new Set(["lookup"]),
       ),
     ).toThrow("arguments");
-    expect(() => parseCliReply('{"text":"","calls":[]}', new Set())).toThrow("empty");
+    expect(parseCliReply('{"text":"","calls":[]}', new Set())).toEqual({ text: "", calls: [] });
+    expect(() => parseCliReply("", new Set())).toThrow();
     expect(() => cliResponseText("codex-cli", '{"type":"turn.failed"}\n')).toThrow();
     expect(() => cliResponseText("claude-code", '{"is_error":true,"result":"private"}')).toThrow();
     for (const status of ["ERROR", "CANCELED", "WAITING", "RUNNING", "INVALID"])

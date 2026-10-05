@@ -1,4 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
+    "Запрос CLI не выполнен. Проверьте вход, выбранную модель и лимиты подписки. Переход на API не использовался.",
   "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
     "Вход по подписке {provider} пока недоступен в интерфейсе Rakazo. Пропустите этот шаг, если в развёртывании уже есть учётные данные.",
   "Configured model: {provider}": "Настроенная модель: {provider}",

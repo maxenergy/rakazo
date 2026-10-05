@@ -1768,7 +1768,7 @@ function Thread() {
     >
       {error ? <Text style={{ color: tokens.mutedForeground, marginTop: 12 }}>{error}</Text> : null}
       {runError ? (
-        <Text style={{ color: tokens.destructive, marginTop: 12 }}>{runError}</Text>
+        <Text style={{ color: tokens.destructive, marginTop: 12 }}>{t(runError)}</Text>
       ) : null}
       <View style={{ flex: 1, position: "relative" }}>
         {showPinnedPage ? (

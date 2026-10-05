@@ -4254,3 +4254,7 @@ msgstr "Adın"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Gerçek işler verebileceğin,<0/>her zaman açık agent takımın."
+
+#: src/pages/Shell.tsx
+msgid "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used."
+msgstr "CLI isteği başarısız oldu. Oturum açmayı, seçilen modeli ve abonelik sınırlarını kontrol edin. API yedek çağrısı kullanılmadı."

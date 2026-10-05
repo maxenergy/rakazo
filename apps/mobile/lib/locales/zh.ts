@@ -1,4 +1,6 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
+    "CLI 调用失败。请检查登录状态、所选模型和订阅额度。未切换至 API 调用。",
   "Connecting…": "正在连接…",
   "Antigravity is not available in this account's region.": "此账号所在地区暂不支持 Antigravity。",
   "This account is not eligible for Antigravity.": "此账号暂不符合 Antigravity 的使用资格。",

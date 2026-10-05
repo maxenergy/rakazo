@@ -4254,3 +4254,7 @@ msgstr "आपका नाम"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "हमेशा चालू रहने वाले एजेंटों की आपकी टीम<0/>जिन्हें आप असली काम सौंप सकते हैं।"
+
+#: src/pages/Shell.tsx
+msgid "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used."
+msgstr "CLI अनुरोध विफल हुआ। साइन-इन, चुने गए मॉडल और सदस्यता की सीमाएँ जाँचें। API का वैकल्पिक उपयोग नहीं किया गया।"

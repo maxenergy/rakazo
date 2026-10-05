@@ -4254,3 +4254,7 @@ msgstr "이름"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "언제든 실제 작업을 맡길 수 있는<0/>나만의 Agent 팀"
+
+#: src/pages/Shell.tsx
+msgid "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used."
+msgstr "CLI 요청이 실패했습니다. 로그인, 선택한 모델 및 구독 한도를 확인하세요. API로 대체 호출하지 않았습니다."

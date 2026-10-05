@@ -93,8 +93,8 @@ export function parseCliReply(text: string, tools: ReadonlySet<string>): CliRepl
     if (!args || typeof args !== "object" || Array.isArray(args))
       throw new Error("Invalid CLI tool arguments.");
   }
-  if (!value.text.trim() && !value.calls.length)
-    throw new Error("CLI returned an empty model response.");
+  // A valid empty reply is a silent completion, not a CLI/auth failure.
+  // The shared runtime decides whether the run still needs a final answer.
   return value as CliReply;
 }
 

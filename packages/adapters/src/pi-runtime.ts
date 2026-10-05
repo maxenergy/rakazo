@@ -297,6 +297,7 @@ export class PiAgentRuntime implements AgentRuntime {
               request.model.maxImagesPerPrompt,
             ),
           finishTurn: async (turn, turnSignal) => {
+            if (request.shouldEndTurn?.()) return { action: "end" };
             await deliverFinishedShells(
               (text) => {
                 agent.followUp({ role: "user", content: text, timestamp: Date.now() });
@@ -381,6 +382,10 @@ export class PiAgentRuntime implements AgentRuntime {
             }
           }
           if (event.type === "turn_end") {
+            if (request.shouldEndTurn?.()) {
+              toolWorkPendingFinal = false;
+              return;
+            }
             const messageText =
               event.message.role === "assistant" ? assistantText(event.message) : "";
             const hasToolCalls =
@@ -478,6 +483,8 @@ export class PiAgentRuntime implements AgentRuntime {
             queue.push({ type: "text", text: budgetMessage });
             streamed = budgetMessage;
           }
+        } else if (request.shouldEndTurn?.()) {
+          streamed = "";
         } else if (!host.pausePending && toolWorkPendingFinal) {
           if (request.allowSilentEmpty) {
             // Scheduled/FYI runs may finish after tools with no user-visible text.

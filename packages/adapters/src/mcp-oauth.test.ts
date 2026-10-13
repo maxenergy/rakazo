@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { OAuthMaterial } from "./mcp-oauth.js";
 import {
   McpOAuthBroker,
   McpReauthorizationRequiredError,
@@ -35,7 +36,309 @@ function oauthSessionStore() {
   };
 }
 
+function trackedClone(response: Response): { response: Response; bytesRead: () => number } {
+  let bytes = 0;
+  const clone = response.clone.bind(response);
+  response.clone = () => {
+    const cloned = clone();
+    const reader = cloned.body?.getReader();
+    if (!reader) return cloned;
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        const next = await reader.read();
+        if (next.done) {
+          controller.close();
+          return;
+        }
+        bytes += next.value.byteLength;
+        controller.enqueue(next.value);
+      },
+      cancel(reason) {
+        return reader.cancel(reason);
+      },
+    });
+    return new Response(body, {
+      status: cloned.status,
+      statusText: cloned.statusText,
+      headers: cloned.headers,
+    });
+  };
+  return { response, bytesRead: () => bytes };
+}
+
+function chunkedBody(totalBytes: number, chunkBytes: number): ReadableStream<Uint8Array> {
+  let sent = 0;
+  return new ReadableStream({
+    pull(controller) {
+      if (sent >= totalBytes) {
+        controller.close();
+        return;
+      }
+      const size = Math.min(chunkBytes, totalBytes - sent);
+      sent += size;
+      controller.enqueue(new Uint8Array(size).fill(0x61));
+    },
+  });
+}
+
+async function rejectedOAuthBegin(
+  register: () => Response | Promise<Response>,
+  secret?: string,
+): Promise<Error> {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init);
+      const url = logicalHref(input, init);
+      if (url === "https://mcp.example.test/mcp" && request.method === "POST") {
+        return new Response("missing bearer token", {
+          status: 401,
+          headers: {
+            "content-type": "text/plain",
+            "WWW-Authenticate":
+              'Bearer resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource/mcp"',
+          },
+        });
+      }
+      if (url === "https://mcp.example.test/.well-known/oauth-protected-resource/mcp") {
+        return Response.json({
+          resource: "https://mcp.example.test/mcp",
+          authorization_servers: ["https://auth.example.test"],
+        });
+      }
+      if (url === "https://auth.example.test/.well-known/oauth-authorization-server") {
+        return Response.json({
+          issuer: "https://auth.example.test",
+          authorization_endpoint: "https://auth.example.test/authorize",
+          token_endpoint: "https://auth.example.test/token",
+          registration_endpoint: "https://auth.example.test/register",
+          response_types_supported: ["code"],
+          grant_types_supported: ["authorization_code", "refresh_token"],
+          code_challenge_methods_supported: ["S256"],
+        });
+      }
+      if (url === "https://auth.example.test/register" && request.method === "POST") {
+        return register();
+      }
+      throw new Error(`Unexpected request: ${request.method} ${url}`);
+    }),
+  );
+  const tx = {
+    $executeRaw: vi.fn().mockResolvedValue(1),
+    $queryRaw: vi.fn().mockResolvedValue([]),
+    mcpServer: {
+      findFirst: vi.fn().mockResolvedValue({
+        endpoint: "https://mcp.example.test/mcp",
+        secretId: secret ? "secret-1" : null,
+      }),
+      update: vi.fn().mockResolvedValue({}),
+    },
+    secret: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue(secret ? { id: "secret-1", ciphertext: "encrypted" } : undefined),
+      create: vi.fn().mockResolvedValue({}),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+  };
+  const prisma = {
+    mcpServer: {
+      findFirst: vi.fn().mockResolvedValue({
+        id: "server-1",
+        endpoint: "https://mcp.example.test/mcp",
+        secretId: secret ? "secret-1" : null,
+      }),
+    },
+    secret: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue(secret ? { id: "secret-1", ciphertext: "encrypted" } : undefined),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    mcpOAuthSession: oauthSessionStore(),
+    $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+  };
+  const broker = new McpOAuthBroker(
+    prisma as never,
+    {
+      load: vi.fn(() => JSON.stringify(secret ? { secret } : {})),
+      put: vi.fn(async () => ({ id: "secret-1", ciphertext: "encrypted" })),
+    } as never,
+    TEST_NETWORK,
+  );
+  const error = await broker
+    .begin({
+      serverId: "server-1",
+      spaceId: "workspace-1",
+      userId: "user-1",
+      redirectUri: "http://127.0.0.1:5173/mcp/oauth/callback",
+    })
+    .then(
+      () => null,
+      (caught: unknown) => caught,
+    );
+  expect(error).toBeInstanceOf(Error);
+  return error as Error;
+}
+
 describe("MCP OAuth", () => {
+  function expiringMaterial(obtainedAt: number) {
+    return {
+      oauth: {
+        tokens: {
+          access_token: "old-access",
+          refresh_token: "old-refresh",
+          token_type: "Bearer",
+          expires_in: 7200,
+        },
+        obtainedAt,
+        clientInformation: { client_id: "client-1" },
+        discoveryState: {
+          authorizationServerUrl: "https://auth.example.test",
+          authorizationServerMetadata: {
+            issuer: "https://auth.example.test",
+            authorization_endpoint: "https://auth.example.test/authorize",
+            token_endpoint: "https://auth.example.test/token",
+            response_types_supported: ["code"],
+          },
+          resourceMetadata: {
+            resource: "https://mcp.example.test",
+            authorization_servers: ["https://auth.example.test"],
+          },
+        },
+      },
+    };
+  }
+
+  it("renews an expired token once before handing it out", async () => {
+    const persisted: { oauth?: { tokens?: { access_token?: string } } }[] = [];
+    const tokenRequests: URLSearchParams[] = [];
+    const close = vi.fn(async () => undefined);
+    const provider = new StoredMcpOAuthProvider(
+      "server-1",
+      expiringMaterial(Date.now() - 3 * 60 * 60 * 1000),
+      async (material) => {
+        persisted.push(structuredClone(material));
+      },
+      {
+        refreshNetwork: async () => ({
+          fetch: async (_input: string | URL | Request, init?: RequestInit) => {
+            tokenRequests.push(new URLSearchParams(String(init?.body)));
+            return new Response(
+              JSON.stringify({
+                access_token: "new-access",
+                refresh_token: "new-refresh",
+                token_type: "Bearer",
+                expires_in: 7200,
+              }),
+              { status: 200, headers: { "content-type": "application/json" } },
+            );
+          },
+          close,
+        }),
+      },
+    );
+
+    const [first, second] = await Promise.all([provider.tokens(), provider.tokens()]);
+
+    expect(first).toMatchObject({ access_token: "new-access", refresh_token: "new-refresh" });
+    expect(second).toMatchObject({ access_token: "new-access" });
+    expect(tokenRequests).toHaveLength(1);
+    expect(tokenRequests[0]?.get("grant_type")).toBe("refresh_token");
+    expect(tokenRequests[0]?.get("refresh_token")).toBe("old-refresh");
+    expect(tokenRequests[0]?.get("client_id")).toBe("client-1");
+    expect(tokenRequests[0]?.get("resource")).toBe("https://mcp.example.test/");
+    expect(persisted.at(-1)?.oauth?.tokens?.access_token).toBe("new-access");
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("does not renew a token that is still inside its lifetime", async () => {
+    const refreshNetwork = vi.fn(async () => ({
+      fetch: async () => new Response(),
+      close: async () => undefined,
+    }));
+    const provider = new StoredMcpOAuthProvider(
+      "server-1",
+      expiringMaterial(Date.now() - 10 * 60 * 1000),
+      async () => undefined,
+      { refreshNetwork },
+    );
+
+    expect(await provider.tokens()).toMatchObject({ access_token: "old-access" });
+    expect(refreshNetwork).not.toHaveBeenCalled();
+  });
+
+  it("keeps the current token when refresh-network setup fails", async () => {
+    const persist = vi.fn(async () => undefined);
+    const refreshNetwork = vi.fn(async () => {
+      throw new Error("permission lookup temporarily unavailable");
+    });
+    const provider = new StoredMcpOAuthProvider(
+      "server-1",
+      expiringMaterial(Date.now() - (7200 - 30) * 1000),
+      persist,
+      { refreshNetwork },
+    );
+
+    await expect(provider.tokens()).resolves.toMatchObject({ access_token: "old-access" });
+    expect(persist).not.toHaveBeenCalled();
+    expect(refreshNetwork).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the current token when renewal has a transient failure", async () => {
+    const persist = vi.fn(async () => undefined);
+    const close = vi.fn(async () => undefined);
+    const provider = new StoredMcpOAuthProvider(
+      "server-1",
+      expiringMaterial(Date.now() - 3 * 60 * 60 * 1000),
+      persist,
+      {
+        refreshNetwork: async () => ({
+          fetch: async () => {
+            throw new TypeError("network unavailable");
+          },
+          close,
+        }),
+      },
+    );
+
+    expect(await provider.tokens()).toMatchObject({ access_token: "old-access" });
+    expect(persist).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("invalidates only tokens after invalid_grant and does not retry a revoked grant", async () => {
+    const persist = vi.fn(async (_material: OAuthMaterial) => undefined);
+    const close = vi.fn(async () => undefined);
+    const fetchToken = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: "invalid_grant" }), {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    const provider = new StoredMcpOAuthProvider(
+      "server-1",
+      expiringMaterial(Date.now() - 3 * 60 * 60 * 1000),
+      persist,
+      { refreshNetwork: async () => ({ fetch: fetchToken, close }) },
+    );
+
+    const [first, second] = await Promise.all([provider.tokens(), provider.tokens()]);
+    expect(first).toBeUndefined();
+    expect(second).toBeUndefined();
+    expect(await provider.tokens()).toBeUndefined();
+    expect(fetchToken).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+    expect(persist).toHaveBeenCalledOnce();
+    const persisted = persist.mock.calls[0]?.[0] as OAuthMaterial | undefined;
+    expect(persisted?.oauth?.tokens).toBeUndefined();
+    expect(persisted?.oauth?.obtainedAt).toBeUndefined();
+    expect(provider.clientInformation()).toEqual({ client_id: "client-1" });
+    expect(provider.discoveryState()).toBeDefined();
+  });
+
   it("rejects unsafe browser authorization URLs", async () => {
     const onAuthorization = vi.fn();
     const provider = new StoredMcpOAuthProvider(
@@ -51,7 +354,7 @@ describe("MCP OAuth", () => {
 
     expect(provider.authorizationUrl).toBeUndefined();
     expect(onAuthorization).not.toHaveBeenCalled();
-    expect(provider.tokens()).toMatchObject({ access_token: "working" });
+    expect(await provider.tokens()).toMatchObject({ access_token: "working" });
   });
 
   it("allows localhost HTTP browser authorization URLs", async () => {
@@ -81,7 +384,7 @@ describe("MCP OAuth", () => {
       provider.redirectToAuthorization(new URL("http://auth.example.test/authorize")),
     ).rejects.toThrow(/HTTPS/i);
 
-    expect(provider.tokens()).toBeUndefined();
+    expect(await provider.tokens()).toBeUndefined();
     expect(persisted.at(-1)?.oauth?.tokens).toBeUndefined();
   });
 
@@ -109,7 +412,7 @@ describe("MCP OAuth", () => {
     });
     await provider.invalidateCredentials("tokens");
 
-    expect(provider.tokens()).toBeUndefined();
+    expect(await provider.tokens()).toBeUndefined();
     expect(provider.clientInformation()).toEqual({ client_id: "client-1" });
     expect(provider.discoveryState()).toMatchObject({
       authorizationServerUrl: "https://auth.example.test",
@@ -140,7 +443,7 @@ describe("MCP OAuth", () => {
       provider.redirectToAuthorization(new URL("https://auth.example.test/authorize")),
     ).rejects.toThrow(McpReauthorizationRequiredError);
 
-    expect(provider.tokens()).toBeUndefined();
+    expect(await provider.tokens()).toBeUndefined();
     expect(persisted.at(-1)?.oauth?.tokens).toBeUndefined();
   });
 
@@ -212,6 +515,7 @@ describe("MCP OAuth", () => {
       });
       const tx = {
         $executeRaw: vi.fn().mockResolvedValue(1),
+        $queryRaw: vi.fn().mockResolvedValue([]),
         mcpServer: {
           findFirst: vi.fn().mockResolvedValue({
             endpoint: `${mcpOrigin}/mcp`,
@@ -399,6 +703,197 @@ describe("MCP OAuth", () => {
       );
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toBe("Could not start MCP OAuth");
+    expect((error as Error).message).not.toContain("UPSTREAM_BODY_MARKER");
+  });
+
+  it("reports the HTTP status and OAuth error when registration is rejected", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        const url = logicalHref(input, init);
+        if (url === "https://mcp.example.test/mcp" && request.method === "POST") {
+          return new Response("missing bearer token", {
+            status: 401,
+            headers: {
+              "content-type": "text/plain",
+              "WWW-Authenticate":
+                'Bearer resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource/mcp"',
+            },
+          });
+        }
+        if (url === "https://mcp.example.test/.well-known/oauth-protected-resource/mcp") {
+          return Response.json({
+            resource: "https://mcp.example.test/mcp",
+            authorization_servers: ["https://auth.example.test"],
+          });
+        }
+        if (url === "https://auth.example.test/.well-known/oauth-authorization-server") {
+          return Response.json({
+            issuer: "https://auth.example.test",
+            authorization_endpoint: "https://auth.example.test/authorize",
+            token_endpoint: "https://auth.example.test/token",
+            registration_endpoint: "https://auth.example.test/register",
+            response_types_supported: ["code"],
+            grant_types_supported: ["authorization_code", "refresh_token"],
+            code_challenge_methods_supported: ["S256"],
+          });
+        }
+        if (url === "https://auth.example.test/register" && request.method === "POST") {
+          return Response.json(
+            {
+              error: "registration_not_supported",
+              error_description:
+                "Dynamic client registration is not supported. Only pre-registered partners are allowed.",
+            },
+            { status: 403 },
+          );
+        }
+        throw new Error(`Unexpected request: ${request.method} ${url}`);
+      }),
+    );
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      mcpServer: {
+        findFirst: vi.fn().mockResolvedValue({
+          endpoint: "https://mcp.example.test/mcp",
+          secretId: null,
+        }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      secret: {
+        findFirst: vi.fn(),
+        create: vi.fn().mockResolvedValue({}),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = {
+      mcpServer: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "server-1",
+          endpoint: "https://mcp.example.test/mcp",
+          secretId: null,
+        }),
+      },
+      secret: { findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+      mcpOAuthSession: oauthSessionStore(),
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    };
+    const broker = new McpOAuthBroker(
+      prisma as never,
+      { put: vi.fn(async () => ({ id: "secret-1", ciphertext: "encrypted" })) } as never,
+      TEST_NETWORK,
+    );
+
+    const error = await broker
+      .begin({
+        serverId: "server-1",
+        spaceId: "workspace-1",
+        userId: "user-1",
+        redirectUri: "http://127.0.0.1:5173/mcp/oauth/callback",
+      })
+      .then(
+        () => null,
+        (caught: unknown) => caught,
+      );
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(
+      "Could not start MCP OAuth: HTTP 403 registration_not_supported: Dynamic client registration is not supported. Only pre-registered partners are allowed.",
+    );
+    expect((error as Error).message).not.toContain("[object Response]");
+  });
+
+  it("reports the OAuth status and code when the description is redacted", async () => {
+    const error = await rejectedOAuthBegin(
+      () =>
+        Response.json(
+          {
+            error: "registration_not_supported",
+            error_description:
+              "Use Bearer access-token-value or quote static-credential-value to continue.",
+          },
+          { status: 403 },
+        ),
+      "static-credential-value",
+    );
+
+    expect(error.message).toBe(
+      "Could not start MCP OAuth: HTTP 403 registration_not_supported: Use Bearer [redacted] or quote [redacted] to continue.",
+    );
+    expect(error.message).not.toContain("access-token-value");
+    expect(error.message).not.toContain("static-credential-value");
+  });
+
+  it("reports the OAuth status and code when the description exceeds the sanitized message", async () => {
+    const description = `${"a".repeat(2_500)} tail-marker`;
+    const error = await rejectedOAuthBegin(() =>
+      Response.json(
+        { error: "registration_not_supported", error_description: description },
+        { status: 403 },
+      ),
+    );
+
+    expect(error.message).toBe(
+      `Could not start MCP OAuth: HTTP 403 registration_not_supported: ${"a".repeat(300)}`,
+    );
+    expect(error.message).not.toContain("tail-marker");
+  });
+
+  it("redacts a secret that crosses the caller-facing description cut", async () => {
+    const secret = "cross-boundary-secret-value";
+    const error = await rejectedOAuthBegin(
+      () =>
+        Response.json(
+          {
+            error: "registration_not_supported",
+            error_description: `${"a".repeat(290)}${secret}`,
+          },
+          { status: 403 },
+        ),
+      secret,
+    );
+
+    expect(error.message).toBe(
+      `Could not start MCP OAuth: HTTP 403 registration_not_supported: ${"a".repeat(290)}[redacted]`,
+    );
+    expect(error.message).not.toContain(secret.slice(0, 10));
+  });
+
+  it("stops reading an oversized OAuth error body", async () => {
+    const totalBytes = 128 * 1_024;
+    const chunkBytes = 1_024;
+    const tracked = trackedClone(
+      new Response(chunkedBody(totalBytes, chunkBytes), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const error = await rejectedOAuthBegin(() => tracked.response);
+
+    expect(tracked.bytesRead()).toBeGreaterThan(0);
+    expect(tracked.bytesRead()).toBeLessThanOrEqual(8_000 * 3 + chunkBytes);
+    expect(tracked.bytesRead()).toBeLessThan(totalBytes);
+    expect(error.message).toBe("Could not start MCP OAuth");
+    expect(error.message).not.toContain("a".repeat(300));
+  });
+
+  it("does not read an OAuth error body whose declared length exceeds the cap", async () => {
+    const tracked = trackedClone(
+      new Response(chunkedBody(64 * 1_024, 1_024), {
+        status: 403,
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(1024 * 1024),
+        },
+      }),
+    );
+
+    const error = await rejectedOAuthBegin(() => tracked.response);
+
+    expect(tracked.bytesRead()).toBe(0);
+    expect(error.message).toBe("Could not start MCP OAuth");
   });
 
   it("completes a persisted OAuth session after the API process restarts", async () => {
@@ -496,6 +991,7 @@ describe("MCP OAuth", () => {
   it("rotates the current credential inside a serialized database transaction", async () => {
     const tx = {
       $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRaw: vi.fn().mockResolvedValue([]),
       mcpServer: {
         findFirst: vi.fn().mockResolvedValue({
           endpoint: "https://mcp.example.test/mcp",
@@ -557,6 +1053,7 @@ describe("MCP OAuth", () => {
     const storedPayloads: string[] = [];
     const tx = {
       $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRaw: vi.fn().mockResolvedValue([]),
       mcpServer: {
         findFirst: vi.fn().mockResolvedValue({
           endpoint: "https://mcp.example.test/mcp",

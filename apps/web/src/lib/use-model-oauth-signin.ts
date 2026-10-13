@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { desktopBridge, oauthStateOf, onDesktopOAuthCallback } from "./desktop";
 import { waitForModelOAuth } from "./model-auth";
 import { rpc } from "./rpc";
+import { errorText } from "./user-error";
 
 export type ModelOAuthSignInBegin = {
   provider: string;
@@ -95,7 +96,7 @@ export function useModelOAuthSignIn(options: {
       await onFinishedRef.current(controller);
     } catch (err) {
       if (controller.signal.aborted) return;
-      onErrorRef.current(err instanceof Error ? err.message : "Connected, but could not refresh");
+      onErrorRef.current(errorText(err, "Connected, but could not refresh"));
     }
   }
 

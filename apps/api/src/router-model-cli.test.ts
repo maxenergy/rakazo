@@ -45,6 +45,7 @@ function fixture(existing = false) {
       create: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
+    spaceBackupModel: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     spaceModelPreference: {
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -64,7 +65,7 @@ function fixture(existing = false) {
     },
     secrets: {
       put: vi.fn().mockResolvedValue({ id: "secret-new", ciphertext: "fake-ciphertext" }),
-      load: vi.fn().mockReturnValue(plaintext(oldProfile)),
+      load: vi.fn().mockResolvedValue(plaintext(oldProfile)),
     },
     oauthLogins: {
       cancelProvider: vi.fn().mockResolvedValue(undefined),

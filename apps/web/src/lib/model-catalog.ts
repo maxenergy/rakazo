@@ -1,7 +1,10 @@
 import { i18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
-import type { ThinkingLevel } from "@rakazo/contracts";
-import { modelBillingCopy } from "@rakazo/core";
+import type { ModelCatalogEntry, ModelCredential, ThinkingLevel } from "@rakazo/contracts";
+import type { ConnectedModelChoice } from "@rakazo/core";
+import { connectedModelChoices, modelBillingCopy } from "@rakazo/core";
+
+export { modelOptionKey, parseModelOptionKey } from "@rakazo/core";
 
 export function modelBillingLabel(billing: string): string {
   const copy = modelBillingCopy(billing);
@@ -26,6 +29,14 @@ export function modelBillingLabel(billing: string): string {
     case "literal":
       return copy.text;
   }
+}
+
+/** The models the connected credentials can run, as one list for a picker. */
+export function connectedModelOptions(
+  credentials: ModelCredential[],
+  catalog: ModelCatalogEntry[],
+): ConnectedModelChoice[] {
+  return connectedModelChoices(credentials, catalog);
 }
 
 export function thinkingLevelLabel(level: ThinkingLevel) {

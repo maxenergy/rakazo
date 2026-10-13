@@ -33,7 +33,7 @@ function fixture(provider = "claude-code") {
     kind: "cli",
     credential: { type: "cli", profileId: "11111111-1111-4111-8111-111111111111" },
   });
-  const load = vi.fn(() => savedSecret);
+  const load = vi.fn(async () => savedSecret);
   const findFirst = vi.fn().mockResolvedValue({ id: "cto-1", name: "CTO" });
   const updateMany = vi.fn().mockResolvedValue({ count: 1 });
   const raw = {
@@ -178,7 +178,7 @@ describe("bot model tools", () => {
       validateBotModelSelection(deps, scope, "claude-code", "claude-opus-5-5"),
     ).resolves.toBe("Reconnect that model provider first");
     const oauth = fixture("openai-codex");
-    oauth.load.mockReturnValue(
+    oauth.load.mockResolvedValue(
       JSON.stringify({ type: "oauth", access: "test-access", refresh: "test-refresh", expires: 1 }),
     );
     await expect(
@@ -228,7 +228,7 @@ describe("bot model tools", () => {
       thinkingLevel: null,
       credential,
     });
-    load.mockReturnValue(
+    load.mockResolvedValue(
       JSON.stringify({
         kind: "openai_compatible",
         baseUrl: "https://models.example/v1",

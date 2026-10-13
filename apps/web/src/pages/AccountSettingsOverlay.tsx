@@ -1,23 +1,27 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { AvatarStyle } from "@rakazo/contracts";
+import type { AccountSecurity, AvatarStyle } from "@rakazo/contracts";
 import { BotAvatar, Button, Field, FieldLabel, Input, Label, Switch, Toggle } from "@rakazo/ui-web";
 import { ChevronDown } from "lucide-react";
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  type RefObject,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
+import { AccountAccess } from "../components/AccountAccess";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { SuccessPop } from "../components/ai/primitives";
 import { ComputersUnavailableHint } from "../components/ComputersUnavailableHint";
 import { DesktopUpdateSection } from "../components/DesktopUpdates";
 import { SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
 import { authClient } from "../lib/auth";
+import {
+  getBotsSidebarDensity,
+  setBotsSidebarDensity,
+  subscribeBotsSidebarDensity,
+} from "../lib/bots-sidebar-density-pref";
 import { getActiveUiLocale, setUiLocale } from "../lib/i18n";
+import {
+  getRemoteImagesPreference,
+  setRemoteImagesPreference,
+} from "../lib/remote-images-preference";
 import {
   getResponseStreamingPreference,
   setResponseStreamingPreference,
@@ -27,12 +31,11 @@ import {
   getToolActivityPreference,
   setToolActivityPreference,
 } from "../lib/tool-activity-preference";
-import {
-  type AppearancePreference,
-  getUiAppearancePreference,
-  setUiAppearance,
-} from "../lib/ui-appearance";
-import { UI_LOCALE_LABELS, UI_LOCALES, type UiLocale } from "../lib/ui-locale";
+import type { AppearancePreference } from "../lib/ui-appearance";
+import { getUiAppearancePreference, setUiAppearance } from "../lib/ui-appearance";
+import type { UiLocale } from "../lib/ui-locale";
+import { UI_LOCALE_LABELS, UI_LOCALES } from "../lib/ui-locale";
+import { authErrorText } from "../lib/user-error";
 
 export type SettingsGeneralProps = {
   email?: string | null;
@@ -54,11 +57,18 @@ export function GeneralSettingsPanels({
   isDeploymentOwner = false,
 }: SettingsGeneralProps) {
   const { t } = useLingui();
+  const [accountSecurity, setAccountSecurity] = useState<AccountSecurity | null>(null);
   const [locale, setLocale] = useState<UiLocale>(() => getActiveUiLocale());
   const localeRequestRef = useRef(0);
   const [appearance, setAppearance] = useState<AppearancePreference>(() =>
     getUiAppearancePreference(),
   );
+  const sidebarDensity = useSyncExternalStore(
+    subscribeBotsSidebarDensity,
+    getBotsSidebarDensity,
+    () => "comfortable",
+  );
+  const sidebarDensityLabelId = useId();
   const [streamReplies, setStreamReplies] = useState(
     () => getResponseStreamingPreference() === "on",
   );
@@ -67,6 +77,10 @@ export function GeneralSettingsPanels({
     () => getToolActivityPreference() === "on",
   );
   const showToolActivityId = useId();
+  const [loadRemoteImages, setLoadRemoteImages] = useState(
+    () => getRemoteImagesPreference() === "on",
+  );
+  const loadRemoteImagesId = useId();
   const [avatarPending, setAvatarPending] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
@@ -102,9 +116,12 @@ export function GeneralSettingsPanels({
         </h3>
         <p className="mt-3 text-[14px] text-foreground/75">{name}</p>
         {email ? <p className="mt-1 text-[13px] text-muted-foreground/70">{email}</p> : null}
+        <AccountAccess onSecurity={setAccountSecurity} />
       </section>
 
-      <ChangePasswordSection email={email} />
+      {accountSecurity?.hasPassword && accountSecurity.passwordChangeEnabled !== false ? (
+        <ChangePasswordSection email={email} />
+      ) : null}
 
       {messagingEnabled && onOpenMessaging ? (
         <section className="rounded-xl border border-border px-4 py-4">
@@ -131,6 +148,33 @@ export function GeneralSettingsPanels({
             setUiAppearance(next);
           }}
         />
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <span id={sidebarDensityLabelId} className="text-[13px] text-foreground/75">
+            <Trans>Sidebar density</Trans>
+          </span>
+          <fieldset
+            aria-labelledby={sidebarDensityLabelId}
+            data-testid="bots-sidebar-density-select"
+            className="grid min-w-0 grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+          >
+            <Toggle
+              data-testid="bots-sidebar-density-comfortable"
+              pressed={sidebarDensity === "comfortable"}
+              onPressedChange={() => setBotsSidebarDensity("comfortable")}
+              className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
+            >
+              <Trans>Comfortable</Trans>
+            </Toggle>
+            <Toggle
+              data-testid="bots-sidebar-density-compact"
+              pressed={sidebarDensity === "compact"}
+              onPressedChange={() => setBotsSidebarDensity("compact")}
+              className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
+            >
+              <Trans>Compact</Trans>
+            </Toggle>
+          </fieldset>
+        </div>
       </section>
 
       <section className="rounded-xl border border-border px-4 py-4">
@@ -224,6 +268,24 @@ export function GeneralSettingsPanels({
               <Trans>Show tool activity</Trans>
             </Label>
           </div>
+          <div className="flex items-start gap-3 pt-4">
+            <Switch
+              id={loadRemoteImagesId}
+              data-testid="remote-images-toggle"
+              className="mt-0.5"
+              checked={loadRemoteImages}
+              onCheckedChange={(checked) => {
+                setLoadRemoteImages(checked);
+                setRemoteImagesPreference(checked ? "on" : "off");
+              }}
+            />
+            <Label
+              htmlFor={loadRemoteImagesId}
+              className="text-[14px] font-normal text-foreground/75"
+            >
+              <Trans>Load web images automatically</Trans>
+            </Label>
+          </div>
           <ApprovalRulesSettings />
         </div>
       </details>
@@ -235,7 +297,12 @@ export function UsageSettingsPanel({
   usage,
   panelRef,
 }: {
-  usage?: { runs: number; inputTokens: number; outputTokens: number } | null;
+  usage?: {
+    runs: number;
+    inputTokens: number | null;
+    outputTokens: number | null;
+    totalTokens?: number | null;
+  } | null;
   panelRef?: RefObject<HTMLDivElement | null>;
 }) {
   return (
@@ -251,7 +318,7 @@ export function UsageSettingsPanel({
       {usage ? (
         <p className="mt-3 text-[14px] text-foreground/75">
           <Trans>
-            {usage.runs} runs · {usage.inputTokens + usage.outputTokens} tokens
+            {usage.runs} runs · {usage.totalTokens ?? "—"} tokens
           </Trans>
         </p>
       ) : null}
@@ -262,7 +329,15 @@ export function UsageSettingsPanel({
   );
 }
 
-export function ComputerSettingsPanel() {
+export function ComputerSettingsPanel({
+  sandboxProvider,
+  onSandboxProviderChange,
+  onRecoveryDismissed,
+}: {
+  sandboxProvider?: string | null;
+  onSandboxProviderChange?: (sandboxProvider: string) => void;
+  onRecoveryDismissed?: () => void;
+}) {
   return (
     <div
       data-testid="computers-setup-settings"
@@ -271,7 +346,12 @@ export function ComputerSettingsPanel() {
       <h3 className="text-[15px] font-medium text-foreground">
         <Trans>Computers</Trans>
       </h3>
-      <ComputersUnavailableHint className="mt-3 text-[13px] leading-relaxed text-muted-foreground" />
+      <ComputersUnavailableHint
+        className="mt-3 text-[13px] leading-relaxed text-muted-foreground"
+        sandboxProvider={sandboxProvider}
+        onRecovered={onSandboxProviderChange}
+        onRecoveryDismissed={onRecoveryDismissed}
+      />
     </div>
   );
 }
@@ -314,7 +394,7 @@ function ChangePasswordSection({ email }: { email?: string | null }) {
         revokeOtherSessions: true,
       });
       if (result.error) {
-        setError(result.error.message ?? t`Could not change password`);
+        setError(authErrorText(result.error, t`Could not change password`));
         return;
       }
       setCurrentPassword("");

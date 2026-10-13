@@ -1,8 +1,15 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ModelConnectInput, ModelCredential, ThinkingLevel } from "@rakazo/contracts";
-import { OPENAI_COMPATIBLE_PROVIDER_ID as CONTRACT_OPENAI_COMPAT } from "@rakazo/contracts";
+import {
+  CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE,
+  OPENAI_COMPATIBLE_PROVIDER_ID as CONTRACT_OPENAI_COMPAT,
+  cloudflareGatewayRouting,
+  isCloudflareAiGatewayProvider,
+  modelOutputLeavesInputRoom,
+} from "@rakazo/contracts";
 import { isCliModelProvider } from "./cli-model-process.js";
 import { modelIdSupportsImages, updateModelImageCapabilities } from "./model-vision.js";
+import { modelCredentialAuthKind } from "./pi-catalog-availability.js";
 import type { StoredModelSecret } from "./pi-oauth.js";
 import { CHATGPT_OAUTH_PROVIDER, parseModelSecret, serializeModelSecret } from "./pi-oauth.js";
 import {
@@ -29,11 +36,19 @@ export function buildModelConnectPlaintext(
       throw new Error("Output-token limits are managed by the official CLI.");
     return serializeModelSecret({ kind: "cli", credential: previous.credential });
   }
+  const previous = tryParseModelSecret(previousPlaintext);
+  const inherited = previous?.kind === "api_key" ? previous : undefined;
+  const cacheCapabilities = input.cacheCapabilities ?? inherited?.cacheCapabilities;
+  const contextWindow = input.contextWindow ?? inherited?.contextWindow;
+  const limits = {
+    ...(cacheCapabilities !== undefined ? { cacheCapabilities } : {}),
+    ...(contextWindow !== undefined ? { contextWindow } : {}),
+  };
   if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
     const prepared = prepareOpenAiCompatibleConnect(input);
-    const previous = tryParseModelSecret(previousPlaintext);
     const sameEndpoint =
       previous?.kind === "openai_compatible" && previous.baseUrl === prepared.baseUrl;
+    const compatiblePrevious = sameEndpoint ? previous : undefined;
     if (input.apiKey === undefined && sameEndpoint) {
       // Revalidate the inherited key too: public endpoints must still use HTTPS.
       prepared.apiKey = prepareOpenAiCompatibleConnect({
@@ -62,6 +77,9 @@ export function buildModelConnectPlaintext(
         : sameEndpoint
           ? previous.contextWindow
           : undefined;
+    if (!modelOutputLeavesInputRoom(maxTokens, contextWindow)) {
+      throw new Error("Maximum output tokens must leave room for input");
+    }
     const visionModelIds = updateModelImageCapabilities(
       previousVisionModelIds,
       prepared.modelId,
@@ -70,9 +88,14 @@ export function buildModelConnectPlaintext(
     const includeVisionModelIds =
       !options?.omitVisionModelIds &&
       (input.supportsImages !== undefined || previousVisionModelIds !== undefined);
+    const compatibleCacheCapabilities =
+      input.cacheCapabilities ?? compatiblePrevious?.cacheCapabilities;
     const secret: StoredModelSecret = {
       kind: "openai_compatible",
       baseUrl: prepared.baseUrl,
+      ...(compatibleCacheCapabilities !== undefined
+        ? { cacheCapabilities: compatibleCacheCapabilities }
+        : {}),
       ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
       ...(thinkingLevel !== undefined ? { thinkingLevel } : {}),
       ...(maxTokens !== undefined ? { maxTokens } : {}),
@@ -91,14 +114,19 @@ export function buildModelConnectPlaintext(
   if (input.provider === CHATGPT_OAUTH_PROVIDER && apiKey) {
     throw new Error(CHATGPT_SUBSCRIPTION_REQUIRED_MESSAGE);
   }
-  const previous = tryParseModelSecret(previousPlaintext);
   const maxTokens = connectMaxTokens(input.maxTokens, previous?.maxTokens);
+  if (!modelOutputLeavesInputRoom(maxTokens, contextWindow)) {
+    throw new Error("Maximum output tokens must leave room for input");
+  }
+  const routing = cloudflareRoutingForConnect(input, previous);
   if (apiKey) {
     if (apiKey.length < 8) throw new Error("API key must contain at least 8 characters");
     return serializeModelSecret({
       kind: "api_key",
       key: apiKey,
       ...(maxTokens !== undefined ? { maxTokens } : {}),
+      ...limits,
+      ...routing,
     });
   }
   if (previous?.kind === "api_key" && previous.key.trim().length >= 8) {
@@ -109,6 +137,8 @@ export function buildModelConnectPlaintext(
       kind: "api_key",
       key: previous.key,
       ...(maxTokens !== undefined ? { maxTokens } : {}),
+      ...limits,
+      ...routing,
     });
   }
   if (previous?.kind === "oauth") {
@@ -137,6 +167,45 @@ function tryParseModelSecret(plaintext?: string): StoredModelSecret | undefined 
   }
 }
 
+/**
+ * Cloudflare AI Gateway routing is part of the saved key. Omitted fields keep
+ * the previous connection's ids; a blank or unsafe value is rejected.
+ */
+function cloudflareRoutingForConnect(
+  input: ModelConnectInput,
+  previous: ReturnType<typeof tryParseModelSecret>,
+): { accountId: string; gatewayId: string } | undefined {
+  if (!isCloudflareAiGatewayProvider(input.provider)) return undefined;
+  const accountId =
+    input.accountId !== undefined
+      ? input.accountId
+      : previous?.kind === "api_key"
+        ? previous.accountId
+        : undefined;
+  const gatewayId =
+    input.gatewayId !== undefined
+      ? input.gatewayId
+      : previous?.kind === "api_key"
+        ? previous.gatewayId
+        : undefined;
+  const routing = cloudflareGatewayRouting({ accountId, gatewayId });
+  if (!routing) throw new Error(CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE);
+  return routing;
+}
+
+/**
+ * Whether the stored secret contains an API key. OAuth sign-in and a keyless
+ * OpenAI-compatible server are connections without one. An unreadable secret
+ * is not reported as a key — the client must not invent a stored-key state.
+ */
+function storedModelSecretHasApiKey(plaintext: string | undefined): boolean {
+  if (!plaintext) return false;
+  const parsed = parseModelSecret(plaintext);
+  if (parsed.kind === "api_key") return parsed.key.trim().length > 0;
+  if (parsed.kind === "openai_compatible") return Boolean(parsed.apiKey?.trim());
+  return false;
+}
+
 /** `null` clears a saved limit. Omitting it keeps the previous connection's limit. */
 function connectMaxTokens(
   input: number | null | undefined,
@@ -163,7 +232,7 @@ export function modelCredentialDto(
     id: row.id,
     provider: row.provider,
     label: row.label,
-    hasKey: true,
+    hasKey: storedModelSecretHasApiKey(plaintext),
     isDefault: row.isDefault,
     ...(row.defaultModel ? { modelId: row.defaultModel } : {}),
     // Space-scoped effort stored beside the preference's modelId; the
@@ -173,9 +242,19 @@ export function modelCredentialDto(
   if (row.provider !== CONTRACT_OPENAI_COMPAT) {
     if (!plaintext) return credential;
     const parsed = parseModelSecret(plaintext);
-    return parsed.maxTokens !== undefined
-      ? { ...credential, maxTokens: parsed.maxTokens }
-      : credential;
+    return {
+      ...credential,
+      authKind: modelCredentialAuthKind(parsed),
+      ...(parsed.maxTokens !== undefined ? { maxTokens: parsed.maxTokens } : {}),
+      ...(parsed.kind === "api_key" || parsed.kind === "openai_compatible"
+        ? {
+            cacheCapabilities: parsed.cacheCapabilities,
+            contextWindow: parsed.contextWindow,
+          }
+        : {}),
+      ...(parsed.kind === "api_key" && parsed.accountId ? { accountId: parsed.accountId } : {}),
+      ...(parsed.kind === "api_key" && parsed.gatewayId ? { gatewayId: parsed.gatewayId } : {}),
+    };
   }
   const compatibleCredential = {
     ...credential,
@@ -183,9 +262,12 @@ export function modelCredentialDto(
   };
   if (!plaintext) return compatibleCredential;
   const parsed = parseModelSecret(plaintext);
-  if (parsed.kind !== "openai_compatible") return compatibleCredential;
+  if (parsed.kind !== "openai_compatible") {
+    return { ...compatibleCredential, authKind: modelCredentialAuthKind(parsed) };
+  }
   return {
     ...compatibleCredential,
+    authKind: "openai_compatible",
     supportsImages:
       parsed.visionModelIds !== undefined
         ? modelIdSupportsImages(parsed.visionModelIds, row.defaultModel)
@@ -197,6 +279,7 @@ export function modelCredentialDto(
       : {}),
     ...(parsed.maxTokens !== undefined ? { maxTokens: parsed.maxTokens } : {}),
     ...(parsed.contextWindow !== undefined ? { contextWindow: parsed.contextWindow } : {}),
+    cacheCapabilities: parsed.cacheCapabilities,
     ...(parsed.maxImagesPerPrompt !== undefined
       ? { maxImagesPerPrompt: parsed.maxImagesPerPrompt }
       : {}),

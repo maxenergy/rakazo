@@ -1,3 +1,8 @@
+import {
+  CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE,
+  CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
+  ModelCredentialSchema,
+} from "@rakazo/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildModelConnectPlaintext, modelCredentialDto } from "./model-connect.js";
 import { parseModelSecret, serializeModelSecret } from "./pi-oauth.js";
@@ -6,6 +11,17 @@ describe("CLI connection settings", () => {
   const previous = serializeModelSecret({
     kind: "cli",
     credential: { type: "cli", profileId: "11111111-1111-4111-8111-111111111111" },
+  });
+
+  it("returns a contract-valid CLI credential without leaking the profile or inventing API limits", () => {
+    const dto = modelCredentialDto(
+      { id: "credential-cli", provider: "codex-cli", label: "Codex", isDefault: false },
+      previous,
+    );
+    expect(ModelCredentialSchema.parse(dto)).toMatchObject({ authKind: "cli", hasKey: false });
+    expect(dto).not.toHaveProperty("cacheCapabilities");
+    expect(dto).not.toHaveProperty("contextWindow");
+    expect(JSON.stringify(dto)).not.toContain("11111111-1111-4111-8111-111111111111");
   });
 
   it("requires a signed-in profile and rejects API keys and unsupported output limits", () => {
@@ -39,7 +55,11 @@ describe("built-in provider output limits", () => {
       key: "sk-test-key",
       maxTokens: 16384,
     });
-    expect(modelCredentialDto(row, plaintext)).toMatchObject({ maxTokens: 16384, hasKey: true });
+    expect(modelCredentialDto(row, plaintext)).toMatchObject({
+      maxTokens: 16384,
+      hasKey: true,
+      authKind: "api_key",
+    });
     expect(JSON.stringify(modelCredentialDto(row, plaintext))).not.toContain("sk-test-key");
   });
 
@@ -67,6 +87,35 @@ describe("built-in provider output limits", () => {
       key: "sk-test-key",
       maxTokens: 16384,
     });
+  });
+
+  it("validates an output-only update against the saved context window", () => {
+    const previous = buildModelConnectPlaintext({
+      provider: "openrouter",
+      apiKey: "fake-api-key",
+      contextWindow: 16_384,
+      maxTokens: 4096,
+    });
+    expect(() =>
+      buildModelConnectPlaintext({ provider: "openrouter", maxTokens: 20_000 }, previous),
+    ).toThrow("Maximum output tokens must leave room for input");
+    expect(
+      parseModelSecret(
+        buildModelConnectPlaintext({ provider: "openrouter", maxTokens: 12_288 }, previous),
+      ),
+    ).toMatchObject({ contextWindow: 16_384, maxTokens: 12_288 });
+  });
+
+  it("validates a context-only update against the saved output limit", () => {
+    const previous = buildModelConnectPlaintext({
+      provider: "openrouter",
+      apiKey: "fake-api-key",
+      contextWindow: 32_768,
+      maxTokens: 8192,
+    });
+    expect(() =>
+      buildModelConnectPlaintext({ provider: "openrouter", contextWindow: 4096 }, previous),
+    ).toThrow("Maximum output tokens must leave room for input");
   });
 
   it("clears the limit without replacing the key", () => {
@@ -106,6 +155,17 @@ describe("built-in provider output limits", () => {
         buildModelConnectPlaintext({ provider: "openai-codex", maxTokens: 8192 }, previous),
       ),
     ).toEqual({ kind: "oauth", credential, maxTokens: 8192 });
+    expect(
+      modelCredentialDto(
+        {
+          id: "cred-oauth",
+          provider: "openai-codex",
+          label: "ChatGPT",
+          isDefault: false,
+        },
+        previous,
+      ).authKind,
+    ).toBe("oauth");
   });
 
   it("rejects a limit update when no credential exists", () => {
@@ -168,6 +228,93 @@ describe("openai-codex API key guard", () => {
     expect(buildModelConnectPlaintext({ provider: "anthropic", apiKey: "sk-test-key-123" })).toBe(
       "sk-test-key-123",
     );
+    expect(
+      buildModelConnectPlaintext({
+        provider: "openai",
+        apiKey: "sk-test-key-123",
+        accountId: "acct1234",
+        gatewayId: "gateway-1",
+      }),
+    ).toBe("sk-test-key-123");
+  });
+
+  it("stores Cloudflare AI Gateway routing with the key and keeps it on a limit update", () => {
+    const input = {
+      provider: CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
+      apiKey: "cf-test-key-value",
+      accountId: "acct1234",
+      gatewayId: "gateway-1",
+    };
+    const plaintext = buildModelConnectPlaintext(input);
+    expect(parseModelSecret(plaintext)).toEqual({
+      kind: "api_key",
+      key: "cf-test-key-value",
+      accountId: "acct1234",
+      gatewayId: "gateway-1",
+    });
+    expect(
+      parseModelSecret(
+        buildModelConnectPlaintext(
+          { provider: CLOUDFLARE_AI_GATEWAY_PROVIDER_ID, maxTokens: 4096 },
+          plaintext,
+        ),
+      ),
+    ).toEqual({
+      kind: "api_key",
+      key: "cf-test-key-value",
+      maxTokens: 4096,
+      accountId: "acct1234",
+      gatewayId: "gateway-1",
+    });
+    expect(
+      modelCredentialDto(
+        {
+          id: "cred-cf",
+          provider: CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
+          label: "Cloudflare AI Gateway",
+          isDefault: false,
+        },
+        plaintext,
+      ),
+    ).toMatchObject({ accountId: "acct1234", gatewayId: "gateway-1" });
+    expect(() =>
+      buildModelConnectPlaintext({
+        provider: CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
+        apiKey: "cf-test-key-value",
+      }),
+    ).toThrow(CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE);
+    expect(
+      parseModelSecret(
+        buildModelConnectPlaintext(
+          { provider: CLOUDFLARE_AI_GATEWAY_PROVIDER_ID, accountId: "acct9999" },
+          plaintext,
+        ),
+      ),
+    ).toEqual({
+      kind: "api_key",
+      key: "cf-test-key-value",
+      accountId: "acct9999",
+      gatewayId: "gateway-1",
+    });
+    expect(
+      parseModelSecret(
+        buildModelConnectPlaintext(
+          { provider: CLOUDFLARE_AI_GATEWAY_PROVIDER_ID, gatewayId: "gateway-2" },
+          plaintext,
+        ),
+      ),
+    ).toEqual({
+      kind: "api_key",
+      key: "cf-test-key-value",
+      accountId: "acct1234",
+      gatewayId: "gateway-2",
+    });
+    expect(() =>
+      buildModelConnectPlaintext(
+        { provider: CLOUDFLARE_AI_GATEWAY_PROVIDER_ID, accountId: "acct/secret" },
+        plaintext,
+      ),
+    ).toThrow(CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE);
   });
 });
 
@@ -192,9 +339,10 @@ describe("modelCredentialDto", () => {
       id: "cred-1",
       provider: "openai-compatible",
       label: "Local MLX",
-      hasKey: true,
+      hasKey: false,
       isDefault: true,
       supportsImages: false,
+      authKind: "openai_compatible",
       baseUrl: "https://example.invalid/v1",
       modelId: "qwen3-4b",
       reasoning: false,
@@ -289,6 +437,50 @@ describe("modelCredentialDto", () => {
     ).toMatchObject({ contextWindow: 65536 });
   });
 
+  it("reports a stored API key without returning the secret", () => {
+    const deepseek = buildModelConnectPlaintext({
+      provider: "deepseek",
+      apiKey: "sk-deepseek-test",
+    });
+    const row = {
+      id: "cred-deepseek",
+      provider: "deepseek",
+      label: "DeepSeek",
+      isDefault: true,
+      defaultModel: "deepseek-chat",
+    };
+    expect(modelCredentialDto(row, deepseek)).toMatchObject({ hasKey: true });
+    expect(JSON.stringify(modelCredentialDto(row, deepseek))).not.toContain("sk-deepseek-test");
+
+    const compatible = serializeModelSecret({
+      kind: "openai_compatible",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKey: "sk-deepseek-test",
+    });
+    const compatibleDto = modelCredentialDto({ ...row, provider: "openai-compatible" }, compatible);
+    expect(compatibleDto.hasKey).toBe(true);
+    expect(JSON.stringify(compatibleDto)).not.toContain("sk-deepseek-test");
+
+    const keyless = buildModelConnectPlaintext({
+      provider: "openai-compatible",
+      baseUrl: "http://127.0.0.1:8000/v1",
+      modelId: "local-model",
+    });
+    expect(
+      modelCredentialDto(
+        { ...row, provider: "openai-compatible", defaultModel: "local-model" },
+        keyless,
+      ).hasKey,
+    ).toBe(false);
+
+    const oauth = serializeModelSecret({
+      kind: "oauth",
+      credential: { type: "oauth", access: "access-token", refresh: "refresh-token", expires: 10 },
+    });
+    expect(modelCredentialDto({ ...row, provider: "openai-codex" }, oauth).hasKey).toBe(false);
+    expect(modelCredentialDto(row).hasKey).toBe(false);
+  });
+
   it("exposes defaultModel as modelId for provider credentials", () => {
     expect(
       modelCredentialDto({
@@ -302,7 +494,7 @@ describe("modelCredentialDto", () => {
       id: "cred-2",
       provider: "xai",
       label: "xAI",
-      hasKey: true,
+      hasKey: false,
       isDefault: false,
       modelId: "grok-4.6",
     });

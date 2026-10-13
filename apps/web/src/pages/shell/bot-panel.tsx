@@ -13,8 +13,15 @@ import {
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   BOT_TITLE_MAX_LENGTH,
+  isBuiltinToolName,
 } from "@rakazo/contracts";
-import { modelChoiceLabel } from "@rakazo/core";
+import {
+  connectedModelChoices,
+  modelChoiceLabel,
+  modelOptionKey,
+  parseModelOptionKey,
+  resolveSelectableModelId,
+} from "@rakazo/core";
 import {
   Button,
   Input,
@@ -26,9 +33,11 @@ import {
 } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
+import { ErrorBoundary, SectionLoadFailed } from "../../components/ErrorBoundary";
 import { botProfilePatch } from "../../lib/bot-profile-patch";
 import { thinkingLevelLabel } from "../../lib/model-catalog";
 import { rpc } from "../../lib/rpc";
+import { errorText } from "../../lib/user-error";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
 import { BotCredentialsSection } from "./bot-credentials";
 
@@ -111,7 +120,7 @@ export function CreateBotForm({
         computerMode,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : t`Could not create bot`);
+      setError(errorText(err, t`Could not create bot`));
     } finally {
       setSubmitting(false);
     }
@@ -214,6 +223,7 @@ export function BotSettings({
     modelProvider?: string | null;
     modelId?: string | null;
     thinkingLevel?: ThinkingLevel | null;
+    disabledBuiltinTools?: string[];
   }) => Promise<void>;
   onExport: () => Promise<void>;
   onClear: () => void;
@@ -240,6 +250,22 @@ export function BotSettings({
     bot.modelProvider && bot.modelId ? modelOptionKey(bot.modelProvider, bot.modelId) : "",
   );
   const [thinkingLevel, setThinkingLevel] = useState(bot.thinkingLevel ?? "");
+  const [disabledBuiltinTools, setDisabledBuiltinTools] = useState<string[]>(
+    bot.disabledBuiltinTools ?? [],
+  );
+  // The list on screen is updated before the save returns. This stays on the
+  // last list the server accepted so a rejection can undo that preview.
+  const persistedDisabledToolsRef = useRef(disabledBuiltinTools);
+  const serverDisabledToolsRef = useRef(disabledBuiltinTools);
+  const pendingSavesRef = useRef(0);
+  useEffect(() => {
+    const next = bot.disabledBuiltinTools ?? [];
+    if (serverDisabledToolsRef.current === next) return;
+    serverDisabledToolsRef.current = next;
+    persistedDisabledToolsRef.current = next;
+    if (pendingSavesRef.current === 0) setDisabledBuiltinTools(next);
+  }, [bot.disabledBuiltinTools]);
+  const [toolNameDraft, setToolNameDraft] = useState("");
   const [credentials, setCredentials] = useState<ModelCredential[]>([]);
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [me, setMe] = useState<Me | null>(null);
@@ -254,6 +280,8 @@ export function BotSettings({
       description?: string;
       color?: string;
       notifyOnFinish?: boolean;
+      disabledBuiltinTools?: string[];
+      baseDisabledBuiltinTools?: string[];
     }) => Promise<void>
   >(async () => undefined);
   useEffect(() => {
@@ -273,55 +301,26 @@ export function BotSettings({
       .catch(() => undefined);
   }, []);
 
-  const connectedOptions: Array<{
-    key: string;
-    provider: string;
-    modelId: string;
-    label: string;
-  }> = [];
-  const seenOptions = new Set<string>();
-  for (const credential of credentials) {
-    const providerModels = catalog.filter(
-      (entry) => entry.provider === credential.provider && !entry.placeholder,
-    );
-    const credentialInCatalog = Boolean(
-      credential.modelId && providerModels.some((entry) => entry.id === credential.modelId),
-    );
-    // Catalog providers expand to every model for that connection. Free-form
-    // credentials (model id not in the catalog) stay a single connected pair.
-    const options =
-      credential.modelId && !credentialInCatalog
-        ? [
-            {
-              key: modelOptionKey(credential.provider, credential.modelId),
-              provider: credential.provider,
-              modelId: credential.modelId,
-              label: modelChoiceLabel(catalog, credential.provider, credential.modelId),
-            },
-          ]
-        : providerModels.map((entry) => ({
-            key: modelOptionKey(entry.provider, entry.id),
-            provider: entry.provider,
-            modelId: entry.id,
-            label: modelChoiceLabel(catalog, entry.provider, entry.id),
-          }));
-    for (const option of options) {
-      if (seenOptions.has(option.key)) continue;
-      seenOptions.add(option.key);
-      connectedOptions.push(option);
-    }
-  }
+  const connectedOptions = connectedModelChoices(credentials, catalog);
+  const storedModel = modelKey ? parseModelOptionKey(modelKey) : null;
+  const selectedModel = storedModel
+    ? {
+        provider: storedModel.provider,
+        modelId: resolveSelectableModelId(catalog, storedModel.provider, storedModel.modelId),
+      }
+    : null;
+  const selectedModelKey = selectedModel
+    ? modelOptionKey(selectedModel.provider, selectedModel.modelId)
+    : "";
 
-  const effectiveProvider = modelKey
-    ? parseModelOptionKey(modelKey)?.provider
-    : (me?.defaultProvider ?? null);
-  const effectiveModelId = modelKey
-    ? parseModelOptionKey(modelKey)?.modelId
-    : (me?.defaultModel ?? null);
+  const effectiveProvider = selectedModel?.provider ?? me?.defaultProvider ?? null;
+  const effectiveModelId = selectedModel?.modelId ?? me?.defaultModel ?? null;
   const effectiveEntry =
     effectiveProvider && effectiveModelId
       ? catalog.find(
-          (entry) => entry.provider === effectiveProvider && entry.id === effectiveModelId,
+          (entry) =>
+            entry.provider === effectiveProvider &&
+            resolveSelectableModelId(catalog, entry.provider, entry.id) === effectiveModelId,
         )
       : undefined;
   const effectiveCredential = credentials.find(
@@ -340,8 +339,10 @@ export function BotSettings({
     description?: string;
     color?: string;
     notifyOnFinish?: boolean;
+    disabledBuiltinTools?: string[];
+    baseDisabledBuiltinTools?: string[];
   }) {
-    const selected = modelKey ? parseModelOptionKey(modelKey) : null;
+    const selected = selectedModel;
     const nextName = (patchOverrides?.name !== undefined ? patchOverrides.name : name).trim();
     const nextTitle = (patchOverrides?.title !== undefined ? patchOverrides.title : title).trim();
     const nextDescription = (
@@ -358,7 +359,7 @@ export function BotSettings({
     try {
       setSaving(true);
       setError(null);
-      await onSave({
+      const patch = {
         name: nextName || bot.name,
         title: nextTitle,
         // One field feeds both, so it only goes on the wire when it changed: a
@@ -381,15 +382,66 @@ export function BotSettings({
                 : null,
             }
           : {}),
-      });
+      };
+      const requestedTools = patchOverrides?.disabledBuiltinTools;
+      const baseTools = patchOverrides?.baseDisabledBuiltinTools ?? [];
+      // Preserve this edit's additions/removals against any refreshed server list.
+      // Retry if a refresh arrives while the request is in flight.
+      for (;;) {
+        const serverTools = serverDisabledToolsRef.current;
+        const nextTools =
+          requestedTools === undefined
+            ? undefined
+            : [
+                ...persistedDisabledToolsRef.current.filter(
+                  (name) => !baseTools.includes(name) || requestedTools.includes(name),
+                ),
+                ...requestedTools.filter(
+                  (name) =>
+                    !baseTools.includes(name) && !persistedDisabledToolsRef.current.includes(name),
+                ),
+              ];
+        // Unrelated saves omit the list, preserving changes from other sessions.
+        await onSave({
+          ...patch,
+          ...(nextTools !== undefined ? { disabledBuiltinTools: nextTools } : {}),
+        });
+        if (nextTools === undefined) break;
+        if (
+          serverTools !== serverDisabledToolsRef.current &&
+          !sameStringList(nextTools, serverDisabledToolsRef.current)
+        )
+          continue;
+        persistedDisabledToolsRef.current = nextTools;
+        break;
+      }
       savedDescriptionRef.current = nextDescription;
     } catch (err) {
-      setError(err instanceof Error ? err.message : t`Could not save`);
+      setError(errorText(err, t`Could not save`));
     } finally {
-      setSaving(false);
+      pendingSavesRef.current -= 1;
+      if (pendingSavesRef.current === 0) {
+        setDisabledBuiltinTools([...persistedDisabledToolsRef.current]);
+      }
+      setSaving(pendingSavesRef.current > 0);
     }
   }
   executeSaveRef.current = executeSave;
+
+  function disableBuiltinTool(raw: string) {
+    const name = raw.trim();
+    if (!name) return;
+    if (!isBuiltinToolName(name)) {
+      setError(t`Unknown tool`);
+      return;
+    }
+    setToolNameDraft("");
+    setError(null);
+    if (disabledBuiltinTools.includes(name)) return;
+    const next = [...disabledBuiltinTools, name];
+    setDisabledBuiltinTools(next);
+    void enqueueSave({ disabledBuiltinTools: next });
+  }
 
   function enqueueSave(patchOverrides?: {
     name?: string;
@@ -397,13 +449,22 @@ export function BotSettings({
     description?: string;
     color?: string;
     notifyOnFinish?: boolean;
+    disabledBuiltinTools?: string[];
   }) {
     // Serialize full-object auto-saves so an older in-flight request cannot
     // finish after a newer one and clobber fields. Always call through a ref so
     // queued work reads the latest field values, not a stale render closure.
+    pendingSavesRef.current += 1;
+    const queuedPatch =
+      patchOverrides?.disabledBuiltinTools === undefined
+        ? patchOverrides
+        : {
+            ...patchOverrides,
+            baseDisabledBuiltinTools: [...persistedDisabledToolsRef.current],
+          };
     saveQueueRef.current = saveQueueRef.current
       .catch(() => undefined)
-      .then(() => executeSaveRef.current(patchOverrides));
+      .then(() => executeSaveRef.current(queuedPatch));
     return saveQueueRef.current;
   }
 
@@ -495,19 +556,25 @@ export function BotSettings({
           </span>
         </summary>
         <ComputerModePicker value={computerMode} onChange={setComputerMode} />
-        <Suspense fallback={null}>
-          <ScratchpadSection botId={bot.id} />
-          {advancedOpened ? (
-            <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
-          ) : null}
-        </Suspense>
+        <ErrorBoundary fallback={<SectionLoadFailed />}>
+          <Suspense fallback={null}>
+            <ScratchpadSection botId={bot.id} />
+          </Suspense>
+        </ErrorBoundary>
+        {advancedOpened ? (
+          <ErrorBoundary fallback={<SectionLoadFailed />}>
+            <Suspense fallback={null}>
+              <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
         <label htmlFor={`${ids}-model`} className={fieldLabelClass}>
           <Trans>Model</Trans>
           <NativeSelect
             id={`${ids}-model`}
             aria-label={t`Model`}
             className="mt-2 w-full"
-            value={modelKey}
+            value={selectedModelKey}
             onChange={(event) => {
               setModelKey(event.target.value);
               setThinkingLevel("");
@@ -519,11 +586,12 @@ export function BotSettings({
                 ? ` (${modelChoiceLabel(catalog, me.defaultProvider, me.defaultModel)})`
                 : ""}
             </NativeSelectOption>
-            {modelKey && !connectedOptions.some((option) => option.key === modelKey) ? (
-              <NativeSelectOption value={modelKey}>
-                {effectiveModelId
-                  ? modelChoiceLabel(catalog, effectiveProvider, effectiveModelId)
-                  : modelKey}
+            {selectedModelKey &&
+            !connectedOptions.some((option) => option.key === selectedModelKey) ? (
+              <NativeSelectOption value={selectedModelKey}>
+                {selectedModel
+                  ? modelChoiceLabel(catalog, selectedModel.provider, selectedModel.modelId)
+                  : selectedModelKey}
               </NativeSelectOption>
             ) : null}
             {connectedOptions.map((option) => (
@@ -609,6 +677,50 @@ export function BotSettings({
             </NativeSelect>
           </label>
         ) : null}
+        <label htmlFor={`${ids}-disabled-tools`} className={fieldLabelClass}>
+          <Trans>Disabled tools</Trans>
+          <Input
+            id={`${ids}-disabled-tools`}
+            value={toolNameDraft}
+            placeholder="web_search"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            onChange={(event) => {
+              setToolNameDraft(event.target.value);
+              // This message is about the name being typed. Leave other save errors alone.
+              setError((current) => (current === t`Unknown tool` ? null : current));
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              disableBuiltinTool(event.currentTarget.value);
+            }}
+            onBlur={(event) => {
+              if (event.currentTarget.value.trim()) disableBuiltinTool(event.currentTarget.value);
+            }}
+            className="mt-1.5 font-mono"
+          />
+        </label>
+        {disabledBuiltinTools.map((toolName) => (
+          <label
+            key={toolName}
+            htmlFor={`${ids}-disabled-${toolName}`}
+            className="mt-2 flex items-center justify-between gap-3 text-[13px] text-foreground/80"
+          >
+            <span className="font-mono">{toolName}</span>
+            <Switch
+              id={`${ids}-disabled-${toolName}`}
+              checked
+              onCheckedChange={(checked) => {
+                if (checked) return;
+                const next = disabledBuiltinTools.filter((entry) => entry !== toolName);
+                setDisabledBuiltinTools(next);
+                void enqueueSave({ disabledBuiltinTools: next });
+              }}
+            />
+          </label>
+        ))}
         {advancedOpened ? <BotCredentialsSection botId={bot.id} /> : null}
       </details>
       {error ? <p className="mt-2 text-[13px] text-destructive">{error}</p> : null}
@@ -643,12 +755,6 @@ export function BotSettings({
   );
 }
 
-function modelOptionKey(provider: string, modelId: string) {
-  return `${provider}::${modelId}`;
-}
-
-function parseModelOptionKey(key: string) {
-  const separator = key.indexOf("::");
-  if (separator <= 0) return null;
-  return { provider: key.slice(0, separator), modelId: key.slice(separator + 2) };
+function sameStringList(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length && left.every((entry, index) => entry === right[index]);
 }

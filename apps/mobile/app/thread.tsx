@@ -1,39 +1,43 @@
-import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/native";
+import type { MenuAction } from "@expo/ui/community/menu";
+import { ChatMarkdown } from "@rakazo/chat-ui/native";
 import type {
   AgentSkillCatalogEntry,
   Connection,
   ConnectionCatalogItem,
   MessageBlock,
+  MessageReaction,
   Routine,
 } from "@rakazo/contracts";
-import {
-  canReactToThreadMessage,
-  MESSAGE_REACTIONS,
-  type MessageReaction,
-} from "@rakazo/contracts";
-import type { ThreadItem } from "@rakazo/core";
+import { canReactToThreadMessage, MESSAGE_REACTIONS } from "@rakazo/contracts";
+import type { SlashActionId, ThreadItem } from "@rakazo/core";
 import {
   abortableDelay,
+  appendNewerThreadPage,
   attachmentsForThread,
   buildComposerMentionOptions,
-  type ComposerMention,
   cloudAgentHttpsUrl,
+  formatFileSize,
+  formatMessageTime,
+  forwardProbeAfterPage,
   groupVoiceChats,
   isApprovalAskBlock,
+  isPeerReceiptBlocks,
   isRunTerminalEvent,
   isSecretAskBlock,
   latestAnswerableAskMessageId,
+  leaveThreadWindow,
   localizeOnboardingMessage,
   localizeSubagentProgress,
-  mentionChipKey,
+  openThreadWindow,
   plainTextFromMarkdown,
   projectMessageReactions,
+  reconcileThreadScrollState,
+  replyAttachment,
   resolveComposerSendPlan,
-  SLASH_ACTIONS,
-  type SlashActionId,
+  resolvePersonaColorDef,
   selectedAskActionLabel,
-  serializeComposerPrompt,
-  truncateSlashDescription,
+  threadWindowMessages,
+  timeSeparatorIds,
   userVisibleMessages,
   withLiveStreamingProgress,
 } from "@rakazo/core";
@@ -56,6 +60,13 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type {
+  LayoutChangeEvent,
+  ListRenderItemInfo,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  TextProps,
+} from "react-native";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -65,15 +76,13 @@ import {
   Image,
   Linking,
   Modal,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  type TextProps,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { KeyboardAvoidingView, useKeyboardState } from "react-native-keyboard-controller";
@@ -83,43 +92,67 @@ import { AppConnectCard } from "../components/AppConnectCard";
 import { AskActions } from "../components/AskActions";
 import { BotAvatar } from "../components/bot-avatar";
 import { ChoiceCard } from "../components/ChoiceCard";
+import { ComputerCard } from "../components/ComputerCard";
+import { ComposerReplyPreview } from "../components/composer-reply-preview";
+import { FailedSendBubble } from "../components/failed-send-bubble";
+import { GlassSurface } from "../components/glass-surface";
+import type { ImageArtifactPreviewTarget } from "../components/image-artifact-viewer";
+import { InlineImageAttachment } from "../components/inline-image-attachment";
 import { McpApprovalCard } from "../components/McpApprovalCard";
-import {
-  MarkdownArtifactPreview,
-  type MarkdownArtifactPreviewTarget,
-} from "../components/markdown-artifact-preview";
+import type { MarkdownArtifactPreviewTarget } from "../components/markdown-artifact-preview";
+import { MarkdownArtifactPreview } from "../components/markdown-artifact-preview";
+import { MessageCaption } from "../components/message-caption";
+import { MessageContextMenu } from "../components/message-context-menu";
+import { NativeActionButton } from "../components/native-action-button";
 import { NativeSymbol } from "../components/native-symbol";
+import { ReplyDismissButton } from "../components/reply-dismiss-button";
+import { ReplyLine } from "../components/reply-line";
+import { SelectTextSheet } from "../components/select-text-sheet";
+import { trailingHeaderOptions } from "../components/sheet-header";
+import type { ThreadComposerHandle } from "../components/thread-composer";
+import { ThreadComposer } from "../components/thread-composer";
+import { TimeSeparator } from "../components/time-separator";
 import { VoiceChatCard } from "../components/VoiceChatCard";
 import { WorkingIndicator } from "../components/WorkingIndicator";
+import type {
+  MobileBot,
+  MobileGroup,
+  MobileMe,
+  MobileMessage,
+  MobileMessagePage,
+  MobileSnapshot,
+} from "../lib/api";
 import {
   applyMobileThreadEvent,
   blockText,
   copyableMobileMessageText,
   currentApiBase,
   loadSessionToken,
-  type MobileBot,
-  type MobileGroup,
-  type MobileMessage,
-  type MobileMessagePage,
-  type MobileSnapshot,
   mergeMobileSnapshot,
   messagingProviderLabel,
   mobileThreadRefreshResult,
   prependMobileMessagePage,
   rpc,
+  selectableMobileMessageText,
   selectedSpaceId,
   selectSpace,
   subscribeThread,
 } from "../lib/api";
 import { mobileTokens } from "../lib/appearance";
-import { type MobileArtifactTarget, openMobileArtifact } from "../lib/artifact-open";
+import type { MobileArtifactTarget } from "../lib/artifact-open";
+import { openMobileArtifact } from "../lib/artifact-open";
 import { nextAutoSpeakAction } from "../lib/auto-speak";
-import { confirmDeleteBot } from "../lib/bot-lifecycle";
+import { confirmDeleteBot, restoreArchivedBot } from "../lib/bot-lifecycle";
+import { retainUnchangedBotRoster } from "../lib/bot-roster";
+import { findSwitchTarget, ringOnArrival, takeRingOnArrival } from "../lib/bot-switch";
 import { setCallProviderTranscribe, startCall, useCallSession } from "../lib/call-session";
+import { transparentColor } from "../lib/color";
 import { loadDeviceVoiceEnabled } from "../lib/device-voice";
 import { available as dictationAvailable } from "../lib/dictation";
 import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt";
 import { dateLocaleForUi, getActiveUiLocale, t, useI18n } from "../lib/i18n";
+import { isInlineImageMimeType } from "../lib/inline-image";
+import { integrationsCacheScope, isIntegrationsScopeCurrent } from "../lib/integrations-cache";
 import { saveLastBotId } from "../lib/last-bot";
 import {
   dismissThreadNotifications,
@@ -127,37 +160,61 @@ import {
   setOpenNotificationThread,
 } from "../lib/live-notifications";
 import { presentMessageActionSheet } from "../lib/message-action-sheet";
+import { buildMessageContextMenu, messageMenuReaction } from "../lib/message-context-menu";
 import {
+  applyLocalChoiceDismissals,
   hasVisibleMessagePresentation,
   isCenteredAgentEvent,
   messagePresentationSegments,
   quotableMessageSegments,
   truncateQuoteExcerpt,
 } from "../lib/message-presentation";
-import { native, useMobileTokens, useResolvedAppearance } from "../lib/native";
+import { native, useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
+import { iosAtLeast } from "../lib/native-controls";
 import {
   threadRouteSpaceOnFocus,
   threadSpaceRequest,
   threadSpaceSwitchResult,
 } from "../lib/notification-open";
-import {
-  type PickedAttachment,
-  pickDocuments,
-  pickFromLibrary,
-  takePhoto,
-} from "../lib/pick-attachments";
+import type { PickedAttachment } from "../lib/pick-attachments";
+import { pickDocuments, pickFromLibrary, takePhoto } from "../lib/pick-attachments";
 import { threadRefreshDelayMs } from "../lib/refresh";
 import {
   getCachedResponseStreamingEnabled,
   subscribeResponseStreaming,
 } from "../lib/response-streaming";
+import type { SavedChatsScope } from "../lib/saved-chats";
 import {
-  type ThreadScrollAction,
-  ThreadScrollBehavior,
-  type ThreadScrollState,
-} from "../lib/thread-scroll";
-import { speakText } from "../lib/voice";
-import { probeProviderTranscribe, resolveVoiceCallPlan } from "../lib/voice-call-entry";
+  liveSavedChatsScope,
+  loadSavedInbox,
+  readSavedThread,
+  savedChatsScope,
+  savedChatTarget,
+  writeSavedThread,
+} from "../lib/saved-chats";
+import { secretDestinationLabel } from "../lib/secret-destination";
+import { selectableTextFromMarkdown } from "../lib/selectable-text";
+import {
+  currentReadySessionGeneration,
+  currentSessionGeneration,
+  loadVerifiedIntegrationsScope,
+  subscribeSessionGeneration,
+} from "../lib/session";
+import type { SendAttempt } from "../lib/thread-feedback";
+import { confirmEchoes, subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
+import { ThreadJumpAnchor } from "../lib/thread-jump";
+import { ThreadReadOnlyContext } from "../lib/thread-read-only";
+import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
+import { ThreadScrollBehavior } from "../lib/thread-scroll";
+import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
+import { prepareUnsentSends } from "../lib/unsent-sends";
+import { errorText } from "../lib/user-error";
+import { speakQueue, speakText } from "../lib/voice";
+import {
+  loadCallCallerName,
+  probeProviderTranscribe,
+  resolveVoiceCallPlan,
+} from "../lib/voice-call-entry";
 
 type PendingAttachment = PickedAttachment & { threadKey: string };
 type AskAction = NonNullable<Extract<MessageBlock, { kind: "ask" }>["actions"]>[number];
@@ -208,7 +265,49 @@ function isWorkingStatus(status: string | undefined): boolean {
   );
 }
 
+const ATTACHMENT_PLACEHOLDER_LINE = /^\[(?:image|file|chart): .*\]$/;
+
+function speakableMessageText(message: MobileMessage): string {
+  return blockText(message)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !ATTACHMENT_PLACEHOLDER_LINE.test(line))
+    .join("\n");
+}
+
 export default function ThreadRoute() {
+  const generation = useSyncExternalStore(subscribeSessionGeneration, currentSessionGeneration);
+  const ready = useSyncExternalStore(subscribeSessionGeneration, currentReadySessionGeneration);
+  const [owner, setOwner] = useState<{ key: string; generation: number } | null>(null);
+  useEffect(() => {
+    if (generation !== ready) return;
+    const apiBase = currentApiBase();
+    let cancelled = false;
+    let notified = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const verify = () =>
+      void loadVerifiedIntegrationsScope()
+        .then((saved) => (saved?.apiBase === apiBase ? saved : integrationsCacheScope()))
+        .then((scope) => {
+          if (
+            !cancelled &&
+            scope &&
+            generation === currentSessionGeneration() &&
+            apiBase === currentApiBase()
+          )
+            setOwner({ key: JSON.stringify([apiBase, scope.userId]), generation });
+        })
+        .catch((error) => {
+          if (!cancelled && !notified) Alert.alert(t("Could not continue"), errorText(error));
+          notified = true;
+          if (!cancelled) timer = setTimeout(verify, 5_000);
+        });
+    verify();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [generation, ready]);
   const tokens = useMobileTokens();
   const { t } = useI18n();
   const router = useRouter();
@@ -259,7 +358,15 @@ export default function ThreadRoute() {
     };
   }, [activeSpaceId, focused, spaceId]);
 
-  if (request.action === "show" && !focusSync.switchFailed) return <Thread />;
+  if (request.action === "show" && !focusSync.switchFailed)
+    return (
+      <>
+        {owner?.generation !== generation ? <ActivityIndicator color={tokens.foreground} /> : null}
+        <View style={{ flex: 1, display: owner?.generation === generation ? "flex" : "none" }}>
+          {owner ? <Thread key={owner.key} sessionEpoch={ready} /> : null}
+        </View>
+      </>
+    );
   return (
     <View
       style={{
@@ -285,23 +392,89 @@ export default function ThreadRoute() {
   );
 }
 
-function Thread() {
+function createThreadHeaderStyles() {
+  const tokens = mobileTokens();
+  const transparentBackground = transparentColor(tokens.background);
+  return StyleSheet.create({
+    titleCapsule: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      maxWidth: 220,
+      paddingVertical: 4,
+      paddingStart: 6,
+      paddingEnd: 14,
+      borderRadius: 999,
+    },
+    titleCapsuleFill: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tokens.border,
+      backgroundColor: tokens.card,
+    },
+    title: {
+      color: tokens.foreground,
+      fontSize: 18,
+      fontWeight: "600",
+    },
+    circleButton: {
+      flex: 1,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    composerFill: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tokens.border,
+      backgroundColor: tokens.card,
+    },
+    headerFade: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      experimental_backgroundImage: `linear-gradient(to bottom, ${tokens.background} 0%, ${tokens.background} 58%, ${transparentBackground} 100%)`,
+    },
+    composerFade: {
+      position: "absolute",
+      bottom: "100%",
+      left: -20,
+      right: -20,
+      height: 24,
+      experimental_backgroundImage: `linear-gradient(to top, ${tokens.background} 0%, ${transparentBackground} 100%)`,
+    },
+  });
+}
+
+function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const colorScheme = useResolvedAppearance();
   const tokens = mobileTokens();
+  const styles = useThemedStyles(createThreadHeaderStyles);
   const [botActionsOpen, setBotActionsOpen] = useState(false);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const navigation = useNavigation();
   const router = useRouter();
-  const headerHeight = useHeaderHeight();
+  const { width: windowWidth } = useWindowDimensions();
+  const nativeHeaderHeight = useHeaderHeight();
+  const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
-  const { botId, groupId, name, messageId, threadId } = useLocalSearchParams<{
+  const {
+    botId,
+    groupId,
+    name,
+    messageId,
+    threadId,
+    readOnly: readOnlyParam,
+  } = useLocalSearchParams<{
     botId?: string;
     groupId?: string;
     name?: string;
     messageId?: string;
     threadId?: string;
+    readOnly?: string;
   }>();
+  const readOnly = readOnlyParam === "1";
+  const [restoring, setRestoring] = useState(false);
   const requestedThreadId = typeof threadId === "string" && threadId ? threadId : undefined;
   const inGroup = Boolean(groupId);
   const call = useCallSession();
@@ -323,10 +496,12 @@ function Thread() {
     groupId?: string;
     messageId: string;
     threadId: string;
-    messages: readonly MobileMessage[];
-    olderCursor: number | null;
+    newerCursor: number | null;
+    coveredThroughSeq?: number;
+    probeSeq?: number;
   } | null>(null);
   const jumpScrollTarget = useRef<string | null>(null);
+  const jumpAnchor = useRef(new ThreadJumpAnchor());
   const activeBotId = useRef(botId);
   activeBotId.current = botId;
   const activeGroupId = useRef(groupId);
@@ -342,14 +517,19 @@ function Thread() {
   const [threadScrollState, setThreadScrollState] = useState<ThreadScrollState>(() =>
     scrollBehavior.current.state(),
   );
+  const publishThreadScrollState = useCallback((next: ThreadScrollState) => {
+    setThreadScrollState((previous) => reconcileThreadScrollState(previous, next));
+  }, []);
   useLayoutEffect(() => {
     scrollBehavior.current.openThread(threadKey ?? "");
     expandedHistoryThread.current = null;
     pinnedAroundRef.current = null;
     jumpScrollTarget.current = null;
+    jumpAnchor.current.release();
+    joinPinnedAfterLayout.current = null;
     loadingOlderContent.current = false;
-    setThreadScrollState(scrollBehavior.current.state());
-  }, [threadKey]);
+    publishThreadScrollState(scrollBehavior.current.state());
+  }, [threadKey, publishThreadScrollState]);
   const reducedMotion = useReducedMotion();
   const artifactTarget: MobileArtifactTarget | undefined = groupId
     ? { groupId }
@@ -358,6 +538,10 @@ function Thread() {
       : undefined;
   const [snap, setSnap] = useState<MobileSnapshot | null>(null);
   const snapRef = useRef<MobileSnapshot | null>(null);
+  // The copy saved on this device stays on screen until a live snapshot replaces it.
+  const [showingSaved, setShowingSaved] = useState(false);
+  const snapshotOrigin = useRef<SavedChatsScope | null>(null);
+  const pendingSave = useRef<(() => void) | null>(null);
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -368,18 +552,19 @@ function Thread() {
 
   function commitSnap(next: MobileSnapshot | null) {
     snapRef.current = next;
-    setSnap(withLiveStreamingProgress(next, streamResponsesRef.current));
+    const visible = withLiveStreamingProgress(next, streamResponsesRef.current);
+    setSnap((previous) => reconcileVisibleThreadSnapshot(previous, visible));
   }
 
   useEffect(() => {
-    setSnap(withLiveStreamingProgress(snapRef.current, streamResponses));
+    commitSnap(snapRef.current);
   }, [streamResponses]);
   const activeThreadId = useRef<string | undefined>(undefined);
-  const [draft, setDraft] = useState("");
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
   const [mentionBots, setMentionBots] = useState<MobileBot[]>([]);
+  // The call outlives renders, so its switch check reads the newest bot list from here.
+  const mentionBotsRef = useRef<MobileBot[]>([]);
+  mentionBotsRef.current = mentionBots;
   const [mentionGroups, setMentionGroups] = useState<MobileGroup[]>([]);
   const [mentionRoutines, setMentionRoutines] = useState<Array<Routine & { botName?: string }>>([]);
   const [mentionConnectors, setMentionConnectors] = useState<
@@ -390,31 +575,47 @@ function Thread() {
       connectionId?: string;
     }>
   >([]);
-  const [selectedMentions, setSelectedMentions] = useState<ComposerMention[]>([]);
-  const [selectedSkill, setSelectedSkill] = useState<AgentSkillCatalogEntry | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [replyTarget, setReplyTarget] = useState<MobileMessage | null>(null);
   const [replyQuote, setReplyQuote] = useState<string | null>(null);
   const [quoteTarget, setQuoteTarget] = useState<MobileMessage | null>(null);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const preparingSend = useRef(false);
+  const feedback = useThreadFeedback(threadKey, newClientNonce);
+  const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [selectableText, setSelectableText] = useState<string | null>(null);
+  const [loadingNewer, setLoadingNewer] = useState(false);
+  const loadingNewerContent = useRef(false);
+  // A failed newer page waits for the next drag instead of retrying on every scroll event.
+  const newerLoadFailed = useRef(false);
+  const pinnedScrollMetrics = useRef({ offset: 0, viewport: 0, content: 0 });
+  const joinPinnedAfterLayout = useRef<number | null>(null);
   const [markdownPreview, setMarkdownPreview] = useState<MarkdownArtifactPreviewTarget | null>(
     null,
   );
+  const [dismissedChoiceQuestions, setDismissedChoiceQuestions] = useState<
+    ReadonlyMap<string, ReadonlySet<string>>
+  >(() => new Map());
   const reactionView = useMemo(
     () =>
       projectMessageReactions(
-        userVisibleMessages(snap?.messages ?? [], { includePeerReceipts: true }).filter((message) =>
-          hasVisibleMessagePresentation(message.blocks),
-        ),
+        userVisibleMessages(snap?.messages ?? [], { includePeerReceipts: true })
+          .map((message) => {
+            const dismissed = dismissedChoiceQuestions.get(message.id);
+            if (!dismissed) return message;
+            const blocks = applyLocalChoiceDismissals(message.blocks, dismissed);
+            return blocks === message.blocks ? message : { ...message, blocks: [...blocks] };
+          })
+          .filter((message) => hasVisibleMessagePresentation(message.blocks)),
       ),
-    [snap?.messages],
+    [dismissedChoiceQuestions, snap?.messages],
   );
   const visibleMessages = reactionView.visibleMessages;
   const latestMessageId = visibleMessages.at(-1)?.id ?? null;
   const activePendingAttachments = attachmentsForThread(pendingAttachments, threadKey);
+  const composerRef = useRef<ThreadComposerHandle>(null);
   const composerMentionTargets = useMemo(
     () =>
       buildComposerMentionOptions({
@@ -441,39 +642,9 @@ function Thread() {
       }),
     [groupId, inGroup, mentionBots, mentionConnectors, mentionGroups, mentionRoutines],
   );
-  const mentionOptions = useMemo(() => {
-    if (mentionQuery === null || composerMentionTargets.length === 0) return [];
-    const query = mentionQuery.trim().toLowerCase();
-    return composerMentionTargets
-      .filter((target) => !query || target.name.toLowerCase().startsWith(query))
-      .slice(0, 10);
-  }, [composerMentionTargets, mentionQuery]);
-  const slashQueryNormalized = slashQuery?.trim().toLowerCase() ?? null;
-  const slashSkillOptions =
-    slashQuery !== null && mentionQuery === null
-      ? agentSkills
-          .filter((skill) => {
-            if (!slashQueryNormalized) return true;
-            return (
-              skill.name.toLowerCase().includes(slashQueryNormalized) ||
-              skill.description.toLowerCase().includes(slashQueryNormalized)
-            );
-          })
-          .slice(0, 8)
-      : [];
-  const slashActionOptions =
-    slashQuery !== null && mentionQuery === null
-      ? SLASH_ACTIONS.filter((action) => {
-          if (!slashQueryNormalized) return true;
-          const label = t(action.label);
-          return (
-            action.label.toLowerCase().includes(slashQueryNormalized) ||
-            label.toLowerCase().includes(slashQueryNormalized)
-          );
-        })
-      : [];
   const currentBot = botId ? mentionBots.find((bot) => bot.id === botId) : undefined;
   const displayName = currentBot?.name ?? name;
+  const composerPrompt = displayName ? t("Message {name}", { name: displayName }) : t("Message…");
   const notificationThreadId = snap?.threadId ?? requestedThreadId ?? currentBot?.threadId;
   activeThreadId.current = notificationThreadId;
   const currentBotStatus = snap ? snap.run?.status : currentBot?.status;
@@ -498,7 +669,7 @@ function Thread() {
       botId: currentBot.id,
       autoSpeak: currentBot.autoSpeak,
       focused: AppState.currentState === "active" && navigation.isFocused(),
-      snapshotReady: snap?.botId === currentBot.id,
+      snapshotReady: snap?.botId === currentBot.id && !showingSaved,
       lastSpokenBotId: autoSpokenBotId.current,
       lastSpokenMessageId: autoSpoken.current,
       runStatus: snap?.run?.status,
@@ -512,8 +683,28 @@ function Thread() {
     if (decision.action !== "speak") return;
     autoSpokenBotId.current = currentBot.id;
     autoSpoken.current = decision.messageId;
-    void speakText(decision.text, { botId: currentBot.id }).catch(() => undefined);
-  }, [botId, inGroup, currentBot, navigation, snap?.botId, snap?.messages, snap?.run?.status]);
+    void speakText(decision.text, {
+      botId: currentBot.id,
+      speaker: {
+        name: currentBot.name,
+        color: resolvePersonaColorDef(currentBot.id, currentBot.color).light,
+      },
+    }).catch(() => undefined);
+  }, [
+    botId,
+    inGroup,
+    currentBot,
+    navigation,
+    showingSaved,
+    snap?.botId,
+    snap?.messages,
+    snap?.run?.status,
+  ]);
+
+  const speakFinishedReplyRef = useRef(speakFinishedReply);
+  useLayoutEffect(() => {
+    speakFinishedReplyRef.current = speakFinishedReply;
+  }, [speakFinishedReply]);
 
   useEffect(() => {
     speakFinishedReply();
@@ -528,8 +719,8 @@ function Thread() {
   }, []);
 
   useEffect(() => {
-    setThreadScrollState(scrollBehavior.current.state());
-  }, [threadKey]);
+    publishThreadScrollState(scrollBehavior.current.state());
+  }, [threadKey, publishThreadScrollState]);
 
   const refreshMentionBots = useCallback(async () => {
     if (!botId && !groupId) return;
@@ -542,7 +733,7 @@ function Thread() {
       if (generation < mentionBotsAppliedGeneration.current) return;
       if (targetBotId !== activeBotId.current) return;
       mentionBotsAppliedGeneration.current = generation;
-      setMentionBots(bots);
+      setMentionBots((current) => retainUnchangedBotRoster(current, bots));
       if (targetBotId) {
         const next = bots.find((bot) => bot.id === targetBotId);
         // Read the route name from a ref so renaming does not recreate this
@@ -552,12 +743,17 @@ function Thread() {
         }
       }
     } catch {
-      // Keep the last known roster if refresh fails.
+      // Keep the last known roster if refresh fails. Before any, use the bots saved with the
+      // inbox, so a saved chat offline keeps its bot's colour and avatar.
+      if (mentionBotsAppliedGeneration.current !== 0) return;
+      const saved = await loadSavedInbox();
+      if (!saved || mentionBotsAppliedGeneration.current !== 0) return;
+      if (targetBotId !== activeBotId.current) return;
+      setMentionBots((current) => (current.length ? current : saved.bots));
     }
   }, [botId, groupId, router]);
 
   useEffect(() => {
-    void refreshMentionBots();
     void rpc<MobileGroup[]>("groups/list")
       .then(setMentionGroups)
       .catch(() => setMentionGroups([]));
@@ -635,42 +831,59 @@ function Thread() {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: displayName || t("Thread"),
+      // Messages scroll under the bar. The list is inverted, so iOS would draw the header's scroll
+      // edge effect at its flipped top, above the composer.
+      headerTransparent: iosAtLeast(26),
+      ...(iosAtLeast(26) ? { headerStyle: { backgroundColor: "transparent" } } : {}),
+      scrollEdgeEffects: { top: "hidden" },
       headerTitle: () => (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={!inGroup && botId ? t("Chat settings") : displayName || t("Thread")}
-          disabled={inGroup || !botId}
+          disabled={readOnly || inGroup || !botId}
           onPress={() => {
-            if (!botId || inGroup) return;
+            if (readOnly || !botId || inGroup) return;
             router.push({ pathname: "/bot-settings", params: { botId } });
           }}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            maxWidth: 220,
-          }}
         >
-          {!inGroup && currentBot ? (
-            <BotAvatar
-              color={currentBot.color}
-              identity={currentBot.id}
-              size={34}
-              status={currentBotStatus}
-              muted={!currentBot.notifyOnFinish}
-            />
-          ) : null}
-          <Text
-            numberOfLines={1}
-            style={{ color: tokens.foreground, fontSize: 18, fontWeight: "600" }}
-          >
-            {displayName || t("Thread")}
-          </Text>
+          <GlassSurface style={styles.titleCapsule} fallbackStyle={styles.titleCapsuleFill}>
+            {!inGroup && currentBot ? (
+              <BotAvatar
+                color={currentBot.color}
+                identity={currentBot.id}
+                size={28}
+                status={currentBotStatus}
+                muted={currentBot.notifyOnFinish === false}
+              />
+            ) : null}
+            <Text numberOfLines={1} style={styles.title}>
+              {displayName || t("Thread")}
+            </Text>
+          </GlassSurface>
         </Pressable>
       ),
+      ...(iosAtLeast(26)
+        ? {
+            unstable_headerRightItems: () => [
+              {
+                type: "button" as const,
+                accessibilityLabel: inGroup ? t("Group settings") : t("Bot actions"),
+                icon: { type: "sfSymbol" as const, name: inGroup ? "gearshape" : "ellipsis" },
+                onPress: inGroup
+                  ? () =>
+                      router.push({
+                        pathname: "/group-settings",
+                        params: { groupId: groupId ?? "" },
+                      })
+                  : showBotActions,
+              },
+            ],
+          }
+        : {}),
       headerRight: () =>
         inGroup ? (
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel={t("Group settings")}
             hitSlop={8}
             onPress={() =>
@@ -688,7 +901,12 @@ function Thread() {
             />
           </Pressable>
         ) : (
-          <Pressable accessibilityLabel={t("Bot actions")} hitSlop={8} onPress={showBotActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("Bot actions")}
+            hitSlop={8}
+            onPress={showBotActions}
+          >
             <NativeSymbol
               ios="ellipsis"
               android="ellipsis-horizontal"
@@ -697,8 +915,13 @@ function Thread() {
             />
           </Pressable>
         ),
+      ...(readOnly
+        ? trailingHeaderOptions(t("Restore"), () => void restoreConversation(), restoring)
+        : {}),
     });
   }, [
+    readOnly,
+    restoring,
     botId,
     currentBot,
     currentBotStatus,
@@ -710,7 +933,21 @@ function Thread() {
     t,
     tokens,
     colorScheme,
+    styles,
   ]);
+
+  async function restoreConversation() {
+    if (!botId || restoring) return;
+    setRestoring(true);
+    try {
+      await restoreArchivedBot(botId);
+      router.setParams({ readOnly: "0" });
+    } catch (cause) {
+      Alert.alert(t("Could not restore bot"), errorText(cause, t("Try again.")));
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   function leaveBot() {
     router.dismissAll();
@@ -719,7 +956,6 @@ function Thread() {
 
   function clearConversation() {
     if (!botId) return;
-    setError(null);
     void rpc("threads/clear", { botId })
       .then(() => {
         expandedHistoryThread.current = null;
@@ -732,7 +968,7 @@ function Thread() {
         );
       })
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : t("Could not clear conversation")),
+        Alert.alert(t("Could not clear conversation"), errorText(err, t("Try again."))),
       );
   }
 
@@ -774,10 +1010,7 @@ function Thread() {
         void rpc("bots/archive", { botId })
           .then(leaveBot)
           .catch((error) =>
-            Alert.alert(
-              t("Could not archive bot"),
-              error instanceof Error ? error.message : t("Try again."),
-            ),
+            Alert.alert(t("Could not archive bot"), errorText(error, t("Try again."))),
           ),
     },
     {
@@ -807,16 +1040,53 @@ function Thread() {
     setBotActionsOpen(true);
   }
 
+  /** Shows the chat's saved copy until live data for it arrives; never under a search jump. */
+  function showSavedThread(signal: AbortSignal) {
+    const target = savedChatTarget({ botId, groupId });
+    // Another chat's messages must never stay on screen under this chat's name.
+    if (snapRef.current && savedChatTarget(snapRef.current) !== target) {
+      commitSnap(null);
+      setShowingSaved(false);
+    }
+    void savedChatsScope().then((scope) => {
+      if (signal.aborted || !scope) return;
+      const onScreen = snapRef.current;
+      if (messageId || (onScreen && savedChatTarget(onScreen) === target)) return;
+      const saved = readSavedThread(scope, target);
+      if (!saved) return;
+      snapshotOrigin.current = scope;
+      commitSnap(saved);
+      setShowingSaved(true);
+    });
+  }
+
   async function refresh() {
     if (!botId && !groupId) return;
     const targetBotId = botId;
     const targetGroupId = groupId;
     const epoch = historyEpoch.current;
+    const origin = {
+      sessionGeneration: currentSessionGeneration(),
+      selectionId: selectedSpaceId(),
+    };
     const generation = ++refreshGeneration.current;
     const next = await rpc<MobileSnapshot>(
       "threads/get",
       targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! },
     );
+    if (
+      origin.sessionGeneration !== currentSessionGeneration() ||
+      origin.selectionId !== selectedSpaceId()
+    )
+      return;
+    const scope = await liveSavedChatsScope();
+    if (
+      !scope ||
+      scope.sessionGeneration !== origin.sessionGeneration ||
+      scope.selectionId !== origin.selectionId ||
+      !isIntegrationsScopeCurrent(scope)
+    )
+      return;
     // Only the newest started refresh may commit. Threads also receive live
     // events; an older snapshot must not overwrite those while a newer refresh
     // is already in flight. The subscription starts from the snapshot returned
@@ -834,9 +1104,16 @@ function Thread() {
       activeGroupId: activeGroupId.current,
     });
     if (result.commit) {
+      snapshotOrigin.current = scope;
+      pendingSave.current = null;
+      writeSavedThread(scope, savedChatTarget(next), next);
       commitSnap(
         mergeMobileSnapshot(snapRef.current, next, expandedHistoryThread.current === next.threadId),
       );
+      setShowingSaved(false);
+    }
+    if (isCurrentTarget(targetBotId, targetGroupId)) {
+      feedback.refreshed(targetGroupId ?? targetBotId);
     }
     return result.snapshot ?? undefined;
   }
@@ -846,6 +1123,8 @@ function Thread() {
     const epoch = historyEpoch.current;
     jumpGeneration.current += 1;
     const jumpId = jumpGeneration.current;
+    const scope = await liveSavedChatsScope();
+    if (!scope || !isIntegrationsScopeCurrent(scope)) return;
     const [snap, page] = await Promise.all([
       rpc<MobileSnapshot>("threads/get", threadTarget),
       rpc<MobileMessagePage>("threads/messages", {
@@ -855,26 +1134,122 @@ function Thread() {
     ]);
     // The epoch check drops a jump that raced a conversation clear (or a bot switch); the
     // generation check drops an older same-thread jump that finished after a newer one.
-    if (epoch !== historyEpoch.current || jumpId !== jumpGeneration.current) return;
+    if (
+      epoch !== historyEpoch.current ||
+      jumpId !== jumpGeneration.current ||
+      !isIntegrationsScopeCurrent(scope)
+    )
+      return;
     if (target.groupId && activeGroupId.current !== target.groupId) return;
     if (target.botId && activeBotId.current !== target.botId) return;
     const targetInPage = page.messages.some((message) => message.id === target.messageId);
+    const opened = targetInPage ? openThreadWindow(snap, page) : null;
     expandedHistoryThread.current = targetInPage ? page.threadId : null;
-    pinnedAroundRef.current = targetInPage
+    pinnedAroundRef.current = opened
       ? {
           ...threadTarget,
           messageId: target.messageId,
           threadId: page.threadId,
-          messages: [...page.messages],
-          olderCursor: page.olderCursor,
+          newerCursor: opened.newerCursor,
         }
       : null;
+    jumpAnchor.current.begin(targetInPage ? target.messageId : null);
     jumpScrollTarget.current = targetInPage ? target.messageId : null;
-    commitSnap({
-      ...snap,
-      messages: targetInPage ? [...page.messages] : snap.messages,
-      olderCursor: targetInPage ? page.olderCursor : snap.olderCursor,
-    });
+    newerLoadFailed.current = false;
+    joinPinnedAfterLayout.current = null;
+    pinnedScrollMetrics.current = { offset: 0, viewport: 0, content: 0 };
+    // Publish the jump refs even when the opened snapshot is already visible.
+    setThreadScrollState(scrollBehavior.current.state());
+    snapshotOrigin.current = scope;
+    commitSnap(opened?.snapshot ?? snap);
+    setShowingSaved(false);
+  }
+
+  async function loadNewerMessages() {
+    const pinned = pinnedAroundRef.current;
+    if (
+      (!botId && !groupId) ||
+      pinned?.newerCursor == null ||
+      loadingNewerContent.current ||
+      newerLoadFailed.current
+    )
+      return;
+    loadingNewerContent.current = true;
+    setLoadingNewer(true);
+    const epoch = historyEpoch.current;
+    const probe = pinned.probeSeq ?? pinned.newerCursor + 1;
+    let visibleUnchanged = false;
+    try {
+      // Pages come back centered on the seq, so the one after the cursor overlaps what is loaded.
+      const page = await rpc<MobileMessagePage & { coveredThroughSeq?: number }>(
+        "threads/messages",
+        {
+          ...(groupId ? { groupId } : { botId: botId! }),
+          around: { seq: probe },
+        },
+      );
+      if (epoch !== historyEpoch.current || pinnedAroundRef.current !== pinned || !snapRef.current)
+        return;
+      const visibleBefore = threadWindowMessages(
+        snapRef.current.messages,
+        pinned.newerCursor,
+      ).length;
+      const reported = page.coveredThroughSeq ?? null;
+      const carried =
+        reported == null ? undefined : Math.max(pinned.coveredThroughSeq ?? reported, reported);
+      const next = appendNewerThreadPage(
+        snapRef.current,
+        pinned.newerCursor,
+        page,
+        reported == null ? null : carried,
+      );
+      const step = forwardProbeAfterPage({
+        probe,
+        newerCursor: pinned.newerCursor,
+        nextCursor: next.newerCursor,
+        reportedCoverage: reported,
+        carriedCoverage: pinned.coveredThroughSeq,
+      });
+      if (step.stalled) newerLoadFailed.current = true;
+      visibleUnchanged =
+        threadWindowMessages(next.snapshot.messages, next.newerCursor).length === visibleBefore;
+      pinnedAroundRef.current = {
+        ...pinned,
+        newerCursor: next.newerCursor,
+        coveredThroughSeq: step.coverage,
+        probeSeq: step.probe,
+      };
+      commitSnap(next.snapshot);
+      if (next.newerCursor == null) {
+        joinPinnedAfterLayout.current = pinnedScrollMetrics.current.content;
+      }
+    } catch (err) {
+      if (epoch !== historyEpoch.current || pinnedAroundRef.current !== pinned) return;
+      newerLoadFailed.current = true;
+      setError(errorText(err, t("Could not open message")));
+    } finally {
+      loadingNewerContent.current = false;
+      setLoadingNewer(false);
+      if (visibleUnchanged) loadNewerNearEnd();
+    }
+  }
+
+  function showLatest() {
+    const pinned = pinnedAroundRef.current;
+    pinnedAroundRef.current = null;
+    joinPinnedAfterLayout.current = null;
+    jumpScrollTarget.current = null;
+    jumpAnchor.current.release();
+    expandedHistoryThread.current = null;
+    // The live list mounts at the latest message.
+    scrollBehavior.current.jumpToLatest();
+    // Clearing the pinned refs must render even when the snapshot and scroll flags are unchanged.
+    setThreadScrollState(scrollBehavior.current.state());
+    commitSnap(
+      snapRef.current && pinned
+        ? leaveThreadWindow(snapRef.current, pinned.newerCursor)
+        : snapRef.current,
+    );
   }
 
   async function loadOlderMessages() {
@@ -882,13 +1257,14 @@ function Thread() {
     loadingOlderContent.current = true;
     setLoadingOlder(true);
     const epoch = historyEpoch.current;
+    const pinned = pinnedAroundRef.current;
     try {
       const page = await rpc<MobileMessagePage>("threads/messages", {
         ...(groupId ? { groupId } : { botId: botId! }),
         before: snap.olderCursor,
         includePeerReceipts: true,
       });
-      if (epoch !== historyEpoch.current) {
+      if (epoch !== historyEpoch.current || pinnedAroundRef.current !== pinned) {
         loadingOlderContent.current = false;
         return;
       }
@@ -896,14 +1272,14 @@ function Thread() {
       commitSnap(prependMobileMessagePage(snapRef.current, page));
     } catch (err) {
       loadingOlderContent.current = false;
-      setError(err instanceof Error ? err.message : t("Could not load earlier messages"));
+      setError(errorText(err, t("Could not load earlier messages")));
     } finally {
       setLoadingOlder(false);
     }
   }
 
   const markReadIfVisible = useCallback(() => {
-    if (AppState.currentState !== "active" || !navigation.isFocused()) return;
+    if (readOnly || AppState.currentState !== "active" || !navigation.isFocused()) return;
     const target = groupId ?? botId;
     if (!target || readVisibleTarget.current === target) return;
     readVisibleTarget.current = target;
@@ -919,7 +1295,7 @@ function Thread() {
     void rpc("threads/markRead", { botId: botId! }).catch(() => {
       if (readVisibleTarget.current === target) readVisibleTarget.current = null;
     });
-  }, [botId, groupId, navigation]);
+  }, [botId, groupId, navigation, readOnly]);
 
   useEffect(() => {
     if (!notificationThreadId || AppState.currentState !== "active" || !navigation.isFocused())
@@ -942,26 +1318,33 @@ function Thread() {
   // Covers returning from a pushed screen; the AppState listener covers returning from background.
   useFocusEffect(
     useCallback(() => {
-      if (botId) {
+      if (botId && !readOnly) {
         focusPromptThreadActive(botId);
         void saveLastBotId(botId).catch(() => undefined);
       } else {
         // Group thread focus: prior bot screen may stay mounted, so clear any delayed setup.
         cancelFocusPrompt();
       }
+      void refreshMentionBots();
+      markReadIfVisible();
+      if (!readOnly) speakFinishedReplyRef.current();
+    }, [botId, readOnly, markReadIfVisible, refreshMentionBots]),
+  );
+
+  // Kept apart from the effect above: its callbacks change with every streamed message, and
+  // each re-run would close and reopen the thread, restarting the Android notification poller.
+  useFocusEffect(
+    useCallback(() => {
       if (AppState.currentState === "active" && notificationThreadId) {
         void setOpenNotificationThread({
           botId,
           threadId: notificationThreadId,
         }).catch(() => undefined);
       }
-      void refreshMentionBots();
-      markReadIfVisible();
-      speakFinishedReply();
       return () => {
         void setOpenNotificationThread(null).catch(() => undefined);
       };
-    }, [botId, markReadIfVisible, notificationThreadId, refreshMentionBots, speakFinishedReply]),
+    }, [botId, notificationThreadId]),
   );
 
   useEffect(() => {
@@ -982,38 +1365,37 @@ function Thread() {
 
   useEffect(() => {
     if (!botId && !groupId) return;
-    if (!messageId) {
-      pinnedAroundRef.current = null;
-      jumpScrollTarget.current = null;
-    }
-    expandedHistoryThread.current = null;
+    // Invalidate pending history loads while retaining pages already loaded for this chat.
     historyEpoch.current += 1;
     const abort = new AbortController();
     const subscriptionGeneration = ++liveSubscriptionGeneration.current;
+    const sessionGeneration = currentSessionGeneration();
     liveSubscribed.current = false;
+    showSavedThread(abort.signal);
     void (async () => {
       // Pending search jumps load the around-page separately; avoid replacing it with latest.
       const next = messageId
         ? await rpc<MobileSnapshot>("threads/get", groupId ? { groupId } : { botId: botId! }).catch(
-            (err: Error) => {
-              setError(err.message);
+            (err: unknown) => {
+              setError(errorText(err));
               return null;
             },
           )
-        : await refresh().catch((err: Error) => {
-            setError(err.message);
+        : await refresh().catch((err: unknown) => {
+            setError(errorText(err));
             return null;
           });
-      if (abort.signal.aborted) return;
+      if (abort.signal.aborted || readOnly) return;
       let cursor = next?.cursor ?? -1;
       let retryMs = 250;
-      while (!abort.signal.aborted) {
+      while (!abort.signal.aborted && sessionGeneration === currentSessionGeneration()) {
         try {
           liveSubscribed.current = true;
           await subscribeThread(
             groupId ? { groupId } : { botId: botId! },
             cursor,
             (event) => {
+              if (sessionGeneration !== currentSessionGeneration()) return;
               cursor = Math.max(cursor, event.seq ?? -1);
               retryMs = 250;
               if (
@@ -1033,6 +1415,8 @@ function Thread() {
                 if (event.type === "thread.cleared") {
                   expandedHistoryThread.current = null;
                   pinnedAroundRef.current = null;
+                  jumpScrollTarget.current = null;
+                  jumpAnchor.current.release();
                   historyEpoch.current += 1;
                 }
                 commitSnap(applyMobileThreadEvent(snapRef.current, event));
@@ -1071,7 +1455,33 @@ function Thread() {
     return () => {
       abort.abort();
     };
-  }, [botId, groupId, markReadIfVisible, refreshMentionBots]);
+  }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots, sessionEpoch]);
+
+  useEffect(() => () => pendingSave.current?.(), [botId, groupId]);
+
+  // Save the latest messages of the live chat (not a jump or loaded history) once updates settle.
+  useEffect(() => {
+    if (
+      !snap ||
+      showingSaved ||
+      jumpScrollTarget.current ||
+      pinnedAroundRef.current ||
+      expandedHistoryThread.current
+    )
+      return;
+    const target = savedChatTarget({ botId, groupId });
+    const latest = snapRef.current;
+    if (!latest || savedChatTarget(latest) !== target) return;
+    const origin = snapshotOrigin.current;
+    if (!origin) return;
+    const write = () => writeSavedThread(origin, target, latest);
+    pendingSave.current = write;
+    const timer = setTimeout(() => {
+      pendingSave.current?.();
+      pendingSave.current = null;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [snap, showingSaved, botId, groupId]);
 
   useEffect(() => {
     if (!botId && !groupId) return;
@@ -1100,21 +1510,29 @@ function Thread() {
   }, [botId, groupId, navigation, snap?.run?.status]);
 
   useEffect(() => {
-    if ((!botId && !groupId) || !messageId) return;
+    if (!botId && !groupId) return;
+    // A conversation hit is the thread itself: stay on the live tail, not an older page.
+    if (!messageId) {
+      const pinned = pinnedAroundRef.current != null || jumpAnchor.current.holds();
+      jumpAnchor.current.release();
+      jumpScrollTarget.current = null;
+      pinnedAroundRef.current = null;
+      if (pinned) {
+        expandedHistoryThread.current = null;
+        commitSnap(snapRef.current);
+      }
+      return;
+    }
+    jumpAnchor.current.begin(messageId);
     void applyMessageJump(groupId ? { groupId, messageId } : { botId: botId!, messageId }).catch(
       (err) => {
-        setError(err instanceof Error ? err.message : t("Could not open message"));
+        setError(errorText(err, t("Could not open message")));
       },
     );
-  }, [botId, groupId, messageId]);
+  }, [botId, groupId, messageId, sessionEpoch]);
 
   useEffect(() => {
     setPendingAttachments((current) => attachmentsForThread(current, threadKey));
-    setDraft("");
-    setMentionQuery(null);
-    setSlashQuery(null);
-    setSelectedSkill(null);
-    setSelectedMentions([]);
     setReplyTarget(null);
     setReplyQuote(null);
     setQuoteTarget(null);
@@ -1122,45 +1540,7 @@ function Thread() {
     setError(null);
   }, [threadKey]);
 
-  function updateDraft(value: string) {
-    setDraft(value);
-    const match = /(?:^|\s)@([\w-]*)$/.exec(value);
-    setMentionQuery(match ? (match[1] ?? "") : null);
-    const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
-    setSlashQuery(slashMatch ? (slashMatch[1] ?? "") : null);
-  }
-
-  function insertMention(mention: ComposerMention) {
-    setDraft((current) => current.replace(/@([\w-]*)$/, ""));
-    setMentionQuery(null);
-    setSelectedMentions((current) =>
-      current.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
-        ? current
-        : [...current, mention],
-    );
-  }
-
-  function insertSkill(skill: AgentSkillCatalogEntry) {
-    setSelectedSkill(skill);
-    setDraft("");
-    setSlashQuery(null);
-  }
-
-  function removeLastChip() {
-    if (selectedMentions.length > 0) {
-      setSelectedMentions((current) => current.slice(0, -1));
-      return;
-    }
-    if (selectedSkill) setSelectedSkill(null);
-  }
-
-  function serializeComposerPromptText(): string {
-    return serializeComposerPrompt(draft, selectedSkill, selectedMentions);
-  }
-
   function runSlashAction(action: SlashActionId) {
-    setDraft("");
-    setSlashQuery(null);
     if (action === "chat-settings") {
       if (inGroup && groupId) {
         router.push({ pathname: "/group-settings", params: { groupId } });
@@ -1175,148 +1555,138 @@ function Thread() {
     });
   }
 
-  const canSend =
-    Boolean(draft.trim()) ||
-    selectedSkill !== null ||
-    selectedMentions.length > 0 ||
-    activePendingAttachments.length > 0;
-
   async function send() {
+    if (readOnly) return;
     const initialBotTarget = botId;
     const initialGroupTarget = groupId;
-    if ((!initialBotTarget && !initialGroupTarget) || sending) return;
+    if ((!initialBotTarget && !initialGroupTarget) || sending || preparingSend.current) return;
     const originThreadKey = initialGroupTarget ?? initialBotTarget;
+    const submitted = composerRef.current?.snapshot();
+    if (!submitted) return;
     const attachments = attachmentsForThread(pendingAttachments, originThreadKey);
     const plan = resolveComposerSendPlan({
-      text: serializeComposerPromptText(),
-      mentions: selectedMentions,
+      text: submitted.promptText,
+      mentions: submitted.mentions,
       hasAttachments: attachments.length > 0,
     });
     if (plan.isNoOp) return;
+    const typedSwitch =
+      initialBotTarget && attachments.length === 0
+        ? findSwitchTarget(plan.trimmed, mentionBotsRef.current)
+        : undefined;
+    if (typedSwitch && typedSwitch.id !== initialBotTarget) {
+      openBotChat(typedSwitch, false);
+      return;
+    }
+    preparingSend.current = true;
+    try {
+      await prepareUnsentSends();
+    } catch (error) {
+      Alert.alert(t("Failed to send message"), errorText(error));
+      return;
+    } finally {
+      preparingSend.current = false;
+    }
+    if (
+      !isCurrentTarget(initialBotTarget, initialGroupTarget) ||
+      JSON.stringify(submitted) !== JSON.stringify(composerRef.current?.snapshot())
+    )
+      return;
     const reroutedToGroup = Boolean(
       plan.rerouteGroupId && plan.rerouteGroupId !== initialGroupTarget,
     );
     const groupTarget = plan.rerouteGroupId ?? initialGroupTarget;
     const botTarget = reroutedToGroup ? undefined : initialBotTarget;
-    const trimmed = plan.trimmed;
-    const dropDelayedSetup = () => {
-      // Only after successful engagement so a failed upload/send keeps the setup card.
-      // Covers group-mention reroute while the bot thread stays mounted underneath.
-      if (initialBotTarget) cancelFocusPrompt(initialBotTarget);
-    };
-    setSending(true);
-    setError(null);
+    let attempt: SendAttempt;
     try {
-      if (plan.shouldRunRoutines) {
-        const sendNonce = newClientNonce();
-        await Promise.all(
-          plan.routineIds.map((routineId) =>
-            rpc("routines/testRun", {
-              routineId,
-              clientNonce: `routine-mention:${sendNonce}:${routineId}`,
-            }),
-          ),
-        );
-      }
-      const clearOriginComposer = () => {
-        setPendingAttachments((current) =>
-          current.filter((attachment) => attachment.threadKey !== originThreadKey),
-        );
-        setDraft("");
-        setMentionQuery(null);
-        setSlashQuery(null);
-        setSelectedSkill(null);
-        setSelectedMentions([]);
-        setReplyTarget(null);
-        setReplyQuote(null);
-        setAttachmentNotice(null);
-      };
-      if (!plan.shouldSend) {
-        dropDelayedSetup();
-        clearOriginComposer();
-        if (reroutedToGroup && groupTarget) {
-          router.push({
-            pathname: "/group-thread",
-            params: {
-              groupId: groupTarget,
-              name: plan.rerouteGroupName ?? t("Group"),
-            },
-          });
-          return;
-        }
-        if (isCurrentTarget(botTarget, groupTarget)) {
-          await refresh();
-        }
-        return;
-      }
-      const artifactIds: string[] = [];
-      for (const pending of attachments) {
-        const artifact = await rpc<{ id: string }>("artifacts/create", {
-          ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget! }),
-          name: pending.name,
-          mimeType: pending.mimeType,
-          contentBase64: pending.contentBase64,
-        });
-        artifactIds.push(artifact.id);
-      }
-      const clientNonce = newClientNonce();
-      await rpc(
-        "threads/send",
-        groupTarget
-          ? {
-              groupId: groupTarget,
-              clientNonce,
-              text: trimmed || undefined,
-              mentions: plan.mentionPayload.length ? plan.mentionPayload : undefined,
-              artifactIds: artifactIds.length ? artifactIds : undefined,
-              replyToMessageId: reroutedToGroup ? undefined : replyTarget?.id,
-              replyQuote: reroutedToGroup ? undefined : (replyQuote ?? undefined),
-            }
-          : {
-              botId: botTarget!,
-              clientNonce,
-              text: trimmed || undefined,
-              mentions: plan.mentionPayload.length ? plan.mentionPayload : undefined,
-              artifactIds: artifactIds.length ? artifactIds : undefined,
-              replyToMessageId: replyTarget?.id,
-              replyQuote: replyQuote ?? undefined,
-            },
-      );
-      dropDelayedSetup();
-      void loadSessionToken()
-        .then((token) => resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? ""))
-        .catch(() => undefined);
-      clearOriginComposer();
-      if (reroutedToGroup && groupTarget) {
-        router.push({
-          pathname: "/group-thread",
-          params: {
-            groupId: groupTarget,
-            name: plan.rerouteGroupName ?? t("Group"),
-          },
-        });
-        return;
-      }
-      if (isCurrentTarget(botTarget, groupTarget)) {
-        void refresh().catch(() => undefined);
-      }
-    } catch (err) {
-      if (reroutedToGroup && groupTarget) {
-        setError(err instanceof Error ? err.message : t("Failed to send message"));
-      } else if (isCurrentTarget(botTarget, groupTarget)) {
-        setError(err instanceof Error ? err.message : t("Failed to send message"));
-      }
-    } finally {
-      setSending(false);
+      attempt = feedback.sendAttempt({
+        originThreadKey: originThreadKey!,
+        displayText: submitted.promptText,
+        replyPreview: replyQuote ?? (replyTarget ? previewMessageText(replyTarget) : null),
+        initialBotTarget,
+        botTarget,
+        groupTarget,
+        reroutedToGroup,
+        plan,
+        attachments,
+        replyTargetId: replyTarget?.id,
+        replyQuote,
+      });
+    } catch (error) {
+      Alert.alert(t("Failed to send message"), errorText(error));
+      return;
+    }
+    composerRef.current?.reset();
+    setPendingAttachments((current) =>
+      current.filter((attachment) => !submitted.attachmentIds.includes(attachment.id)),
+    );
+    setReplyTarget(null);
+    setReplyQuote(null);
+    setAttachmentNotice(null);
+    if (pinnedAroundRef.current) showLatest();
+    performScroll(scrollBehavior.current.jumpToLatest());
+    publishThreadScrollState(scrollBehavior.current.state());
+    await deliver(attempt);
+  }
+
+  async function deliver(attempt: SendAttempt, force = false) {
+    if (!readOnly) await feedback.send(attempt, force);
+  }
+
+  function afterDelivered(attempt: SendAttempt) {
+    const { initialBotTarget, botTarget, groupTarget, reroutedToGroup, plan } = attempt.payload;
+    if (initialBotTarget) cancelFocusPrompt(initialBotTarget);
+    const generation = currentSessionGeneration();
+    const apiBase = currentApiBase();
+    const spaceId = selectedSpaceId();
+    void loadSessionToken()
+      .then((token) => {
+        if (
+          generation === currentSessionGeneration() &&
+          apiBase === currentApiBase() &&
+          spaceId === selectedSpaceId()
+        )
+          return resumeLiveNotifications(apiBase, token, spaceId ?? "");
+      })
+      .catch(() => undefined);
+    if (
+      attempt.payload.originThreadKey !== (activeGroupId.current ?? activeBotId.current) ||
+      !navigation.isFocused()
+    )
+      return;
+    if (reroutedToGroup && groupTarget) {
+      router.push({
+        pathname: "/group-thread",
+        params: { groupId: groupTarget, name: plan.rerouteGroupName ?? t("Group") },
+      });
+      return;
+    }
+    if (isCurrentTarget(botTarget, groupTarget)) {
+      if (pinnedAroundRef.current) showLatest();
+      void refresh().catch(() => undefined);
     }
   }
 
+  const afterDeliveredRef = useRef(afterDelivered);
+  afterDeliveredRef.current = afterDelivered;
+  useEffect(() => subscribeDelivered((attempt) => afterDeliveredRef.current(attempt)), []);
+  useEffect(() => {
+    if (snap && (snap.groupId ?? snap.botId) === threadKey) {
+      confirmEchoes(
+        threadKey!,
+        snap.messages.flatMap((message) =>
+          message.role === "user" && message.seq !== undefined ? [message.seq] : [],
+        ),
+      );
+    }
+  }, [snap, threadKey]);
+
   async function stop() {
+    if (readOnly) return;
     const targetBotId = botId;
     const targetGroupId = groupId;
     if ((!targetBotId && !targetGroupId) || sending) return;
     setSending(true);
-    setError(null);
     try {
       await rpc(
         "threads/stop",
@@ -1324,7 +1694,7 @@ function Thread() {
       );
     } catch (err) {
       if (isCurrentTarget(targetBotId, targetGroupId)) {
-        setError(err instanceof Error ? err.message : t("Failed to stop work"));
+        Alert.alert(t("Failed to stop work"), errorText(err, t("Try again.")));
       }
       setSending(false);
       return;
@@ -1333,7 +1703,7 @@ function Thread() {
       await refresh();
     } catch (err) {
       if (isCurrentTarget(targetBotId, targetGroupId)) {
-        const detail = err instanceof Error ? err.message : t("Failed to refresh");
+        const detail = errorText(err, t("Failed to refresh"));
         setError(t("Work stopped, but the thread could not refresh: {detail}", { detail }));
       }
     } finally {
@@ -1345,7 +1715,7 @@ function Thread() {
     async (message: MobileMessage, answer: string, username?: string) => {
       const targetBotId = botId;
       const targetGroupId = groupId;
-      if ((!targetBotId && !targetGroupId) || !message.runId) return;
+      if (readOnly || (!targetBotId && !targetGroupId) || !message.runId) return;
       await rpc("threads/answer", {
         ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! }),
         runId: message.runId,
@@ -1355,7 +1725,7 @@ function Thread() {
       });
       if (isCurrentTarget(targetBotId, targetGroupId)) await refresh();
     },
-    [botId, groupId],
+    [botId, groupId, readOnly],
   );
 
   const openBot = useCallback(
@@ -1364,26 +1734,77 @@ function Thread() {
     [router],
   );
 
-  const speak = useCallback(
-    (message: MobileMessage) =>
-      void speakMessage(message.botId ?? botId ?? snap?.members?.[0]?.botId ?? "", message).catch(
-        (err) =>
-          Alert.alert(t("Could not speak"), err instanceof Error ? err.message : t("Try again.")),
-      ),
-    [botId, snap?.members],
+  const openComputer = useCallback(
+    (id: string, botName: string) =>
+      router.push({ pathname: "/computer", params: { botId: id, name: botName } }),
+    [router],
   );
 
-  async function startVoiceCall() {
+  const speak = useCallback(
+    (message: MobileMessage) => {
+      const startIndex = visibleMessages.findIndex((candidate) => candidate.id === message.id);
+      const fromHere = startIndex === -1 ? [message] : visibleMessages.slice(startIndex);
+      const items = fromHere.flatMap((candidate) => {
+        if (candidate.role !== "bot") return [];
+        const text = speakableMessageText(candidate);
+        if (!text) return [];
+        const speakerBotId = candidate.botId ?? botId ?? snap?.members?.[0]?.botId ?? "";
+        return [
+          {
+            text,
+            botId: speakerBotId,
+            messageId: candidate.id,
+            speaker: {
+              name: memberName(snap?.members, speakerBotId) ?? displayName,
+              color: speakerColorFor(mentionBots, snap?.members, speakerBotId),
+            },
+          },
+        ];
+      });
+      if (items.length === 0) return;
+      void speakQueue(items)
+        .then((spoken) => {
+          if (!spoken)
+            Alert.alert(t("Could not speak"), t("Add a voice provider in Voice settings."), [
+              { text: t("Cancel"), style: "cancel" },
+              { text: t("Open Voice"), onPress: () => router.push("/voice") },
+            ]);
+        })
+        .catch((err: unknown) =>
+          Alert.alert(t("Could not speak"), errorText(err, t("Try again."))),
+        );
+    },
+    [botId, displayName, mentionBots, snap?.members, visibleMessages],
+  );
+
+  /** A bot the caller was put through to answers ("Max here. Hi Riley."); a fresh call opens with hello. */
+  function callGreeting(botName: string, callerName: string | undefined, switchedHere: boolean) {
+    if (switchedHere) {
+      return callerName
+        ? t("{bot} here. Hi {name}.", { bot: botName, name: callerName })
+        : t("{bot} here.", { bot: botName });
+    }
+    return callerName
+      ? t("Hello {name}, {bot} here.", { name: callerName, bot: botName })
+      : t("Hello, {bot} here.", { bot: botName });
+  }
+
+  /** `switchedHere`: the caller asked another bot to put them through, so this bot answers. */
+  async function startVoiceCall(switchedHere = false) {
+    if (readOnly) return;
     const targetBotId = botId;
     if (!targetBotId || voiceCallStarting.current) return;
     voiceCallStarting.current = true;
     const loadVoiceStatus = () => rpc<{ ready: boolean; transcribe: boolean }>("voice/status");
     try {
-      const plan = await resolveVoiceCallPlan({
-        loadDeviceVoiceEnabled,
-        dictationAvailable,
-        loadVoiceStatus,
-      });
+      const [plan, callerName] = await Promise.all([
+        resolveVoiceCallPlan({
+          loadDeviceVoiceEnabled,
+          dictationAvailable,
+          loadVoiceStatus,
+        }),
+        loadCallCallerName(() => rpc<MobileMe>("me")),
+      ]);
       if (activeBotId.current !== targetBotId) return;
       if (plan.kind === "settings") {
         router.push("/voice");
@@ -1400,11 +1821,18 @@ function Thread() {
         );
         return;
       }
+      const botName = displayName ?? t("Bot");
       const startedCallId = startCall({
         botId: targetBotId,
-        botName: displayName ?? t("Bot"),
+        botName,
         botColor: mentionBots.find((bot) => bot.id === targetBotId)?.color,
         transcribe: plan.transcribe,
+        greeting: callGreeting(botName, callerName, switchedHere),
+        switchBot: (text) => {
+          const target = findSwitchTarget(text, mentionBotsRef.current);
+          if (!target || target.id === targetBotId) return undefined;
+          return { name: target.name, ring: () => openBotChat(target, true) };
+        },
       });
       if (plan.kind === "device") {
         void probeProviderTranscribe(loadVoiceStatus)
@@ -1420,16 +1848,26 @@ function Thread() {
     }
   }
 
-  function showAttachMenu() {
-    Alert.alert(t("Attach"), undefined, [
-      {
-        text: t("Photo library"),
-        onPress: () => void addAttachments(pickFromLibrary),
-      },
-      { text: t("Camera"), onPress: () => void addAttachments(takePhoto) },
-      { text: t("File"), onPress: () => void addAttachments(pickDocuments) },
-      { text: t("Cancel"), style: "cancel" },
-    ]);
+  /** Opens another bot's chat in place of this one, ringing it when the switch came from a call. */
+  function openBotChat(target: MobileBot, ring: boolean): void {
+    if (ring) ringOnArrival(target.id);
+    router.replace({ pathname: "/thread", params: { botId: target.id, name: target.name } });
+  }
+
+  useEffect(() => {
+    if (botId && takeRingOnArrival(botId)) void startVoiceCall(true);
+  }, [botId]);
+
+  const attachActions: MenuAction[] = [
+    { id: "library", title: t("Photo library"), image: "photo.on.rectangle" },
+    { id: "camera", title: t("Camera"), image: "camera" },
+    { id: "file", title: t("File"), image: "doc" },
+  ];
+
+  function attachFrom(source: string) {
+    if (source === "library") void addAttachments(pickFromLibrary);
+    else if (source === "camera") void addAttachments(takePhoto);
+    else if (source === "file") void addAttachments(pickDocuments);
   }
 
   async function addAttachments(
@@ -1462,6 +1900,15 @@ function Thread() {
 
   const answerableAskMessageId = latestAnswerableAskMessageId(snap);
   const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
+  const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    [],
+  );
   // Group calls in reading order, then reverse for the inverted list.
   const liveItems = useMemo(() => groupVoiceChats(visibleMessages).reverse(), [visibleMessages]);
   const messagesById = useMemo(
@@ -1475,6 +1922,7 @@ function Thread() {
         ((pinnedTarget.botId && pinnedTarget.botId === botId) ||
           (pinnedTarget.groupId && pinnedTarget.groupId === groupId))),
   );
+  const pinnedNewerCursor = showPinnedPage ? (pinnedTarget?.newerCursor ?? null) : null;
 
   function performScroll(action: ThreadScrollAction) {
     if (!action || showPinnedPage) return;
@@ -1484,14 +1932,64 @@ function Thread() {
     });
   }
 
+  function pinnedDistanceFromEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    return contentSize.height - layoutMeasurement.height - contentOffset.y;
+  }
+
+  function pinnedNearEnd() {
+    const { offset, viewport, content } = pinnedScrollMetrics.current;
+    return viewport > 0 && content - viewport - offset <= 80;
+  }
+
+  function scrollPinnedTo(offset: number) {
+    pinnedScroll.current?.scrollTo({ y: offset, animated: false });
+    pinnedScrollMetrics.current.offset = offset;
+  }
+
+  function loadNewerNearEnd() {
+    // Wait until the matched row has a real offset. Prefetching from the top
+    // of the page changes the content size and lands back on an older reply.
+    // A hit that is not drawn (filtered out of the transcript) must not hold
+    // that wait, or newer pages never load.
+    const targetId = jumpScrollTarget.current ?? pinnedAroundRef.current?.messageId;
+    const targetDrawn =
+      targetId != null &&
+      threadWindowMessages(visibleMessages, pinnedNewerCursor).some(
+        (message) => message.id === targetId,
+      );
+    if (jumpAnchor.current.holds() && !targetDrawn) {
+      jumpAnchor.current.release();
+      jumpScrollTarget.current = null;
+    } else if (jumpAnchor.current.blocksPaging(targetDrawn, headerHeight + 24)) {
+      return;
+    }
+    const { offset, viewport, content } = pinnedScrollMetrics.current;
+    // Fetch the next page while a screen of this one is still left to read; a page shorter
+    // than the screen never scrolls, so layout and content changes check too.
+    if (viewport > 0 && content - viewport - offset < viewport) void loadNewerMessages();
+  }
+
+  function updatePinnedScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    // Once the page reaches the latest message, the end of it is the live thread.
+    if (
+      pinnedNewerCursor === null &&
+      !jumpScrollTarget.current &&
+      pinnedDistanceFromEnd(event) <= 80
+    ) {
+      showLatest();
+    }
+  }
+
   function updateUserScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     // Inverted FlatList: contentOffset.y is distance from the latest messages.
-    setThreadScrollState(
+    publishThreadScrollState(
       scrollBehavior.current.onUserScroll(Math.max(0, event.nativeEvent.contentOffset.y)),
     );
   }
 
   async function reactToMessage(message: MobileMessage, reaction: MessageReaction) {
+    if (readOnly) return;
     const targetBotId = botId;
     const targetGroupId = groupId;
     if (!targetBotId && !targetGroupId) return;
@@ -1504,191 +2002,180 @@ function Thread() {
       });
     } catch (err) {
       if (!isCurrentTarget(targetBotId, targetGroupId)) return;
-      setError(err instanceof Error ? err.message : t("Could not update reaction"));
+      Alert.alert(t("Could not update reaction"), errorText(err, t("Try again.")));
     }
   }
 
-  function messageActionProps(message: MobileMessage): MessageActionProps {
-    const actions = [
-      {
-        name: "reply",
-        text: t("Reply"),
-        onPress: () => {
-          setReplyTarget(message);
-          setReplyQuote(null);
-        },
-      },
-      ...(!message.id.startsWith("progress:") &&
-      quotableMessageSegments(message.role, message.blocks).length > 0
-        ? [{ name: "quote", text: t("Quote"), onPress: () => setQuoteTarget(message) }]
-        : []),
-      ...(canReactToThreadMessage(message)
-        ? [
-            {
-              name: "react",
-              text: t("React"),
-              onPress: () =>
-                presentMessageActionSheet({
-                  cancel: t("Cancel"),
-                  more: t("More"),
-                  colorScheme,
-                  actions: MESSAGE_REACTIONS.map((emoji) => ({
-                    name: emoji,
-                    text: emoji,
-                    onPress: () => void reactToMessage(message, emoji),
-                  })),
-                }),
-            },
-          ]
-        : []),
-      // The call already reads replies aloud; a second voice would talk over it.
-      ...(message.role === "bot" && !onCall && blockText(message)
-        ? [{ name: "speak", text: t("Speak message"), onPress: () => void speak(message) }]
-        : []),
-      {
-        name: "copy",
-        text: t("Copy"),
-        onPress: () => {
-          const text = copyableMobileMessageText(message);
-          if (text) void Clipboard.setStringAsync(text).catch(() => undefined);
-        },
-      },
-    ];
-    return {
-      onLongPress: () =>
-        presentMessageActionSheet({
-          actions,
-          title: message.createdAt
-            ? new Date(message.createdAt).toLocaleTimeString(dateLocaleForUi(), {
-                hour: "numeric",
-                minute: "2-digit",
-              })
-            : undefined,
-          cancel: t("Cancel"),
-          more: t("More"),
-          colorScheme,
-        }),
-      accessibilityActions: actions.map((action) => ({ name: action.name, label: action.text })),
-      onAccessibilityAction: (event) => {
-        actions.find((action) => action.name === event.nativeEvent.actionName)?.onPress();
-      },
-    };
-  }
+  // Event actions read the latest committed screen state without invalidating settled rows.
+  const currentRowActions: MessageRowActions = {
+    reply: (message) => {
+      setReplyTarget(message);
+      setReplyQuote(null);
+    },
+    quote: setQuoteTarget,
+    select: setSelectableText,
+    speak,
+    react: (message, reaction) => void reactToMessage(message, reaction),
+    answer: answerMessage,
+    openBot,
+    openComputer,
+    previewMarkdown: setMarkdownPreview,
+    previewImage: (target) =>
+      router.push({
+        pathname: "/image",
+        params: { ...target, ...(groupId ? { groupId } : { botId }) },
+      }),
+    jump: (messageId) => {
+      void applyMessageJump({ botId, groupId, messageId }).catch(() => undefined);
+    },
+    dismissChoice: (messageId, question) => {
+      setDismissedChoiceQuestions((current) => {
+        const existing = current.get(messageId);
+        if (existing?.has(question)) return current;
+        const next = new Map(current);
+        const questions = new Set(existing);
+        questions.add(question);
+        next.set(messageId, questions);
+        return next;
+      });
+    },
+    layout: (messageId, y, index) => {
+      const offset = jumpAnchor.current.onMessageLayout(messageId, y, index, headerHeight + 24);
+      if (offset == null) return;
+      scrollPinnedTo(offset);
+      setHighlightedMessageId(messageId);
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+      highlightTimer.current = setTimeout(() => setHighlightedMessageId(null), 1200);
+      requestAnimationFrame(() => {
+        const again = jumpAnchor.current.align(headerHeight + 24);
+        if (again != null) scrollPinnedTo(again);
+      });
+    },
+  };
+  const rowActionsRef = useRef(currentRowActions);
+  useLayoutEffect(() => {
+    rowActionsRef.current = currentRowActions;
+  });
+  const rowActions = useMemo<MessageRowActions>(
+    () => ({
+      reply: (message) => rowActionsRef.current.reply(message),
+      quote: (message) => rowActionsRef.current.quote(message),
+      select: (text) => rowActionsRef.current.select(text),
+      speak: (message) => rowActionsRef.current.speak(message),
+      react: (message, reaction) => rowActionsRef.current.react(message, reaction),
+      answer: (message, answer, username) =>
+        rowActionsRef.current.answer(message, answer, username),
+      openBot: (id, name) => rowActionsRef.current.openBot(id, name),
+      openComputer: (id, name) => rowActionsRef.current.openComputer(id, name),
+      previewMarkdown: (target) => rowActionsRef.current.previewMarkdown(target),
+      previewImage: (target) => rowActionsRef.current.previewImage(target),
+      jump: (id) => rowActionsRef.current.jump(id),
+      dismissChoice: (id, question) => rowActionsRef.current.dismissChoice(id, question),
+      layout: (id, y, index) => rowActionsRef.current.layout(id, y, index),
+    }),
+    [],
+  );
 
-  function renderMessageRow(message: MobileMessage, options?: { enableJump?: boolean }) {
-    const actionProps = messageActionProps(message);
-    const messageReactions = reactionView.reactions.get(message.id);
-    const activityBotId =
-      !inGroup && message.role === "bot" && message.id.startsWith("progress:")
-        ? (message.botId ?? botId)
+  const renderMessageRow = useCallback(
+    (message: MobileMessage, options?: { enableJump?: boolean; index?: number }) => {
+      const parent = message.replyToMessageId
+        ? messagesById.get(message.replyToMessageId)
         : undefined;
-    const activityBot = activityBotId
-      ? (snap?.members?.find((member) => member.botId === activityBotId) ??
-        (currentBot?.id === activityBotId ? currentBot : undefined))
-      : undefined;
-    const activityStatus = activityBotId
-      ? (snap?.activeRuns?.find((run) => run.botId === activityBotId)?.status ??
-        (snap?.run?.botId === activityBotId ? snap.run.status : currentBotStatus))
-      : undefined;
-    return (
-      <View
-        key={message.id}
-        onLayout={
-          options?.enableJump
-            ? (event) => {
-                if (jumpScrollTarget.current !== message.id) return;
-                const y = Math.max(0, event.nativeEvent.layout.y - 24);
-                requestAnimationFrame(() => {
-                  if (jumpScrollTarget.current !== message.id) return;
-                  pinnedScroll.current?.scrollTo({ y, animated: true });
-                  jumpScrollTarget.current = null;
-                });
-              }
-            : undefined
-        }
-        style={{
-          marginTop: 12,
-          width: "100%",
-          flexDirection: "row",
-          alignItems: "flex-start",
-          gap: 8,
-          justifyContent: message.role === "user" ? "flex-end" : "flex-start",
-        }}
-      >
-        {activityBotId ? (
-          <View style={{ paddingTop: 22 }}>
-            <BotAvatar
-              color={activityBot?.color ?? tokens.mutedForeground}
-              identity={activityBotId}
-              size={inGroup ? 20 : 28}
-              status={activityStatus}
-            />
-          </View>
-        ) : null}
-        <View
-          style={{
-            width: isCenteredAgentEvent(message.blocks) ? "100%" : undefined,
-            maxWidth: isCenteredAgentEvent(message.blocks)
-              ? "100%"
-              : activityBotId
-                ? undefined
-                : "90%",
-            flex: activityBotId ? 1 : undefined,
-            flexShrink: 1,
-          }}
-        >
-          <Pressable accessible={false} onLongPress={actionProps.onLongPress}>
-            <MessageBubble
-              botId={botId ?? snap?.members?.[0]?.botId ?? ""}
-              groupId={groupId}
-              message={message}
-              botName={displayName}
-              bots={mentionBots}
-              members={snap?.members}
-              replyPreview={
-                message.replyToMessageId ? messagesById.get(message.replyToMessageId) : undefined
-              }
-              canAnswer={message.id === answerableAskMessageId}
-              onAnswer={answerMessage}
-              onOpenBot={openBot}
-              onPreviewMarkdown={setMarkdownPreview}
-              actionProps={actionProps}
-            />
-          </Pressable>
-          {messageReactions ? (
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 4,
-                marginTop: 4,
-                justifyContent: message.role === "user" ? "flex-end" : "flex-start",
-              }}
-            >
-              {[...messageReactions].map(([emoji, count]) => (
-                <Text
-                  key={emoji}
-                  style={{
-                    color: tokens.foreground,
-                    backgroundColor: tokens.muted,
-                    borderColor: tokens.border,
-                    borderWidth: 1,
-                    borderRadius: 16,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    fontSize: 13,
-                  }}
-                >
-                  {emoji}
-                  {count > 1 ? ` ${count}` : ""}
-                </Text>
-              ))}
-            </View>
+      const replyBotId = message.replyPreview?.botId ?? parent?.botId;
+      const replyAuthor =
+        (message.replyPreview?.role ?? parent?.role) === "user"
+          ? t("You")
+          : (memberName(snap?.members, replyBotId) ??
+            mentionBots.find((bot) => bot.id === replyBotId)?.name ??
+            displayName ??
+            t("Bot"));
+      const messageReactions = reactionView.reactions.get(message.id);
+      const activityBotId =
+        !inGroup && message.role === "bot" && message.id.startsWith("progress:")
+          ? (message.botId ?? botId)
+          : undefined;
+      const activityBot = activityBotId
+        ? (snap?.members?.find((member) => member.botId === activityBotId) ??
+          (currentBot?.id === activityBotId ? currentBot : undefined))
+        : undefined;
+      const activityStatus = activityBotId
+        ? (snap?.activeRuns?.find((run) => run.botId === activityBotId)?.status ??
+          (snap?.run?.botId === activityBotId ? snap.run.status : currentBotStatus))
+        : undefined;
+      return (
+        <MessageRow
+          key={message.id}
+          message={message}
+          actions={rowActions}
+          botId={botId}
+          bubbleBotId={botId ?? snap?.members?.[0]?.botId ?? ""}
+          groupId={groupId}
+          botName={displayName}
+          bots={mentionBots}
+          members={snap?.members}
+          readOnly={readOnly}
+          onCall={onCall}
+          canAnswer={!readOnly && message.id === answerableAskMessageId}
+          highlighted={highlightedMessageId === message.id}
+          separator={separatorIds.has(message.id)}
+          replyAuthor={replyAuthor}
+          replyFallbackText={parent ? previewMessageText(parent) : undefined}
+          messageReactions={messageReactions}
+          activityBotId={activityBotId}
+          activityColor={activityBot?.color}
+          activityStatus={activityStatus}
+          inGroup={inGroup}
+          windowWidth={windowWidth}
+          enableJump={options?.enableJump ?? false}
+          index={options?.index ?? 0}
+        />
+      );
+    },
+    [
+      messagesById,
+      snap?.members,
+      snap?.activeRuns,
+      snap?.run,
+      mentionBots,
+      displayName,
+      reactionView.reactions,
+      inGroup,
+      botId,
+      groupId,
+      currentBot,
+      currentBotStatus,
+      rowActions,
+      readOnly,
+      onCall,
+      answerableAskMessageId,
+      highlightedMessageId,
+      separatorIds,
+      windowWidth,
+      t,
+      locale,
+    ],
+  );
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<ThreadItem<MobileMessage>>) =>
+      item.kind === "voiceChat" ? (
+        <View style={messageListStyles.row}>
+          {item.messages[0] && separatorIds.has(item.messages[0].id) ? (
+            <TimeSeparator createdAt={item.messages[0].createdAt} />
           ) : null}
+          <VoiceChatCard group={item} />
         </View>
-      </View>
-    );
-  }
+      ) : (
+        renderMessageRow(item.message)
+      ),
+    [renderMessageRow, separatorIds],
+  );
+  const listContentStyle = useMemo(
+    () => ({
+      paddingBottom: headerHeight + 8,
+      paddingTop: readOnly ? insets.bottom + 16 : 16,
+    }),
+    [headerHeight, readOnly, insets.bottom],
+  );
 
   const workingFooter =
     !inGroup && currentBot && isWorkingStatus(currentBotStatus) && !hasLiveProgress ? (
@@ -1760,27 +2247,92 @@ function Thread() {
       </Pressable>
     ) : null;
 
+  const failedSendBubbles = feedback.unsentSends.map((attempt) => (
+    <FailedSendBubble
+      key={attempt.clientNonce}
+      attempt={attempt}
+      onRetry={() => void deliver(attempt, true)}
+      onDelete={() => feedback.discard(attempt)}
+    />
+  ));
+
   return (
     <KeyboardAvoidingView
       behavior="height"
-      keyboardVerticalOffset={headerHeight}
+      // Android lays out the screen below the opaque native navigation header.
+      keyboardVerticalOffset={Platform.OS === "android" ? nativeHeaderHeight : 0}
       style={{ flex: 1, backgroundColor: tokens.background, paddingHorizontal: 20 }}
     >
-      {error ? <Text style={{ color: tokens.mutedForeground, marginTop: 12 }}>{error}</Text> : null}
-      {runError ? (
-        <Text style={{ color: tokens.destructive, marginTop: 12 }}>{t(runError)}</Text>
+      {error ? (
+        <Text style={{ color: tokens.mutedForeground, marginTop: headerHeight + 28 }}>
+          {showingSaved ? t("Couldn't refresh — showing the last loaded messages.") : error}
+        </Text>
       ) : null}
-      <View style={{ flex: 1, position: "relative" }}>
+      {runError ? (
+        <Text style={{ color: tokens.destructive, marginTop: error ? 12 : headerHeight + 28 }}>
+          {t(runError)}
+        </Text>
+      ) : null}
+      {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}
+      <View style={{ flex: 1, minHeight: headerHeight, position: "relative" }}>
         {showPinnedPage ? (
           <ScrollView
             key={jumpScrollTarget.current ?? pinnedTarget?.messageId ?? threadKey}
             ref={pinnedScroll}
-            style={{ flex: 1, marginTop: 8 }}
-            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingTop: headerHeight + 8, paddingBottom: 16 }}
+            maintainVisibleContentPosition={messageListPosition}
+            scrollEventThrottle={16}
+            onLayout={(event) => {
+              pinnedScrollMetrics.current.viewport = event.nativeEvent.layout.height;
+              loadNewerNearEnd();
+            }}
+            onContentSizeChange={(_, height) => {
+              pinnedScrollMetrics.current.content = height;
+              const jumpOffset = jumpAnchor.current.align(headerHeight + 24);
+              if (jumpOffset != null) scrollPinnedTo(jumpOffset);
+              const armedAt = joinPinnedAfterLayout.current;
+              if (armedAt != null && height !== armedAt) {
+                joinPinnedAfterLayout.current = null;
+                if (
+                  !jumpAnchor.current.holds() &&
+                  pinnedAroundRef.current?.newerCursor == null &&
+                  pinnedNearEnd()
+                ) {
+                  showLatest();
+                  return;
+                }
+              }
+              loadNewerNearEnd();
+            }}
+            onScroll={(event) => {
+              const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+              pinnedScrollMetrics.current = {
+                offset: contentOffset.y,
+                viewport: layoutMeasurement.height,
+                content: contentSize.height,
+              };
+              loadNewerNearEnd();
+            }}
+            onScrollBeginDrag={() => {
+              newerLoadFailed.current = false;
+              if (!jumpAnchor.current.holds()) return;
+              jumpAnchor.current.release();
+              jumpScrollTarget.current = null;
+            }}
+            onScrollEndDrag={updatePinnedScroll}
+            onMomentumScrollEnd={updatePinnedScroll}
           >
             {loadEarlierControl}
-            {visibleMessages.map((message) => renderMessageRow(message, { enableJump: true }))}
-            {workingFooter}
+            {threadWindowMessages(visibleMessages, pinnedNewerCursor).map((message, index) =>
+              renderMessageRow(message, { enableJump: true, index }),
+            )}
+            {pinnedNewerCursor === null ? failedSendBubbles : null}
+            {pinnedNewerCursor === null ? (
+              workingFooter
+            ) : loadingNewer ? (
+              <ActivityIndicator color={tokens.mutedForeground} style={{ marginVertical: 12 }} />
+            ) : null}
           </ScrollView>
         ) : (
           <FlatList
@@ -1788,10 +2340,13 @@ function Thread() {
             ref={scroll}
             data={liveItems}
             inverted
-            keyExtractor={(item) => (item.kind === "voiceChat" ? item.key : item.message.id)}
-            extraData={answerableAskMessageId}
-            style={{ flex: 1, marginTop: 8 }}
-            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            keyExtractor={threadItemKey}
+            // This callback tracks every row input, including reply, reaction and highlight state.
+            extraData={renderMessageRow}
+            style={messageListStyles.list}
+            // Inverted, so the bottom padding is the visual top, clear of the transparent header.
+            contentContainerStyle={listContentStyle}
+            maintainVisibleContentPosition={messageListPosition}
             scrollEventThrottle={16}
             onScrollBeginDrag={() => {
               userDragging.current = true;
@@ -1819,30 +2374,31 @@ function Thread() {
                   expandedHistoryThread.current === snap?.threadId,
               );
               performScroll(scrollBehavior.current.onContentChanged(blocked, latestMessageId));
-              setThreadScrollState(scrollBehavior.current.state());
+              publishThreadScrollState(scrollBehavior.current.state());
             }}
             ListFooterComponent={loadEarlierControl}
-            ListHeaderComponent={workingFooter}
-            renderItem={({ item }) =>
-              item.kind === "voiceChat" ? (
-                <View style={{ marginTop: 12, width: "100%" }}>
-                  <VoiceChatCard group={item} />
-                </View>
-              ) : (
-                renderMessageRow(item.message)
-              )
+            ListHeaderComponent={
+              <>
+                {failedSendBubbles}
+                {workingFooter}
+              </>
             }
+            renderItem={renderItem}
           />
         )}
-        {!showPinnedPage && threadScrollState.detached ? (
+        {showPinnedPage || threadScrollState.detached ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
               threadScrollState.unread ? t("Jump to latest, new messages") : t("Jump to latest")
             }
             onPress={() => {
+              if (showPinnedPage) {
+                showLatest();
+                return;
+              }
               performScroll(scrollBehavior.current.jumpToLatest());
-              setThreadScrollState(scrollBehavior.current.state());
+              publishThreadScrollState(scrollBehavior.current.state());
             }}
             style={{
               position: "absolute",
@@ -1851,70 +2407,94 @@ function Thread() {
               bottom: 12,
               width: 42,
               height: 42,
-              borderRadius: 21,
-              borderWidth: 1,
-              borderColor: native.fillPressed,
-              backgroundColor: native.fill,
-              alignItems: "center",
-              justifyContent: "center",
             }}
           >
-            <NativeSymbol
-              ios="arrow.down"
-              android="arrow-down"
-              size={18}
-              color={tokens.foreground}
-            />
-            {threadScrollState.unread ? (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 3,
-                  right: 3,
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: tokens.primary,
-                }}
+            <GlassSurface
+              shape="circle"
+              style={styles.circleButton}
+              fallbackStyle={{
+                borderWidth: 1,
+                borderColor: native.fillPressed,
+                backgroundColor: native.fill,
+              }}
+            >
+              <NativeSymbol
+                ios="arrow.down"
+                android="arrow-down"
+                size={18}
+                color={tokens.foreground}
               />
-            ) : null}
+              {threadScrollState.unread ? (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 3,
+                    right: 3,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: tokens.primary,
+                  }}
+                />
+              ) : null}
+            </GlassSurface>
           </Pressable>
         ) : null}
       </View>
-      <View style={{ paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom + 12, 24) }}>
+      {/* Fades messages out under the transparent header; the alpha stop keeps the page hue. */}
+      {iosAtLeast(26) ? (
+        <View pointerEvents="none" style={[styles.headerFade, { height: headerHeight + 24 }]} />
+      ) : null}
+      {/* Shrinks (the suggestion lists scroll) so the input and Send stay above the keyboard. */}
+      <View
+        style={{
+          display: readOnly ? "none" : "flex",
+          flexShrink: 1,
+          paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom + 12, 24),
+        }}
+      >
+        {/* Fades messages out above the composer, like the header fade. */}
+        <View pointerEvents="none" style={styles.composerFade} />
         {replyTarget ? (
-          <View
+          <GlassSurface
             style={{
               marginTop: 12,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: tokens.border,
-              backgroundColor: tokens.card,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
+              borderRadius: 999,
+              paddingStart: 16,
+              paddingEnd: 10,
+              paddingVertical: 8,
               flexDirection: "row",
               alignItems: "center",
               gap: 8,
             }}
+            fallbackStyle={{
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              backgroundColor: tokens.card,
+              paddingStart: 12,
+              paddingEnd: 12,
+              paddingVertical: 10,
+            }}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
-                {t("Replying to")}
-              </Text>
-              <Text style={{ color: tokens.foreground, fontSize: 13 }} numberOfLines={1}>
-                {replyQuote ? `“${replyQuote}”` : previewMessageText(replyTarget)}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityLabel={t("Cancel reply")}
+            <ComposerReplyPreview
+              author={
+                replyTarget.role === "user"
+                  ? t("You")
+                  : (memberName(snap?.members, replyTarget.botId) ?? displayName ?? t("Bot"))
+              }
+              quote={replyQuote}
+              text={previewMessageText(replyTarget)}
+              attachment={replyAttachment(replyTarget.blocks)}
+              threadTarget={artifactTarget}
+            />
+            <ReplyDismissButton
               onPress={() => {
                 setReplyTarget(null);
                 setReplyQuote(null);
               }}
-            >
-              <Text style={{ color: tokens.mutedForeground }}>✕</Text>
-            </Pressable>
-          </View>
+            />
+          </GlassSurface>
         ) : null}
         {attachmentNotice ? (
           <Text style={{ color: tokens.warning, marginTop: 12, fontSize: 13 }}>
@@ -1951,7 +2531,12 @@ function Thread() {
                     style={{ width: 28, height: 28, borderRadius: 6 }}
                   />
                 ) : (
-                  <Text style={{ color: tokens.foreground }}>📎</Text>
+                  <NativeSymbol
+                    ios="paperclip"
+                    android="attach"
+                    size={16}
+                    color={tokens.mutedForeground}
+                  />
                 )}
                 <Text style={{ color: tokens.foreground, maxWidth: 140 }} numberOfLines={1}>
                   {attachment.name}
@@ -1975,337 +2560,27 @@ function Thread() {
             ))}
           </View>
         ) : null}
-        {mentionOptions.length ? (
-          <View
-            testID="mention-picker"
-            style={{
-              marginTop: 12,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: tokens.border,
-              backgroundColor: tokens.card,
-              overflow: "hidden",
-            }}
-          >
-            {mentionOptions.map((mention) => (
-              <Pressable
-                key={mentionChipKey(mention)}
-                accessibilityLabel={t("@{name}", { name: mention.name })}
-                onPress={() => insertMention(mention)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                }}
-              >
-                <MentionOptionIcon mention={mention} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ color: tokens.foreground, fontSize: 14 }}>@{mention.name}</Text>
-                  {mention.subtitle ? (
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        color: tokens.mutedForeground,
-                        fontSize: 12.5,
-                        marginTop: 2,
-                      }}
-                    >
-                      {mention.subtitle}
-                    </Text>
-                  ) : null}
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-        {slashSkillOptions.length || slashActionOptions.length ? (
-          <View
-            testID="slash-picker"
-            style={{
-              marginTop: 12,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: tokens.border,
-              backgroundColor: tokens.card,
-              overflow: "hidden",
-            }}
-          >
-            {slashSkillOptions.map((skill) => (
-              <Pressable
-                key={skill.id}
-                accessibilityLabel={t("Skill {name}", { name: skill.name })}
-                onPress={() => insertSkill(skill)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                }}
-              >
-                <NativeSymbol
-                  ios="cube"
-                  android="cube-outline"
-                  size={16}
-                  color={tokens.mutedForeground}
-                />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ color: tokens.foreground, fontSize: 14 }}>{skill.name}</Text>
-                  <Text
-                    numberOfLines={1}
-                    style={{ color: tokens.mutedForeground, fontSize: 12.5, marginTop: 2 }}
-                  >
-                    {truncateSlashDescription(skill.description)}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
-            {slashActionOptions.map((action) => (
-              <Pressable
-                key={action.id}
-                accessibilityLabel={t(action.label)}
-                onPress={() => runSlashAction(action.id)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                }}
-              >
-                <NativeSymbol
-                  ios="gearshape"
-                  android="settings-outline"
-                  size={16}
-                  color={tokens.mutedForeground}
-                />
-                <Text style={{ color: tokens.foreground, fontSize: 14 }}>{t(action.label)}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-        <View
-          style={{
-            flexDirection: "row",
-            gap: 8,
-            marginTop: 16,
-            alignItems: "flex-end",
-          }}
-        >
-          <Pressable
-            accessibilityLabel={t("Attach file")}
-            onPress={showAttachMenu}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              borderWidth: 1,
-              borderColor: tokens.border,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <NativeSymbol ios="plus" android="add" size={18} color={tokens.mutedForeground} />
-          </Pressable>
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 6,
-              backgroundColor: tokens.card,
-              borderRadius: 20,
-              paddingHorizontal: 10,
-              paddingVertical: 8,
-              minHeight: 44,
-            }}
-          >
-            {selectedSkill ? (
-              <View
-                testID="skill-chip"
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  backgroundColor: tokens.muted,
-                  borderRadius: 999,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  maxWidth: "100%",
-                }}
-              >
-                <NativeSymbol
-                  ios="cube"
-                  android="cube-outline"
-                  size={13}
-                  color={tokens.mutedForeground}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={{ color: tokens.foreground, fontSize: 13, flexShrink: 1 }}
-                >
-                  {selectedSkill.name}
-                </Text>
-                <Pressable
-                  accessibilityLabel={t("Remove skill {name}", { name: selectedSkill.name })}
-                  hitSlop={8}
-                  onPress={() => setSelectedSkill(null)}
-                >
-                  <NativeSymbol
-                    ios="xmark"
-                    android="close"
-                    size={12}
-                    color={tokens.mutedForeground}
-                  />
-                </Pressable>
-              </View>
-            ) : null}
-            {selectedMentions.map((mention) => (
-              <View
-                key={mentionChipKey(mention)}
-                testID="mention-chip"
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  backgroundColor: tokens.muted,
-                  borderRadius: 999,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  maxWidth: "100%",
-                }}
-              >
-                <MentionChipIcon mention={mention} />
-                <Text
-                  numberOfLines={1}
-                  style={{ color: tokens.foreground, fontSize: 13, flexShrink: 1 }}
-                >
-                  {mention.name}
-                </Text>
-                <Pressable
-                  accessibilityLabel={t("Remove mention {name}", { name: mention.name })}
-                  hitSlop={8}
-                  onPress={() =>
-                    setSelectedMentions((current) =>
-                      current.filter(
-                        (selected) => mentionChipKey(selected) !== mentionChipKey(mention),
-                      ),
-                    )
-                  }
-                >
-                  <NativeSymbol
-                    ios="xmark"
-                    android="close"
-                    size={12}
-                    color={tokens.mutedForeground}
-                  />
-                </Pressable>
-              </View>
-            ))}
-            <TextInput
-              value={draft}
-              onChangeText={updateDraft}
-              accessibilityLabel={
-                displayName ? t("Message {name}", { name: displayName }) : t("Message")
-              }
-              onKeyPress={(event) => {
-                if (
-                  event.nativeEvent.key === "Backspace" &&
-                  draft.length === 0 &&
-                  (selectedSkill !== null || selectedMentions.length > 0)
-                ) {
-                  removeLastChip();
-                }
-              }}
-              placeholder={
-                selectedSkill || selectedMentions.length
-                  ? undefined
-                  : displayName
-                    ? t("Message {name}", { name: displayName })
-                    : t("Message…")
-              }
-              placeholderTextColor={tokens.mutedForeground}
-              keyboardAppearance={colorScheme}
-              multiline
-              textAlignVertical="center"
-              blurOnSubmit={false}
-              style={{
-                flexGrow: 1,
-                flexShrink: 1,
-                minWidth: 96,
-                color: tokens.foreground,
-                paddingVertical: 2,
-                maxHeight: 100,
-                writingDirection: "auto",
-              }}
-            />
-          </View>
-          {botId && !onCall && draft.trim().length === 0 ? (
-            <Pressable
-              accessibilityLabel={t("Call")}
-              onPress={() => void startVoiceCall()}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                borderWidth: 1,
-                borderColor: tokens.border,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <NativeSymbol
-                ios="waveform"
-                android="pulse-outline"
-                size={18}
-                color={tokens.mutedForeground}
-              />
-            </Pressable>
-          ) : null}
-          <Pressable
-            accessibilityLabel={t("Send")}
-            disabled={sending || !canSend}
-            onPress={() => void send()}
-            style={{
-              backgroundColor: tokens.primary,
-              borderRadius: 22,
-              width: 44,
-              height: 44,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: sending || !canSend ? 0.5 : 1,
-            }}
-          >
-            <NativeSymbol
-              ios="arrow.up"
-              android="arrow-up"
-              size={18}
-              color={tokens.primaryForeground}
-            />
-          </Pressable>
-          {working ? (
-            <Pressable
-              accessibilityLabel={t("Stop")}
-              disabled={sending}
-              onPress={() => void stop()}
-              style={{
-                borderColor: tokens.border,
-                borderWidth: 1,
-                borderRadius: 22,
-                width: 44,
-                height: 44,
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: sending ? 0.5 : 1,
-              }}
-            >
-              <NativeSymbol ios="stop.fill" android="stop" size={15} color={tokens.foreground} />
-            </Pressable>
-          ) : null}
-        </View>
+        <ThreadComposer
+          key={threadKey}
+          ref={composerRef}
+          agentSkills={agentSkills}
+          composerMentionTargets={composerMentionTargets}
+          composerPrompt={composerPrompt}
+          replyTargetId={replyTarget?.id}
+          replyQuote={replyQuote}
+          attachmentIds={activePendingAttachments.map((attachment) => attachment.id)}
+          botId={botId}
+          onCall={onCall}
+          working={working}
+          sending={sending}
+          styles={styles}
+          attachActions={attachActions}
+          attachFrom={attachFrom}
+          send={send}
+          stop={stop}
+          startVoiceCall={startVoiceCall}
+          onSlashAction={runSlashAction}
+        />
       </View>
       <Modal
         visible={botActionsOpen}
@@ -2353,6 +2628,7 @@ function Thread() {
           </View>
         </View>
       </Modal>
+      <SelectTextSheet text={selectableText} onClose={() => setSelectableText(null)} />
       {markdownPreview && artifactTarget ? (
         <MarkdownArtifactPreview
           threadTarget={artifactTarget}
@@ -2372,67 +2648,6 @@ function Thread() {
         />
       ) : null}
     </KeyboardAvoidingView>
-  );
-}
-
-function MentionOptionIcon({ mention }: { mention: ComposerMention }) {
-  const tokens = useMobileTokens();
-  if (mention.kind === "routine") {
-    return (
-      <NativeSymbol ios="clock" android="time-outline" size={16} color={tokens.mutedForeground} />
-    );
-  }
-  if (mention.kind === "connector") {
-    return (
-      <NativeSymbol
-        ios="puzzlepiece.extension"
-        android="extension-puzzle-outline"
-        size={16}
-        color={tokens.mutedForeground}
-      />
-    );
-  }
-  if (mention.kind === "group") {
-    return (
-      <View
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 8,
-          backgroundColor: tokens.muted,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ color: tokens.foreground, fontSize: 9 }}>G</Text>
-      </View>
-    );
-  }
-  if (mention.kind === "everyone") {
-    return (
-      <View
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 8,
-          backgroundColor: tokens.muted,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ color: tokens.foreground, fontSize: 9 }}>@</Text>
-      </View>
-    );
-  }
-  return (
-    <View
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: 4,
-        backgroundColor: mention.color ?? tokens.mutedForeground,
-      }}
-    />
   );
 }
 
@@ -2481,26 +2696,14 @@ function QuoteSheet({
             paddingBottom: 12,
           }}
         >
-          <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
-            <Text style={{ color: tokens.mutedForeground, fontSize: 17 }}>{t("Cancel")}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !excerpt }}
+          <NativeActionButton label={t("Cancel")} onPress={onCancel} prominence="plain" />
+          <NativeActionButton
             disabled={!excerpt}
+            fill={false}
+            label={t("Quote")}
             onPress={() => onQuote(excerpt)}
-            hitSlop={8}
-          >
-            <Text
-              style={{
-                color: excerpt ? tokens.primary : tokens.mutedForeground,
-                fontSize: 17,
-                fontWeight: "600",
-              }}
-            >
-              {t("Quote")}
-            </Text>
-          </Pressable>
+            prominence={excerpt ? "primary" : "plain"}
+          />
         </View>
         <ScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
           {segments.map((text, index) => (
@@ -2537,53 +2740,6 @@ function QuoteSheet({
   );
 }
 
-function MentionChipIcon({ mention }: { mention: ComposerMention }) {
-  const tokens = useMobileTokens();
-  if (mention.kind === "routine") {
-    return (
-      <NativeSymbol ios="clock" android="time-outline" size={13} color={tokens.mutedForeground} />
-    );
-  }
-  if (mention.kind === "connector") {
-    return (
-      <NativeSymbol
-        ios="puzzlepiece.extension"
-        android="extension-puzzle-outline"
-        size={13}
-        color={tokens.mutedForeground}
-      />
-    );
-  }
-  if (mention.kind === "group" || mention.kind === "everyone") {
-    return (
-      <View
-        style={{
-          width: 14,
-          height: 14,
-          borderRadius: 7,
-          backgroundColor: tokens.muted,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ color: tokens.foreground, fontSize: 9 }}>
-          {mention.kind === "group" ? "G" : "@"}
-        </Text>
-      </View>
-    );
-  }
-  return (
-    <View
-      style={{
-        width: 14,
-        height: 14,
-        borderRadius: 4,
-        backgroundColor: mention.color ?? tokens.mutedForeground,
-      }}
-    />
-  );
-}
-
 function previewMessageText(message: MobileMessage): string {
   const text = message.blocks
     .flatMap((block) => {
@@ -2601,9 +2757,9 @@ function previewMessageText(message: MobileMessage): string {
     .join(" ")
     .trim();
   if (text) return text;
-  if (message.blocks.some((block) => block.kind === "image" || block.kind === "file")) {
-    return t("Attachment");
-  }
+  const attachment = replyAttachment(message.blocks);
+  if (attachment)
+    return attachment.kind === "image" ? t("Photo") : attachment.name || t("Attachment");
   return t("Message");
 }
 
@@ -2615,18 +2771,344 @@ function memberName(
   return members.find((member) => member.botId === botId)?.name;
 }
 
-async function speakMessage(botId: string, message: MobileMessage) {
-  const text = blockText(message);
-  if (!text.trim()) return;
-  if (!(await speakText(text, { botId }))) {
-    throw new Error(t("Add a voice provider in Voice settings."));
-  }
+/** Each bot keeps one identity color across web and mobile — same lookup as the avatar. */
+function speakerColorFor(
+  bots: MobileBot[],
+  members: MobileSnapshot["members"] | undefined,
+  botId: string | undefined,
+): string | undefined {
+  if (!botId) return undefined;
+  const raw =
+    bots.find((bot) => bot.id === botId)?.color ??
+    members?.find((member) => member.botId === botId)?.color;
+  return resolvePersonaColorDef(botId, raw).light;
 }
 
 type MessageActionProps = Pick<
   TextProps,
   "onLongPress" | "accessibilityActions" | "onAccessibilityAction"
 >;
+
+const messageListStyles = StyleSheet.create({
+  list: { flex: 1 },
+  row: { marginTop: 12, width: "100%" },
+});
+const messageListPosition = { minIndexForVisible: 0 };
+function threadItemKey(item: ThreadItem<MobileMessage>) {
+  return item.kind === "voiceChat" ? item.key : item.message.id;
+}
+
+type MessageRowActions = {
+  reply: (message: MobileMessage) => void;
+  quote: (message: MobileMessage) => void;
+  select: (text: string) => void;
+  speak: (message: MobileMessage) => void;
+  react: (message: MobileMessage, reaction: MessageReaction) => void;
+  answer: (message: MobileMessage, answer: string, username?: string) => Promise<void>;
+  openBot: (id: string, name: string) => void;
+  openComputer: (id: string, name: string) => void;
+  previewMarkdown: (target: MarkdownArtifactPreviewTarget) => void;
+  previewImage: (target: ImageArtifactPreviewTarget) => void;
+  jump: (messageId: string) => void;
+  dismissChoice: (messageId: string, question: string) => void;
+  layout: (messageId: string, y: number, index: number) => void;
+};
+
+type MessageRowProps = {
+  message: MobileMessage;
+  actions: MessageRowActions;
+  botId?: string;
+  bubbleBotId: string;
+  groupId?: string;
+  botName?: string;
+  bots: MobileBot[];
+  members?: MobileSnapshot["members"];
+  readOnly: boolean;
+  onCall: boolean;
+  canAnswer: boolean;
+  highlighted: boolean;
+  separator: boolean;
+  replyAuthor: string;
+  replyFallbackText?: string;
+  messageReactions?: ReadonlyMap<MessageReaction, number>;
+  activityBotId?: string;
+  activityColor?: string;
+  activityStatus?: MobileBot["status"];
+  inGroup: boolean;
+  windowWidth: number;
+  enableJump: boolean;
+  index: number;
+};
+
+const MessageRow = memo(function MessageRow({
+  message,
+  actions,
+  botId,
+  bubbleBotId,
+  groupId,
+  botName,
+  bots,
+  members,
+  readOnly,
+  onCall,
+  canAnswer,
+  highlighted,
+  separator,
+  replyAuthor,
+  replyFallbackText,
+  messageReactions,
+  activityBotId,
+  activityColor,
+  activityStatus,
+  inGroup,
+  windowWidth,
+  enableJump,
+  index,
+}: MessageRowProps) {
+  const tokens = useMobileTokens();
+  const colorScheme = useResolvedAppearance();
+  const { t, locale } = useI18n();
+  const artifactTarget = useMemo<MobileArtifactTarget | undefined>(
+    () => (groupId ? { groupId } : botId ? { botId } : undefined),
+    [botId, groupId],
+  );
+  const onChoiceDismissed = useCallback(
+    (question: string) => actions.dismissChoice(message.id, question),
+    [actions, message.id],
+  );
+  const onLayout = useMemo(
+    () =>
+      enableJump
+        ? (event: LayoutChangeEvent) =>
+            actions.layout(message.id, event.nativeEvent.layout.y, index)
+        : undefined,
+    [actions, message.id, enableJump, index],
+  );
+  const { actionProps, menu, onMenuAction } = useMemo<{
+    actionProps: MessageActionProps;
+    menu: ReturnType<typeof buildMessageContextMenu>;
+    onMenuAction: (id: string) => void;
+  }>(() => {
+    const messageText = selectableMobileMessageText(message);
+    const includeQuote =
+      !readOnly &&
+      !message.id.startsWith("progress:") &&
+      quotableMessageSegments(message.role, message.blocks).length > 0;
+    const includeReact = !readOnly && canReactToThreadMessage(message);
+    // The call already reads replies aloud; a second voice would talk over it.
+    const includeSpeak = message.role === "bot" && !onCall && Boolean(blockText(message));
+    const includeSelect = messageText.trim().length > 0;
+    const reply = () => actions.reply(message);
+    const quote = () => actions.quote(message);
+    const speakMessage = () => actions.speak(message);
+    const select = () =>
+      actions.select(
+        message.role === "user" ? messageText : selectableTextFromMarkdown(messageText),
+      );
+    const copy = () => {
+      const text = copyableMobileMessageText(message);
+      if (text) void Clipboard.setStringAsync(text).catch(() => undefined);
+    };
+    const react = (reaction: MessageReaction) => actions.react(message, reaction);
+    const menuActions = [
+      ...(!readOnly ? [{ name: "reply", text: t("Reply"), onPress: reply }] : []),
+      ...(includeQuote ? [{ name: "quote", text: t("Quote"), onPress: quote }] : []),
+      ...(includeReact
+        ? [
+            {
+              name: "react",
+              text: t("React"),
+              onPress: () =>
+                presentMessageActionSheet({
+                  cancel: t("Cancel"),
+                  more: t("More"),
+                  colorScheme,
+                  actions: MESSAGE_REACTIONS.map((emoji) => ({
+                    text: emoji,
+                    onPress: () => react(emoji),
+                  })),
+                }),
+            },
+          ]
+        : []),
+      ...(includeSpeak ? [{ name: "speak", text: t("Speak message"), onPress: speakMessage }] : []),
+      ...(includeSelect ? [{ name: "select", text: t("Select text"), onPress: select }] : []),
+      { name: "copy", text: t("Copy"), onPress: copy },
+    ];
+    const menu = buildMessageContextMenu({
+      labels: {
+        reply: t("Reply"),
+        copy: t("Copy"),
+        react: t("React"),
+        quote: t("Quote"),
+        speak: t("Speak message"),
+        select: t("Select text"),
+      },
+      reactions: MESSAGE_REACTIONS,
+      include: {
+        reply: !readOnly,
+        quote: includeQuote,
+        react: includeReact,
+        speak: includeSpeak,
+        select: includeSelect,
+      },
+    });
+    const openSheet = () =>
+      presentMessageActionSheet({
+        actions: menuActions,
+        title: message.createdAt
+          ? formatMessageTime(message.createdAt, dateLocaleForUi())
+          : undefined,
+        cancel: t("Cancel"),
+        more: t("More"),
+        colorScheme,
+      });
+    return {
+      menu,
+      onMenuAction: (id) => {
+        const reaction = messageMenuReaction(id);
+        if (reaction && (MESSAGE_REACTIONS as readonly string[]).includes(reaction)) {
+          react(reaction as MessageReaction);
+          return;
+        }
+        if (id === "reply") reply();
+        if (id === "copy") copy();
+        if (id === "quote") quote();
+        if (id === "speak") speakMessage();
+        if (id === "select") select();
+      },
+      actionProps: {
+        onLongPress: Platform.OS === "ios" ? undefined : openSheet,
+        accessibilityActions: menuActions.map((action) => ({
+          name: action.name,
+          label: action.text,
+        })),
+        onAccessibilityAction: (event) => {
+          menuActions.find((action) => action.name === event.nativeEvent.actionName)?.onPress();
+        },
+      },
+    };
+  }, [message, actions, readOnly, onCall, colorScheme, t, locale]);
+  return (
+    <View
+      key={message.id}
+      onLayout={onLayout}
+      style={{
+        backgroundColor: highlighted ? tokens.muted : undefined,
+        marginTop: 12,
+        width: "100%",
+      }}
+    >
+      {separator ? <TimeSeparator createdAt={message.createdAt} /> : null}
+      <View
+        style={{
+          width: "100%",
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 8,
+          justifyContent: message.role === "user" ? "flex-end" : "flex-start",
+        }}
+      >
+        {activityBotId ? (
+          <View style={{ paddingTop: 22 }}>
+            <BotAvatar
+              color={activityColor ?? tokens.mutedForeground}
+              identity={activityBotId}
+              size={inGroup ? 20 : 28}
+              status={activityStatus}
+            />
+          </View>
+        ) : null}
+        <View
+          style={{
+            width: isCenteredAgentEvent(message.blocks) ? "100%" : undefined,
+            maxWidth: isCenteredAgentEvent(message.blocks)
+              ? "100%"
+              : activityBotId
+                ? undefined
+                : "90%",
+            flex: activityBotId ? 1 : undefined,
+            flexShrink: 1,
+          }}
+        >
+          {isPeerReceiptBlocks(message.blocks) ? null : (
+            <ReplyLine
+              threadTarget={artifactTarget}
+              targetId={message.replyToMessageId}
+              quote={message.replyQuote}
+              preview={message.replyPreview}
+              author={replyAuthor}
+              fallbackText={replyFallbackText}
+              onJump={actions.jump}
+            />
+          )}
+          <MessageContextMenu
+            actions={menu}
+            maxWidth={
+              isCenteredAgentEvent(message.blocks)
+                ? windowWidth - 40
+                : activityBotId
+                  ? windowWidth - 40 - (inGroup ? 28 : 36)
+                  : (windowWidth - 40) * 0.9
+            }
+            colorScheme={colorScheme}
+            onAction={onMenuAction}
+            onLongPress={actionProps.onLongPress}
+          >
+            <ThreadReadOnlyContext.Provider value={readOnly}>
+              <MessageBubble
+                botId={bubbleBotId}
+                groupId={groupId}
+                message={message}
+                botName={botName}
+                bots={bots}
+                members={members}
+                canAnswer={canAnswer}
+                onAnswer={actions.answer}
+                onOpenBot={actions.openBot}
+                onOpenComputer={actions.openComputer}
+                onChoiceDismissed={onChoiceDismissed}
+                onPreviewMarkdown={actions.previewMarkdown}
+                onPreviewImage={actions.previewImage}
+                actionProps={actionProps}
+              />
+            </ThreadReadOnlyContext.Provider>
+          </MessageContextMenu>
+          {messageReactions ? (
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: 4,
+                marginTop: 4,
+                justifyContent: message.role === "user" ? "flex-end" : "flex-start",
+              }}
+            >
+              {[...messageReactions].map(([emoji, count]) => (
+                <Text
+                  key={emoji}
+                  style={{
+                    color: tokens.foreground,
+                    backgroundColor: tokens.muted,
+                    borderColor: tokens.border,
+                    borderWidth: 1,
+                    borderRadius: 16,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    fontSize: 13,
+                  }}
+                >
+                  {emoji}
+                  {count > 1 ? ` ${count}` : ""}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+});
 
 const MessageBubble = memo(function MessageBubble({
   botId,
@@ -2635,11 +3117,13 @@ const MessageBubble = memo(function MessageBubble({
   groupId,
   message,
   members,
-  replyPreview,
   canAnswer,
   onAnswer,
   onOpenBot,
+  onOpenComputer,
+  onChoiceDismissed,
   onPreviewMarkdown,
+  onPreviewImage,
   actionProps,
 }: {
   botId: string;
@@ -2648,11 +3132,13 @@ const MessageBubble = memo(function MessageBubble({
   groupId?: string;
   message: MobileMessage;
   members?: MobileSnapshot["members"];
-  replyPreview?: MobileMessage;
   canAnswer: boolean;
   onAnswer: (message: MobileMessage, answer: string, username?: string) => Promise<void>;
   onOpenBot: (botId: string, name: string) => void;
+  onOpenComputer: (botId: string, name: string) => void;
+  onChoiceDismissed?: (question: string) => void;
   onPreviewMarkdown: (target: MarkdownArtifactPreviewTarget) => void;
+  onPreviewImage: (target: ImageArtifactPreviewTarget) => void;
   actionProps: MessageActionProps;
 }) {
   const colorScheme = useResolvedAppearance();
@@ -2662,6 +3148,7 @@ const MessageBubble = memo(function MessageBubble({
   const [peerExpanded, setPeerExpanded] = useState(false);
   const artifactTarget: MobileArtifactTarget = groupId ? { groupId } : { botId };
   const cardBotId = message.botId ?? botId;
+  const computerBotId = message.botId ?? (groupId ? undefined : botId);
   const appConnectBlocks = message.blocks.filter(
     (block): block is Extract<MessageBlock, { kind: "app_connect" }> =>
       block.kind === "app_connect",
@@ -2670,8 +3157,6 @@ const MessageBubble = memo(function MessageBubble({
     (block): block is Extract<MessageBlock, { kind: "mcp_approval" }> =>
       block.kind === "mcp_approval",
   );
-  const choice = message.blocks.find((block) => block.kind === "choice");
-  if (choice?.kind === "choice") return <ChoiceCard botId={cardBotId} block={choice} />;
   const ask = message.blocks.find(
     (block): block is Extract<MessageBlock, { kind: "ask" }> =>
       block.kind === "ask" && !isApprovalAskBlock(block) && !block.actions?.length,
@@ -3089,6 +3574,8 @@ const MessageBubble = memo(function MessageBubble({
   if (attachments.length > 0) {
     const speaker =
       message.role === "bot" ? (memberName(members, message.botId) ?? botName) : undefined;
+    const speakerColor =
+      message.role === "bot" ? speakerColorFor(bots, members, message.botId) : undefined;
     return (
       <View
         style={{
@@ -3103,65 +3590,73 @@ const MessageBubble = memo(function MessageBubble({
         }}
       >
         {speaker ? (
-          <Text style={{ color: tokens.mutedForeground, fontSize: 12.5, fontWeight: "600" }}>
+          <Text
+            style={{
+              color: speakerColor ?? tokens.mutedForeground,
+              fontSize: 12.5,
+              fontWeight: "600",
+            }}
+          >
             {speaker}
           </Text>
         ) : null}
-        {replyPreview || (message.replyToMessageId && message.replyQuote) ? (
-          <Text
-            style={{
-              color: message.role === "user" ? tokens.secondaryForeground : tokens.mutedForeground,
-              fontSize: 12.5,
-            }}
-            numberOfLines={2}
-          >
-            {message.replyQuote
-              ? `“${message.replyQuote}”`
-              : replyPreview
-                ? previewMessageText(replyPreview)
-                : ""}
-          </Text>
-        ) : null}
         {caption ? (
-          <Text
-            style={{
-              color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
-              fontSize: 15,
-            }}
-          >
-            {caption}
-          </Text>
+          <MessageCaption
+            role={message.role}
+            text={caption}
+            tokens={tokens}
+            colorScheme={colorScheme}
+            streaming={message.id.startsWith("progress:")}
+          />
         ) : null}
         {attachments.map((attachment, index) =>
           attachment.kind === "image" ? (
-            <Pressable
-              {...actionProps}
-              key={`${attachment.artifactId ?? attachment.name ?? "image"}-${index}`}
-              onPress={() =>
-                attachment.artifactId
-                  ? void openMobileArtifact(
-                      artifactTarget,
-                      attachment.artifactId,
-                      attachment.name ?? t("Image"),
-                      attachment.mimeType ?? "image/png",
-                    ).catch((err) =>
-                      Alert.alert(
-                        t("Could not open image"),
-                        err instanceof Error ? err.message : t("Try again."),
-                      ),
-                    )
-                  : undefined
-              }
-            >
-              <Text
-                style={{
-                  color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
-                  fontSize: 15,
-                }}
+            attachment.artifactId && isInlineImageMimeType(attachment.mimeType) ? (
+              <InlineImageAttachment
+                key={`${attachment.artifactId}-${index}`}
+                threadTarget={artifactTarget}
+                artifactId={attachment.artifactId}
+                name={attachment.name ?? t("Image")}
+                mimeType={attachment.mimeType ?? "image/png"}
+                labelColor={
+                  message.role === "user" ? tokens.secondaryForeground : tokens.foreground
+                }
+                pressableProps={actionProps}
+                onOpen={() =>
+                  onPreviewImage({
+                    artifactId: attachment.artifactId!,
+                    name: attachment.name ?? t("Image"),
+                    mimeType: attachment.mimeType ?? "image/png",
+                  })
+                }
+              />
+            ) : (
+              <Pressable
+                {...actionProps}
+                key={`${attachment.artifactId ?? attachment.name ?? "image"}-${index}`}
+                onPress={() =>
+                  attachment.artifactId
+                    ? void openMobileArtifact(
+                        artifactTarget,
+                        attachment.artifactId,
+                        attachment.name ?? t("Image"),
+                        attachment.mimeType ?? "image/png",
+                      ).catch((err) =>
+                        Alert.alert(t("Could not open image"), errorText(err, t("Try again."))),
+                      )
+                    : undefined
+                }
               >
-                🖼 {attachment.name ?? t("Image")}
-              </Text>
-            </Pressable>
+                <Text
+                  style={{
+                    color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
+                    fontSize: 15,
+                  }}
+                >
+                  🖼 {attachment.name ?? t("Image")}
+                </Text>
+              </Pressable>
+            )
           ) : (
             <Pressable
               {...actionProps}
@@ -3180,10 +3675,7 @@ const MessageBubble = memo(function MessageBubble({
                         attachment.name ?? t("File"),
                         attachment.mimeType ?? "text/plain",
                       ).catch((err) =>
-                        Alert.alert(
-                          t("Could not open file"),
-                          err instanceof Error ? err.message : t("Try again."),
-                        ),
+                        Alert.alert(t("Could not open file"), errorText(err, t("Try again."))),
                       )
                   : undefined
               }
@@ -3196,16 +3688,15 @@ const MessageBubble = memo(function MessageBubble({
               >
                 📎 {attachment.name ?? t("File")}
               </Text>
-              {attachment.size ? (
+              {formatFileSize(attachment.size) ? (
                 <Text
                   style={{
-                    color:
-                      message.role === "user" ? tokens.secondaryForeground : tokens.mutedForeground,
+                    color: tokens.mutedForeground,
                     marginTop: 4,
                     fontSize: 13,
                   }}
                 >
-                  {attachment.mimeType ?? "file"} · {attachment.size} bytes
+                  {formatFileSize(attachment.size)}
                 </Text>
               ) : null}
             </Pressable>
@@ -3236,7 +3727,15 @@ const MessageBubble = memo(function MessageBubble({
   const segments = messagePresentationSegments(message.blocks);
   const speaker =
     message.role === "bot" ? (memberName(members, message.botId) ?? botName) : undefined;
+  const speakerColor =
+    message.role === "bot" ? speakerColorFor(bots, members, message.botId) : undefined;
   const firstContent = segments.findIndex((segment) => segment.kind === "content");
+  const choiceBlocks = message.blocks.filter(
+    (block): block is Extract<MessageBlock, { kind: "choice" }> => block.kind === "choice",
+  );
+  const computerBlocks = message.blocks.filter(
+    (block): block is Extract<MessageBlock, { kind: "computer" }> => block.kind === "computer",
+  );
   return (
     <View style={{ gap: 8, width: "100%" }}>
       {segments.map((segment, index) => (
@@ -3244,8 +3743,29 @@ const MessageBubble = memo(function MessageBubble({
           key={`${message.id}-content-${index}`}
           message={{ ...message, blocks: segment.blocks }}
           speaker={index === firstContent ? speaker : undefined}
-          replyPreview={index === firstContent ? replyPreview : undefined}
+          speakerColor={index === firstContent ? speakerColor : undefined}
           actionProps={actionProps}
+        />
+      ))}
+      {choiceBlocks.map((block, index) => (
+        <ChoiceCard
+          key={`choice-${index}`}
+          botId={cardBotId}
+          block={block}
+          onDismissed={onChoiceDismissed ? () => onChoiceDismissed(block.question) : undefined}
+          accessibilityActions={actionProps.accessibilityActions}
+          onAccessibilityAction={actionProps.onAccessibilityAction}
+        />
+      ))}
+      {computerBlocks.map((block, index) => (
+        <ComputerCard
+          key={`computer-${index}`}
+          block={block}
+          onOpen={
+            computerBotId ? () => onOpenComputer(computerBotId, speaker ?? t("Bot")) : undefined
+          }
+          accessibilityActions={actionProps.accessibilityActions}
+          onAccessibilityAction={actionProps.onAccessibilityAction}
         />
       ))}
       {appConnectBlocks.map((block, index) => (
@@ -3264,12 +3784,12 @@ const MessageBubble = memo(function MessageBubble({
 function MessageTextCard({
   message,
   speaker,
-  replyPreview,
+  speakerColor,
   actionProps,
 }: {
   message: MobileMessage;
   speaker?: string;
-  replyPreview?: MobileMessage;
+  speakerColor?: string;
   actionProps: MessageActionProps;
 }) {
   const colorScheme = useResolvedAppearance();
@@ -3291,7 +3811,7 @@ function MessageTextCard({
       {speaker ? (
         <Text
           style={{
-            color: tokens.mutedForeground,
+            color: speakerColor ?? tokens.mutedForeground,
             fontSize: 12.5,
             fontWeight: "600",
             marginBottom: 4,
@@ -3300,40 +3820,13 @@ function MessageTextCard({
           {speaker}
         </Text>
       ) : null}
-      {replyPreview || (message.replyToMessageId && message.replyQuote) ? (
-        <Text
-          style={{
-            color: message.role === "user" ? tokens.secondaryForeground : tokens.mutedForeground,
-            fontSize: 12.5,
-            marginBottom: 6,
-          }}
-          numberOfLines={2}
-        >
-          {message.replyQuote
-            ? `“${message.replyQuote}”`
-            : replyPreview
-              ? previewMessageText(replyPreview)
-              : ""}
-        </Text>
-      ) : null}
-      {
-        // User bubbles stay literal text on web and mobile. Only explicit URLs
-        // and email addresses are links, so a sent address is tappable without
-        // formatting bold or headings.
-        message.role === "user" ? (
-          <LinkifiedText color={tokens.secondaryForeground} linkColor={tokens.link}>
-            {contentText}
-          </LinkifiedText>
-        ) : (
-          <ChatMarkdown
-            palette={tokens}
-            colorScheme={colorScheme}
-            streaming={message.id.startsWith("progress:")}
-          >
-            {contentText}
-          </ChatMarkdown>
-        )
-      }
+      <MessageCaption
+        role={message.role}
+        text={contentText}
+        tokens={tokens}
+        colorScheme={colorScheme}
+        streaming={message.id.startsWith("progress:")}
+      />
     </Pressable>
   );
 }
@@ -3362,9 +3855,17 @@ function AgentEventLabel({
       accessibilityLabel={expanded ? t("Hide {label}", { label }) : t("Show {label}", { label })}
       style={{ width: "100%", paddingVertical: 4, alignItems: "center" }}
     >
-      <Text style={{ color: tokens.mutedForeground, fontSize: 13.5, textAlign: "center" }}>
-        ↔ {label}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <NativeSymbol
+          ios="arrow.left.arrow.right"
+          android="swap-horizontal"
+          size={12}
+          color={tokens.mutedForeground}
+        />
+        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5, textAlign: "center" }}>
+          {label}
+        </Text>
+      </View>
       {expanded && detail ? (
         <View
           style={{
@@ -3416,7 +3917,6 @@ function AskBlock({
         ? t("API key")
         : t("Code");
   const submitLabel = secretInput ? t("Save") : t("Send answer");
-  const submittingLabel = secretInput ? t("Saving…") : t("Sending…");
 
   async function submit() {
     if (submitting) return;
@@ -3429,7 +3929,9 @@ function AskBlock({
     try {
       await onAnswer(submitValue, submitUsername);
     } catch (cause) {
-      setError(!secretInput && cause instanceof Error ? cause.message : t("Could not send answer"));
+      setError(
+        secretInput ? t("Could not send answer") : errorText(cause, t("Could not send answer")),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -3456,7 +3958,7 @@ function AskBlock({
       </Text>
       {secretInput && ask.credential ? (
         <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
-          {ask.credential.origin}
+          {secretDestinationLabel(ask.credential)}
         </Text>
       ) : null}
       {ask.detail && !secretInput ? (
@@ -3499,24 +4001,14 @@ function AskBlock({
             onSubmitEditing={() => void submit()}
             style={[askInputStyles.field, { borderColor: tokens.border, color: tokens.foreground }]}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={submitLabel}
-            disabled={incomplete || submitting}
+          <NativeActionButton
+            label={submitLabel}
+            disabled={incomplete}
+            busy={submitting}
+            fill={false}
             onPress={() => void submit()}
-            style={{
-              alignSelf: "flex-end",
-              borderRadius: 999,
-              backgroundColor: tokens.foreground,
-              opacity: incomplete || submitting ? 0.5 : 1,
-              paddingHorizontal: 16,
-              paddingVertical: 9,
-            }}
-          >
-            <Text style={{ color: tokens.primaryForeground, fontWeight: "600" }}>
-              {submitting ? submittingLabel : submitLabel}
-            </Text>
-          </Pressable>
+            style={{ alignSelf: "flex-end" }}
+          />
         </>
       ) : (
         <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>

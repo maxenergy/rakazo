@@ -105,6 +105,9 @@ function bot(description = "Billing"): Bot {
     disabledBuiltinTools: [],
     webhookConfigured: false,
     spawnKey: null,
+    orgRole: null,
+    team: "",
+    reportsToBotId: null,
   };
 }
 

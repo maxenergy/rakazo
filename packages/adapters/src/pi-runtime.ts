@@ -1147,6 +1147,8 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
           computer_mode: String(raw.computer_mode ?? "").trim() || "team",
           ...(raw.model_provider != null ? { model_provider: raw.model_provider } : {}),
           ...(raw.model_id != null ? { model_id: raw.model_id } : {}),
+          role: raw.role ? String(raw.role) : "",
+          team: raw.team ? String(raw.team) : "",
         };
       }
       if (tool.name === "set_bot_model") {
@@ -1733,6 +1735,8 @@ function builtinParameters(tool: ConnectorTool) {
       computer_mode: Type.Optional(stringEnum(["team", "dedicated"], {})),
       model_provider: Type.Optional(Type.String()),
       model_id: Type.Optional(Type.String()),
+      role: Type.Optional(stringEnum(["lead", "member"], {})),
+      team: Type.Optional(Type.String()),
     });
   }
   if (tool.name === "update_bot") {

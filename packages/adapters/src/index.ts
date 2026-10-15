@@ -8,6 +8,7 @@ export * from "./background-job-handlers.js";
 export * from "./billing-emulator.js";
 export * from "./bot-avatar.js";
 export * from "./bot-messages.js";
+export * from "./bot-model-tools.js";
 export {
   forgetBotSecret,
   getBotSecretMetadata,

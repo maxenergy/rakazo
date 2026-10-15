@@ -1056,6 +1056,16 @@ export const builtinAgentTools: ConnectorTool[] = [
           description:
             "Exact model ID from list_models for that provider. Set together with model_provider.",
         },
+        role: {
+          type: "string",
+          enum: ["lead", "member"],
+          description:
+            "Optional org role. The new bot reports to you. Defaults to member when you have an org role.",
+        },
+        team: {
+          type: "string",
+          description: "Optional team name. Defaults to your team.",
+        },
       },
       required: ["name"],
     },

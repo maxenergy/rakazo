@@ -412,6 +412,12 @@ model Bot {
   memoryScope       String?
   parent            Bot?              @relation("BotChildren", fields: [parentBotId], references: [id], onDelete: SetNull)
   children          Bot[]             @relation("BotChildren")
+  /// Org role (see BOT_ORG_ROLES). Null keeps the bot outside the org layer.
+  orgRole           String?
+  team              String            @default("")
+  reportsToBotId    String?
+  reportsTo         Bot?              @relation("BotReports", fields: [reportsToBotId], references: [id], onDelete: SetNull)
+  directReports     Bot[]             @relation("BotReports")
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   thread            Thread?
@@ -451,6 +457,7 @@ model Bot {
   @@index([sectionId])
   @@index([computerId])
   @@index([parentBotId])
+  @@index([reportsToBotId])
   @@map("bots")
 }
 

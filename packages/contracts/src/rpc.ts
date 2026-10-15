@@ -304,6 +304,10 @@ export const appContract = {
     get: oc.input(botId).output(BotSchema),
     create: oc.input(CreateBotInput).output(BotSchema),
     duplicate: oc.input(botId).output(BotSchema),
+    /** Create (or return) the CEO and CTO launch team and their group chat. */
+    createLaunchTeam: oc.output(
+      z.object({ ceo: BotSchema, cto: BotSchema, groupId: Id.nullable() }),
+    ),
     reorder: oc.input(ReorderBotsInput).output(z.object({ ok: z.literal(true) })),
     update: oc.input(UpdateBotInput).output(BotSchema),
     setComputer: oc.input(z.object({ botId: Id, mode: ComputerModeSchema })).output(BotSchema),

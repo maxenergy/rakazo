@@ -77,6 +77,7 @@ import {
   kickModelCredentialRefresh,
   listAvailablePiCatalog,
   listBotSecretMetadata,
+  listConnectedBotModels,
   listPiCatalog,
   listScratchpadItems,
   McpOAuthBroker,
@@ -161,7 +162,10 @@ import {
   expandSkillReferencesInPrompt,
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
+  LAUNCH_TEAM_NAME,
+  LAUNCH_TEAM_TEMPLATES,
   nextCronDateAcrossStrict,
+  pickTemplateModel,
 } from "@rakazo/core";
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
@@ -204,6 +208,7 @@ import {
   renameSpaceForMember,
   renewSpaceDeletionClaim,
   replaceSpaceBackupModels,
+  reportsToError,
   restoreBotUnderComputerQuota,
   SPACE_DELETION_CLAIM_TIMEOUT_MS,
   SpaceDeletionInProgressError,
@@ -1661,6 +1666,70 @@ export function createRouter(deps: RouterDeps) {
         }
         return duplicate;
       }),
+      createLaunchTeam: authed.bots.createLaunchTeam.handler(async ({ context }) => {
+        const connected = (
+          await listConnectedBotModels(
+            { prisma: deps.prisma, secretStore: deps.secrets, codexCatalog },
+            context.actor,
+          )
+        ).models.map((model) => ({ provider: model.provider, modelId: model.id }));
+        const created: Record<string, { bot: Bot; isNew: boolean }> = {};
+        for (const template of LAUNCH_TEAM_TEMPLATES) {
+          const spawnKey = `launch-team:${template.key}`;
+          const existing = await deps.prisma.bot.findUnique({
+            where: { spaceId_spawnKey: { spaceId: context.actor.spaceId, spawnKey } },
+            select: { id: true, archivedAt: true },
+          });
+          if (existing && !existing.archivedAt) {
+            const bot = (await repos.listBots(context.actor)).find((b) => b.id === existing.id);
+            if (!bot) throw new IsolationError();
+            created[template.key] = { bot, isNew: false };
+            continue;
+          }
+          if (existing) {
+            throw new ORPCError("CONFLICT", {
+              message: `Restore or delete the archived ${template.name} first`,
+            });
+          }
+          const model = pickTemplateModel(template, connected);
+          try {
+            created[template.key] = {
+              isNew: true,
+              bot: await repos.createBot(context.actor, {
+                name: template.name,
+                title: template.title,
+                description: "",
+                instructions: template.instructions,
+                notifyOnFinish: true,
+                spawnKey,
+                orgRole: template.orgRole,
+                team: LAUNCH_TEAM_NAME,
+                ...(model ? { modelProvider: model.provider, modelId: model.modelId } : {}),
+              }),
+            };
+          } catch (error) {
+            throw mapSpaceLifecycleError(error);
+          }
+        }
+        const ceo = created.ceo;
+        const cto = created.cto;
+        if (!ceo || !cto) throw new ORPCError("INTERNAL_SERVER_ERROR");
+        let groupId: string | null = null;
+        // Only a fresh pair gets a new chat, so a repeated call never duplicates it.
+        if (ceo.isNew && cto.isNew) {
+          groupId = (
+            await groupRepos
+              .createGroup(context.actor, {
+                name: LAUNCH_TEAM_NAME,
+                botIds: [ceo.bot.id, cto.bot.id],
+              })
+              .catch((error: unknown) => {
+                throw mapSpaceLifecycleError(error);
+              })
+          ).id;
+        }
+        return { ceo: ceo.bot, cto: cto.bot, groupId };
+      }),
       reorder: authed.bots.reorder.handler(async ({ context, input }) => {
         await repos.reorderBots(context.actor, input.botIds);
         return { ok: true as const };
@@ -1769,6 +1838,15 @@ export function createRouter(deps: RouterDeps) {
           }
         }
         if (!existing.thread) throw new IsolationError();
+        if (input.reportsToBotId) {
+          const message = await reportsToError(
+            deps.prisma,
+            context.actor,
+            input.botId,
+            input.reportsToBotId,
+          );
+          if (message) throw new ORPCError("BAD_REQUEST", { message });
+        }
         await commitBotUpdate({
           prisma: deps.prisma,
           notify: (threadId, seq) => deps.events.notify(threadId, seq),
@@ -1799,6 +1877,9 @@ export function createRouter(deps: RouterDeps) {
             ...(input.disabledBuiltinTools !== undefined
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
               : {}),
+            ...(input.orgRole !== undefined ? { orgRole: input.orgRole } : {}),
+            ...(input.team !== undefined ? { team: input.team } : {}),
+            ...(input.reportsToBotId !== undefined ? { reportsToBotId: input.reportsToBotId } : {}),
           },
         });
         const bots = await repos.listBots(context.actor);

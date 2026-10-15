@@ -37,6 +37,9 @@ function bot(id = "bot-1"): Bot {
     disabledBuiltinTools: [],
     webhookConfigured: false,
     spawnKey: null,
+    orgRole: null,
+    team: "",
+    reportsToBotId: null,
   };
 }
 

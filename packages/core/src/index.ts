@@ -41,6 +41,7 @@ export * from "./model-oauth.js";
 export * from "./model-probe.js";
 export * from "./model-providers.js";
 export * from "./onboarding.js";
+export * from "./org-templates.js";
 export * from "./remote-images.js";
 export * from "./response-bytes.js";
 export * from "./run-state.js";

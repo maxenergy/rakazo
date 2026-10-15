@@ -1,5 +1,5 @@
-import type { Actor, Bot, BotSection, MessageBlock, SpaceBot } from "@rakazo/contracts";
-import { BOT_COLORS } from "@rakazo/contracts";
+import type { Actor, Bot, BotOrgRole, BotSection, MessageBlock, SpaceBot } from "@rakazo/contracts";
+import { BOT_COLORS, parseBotOrgRole } from "@rakazo/contracts";
 import { BACKGROUND_RUN_TRIGGERS, isBackgroundRunTrigger, userVisibleMessages } from "@rakazo/core";
 import type { PrismaClient } from "./client.js";
 import type { ComputerMode } from "./computers.js";
@@ -68,6 +68,9 @@ function mapBot(
     disabledBuiltinTools?: string[];
     webhookSecretId?: string | null;
     spawnKey?: string | null;
+    orgRole?: string | null;
+    team?: string;
+    reportsToBotId?: string | null;
   },
   preview = "",
   status = "idle",
@@ -108,6 +111,9 @@ function mapBot(
     disabledBuiltinTools: bot.disabledBuiltinTools ?? [],
     webhookConfigured: Boolean(bot.webhookSecretId),
     spawnKey: bot.spawnKey ?? null,
+    orgRole: parseBotOrgRole(bot.orgRole),
+    team: bot.team ?? "",
+    reportsToBotId: bot.reportsToBotId ?? null,
   };
 }
 
@@ -420,6 +426,9 @@ export function createRepos(prisma: PrismaClient) {
         modelId?: string | null;
         thinkingLevel?: string | null;
         disabledBuiltinTools?: string[];
+        orgRole?: BotOrgRole | null;
+        team?: string;
+        reportsToBotId?: string | null;
         initialMessage?: {
           role: "user" | "bot" | "system";
           blocks: MessageBlock[];
@@ -461,6 +470,13 @@ export function createRepos(prisma: PrismaClient) {
           disabledBuiltinTools = parent.disabledBuiltinTools;
         }
       }
+      if (input.reportsToBotId) {
+        const manager = await prisma.bot.findFirst({
+          where: { id: input.reportsToBotId, spaceId: actor.spaceId, userId: actor.userId },
+          select: { id: true },
+        });
+        if (!manager) throw new IsolationError();
+      }
       const settings = await prisma.deploymentSettings.findUnique({ where: { id: "default" } });
       const envKind = process.env.SANDBOX_PROVIDER ?? "docker";
       const kind =
@@ -499,6 +515,9 @@ export function createRepos(prisma: PrismaClient) {
               modelId,
               thinkingLevel,
               disabledBuiltinTools,
+              orgRole: input.orgRole ?? null,
+              team: input.team ?? "",
+              reportsToBotId: input.reportsToBotId ?? null,
             },
           });
           const thread = await tx.thread.create({

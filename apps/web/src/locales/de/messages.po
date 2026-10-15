@@ -532,6 +532,13 @@ msgstr "Erscheinungsbild"
 msgid "Approval boundaries"
 msgstr "Bestätigungsgrenzen"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+#: src/pages/shell/pending-approvals-link.tsx
+msgid "Approvals"
+msgstr "Freigaben"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "Genehmigen"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "Genehmige diesen Server, damit dein Agent seine Tools verwenden kann."
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "Genehmigt"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "Avatare"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1079,9 +1091,14 @@ msgstr "Befehl"
 msgid "Command variable"
 msgstr "Befehlsvariable"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "Kommentar"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "Kommentar (optional)"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1855,6 +1872,14 @@ msgstr "Tag"
 #: src/pages/RoutineSchedule.tsx
 msgid "days"
 msgstr "Tage"
+
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "Entschieden"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "Entscheidung"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
@@ -3181,6 +3206,10 @@ msgstr "Nichts läuft mehr"
 msgid "Nothing remembered yet"
 msgstr "Noch nichts gemerkt"
 
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "Nichts zu genehmigen"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
 msgstr "Benachrichtigungen"
@@ -3296,6 +3325,10 @@ msgstr "Chat wird geöffnet…"
 msgid "Opening your Space…"
 msgstr "Dein Arbeitsbereich wird geöffnet…"
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "Option"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3409,6 +3442,10 @@ msgstr "Wähle ein Modell aus der Liste oder gib eine Modell-ID ein, die dieser 
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "Anheften"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "Plan"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3584,6 +3621,14 @@ msgstr "Wird aktualisiert…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "Registrierung ist geschlossen"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "Ablehnen"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "Abgelehnt"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"

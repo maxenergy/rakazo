@@ -532,6 +532,13 @@ msgstr "रूप"
 msgid "Approval boundaries"
 msgstr "अनुमोदन सीमाएं"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+#: src/pages/shell/pending-approvals-link.tsx
+msgid "Approvals"
+msgstr "स्वीकृतियाँ"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "अनुमोदित करें"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "अपने एजेंट को इसके टूल उपयोग करने देने के लिए इस सर्वर को अनुमोदित करें।"
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "स्वीकृत"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "अवतार"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1079,9 +1091,14 @@ msgstr "कमांड"
 msgid "Command variable"
 msgstr "कमांड वेरिएबल"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "टिप्पणी"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "टिप्पणी (वैकल्पिक)"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1855,6 +1872,14 @@ msgstr "दिन"
 #: src/pages/RoutineSchedule.tsx
 msgid "days"
 msgstr "दिन"
+
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "निर्णीत"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "निर्णय"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
@@ -3181,6 +3206,10 @@ msgstr "कुछ भी नहीं चल रहा"
 msgid "Nothing remembered yet"
 msgstr "अभी तक कुछ याद नहीं किया गया"
 
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "स्वीकृत करने के लिए कुछ नहीं"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
 msgstr "सूचनाएं"
@@ -3296,6 +3325,10 @@ msgstr "चैट खुल रही है…"
 msgid "Opening your Space…"
 msgstr "आपका वर्कस्पेस खुल रहा है…"
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "विकल्प"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3409,6 +3442,10 @@ msgstr "सूची से एक मॉडल चुनें या इस �
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "पिन करें"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "योजना"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3584,6 +3621,14 @@ msgstr "रीफ़्रेश जारी…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "पंजीकरण बंद है"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "अस्वीकार करें"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "अस्वीकृत"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"

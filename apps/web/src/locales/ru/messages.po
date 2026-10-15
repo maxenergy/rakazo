@@ -532,6 +532,13 @@ msgstr "Внешний вид"
 msgid "Approval boundaries"
 msgstr "Границы одобрения"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+#: src/pages/shell/pending-approvals-link.tsx
+msgid "Approvals"
+msgstr "Согласования"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "Утвердить"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "Одобрите этот сервер, чтобы ваш агент мог использовать его инструменты."
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "Одобрено"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "Аватары"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1079,9 +1091,14 @@ msgstr "Команда"
 msgid "Command variable"
 msgstr "Переменная команды"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "Комментарий"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "Комментарий (необязательно)"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1855,6 +1872,14 @@ msgstr "день"
 #: src/pages/RoutineSchedule.tsx
 msgid "days"
 msgstr "дни"
+
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "Решённые"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "Решение"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
@@ -3181,6 +3206,10 @@ msgstr "Ничего не запущено"
 msgid "Nothing remembered yet"
 msgstr "Пока ничего не запомнено"
 
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "Нечего согласовывать"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
 msgstr "Уведомления"
@@ -3296,6 +3325,10 @@ msgstr "Открытие чата…"
 msgid "Opening your Space…"
 msgstr "Открытие вашего пространства…"
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "Вариант"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3409,6 +3442,10 @@ msgstr "Выберите модель из списка или введите id
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "Закрепить"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "План"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3584,6 +3621,14 @@ msgstr "Обновление…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "Регистрация закрыта"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "Отклонить"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "Отклонено"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"

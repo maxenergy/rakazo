@@ -532,6 +532,13 @@ msgstr "外观"
 msgid "Approval boundaries"
 msgstr "审批边界"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+#: src/pages/shell/pending-approvals-link.tsx
+msgid "Approvals"
+msgstr "审批"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "批准"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "批准此服务器后，Agent 才能使用它的工具。"
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "已批准"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "头像"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1079,9 +1091,14 @@ msgstr "命令"
 msgid "Command variable"
 msgstr "命令变量"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "评论"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "备注（可选）"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1855,6 +1872,14 @@ msgstr "天"
 #: src/pages/RoutineSchedule.tsx
 msgid "days"
 msgstr "天"
+
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "已决定"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "决策"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
@@ -3181,6 +3206,10 @@ msgstr "没有仍在运行的任务"
 msgid "Nothing remembered yet"
 msgstr "暂无记忆"
 
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "没有待审批的事项"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
 msgstr "通知"
@@ -3296,6 +3325,10 @@ msgstr "正在打开聊天…"
 msgid "Opening your Space…"
 msgstr "正在打开工作区…"
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "选项"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3409,6 +3442,10 @@ msgstr "请从列表中选择模型，或输入此端点提供的模型 ID。"
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "置顶"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "方案"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3584,6 +3621,14 @@ msgstr "刷新中…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "注册已关闭"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "驳回"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "已驳回"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"

@@ -532,6 +532,13 @@ msgstr "Görünüm"
 msgid "Approval boundaries"
 msgstr "Onay sınırları"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+#: src/pages/shell/pending-approvals-link.tsx
+msgid "Approvals"
+msgstr "Onaylar"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "Onayla"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "Agent'ının bu sunucunun araçlarını kullanabilmesi için sunucuyu onayla."
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "Onaylandı"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "Avatarlar"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1079,9 +1091,14 @@ msgstr "Komut"
 msgid "Command variable"
 msgstr "Komut değişkeni"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "Yorum"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "Yorum (isteğe bağlı)"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1855,6 +1872,14 @@ msgstr "gün"
 #: src/pages/RoutineSchedule.tsx
 msgid "days"
 msgstr "gün"
+
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "Karara bağlananlar"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "Karar"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
@@ -3181,6 +3206,10 @@ msgstr "Hâlâ çalışan bir şey yok"
 msgid "Nothing remembered yet"
 msgstr "Henüz hatırlanan bir şey yok"
 
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "Onaylanacak bir şey yok"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
 msgstr "Bildirimler"
@@ -3296,6 +3325,10 @@ msgstr "Sohbet açılıyor…"
 msgid "Opening your Space…"
 msgstr "Çalışma alanın açılıyor…"
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "Seçenek"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3409,6 +3442,10 @@ msgstr "Listeden bir model seç veya bu uç noktanın sunduğu bir model kimliğ
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "Sabitle"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "Plan"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3584,6 +3621,14 @@ msgstr "Yenileniyor…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "Kayıt kapalı"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "Reddet"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "Reddedildi"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"

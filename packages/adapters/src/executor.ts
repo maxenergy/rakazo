@@ -264,6 +264,7 @@ import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import { selectMemoryTools } from "./memory-tools.js";
 import {
   isCatalogModelChoice,
+  listConnectedModels,
   pinnedModelCredentialError,
   routineRunModelPin,
   runModelChoice,
@@ -404,6 +405,7 @@ const READ_ONLY_AGENT_TOOLS = new Set([
   "web_fetch",
   "browser_snapshot",
   "list_secrets",
+  "list_models",
   "cloud_agent_status",
 ]);
 /** Added to the turn prompt when the user spoke this message on a live voice call. */
@@ -5740,6 +5742,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
           }
           if (name === "list_secrets") return listBotSecrets(deps.prisma, run);
+          if (name === "list_models") {
+            return {
+              currentModel:
+                bot.modelProvider && bot.modelId
+                  ? { provider: bot.modelProvider, modelId: bot.modelId }
+                  : null,
+              models: await listConnectedModels(deps.prisma, deps.secretStore, run),
+            };
+          }
           if (name === "forget_secret") {
             const parsed = BotSecretName.safeParse(args.name);
             if (!parsed.success) return finish({ error: "A valid credential name is required." });
@@ -7729,7 +7740,10 @@ function scratchpadClause(disabled?: ReadonlySet<string>): string | undefined {
 function spawnBotClause(disabled?: ReadonlySet<string>): string | undefined {
   if (!builtinOffered(disabled, "spawn_bot")) return undefined;
   const demo = builtinOffered(disabled, "run_subagent") ? " Do not run_subagent to demo it." : "";
-  return `spawn_bot creates a lasting regular bot (own chat, computer, memory) that appears in the user's bot list. If the user asked to create a bot, call spawn_bot once and stop.${demo}`;
+  const models = builtinOffered(disabled, "list_models")
+    ? " To give it a different model, pick one from list_models."
+    : "";
+  return `spawn_bot creates a lasting regular bot (own chat, computer, memory) that appears in the user's bot list. If the user asked to create a bot, call spawn_bot once and stop.${demo}${models}`;
 }
 
 function offeredBuiltinClause(

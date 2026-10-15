@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   defaultCatalogModelId,
   inboundRoutineModelPin,
+  listConnectedModels,
   modelCredentialAuthKindsForSpace,
   pinnedModelCredentialError,
   readStoredModelAuth,
@@ -1051,5 +1052,55 @@ describe("connected model validation", () => {
     await expect(
       validateConnectedModelChoice(catalogPrisma, actor, "xai", "undefined"),
     ).resolves.toBe("Unknown model for that provider");
+  });
+});
+
+describe("connected model listing", () => {
+  const scope = { userId: "user-1", spaceId: "space-1" };
+
+  it("lists connected catalog models and saved OpenAI-compatible models once", async () => {
+    const preferenceFindMany = vi.fn(
+      async (args: { where: { credential?: { provider?: string } } }) =>
+        args.where.credential?.provider === "openai-compatible"
+          ? [{ modelId: "private-model" }, { modelId: "private-model" }, { modelId: null }]
+          : [],
+    );
+    const prisma = {
+      userModelCredential: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "cred-xai",
+            provider: "xai",
+            secretId: "secret-xai",
+            updatedAt: new Date(0),
+            createdAt: new Date(0),
+          },
+        ]),
+      },
+      spaceModelPreference: { findMany: preferenceFindMany },
+      secret: {
+        findMany: vi.fn().mockResolvedValue([{ id: "secret-xai", ciphertext: "cipher-xai" }]),
+      },
+    } as unknown as PrismaClient;
+    const load = vi.fn(async () => "xai-test-api-key-12345678");
+
+    const models = await listConnectedModels(prisma, { load }, scope);
+
+    expect(models).toContainEqual(
+      expect.objectContaining({ provider: "xai", modelId: "grok-4.6", auth: "api_key" }),
+    );
+    expect(models.filter((model) => model.provider === "openai-compatible")).toEqual([
+      {
+        provider: "openai-compatible",
+        providerName: "OpenAI-compatible",
+        modelId: "private-model",
+        label: "private-model",
+        auth: "openai_compatible",
+        reasoning: false,
+      },
+    ]);
+    expect(models.every((model) => ["xai", "openai-compatible"].includes(model.provider))).toBe(
+      true,
+    );
   });
 });

@@ -42,6 +42,7 @@ const UNATTENDED_SAFE_BUILTIN_TOOLS = new Set([
   "cloud_agent_status",
   "computer_observe",
   "list_files",
+  "list_models",
   "list_secrets",
   "read_file",
   "recall_memory",

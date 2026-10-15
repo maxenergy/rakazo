@@ -349,6 +349,64 @@ export async function validateConnectedModelChoice(
   return savedChoice ? undefined : "Unknown model for that provider";
 }
 
+export type ConnectedModel = {
+  provider: string;
+  providerName: string;
+  modelId: string;
+  label: string;
+  /** "oauth" runs on a subscription sign-in; "api_key" and "openai_compatible" bill the key. */
+  auth: ModelCredentialAuthKind;
+  reasoning: boolean;
+};
+
+/** Models this space can run right now, in the shape spawn_bot and run_subagent accept. */
+export async function listConnectedModels(
+  prisma: PrismaClient,
+  secretStore: Pick<SecretStore, "load">,
+  scope: Pick<Actor, "userId" | "spaceId">,
+): Promise<ConnectedModel[]> {
+  const [auth, savedCompatible] = await Promise.all([
+    modelCredentialAuthKindsForSpace(prisma, secretStore, scope),
+    prisma.spaceModelPreference.findMany({
+      where: {
+        spaceId: scope.spaceId,
+        userId: scope.userId,
+        credential: { userId: scope.userId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
+      },
+      select: { modelId: true },
+    }),
+  ]);
+  const models: ConnectedModel[] = [];
+  for (const entry of listAvailablePiCatalog(auth.byProvider, auth.byModel)) {
+    const kind = auth.byModel[entry.provider]?.[entry.id] ?? auth.byProvider[entry.provider];
+    if (entry.placeholder || kind === undefined || kind === "disconnected") continue;
+    models.push({
+      provider: entry.provider,
+      providerName: entry.providerName,
+      modelId: entry.id,
+      label: entry.label,
+      auth: kind,
+      reasoning: entry.reasoning ?? false,
+    });
+  }
+  const listed = new Set(models.map((model) => `${model.provider}\n${model.modelId}`));
+  for (const { modelId } of savedCompatible) {
+    if (!modelId || !usableModelId(modelId)) continue;
+    const key = `${OPENAI_COMPATIBLE_PROVIDER_ID}\n${modelId}`;
+    if (listed.has(key)) continue;
+    listed.add(key);
+    models.push({
+      provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+      providerName: "OpenAI-compatible",
+      modelId,
+      label: modelId,
+      auth: "openai_compatible",
+      reasoning: false,
+    });
+  }
+  return models;
+}
+
 export type ModelChoice = {
   modelProvider: string | null;
   modelId: string | null;

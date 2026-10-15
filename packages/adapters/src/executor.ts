@@ -35,7 +35,7 @@ import {
   routineWakeupJob,
   runContinueJob,
 } from "@rakazo/adapter-kit";
-import type { ComputerCommand, MessageBlock, RunStatus } from "@rakazo/contracts";
+import type { BotOrgRole, ComputerCommand, MessageBlock, RunStatus } from "@rakazo/contracts";
 import {
   ATTACHMENT_MAX_BYTES,
   BOT_DESCRIPTION_MAX_LENGTH,
@@ -50,6 +50,8 @@ import {
   HistorySearchInputSchema,
   isAttachmentImageMimeType,
   OPENAI_COMPATIBLE_PROVIDER_ID,
+  orgRoleCanStaff,
+  parseBotOrgRole,
 } from "@rakazo/contracts";
 import type { ActionApprovalRule, ToolCallStreak } from "@rakazo/core";
 import {
@@ -280,6 +282,7 @@ import {
   modelAcceptsImageInput,
   modelIdSupportsImages,
 } from "./model-vision.js";
+import { loadOrgContext } from "./org-context.js";
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
 import { codexLiveListsModel } from "./pi-codex-catalog.js";
 import { toOAuthCredential } from "./pi-credentials.js";
@@ -6033,6 +6036,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (Boolean(modelProvider) !== Boolean(modelId)) {
               return finish({ error: "model_provider and model_id must both be set." });
             }
+            const spawnerRole = parseBotOrgRole(bot.orgRole);
+            if (!orgRoleCanStaff(spawnerRole)) {
+              return finish({
+                error:
+                  "Only a ceo, cto, or lead can create bots. Ask the bot you report to for more help.",
+              });
+            }
+            const roleArg = args.role ? String(args.role) : "";
+            if (roleArg && roleArg !== "lead" && roleArg !== "member") {
+              return finish({ error: 'role must be "lead" or "member".' });
+            }
+            const childRole: BotOrgRole | null = roleArg
+              ? (roleArg as BotOrgRole)
+              : spawnerRole
+                ? "member"
+                : null;
             const spawned = await spawnBot(deps, {
               spawnedBy: {
                 id: bot.id,
@@ -6049,6 +6068,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               computerMode,
               modelProvider: modelProvider || undefined,
               modelId: modelId || undefined,
+              ...(childRole
+                ? { org: { role: childRole, team: args.team ? String(args.team) : bot.team } }
+                : {}),
             });
             if ("error" in spawned) return finish(spawned);
             if (!(await persistEffectResult(spawned))) return uncertainEffectResult(name);
@@ -6420,6 +6442,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             })
           : history;
         const runtimeHistory = [...historicalContext, ...historyWithImages];
+        const orgContext = await loadOrgContext(deps.prisma, bot);
         // Without a roster a bot only knows the bots it spawned itself.
         const botDirectory = thread.groupId
           ? undefined
@@ -6544,6 +6567,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 workspaceInstruction,
                 agentEnvironmentInstruction,
                 botDirectory,
+                orgContext,
                 pluginLine,
                 agentSkillsLine,
                 taughtSkillsLine,
@@ -7790,6 +7814,7 @@ export function userTurnInstructions(parts: {
   workspaceInstruction: string;
   agentEnvironmentInstruction: string | undefined;
   botDirectory: string | undefined;
+  orgContext?: string | undefined;
   pluginLine: string | undefined;
   agentSkillsLine: string | undefined;
   taughtSkillsLine: string | undefined;
@@ -7825,6 +7850,7 @@ export function userTurnInstructions(parts: {
       "run_subagent is a short helper inside this turn only. It is not a bot, has no thread, and does not show in the list. Use it for parallel work you will summarize here.",
     ),
     parts.botDirectory,
+    parts.orgContext,
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "archive_bot",

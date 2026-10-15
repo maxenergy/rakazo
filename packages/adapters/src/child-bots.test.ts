@@ -257,6 +257,40 @@ describe("spawned bot creation", () => {
     createReposSpy.mockRestore();
   });
 
+  it("files the child under the spawner with the given org role and team", async () => {
+    const createBot = vi.fn().mockResolvedValue({
+      id: "child-7",
+      name: "Scout",
+      title: "",
+      threadId: "thread-7",
+    });
+    const createReposSpy = vi.spyOn(await import("@rakazo/db"), "createRepos").mockReturnValue({
+      createBot,
+    } as unknown as ReturnType<typeof createRepos>);
+
+    await spawnBot(
+      {
+        prisma: {
+          bot: { findUnique: vi.fn().mockResolvedValue(null) },
+        } as unknown as PrismaClient,
+        jobs: { enqueue: vi.fn() } as unknown as JobPublisher,
+      },
+      {
+        spawnedBy: { id: "ceo-1", name: "CEO", spaceId: "workspace-1", userId: "user-1" },
+        runId: "run-7",
+        spawnKey: "tool-call-7",
+        name: "Scout",
+        org: { role: "member", team: " Research " },
+      },
+    );
+
+    expect(createBot).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ orgRole: "member", team: "Research", reportsToBotId: "ceo-1" }),
+    );
+    createReposSpy.mockRestore();
+  });
+
   it("requires model_provider and model_id together", async () => {
     const result = await spawnBot(
       {

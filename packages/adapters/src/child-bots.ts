@@ -8,7 +8,14 @@ import type {
   SandboxProvider,
 } from "@rakazo/adapter-kit";
 import { routineJobKey, runContinueJob, runJobKey } from "@rakazo/adapter-kit";
-import { type Actor, type Bot, type ComputerMode, GROUP_MEMBER_MIN } from "@rakazo/contracts";
+import {
+  type Actor,
+  BOT_TEAM_MAX_LENGTH,
+  type Bot,
+  type BotOrgRole,
+  type ComputerMode,
+  GROUP_MEMBER_MIN,
+} from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
 import {
   cancelRunsInTransaction,
@@ -65,6 +72,7 @@ export async function spawnBot(
     computerMode?: ComputerMode;
     modelProvider?: string;
     modelId?: string;
+    org?: { role: BotOrgRole; team: string };
   },
 ) {
   const name = input.name.trim();
@@ -119,6 +127,13 @@ export async function spawnBot(
         spawnKey: input.spawnKey,
         computerMode: input.computerMode,
         ...(modelProvider ? { modelProvider, modelId } : {}),
+        ...(input.org
+          ? {
+              orgRole: input.org.role,
+              team: input.org.team.trim().slice(0, BOT_TEAM_MAX_LENGTH),
+              reportsToBotId: input.spawnedBy.id,
+            }
+          : {}),
         initialMessage: {
           role: "system",
           blocks: [{ kind: "meta", text: `Created by ${input.spawnedBy.name}` }],

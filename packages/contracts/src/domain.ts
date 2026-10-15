@@ -10,6 +10,7 @@ import {
 import { ThreadMessageSchema } from "./events.js";
 import { Id, MemoryScope, RunStatus, SandboxKind } from "./ids.js";
 import { McpHeadersSchema, McpRemoteEndpointSchema, McpTransportSchema } from "./mcp.js";
+import { BOT_TEAM_MAX_LENGTH, BotOrgRoleSchema } from "./org.js";
 import { RunTriggerSchema } from "./runs.js";
 
 export const ComputerModeSchema = z.enum(["team", "dedicated"]);
@@ -81,6 +82,9 @@ export const BotSchema = z.object({
   webhookConfigured: z.boolean(),
   /** Present when created with an idempotency key (e.g. onboarding:first). */
   spawnKey: z.string().nullable(),
+  orgRole: BotOrgRoleSchema.nullable().default(null),
+  team: z.string().default(""),
+  reportsToBotId: Id.nullable().default(null),
 });
 export type Bot = z.infer<typeof BotSchema>;
 
@@ -346,6 +350,9 @@ export const UpdateBotInput = z
     teamChatAmbientEnabled: z.boolean().optional(),
     teamChatRules: z.string().max(TEAM_CHAT_RULES_MAX_LENGTH).optional(),
     disabledBuiltinTools: DisabledBuiltinToolsSchema.optional(),
+    orgRole: BotOrgRoleSchema.nullable().optional(),
+    team: z.string().trim().max(BOT_TEAM_MAX_LENGTH).optional(),
+    reportsToBotId: Id.nullable().optional(),
   })
   .superRefine((value, ctx) => {
     const providerProvided = value.modelProvider !== undefined;

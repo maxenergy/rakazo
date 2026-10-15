@@ -146,7 +146,88 @@ export function cliResponseText(provider: CliModelProvider, output: string): str
   return text;
 }
 
-function cliPrompt(context: TranscriptContext): { prompt: string; tools: Set<string> } {
+// A CLI reports no token usage, so nothing upstream trims a long run's context.
+// Keep the serialized conversation inside the model window here instead.
+const CLI_CHARS_PER_TOKEN = 3;
+const CLI_CONTEXT_SHARE = 0.6;
+const CLI_RECENT_MESSAGES = 12;
+const CLI_OLD_TEXT_LIMIT = 2_000;
+
+type TranscriptMessage = TranscriptContext["messages"][number];
+
+function messageSize(message: TranscriptMessage) {
+  return JSON.stringify(message).length;
+}
+
+/** Shorten long text in an older message, keeping its start. */
+function shortenOldMessage(message: TranscriptMessage): TranscriptMessage {
+  if (message.role === "system" || !Array.isArray(message.content)) return message;
+  let changed = false;
+  const content = message.content.map((part) => {
+    if (part.type !== "text" || part.text.length <= CLI_OLD_TEXT_LIMIT) return part;
+    changed = true;
+    const omitted = part.text.length - CLI_OLD_TEXT_LIMIT;
+    return {
+      ...part,
+      text: `${part.text.slice(0, CLI_OLD_TEXT_LIMIT)}\n[${omitted} more characters omitted]`,
+    };
+  });
+  return changed ? ({ ...message, content } as TranscriptMessage) : message;
+}
+
+/**
+ * Fit the conversation into a character budget: shorten text in older messages,
+ * then drop the oldest steps after the first user message, marking the gap.
+ * System messages and the most recent messages are always kept whole.
+ */
+export function boundCliMessages(
+  messages: readonly TranscriptMessage[],
+  budgetChars: number,
+): TranscriptMessage[] {
+  const total = (list: readonly TranscriptMessage[]) =>
+    list.reduce((sum, message) => sum + messageSize(message), 0);
+  if (total(messages) <= budgetChars) return [...messages];
+  const recentFrom = Math.max(0, messages.length - CLI_RECENT_MESSAGES);
+  const shortened = messages.map((message, index) =>
+    index < recentFrom ? shortenOldMessage(message) : message,
+  );
+  if (total(shortened) <= budgetChars) return shortened;
+  const firstUser = shortened.findIndex((message) => message.role === "user");
+  const keepHead = firstUser < 0 ? 0 : firstUser + 1;
+  let size = total(shortened);
+  let dropped = 0;
+  const kept: TranscriptMessage[] = [];
+  for (let index = 0; index < shortened.length; index += 1) {
+    const message = shortened[index]!;
+    const droppable =
+      index >= keepHead && index < recentFrom && message.role !== "system" && size > budgetChars;
+    if (droppable) {
+      size -= messageSize(message);
+      dropped += 1;
+      continue;
+    }
+    kept.push(message);
+  }
+  // Recent steps alone can still overflow; shorten all but the latest two.
+  if (size > budgetChars) {
+    for (let index = 0; index < kept.length - 2; index += 1) {
+      kept[index] = shortenOldMessage(kept[index]!);
+    }
+  }
+  if (dropped === 0) return kept;
+  const marker = {
+    role: "user",
+    content: `[${dropped} earlier steps were omitted to fit the model context. Re-check current state with tools if you need it.]`,
+    timestamp: Date.now(),
+  } as TranscriptMessage;
+  kept.splice(Math.min(keepHead, kept.length), 0, marker);
+  return kept;
+}
+
+function cliPrompt(
+  context: TranscriptContext,
+  contextWindow?: number,
+): { prompt: string; tools: Set<string> } {
   const tools = new Set<string>();
   for (const message of context.messages) {
     if (message.role === "system") {
@@ -163,7 +244,14 @@ function cliPrompt(context: TranscriptContext): { prompt: string; tools: Set<str
   }
   return {
     tools,
-    prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.\nDo not use the CLI's own tools, files, shell, extensions, or MCP servers. Rakazo executes tools separately.\nTo request a tool defined in the conversation, return its name and JSON-encoded object arguments in calls. Return user-visible text in text. After tool results, continue the conversation.\nReturn only one JSON object matching this schema: ${JSON.stringify(RESPONSE_SCHEMA)}\nConversation:\n${JSON.stringify(context.messages)}`,
+    prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.\nDo not use the CLI's own tools, files, shell, extensions, or MCP servers. Rakazo executes tools separately.\nTo request a tool defined in the conversation, return its name and JSON-encoded object arguments in calls. Return user-visible text in text. After tool results, continue the conversation.\nReturn only one JSON object matching this schema: ${JSON.stringify(RESPONSE_SCHEMA)}\nConversation:\n${JSON.stringify(
+      contextWindow
+        ? boundCliMessages(
+            context.messages,
+            Math.floor(contextWindow * CLI_CHARS_PER_TOKEN * CLI_CONTEXT_SHARE),
+          )
+        : context.messages,
+    )}`,
   };
 }
 
@@ -320,7 +408,7 @@ function streamCliModel(
       if (!isCliProfileId(options?.apiKey))
         throw new Error("Sign in to this CLI connection first.");
       options.signal?.throwIfAborted();
-      const { prompt, tools } = cliPrompt(context);
+      const { prompt, tools } = cliPrompt(context, model.contextWindow);
       stream.push({ type: "start", partial: message });
       directory = await mkdtemp(join(tmpdir(), "rakazo-cli-request-"));
       const schemaPath = join(directory, "response.json");

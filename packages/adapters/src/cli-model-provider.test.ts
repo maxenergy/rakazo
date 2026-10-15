@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CliModelProvider } from "./cli-model-process.js";
 import { CLI_MODEL_PROVIDERS, runCliProcess } from "./cli-model-process.js";
 import {
+  boundCliMessages,
   cliInferenceArgs,
   cliResponseText,
   parseCliReply,
@@ -244,5 +245,33 @@ describe("subscription CLI provider conformance", () => {
     expect(grok).toContain("--prompt-file");
     expect(grok).toContain("dontAsk");
     expect(grok).not.toContain("--always-approve");
+  });
+
+  it("keeps a long run inside the model window by shortening and dropping old steps", () => {
+    const step = (index: number) => ({
+      role: "toolResult" as const,
+      toolCallId: `call-${index}`,
+      toolName: "shell",
+      content: [{ type: "text" as const, text: `output ${index} ${"x".repeat(5_000)}` }],
+      isError: false,
+      timestamp: index,
+    });
+    const messages = [
+      { role: "user" as const, content: "Run the baseline", timestamp: 0 },
+      ...Array.from({ length: 60 }, (_, index) => step(index + 1)),
+    ];
+    const bounded = boundCliMessages(messages, 60_000);
+    const size = JSON.stringify(bounded).length;
+    expect(size).toBeLessThanOrEqual(60_000 + 1_000);
+    expect(bounded[0]).toEqual(messages[0]);
+    expect(JSON.stringify(bounded[1])).toContain("earlier steps were omitted");
+    // The most recent steps stay whole.
+    expect(bounded.at(-1)).toEqual(messages.at(-1));
+    expect(JSON.stringify(bounded)).toContain(`output 60 ${"x".repeat(5_000)}`);
+  });
+
+  it("leaves a conversation that already fits untouched", () => {
+    const messages = [{ role: "user" as const, content: "Hello", timestamp: 0 }];
+    expect(boundCliMessages(messages, 10_000)).toEqual(messages);
   });
 });

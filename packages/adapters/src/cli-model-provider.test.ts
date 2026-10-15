@@ -166,7 +166,8 @@ describe("subscription CLI provider conformance", () => {
     expect(result.stopReason).toBe("error");
     expect(result.errorMessage).not.toMatch(/secret-access-token|account@example/);
     expect(result.errorMessage).toContain("No API fallback");
-    expect(runCliProcess).toHaveBeenCalledOnce();
+    // One retry after a non-cancelled failure, then the error surfaces.
+    expect(runCliProcess).toHaveBeenCalledTimes(2);
     const controller = new AbortController();
     vi.mocked(runCliProcess).mockImplementationOnce(async (options) => {
       expect(options.signal).toBe(controller.signal);
@@ -177,7 +178,22 @@ describe("subscription CLI provider conformance", () => {
       .streamSimple(model, { messages: [] }, { apiKey: profileId, signal: controller.signal })
       .result();
     expect(aborted.stopReason).toBe("aborted");
+    // A cancelled turn is not retried.
+    expect(runCliProcess).toHaveBeenCalledTimes(3);
+  });
+
+  it("gives a CLI turn ten minutes and retries a transient failure once", async () => {
+    vi.mocked(runCliProcess)
+      .mockRejectedValueOnce(new Error("CLI request timed out. Try again."))
+      .mockResolvedValueOnce(output("codex-cli"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("codex-cli")!.getModels()[0]!;
+    const result = await models
+      .streamSimple(model, { messages: [] }, { apiKey: profileId, timeoutMs: 120_000 })
+      .result();
+    expect(result.stopReason).toBe("stop");
     expect(runCliProcess).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(runCliProcess).mock.calls[0]?.[0].timeoutMs).toBe(600_000);
   });
 
   it("validates tool names, object arguments, and failed vendor responses", () => {

@@ -11,6 +11,7 @@ import type {
   TranscriptContext,
 } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream, createProvider } from "@earendil-works/pi-ai";
+import { getLogger } from "@rakazo/logging";
 import type { CliModelProvider } from "./cli-model-process.js";
 import { CLI_MODEL_PROVIDERS, isCliProfileId, runCliProcess } from "./cli-model-process.js";
 
@@ -34,6 +35,23 @@ const RESPONSE_SCHEMA = {
 };
 
 type CliReply = { text: string; calls: { name: string; argumentsJson: string }[] };
+
+/**
+ * A CLI answers only after the whole turn, so the streaming time-to-first-token
+ * budget would cut off long turns. Give each CLI turn the process default instead.
+ */
+const CLI_INFERENCE_TIMEOUT_MS = 10 * 60_000;
+const CLI_INFERENCE_ATTEMPTS = 2;
+
+/** A coarse failure label that never carries CLI output. */
+function cliFailureReason(error: unknown) {
+  const text = error instanceof Error ? error.message : "";
+  if (/timed out/i.test(text)) return "timeout";
+  if (/size limit/i.test(text)) return "output_too_large";
+  if (/^Could not start/.test(text)) return "not_installed";
+  if (/failed\. Check sign-in/.test(text)) return "exit_code";
+  return "invalid_response";
+}
 
 // Official `agy models` slugs. API model IDs are not interchangeable with these.
 const ANTIGRAVITY_MODELS = [
@@ -309,16 +327,29 @@ function streamCliModel(
       await writeFile(schemaPath, JSON.stringify(RESPONSE_SCHEMA), { mode: 0o600 });
       await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
       const provider = model.provider as CliModelProvider;
-      const output = await runCliProcess({
-        provider,
-        profileId: options.apiKey,
-        args: cliInferenceArgs(provider, model.id, schemaPath),
-        cwd: directory,
-        input: prompt,
-        signal: options.signal,
-        timeoutMs: options.timeoutMs,
-      });
-      const reply = parseCliReply(cliResponseText(provider, output), tools);
+      let reply: CliReply | undefined;
+      for (let attempt = 1; !reply; attempt += 1) {
+        try {
+          const output = await runCliProcess({
+            provider,
+            profileId: options.apiKey,
+            args: cliInferenceArgs(provider, model.id, schemaPath),
+            cwd: directory,
+            input: prompt,
+            signal: options.signal,
+            timeoutMs: Math.max(options.timeoutMs ?? 0, CLI_INFERENCE_TIMEOUT_MS),
+          });
+          reply = parseCliReply(cliResponseText(provider, output), tools);
+        } catch (error) {
+          if (options.signal?.aborted) throw error;
+          getLogger().warn("cli.inference_failed", {
+            "cli.provider": provider,
+            "cli.attempt": attempt,
+            "cli.reason": cliFailureReason(error),
+          });
+          if (attempt >= CLI_INFERENCE_ATTEMPTS) throw error;
+        }
+      }
       if (reply.text) {
         const part = { type: "text" as const, text: "" };
         message.content.push(part);

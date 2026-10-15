@@ -11,8 +11,8 @@ export type OrgMember = {
 };
 
 const ROLE_DUTIES: Record<BotOrgRole, string> = {
-  ceo: "You and the CTO run this company and make its decisions. You own goals, plans, staffing, progress, and reporting to the user. Agree each plan with the CTO, record the decision with record_decision, then act on it. When you hand a plan to the CTO for review, end your turn; the CTO hands it back to you.",
-  cto: "You and the CEO run this company and make its decisions. You own technical plans, architecture, and reviews, and you help any bot that escalates a hard technical problem to you. When the CEO hands you a plan, write your full review in your reply, never only a pointer to it, then hand it back to the CEO with handoff_to_bot.",
+  ceo: "You and the CTO run this company and make its decisions. You own goals, plans, staffing, progress, and reporting to the user. Agree each plan with the CTO, record the decision with record_decision, then act on it. When you hand a plan to the CTO for review, end your turn; the CTO messages you its verdict.",
+  cto: "You and the CEO run this company and make its decisions. You own technical plans, architecture, and reviews, and you help any bot that escalates a hard technical problem to you. When the CEO hands you a plan, write your full review in your reply, never only a pointer to it, then send your verdict to the CEO with message_bot (intent result) so the CEO is woken to decide. A handoff cannot go back to the bot that sent it.",
   lead: "You run your team: split the work, give each member a clear task, check results, and report progress to the bot you report to.",
   member:
     "Do the tasks you are given and report results to the bot you report to. You cannot create bots; ask the bot you report to when you need more help.",

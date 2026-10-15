@@ -20,7 +20,7 @@ export const LAUNCH_TEAM_TEMPLATES: readonly OrgBotTemplate[] = [
     orgRole: "ceo",
     instructions: [
       "You and the CTO run this company of bots for the user, who owns it and sets its goals. Together you make its decisions.",
-      "When the user gives a goal, OKR, or request: work out a plan with the CTO in the launch team chat, covering milestones, the team you need, the model for each member and why, cost, and risks. Hand the draft to the CTO with handoff_to_bot and end your turn; the CTO hands it back after the review.",
+      "When the user gives a goal, OKR, or request: work out a plan with the CTO in the launch team chat, covering milestones, the team you need, the model for each member and why, cost, and risks. Hand the draft to the CTO with handoff_to_bot and end your turn; the CTO messages you its verdict after the review.",
       "Once you and the CTO agree, record the decision with record_decision and act on it: staff the team with spawn_bot, using list_models to give each member the cheapest connected model that fits the job, and track the work as tickets on the board when it is available.",
       "Ask the user with submit_proposal only to change their goal or scope, for new paid spending, for irreversible or outward-facing actions, or when you and the CTO cannot agree.",
       "Report progress to the user at each milestone.",
@@ -42,7 +42,7 @@ export const LAUNCH_TEAM_TEMPLATES: readonly OrgBotTemplate[] = [
     instructions: [
       "You are the technical lead of this company of bots. You and the CEO run it and make its decisions together.",
       "Shape the technical side of every plan: architecture, approach, effort, and technical risk. Say plainly when a plan is not feasible.",
-      "When the CEO hands you a plan, put your complete review in your reply, then use handoff_to_bot to hand it back to the CEO. You may record technical decisions you and the CEO agree on with record_decision.",
+      "When the CEO hands you a plan, put your complete review in your reply, then send your verdict to the CEO with message_bot (intent result) so the CEO is woken to decide; a handoff cannot go back to the bot that sent it. You may record technical decisions you and the CEO agree on with record_decision.",
       "When another bot escalates a hard technical problem, give concrete advice or a fix. Review important technical results before they are reported as done.",
     ].join("\n"),
     preferredModels: [

@@ -31,6 +31,7 @@ import {
   withCleanupDeadline,
 } from "./computer-workspace.js";
 import { resolveAgentHomePath } from "./home.js";
+import { validateConnectedModelChoice } from "./model-selection.js";
 import { removePiBotSessions } from "./pi-session.js";
 
 export function confirmSpawnedBotName(confirmName: string, botName: string) {
@@ -62,10 +63,17 @@ export async function spawnBot(
     instructions?: string;
     prompt?: string;
     computerMode?: ComputerMode;
+    modelProvider?: string;
+    modelId?: string;
   },
 ) {
   const name = input.name.trim();
   if (!name) return { error: "Bot name is required." };
+  const modelProvider = input.modelProvider?.trim() ?? "";
+  const modelId = input.modelId?.trim() ?? "";
+  if (Boolean(modelProvider) !== Boolean(modelId)) {
+    return { error: "model_provider and model_id must both be set." };
+  }
 
   const actor: Actor = {
     userId: input.spawnedBy.userId,
@@ -73,25 +81,7 @@ export async function spawnBot(
     email: "",
     isDeploymentOwner: false,
   };
-  let duplicate = false;
-  let created: Pick<Bot, "id" | "name" | "title" | "threadId">;
-  try {
-    created = await createRepos(deps.prisma).createBot(actor, {
-      name,
-      title: (input.title ?? "").trim(),
-      description: "",
-      instructions: (input.instructions ?? "").trim(),
-      notifyOnFinish: true,
-      parentBotId: input.spawnedBy.id,
-      spawnKey: input.spawnKey,
-      computerMode: input.computerMode,
-      initialMessage: {
-        role: "system",
-        blocks: [{ kind: "meta", text: `Created by ${input.spawnedBy.name}` }],
-        runId: input.runId,
-      },
-    });
-  } catch (error) {
+  const findSpawned = async () => {
     const existing = await deps.prisma.bot.findUnique({
       where: {
         spaceId_spawnKey: {
@@ -101,15 +91,45 @@ export async function spawnBot(
       },
       include: { thread: true },
     });
-    if (!existing) throw error;
+    if (!existing) return null;
     if (!existing.thread) throw new Error(`Spawned bot ${existing.id} is missing its thread`);
-    duplicate = true;
-    created = {
+    return {
       id: existing.id,
       name: existing.name,
       title: existing.title,
       threadId: existing.thread.id,
     };
+  };
+  // A replayed spawn returns the bot it already made, even if the provider was disconnected since.
+  let created: Pick<Bot, "id" | "name" | "title" | "threadId"> | null = await findSpawned();
+  let duplicate = created !== null;
+  if (!created) {
+    if (modelProvider) {
+      const error = await validateConnectedModelChoice(deps.prisma, actor, modelProvider, modelId);
+      if (error) return { error };
+    }
+    try {
+      created = await createRepos(deps.prisma).createBot(actor, {
+        name,
+        title: (input.title ?? "").trim(),
+        description: "",
+        instructions: (input.instructions ?? "").trim(),
+        notifyOnFinish: true,
+        parentBotId: input.spawnedBy.id,
+        spawnKey: input.spawnKey,
+        computerMode: input.computerMode,
+        ...(modelProvider ? { modelProvider, modelId } : {}),
+        initialMessage: {
+          role: "system",
+          blocks: [{ kind: "meta", text: `Created by ${input.spawnedBy.name}` }],
+          runId: input.runId,
+        },
+      });
+    } catch (error) {
+      created = await findSpawned();
+      if (!created) throw error;
+      duplicate = true;
+    }
   }
 
   const prompt = (input.prompt ?? "").trim();

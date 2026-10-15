@@ -1046,6 +1046,16 @@ export const builtinAgentTools: ConnectorTool[] = [
           description:
             "Optional. team shares one screen with other Team bots; dedicated (Private) gets its own. Defaults to team.",
         },
+        model_provider: {
+          type: "string",
+          description:
+            "Optional connected model provider for the new bot. Set together with model_id. Defaults to this bot's model.",
+        },
+        model_id: {
+          type: "string",
+          description:
+            "Optional connected model ID for the new bot. Set together with model_provider.",
+        },
       },
       required: ["name"],
     },

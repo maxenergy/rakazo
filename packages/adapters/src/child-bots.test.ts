@@ -144,7 +144,7 @@ describe("spawned bot creation", () => {
 
     const result = await spawnBot(
       {
-        prisma: {} as PrismaClient,
+        prisma: { bot: { findUnique: vi.fn().mockResolvedValue(null) } } as unknown as PrismaClient,
         jobs: { enqueue: vi.fn() } as unknown as JobPublisher,
       },
       {
@@ -177,6 +177,136 @@ describe("spawned bot creation", () => {
       threadId: "thread-2",
     });
     createReposSpy.mockRestore();
+  });
+
+  it("creates the child on the chosen connected model", async () => {
+    const createBot = vi.fn().mockResolvedValue({
+      id: "child-3",
+      name: "Researcher",
+      title: "",
+      threadId: "thread-3",
+    });
+    const createReposSpy = vi.spyOn(await import("@rakazo/db"), "createRepos").mockReturnValue({
+      createBot,
+    } as unknown as ReturnType<typeof createRepos>);
+    const validateSpy = vi
+      .spyOn(await import("./model-selection.js"), "validateConnectedModelChoice")
+      .mockResolvedValue(undefined);
+
+    const result = await spawnBot(
+      {
+        prisma: {
+          bot: { findUnique: vi.fn().mockResolvedValue(null) },
+        } as unknown as PrismaClient,
+        jobs: { enqueue: vi.fn() } as unknown as JobPublisher,
+      },
+      {
+        spawnedBy: { id: "parent-1", name: "Chief", spaceId: "workspace-1", userId: "user-1" },
+        runId: "run-3",
+        spawnKey: "tool-call-3",
+        name: "Researcher",
+        modelProvider: " google ",
+        modelId: " gemini-pro ",
+      },
+    );
+
+    expect(validateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId: "user-1", spaceId: "workspace-1" }),
+      "google",
+      "gemini-pro",
+    );
+    expect(createBot).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ modelProvider: "google", modelId: "gemini-pro" }),
+    );
+    expect(result).toMatchObject({ ok: true, botId: "child-3" });
+    validateSpy.mockRestore();
+    createReposSpy.mockRestore();
+  });
+
+  it("refuses a model that is not connected without creating the child", async () => {
+    const createBot = vi.fn();
+    const createReposSpy = vi.spyOn(await import("@rakazo/db"), "createRepos").mockReturnValue({
+      createBot,
+    } as unknown as ReturnType<typeof createRepos>);
+    const validateSpy = vi
+      .spyOn(await import("./model-selection.js"), "validateConnectedModelChoice")
+      .mockResolvedValue("Connect that model provider first");
+
+    const result = await spawnBot(
+      {
+        prisma: {
+          bot: { findUnique: vi.fn().mockResolvedValue(null) },
+        } as unknown as PrismaClient,
+        jobs: { enqueue: vi.fn() } as unknown as JobPublisher,
+      },
+      {
+        spawnedBy: { id: "parent-1", name: "Chief", spaceId: "workspace-1", userId: "user-1" },
+        runId: "run-4",
+        spawnKey: "tool-call-4",
+        name: "Researcher",
+        modelProvider: "google",
+        modelId: "gemini-pro",
+      },
+    );
+
+    expect(result).toEqual({ error: "Connect that model provider first" });
+    expect(createBot).not.toHaveBeenCalled();
+    validateSpy.mockRestore();
+    createReposSpy.mockRestore();
+  });
+
+  it("requires model_provider and model_id together", async () => {
+    const result = await spawnBot(
+      {
+        prisma: {} as PrismaClient,
+        jobs: { enqueue: vi.fn() } as unknown as JobPublisher,
+      },
+      {
+        spawnedBy: { id: "parent-1", name: "Chief", spaceId: "workspace-1", userId: "user-1" },
+        runId: "run-5",
+        spawnKey: "tool-call-5",
+        name: "Researcher",
+        modelProvider: "google",
+      },
+    );
+
+    expect(result).toEqual({ error: "model_provider and model_id must both be set." });
+  });
+
+  it("returns a replayed spawn without revalidating its model", async () => {
+    const validateSpy = vi.spyOn(
+      await import("./model-selection.js"),
+      "validateConnectedModelChoice",
+    );
+    const result = await spawnBot(
+      {
+        prisma: {
+          bot: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: "child-6",
+              name: "Researcher",
+              title: "",
+              thread: { id: "thread-6" },
+            }),
+          },
+        } as unknown as PrismaClient,
+        jobs: { enqueue: vi.fn() } as unknown as JobPublisher,
+      },
+      {
+        spawnedBy: { id: "parent-1", name: "Chief", spaceId: "workspace-1", userId: "user-1" },
+        runId: "run-6",
+        spawnKey: "tool-call-6",
+        name: "Researcher",
+        modelProvider: "google",
+        modelId: "gemini-pro",
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true, duplicate: true, botId: "child-6" });
+    expect(validateSpy).not.toHaveBeenCalled();
+    validateSpy.mockRestore();
   });
 });
 describe("spawned bot archival", () => {

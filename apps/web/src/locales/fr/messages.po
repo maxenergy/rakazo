@@ -4407,6 +4407,10 @@ msgstr "Ordinateur d'équipe"
 msgid "Team conversations"
 msgstr "Conversations d'équipe"
 
+#: src/pages/Approvals.tsx
+msgid "Team decision"
+msgstr "Décision de l’équipe"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Teams message"
 msgstr "Message Teams"

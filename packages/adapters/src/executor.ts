@@ -5781,6 +5781,33 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 : "Sent to the user's Approvals page. Tell the user it is waiting there. Do not act on it until the decision arrives as a new message; approval in chat does not count.",
             });
           }
+          if (name === "record_decision") {
+            const role = parseBotOrgRole(bot.orgRole);
+            if (role !== "ceo" && role !== "cto") {
+              return finish({
+                error: "Only the CEO or CTO records team decisions. Use escalate instead.",
+              });
+            }
+            const parsed = parseProposalArgs({ ...args, options: [] });
+            if (!parsed.ok) return finish({ error: parsed.error });
+            const choice = args.choice ? String(args.choice).trim().slice(0, 200) : "";
+            const { proposal, replayed } = await createProposal(deps.prisma, run, {
+              ...parsed.draft,
+              title: redactSecrets(parsed.draft.title, runSecrets),
+              summary: redactSecrets(parsed.draft.summary, runSecrets),
+              recommendation: redactSecrets(String(args.rationale ?? "").trim(), runSecrets),
+              botId: bot.id,
+              submitKey: effectKey,
+              teamDecision: { chosenOption: choice || null },
+            });
+            return finish({
+              ok: true,
+              decisionId: proposal.id,
+              note: replayed
+                ? "Already recorded in this turn."
+                : "Recorded as a launch team decision. Go ahead with it.",
+            });
+          }
           if (name === "escalate") {
             const kind = args.kind === "technical" || args.kind === "decision" ? args.kind : null;
             if (!kind) return finish({ error: 'kind must be "technical" or "decision".' });

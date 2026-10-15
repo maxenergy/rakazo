@@ -30,11 +30,12 @@ describe("org context", () => {
     expect(renderOrgContext(null, org)).toBeUndefined();
   });
 
-  it("tells every org member that only the Approvals page counts as approval", () => {
+  it("gives the CEO and CTO decision authority and keeps a short list for the user", () => {
     for (const member of org) {
-      expect(renderOrgContext(member, org)).toContain(
-        "Only a decision the user records on the Approvals page counts as approval.",
-      );
+      const text = renderOrgContext(member, org) ?? "";
+      expect(text).toContain("the CEO and CTO decide together, without the user");
+      expect(text).toContain("Only these go to the user with submit_proposal");
+      expect(text).toContain("a chat reply does not");
     }
   });
 
@@ -47,20 +48,18 @@ describe("org context", () => {
     expect(text).toContain("You cannot create bots");
   });
 
-  it("lists the CEO's direct reports and sends its decisions to the user", () => {
+  it("lists the CEO's direct reports and has it record decisions with the CTO", () => {
     const text = renderOrgContext(ceo, org) ?? "";
     expect(text).toContain("You report to the user.");
     expect(text).toContain("Your direct reports: Research lead (lead, id lead-1), team Research.");
-    expect(text).toContain(
-      "agree on a recommendation with the CTO, then send it to the user with submit_proposal",
-    );
+    expect(text).toContain("agree with the CTO and record it with record_decision");
     expect(text).not.toContain("to the CEO");
   });
 
   it("tells the CTO to review in full and hand the proposal back to the CEO", () => {
     const text = renderOrgContext(cto, org) ?? "";
     expect(text).toContain("write your full review in your reply");
-    expect(text).toContain("hand the next stage back to the CEO with handoff_to_bot");
+    expect(text).toContain("hand it back to the CEO with handoff_to_bot");
   });
 
   it("does not tell the CTO to escalate to itself", () => {

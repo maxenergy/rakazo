@@ -4407,6 +4407,10 @@ msgstr "Командный компьютер"
 msgid "Team conversations"
 msgstr "Командные диалоги"
 
+#: src/pages/Approvals.tsx
+msgid "Team decision"
+msgstr "Решение команды"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Teams message"
 msgstr "Сообщение Teams"

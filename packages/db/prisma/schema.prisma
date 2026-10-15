@@ -1504,6 +1504,8 @@ model Proposal {
   chosenOption   String?
   comment        String?
   decidedAt      DateTime?
+  /// "user" when the owner decided on the Approvals page; "team" when the launch team decided itself.
+  decidedBy      String    @default("user")
   /// Tool-call effect key, so a replayed submit_proposal returns the same row.
   submitKey      String
   createdAt      DateTime  @default(now())

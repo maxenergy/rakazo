@@ -1013,7 +1013,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "submit_proposal",
     description:
-      "Send a plan or decision to the user for approval. Do not act on it until the decision arrives as a new message. If you have an org role, only the CEO may submit; others use escalate.",
+      "Send a plan or decision to the user for approval. Use it only for what the user keeps: changing the user's goal or scope, new paid spending, irreversible or outward-facing actions, or a CEO and CTO deadlock. Do not act on it until the decision arrives as a new message. If you have an org role, only the CEO may submit; others use escalate.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1034,6 +1034,22 @@ export const builtinAgentTools: ConnectorTool[] = [
           description: "Optional choices for the user to pick from, at most 6.",
         },
         recommendation: { type: "string", description: "Optional recommended option and why." },
+      },
+      required: ["kind", "title", "summary"],
+    },
+  },
+  {
+    name: "record_decision",
+    description:
+      "CEO or CTO only: record a decision the launch team made itself (technical approach, staffing and models, milestones, spending within existing subscriptions) so the user can see it, then act on it. Does not wait for the user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["plan", "decision"] },
+        title: { type: "string", description: "Short title." },
+        summary: { type: "string", description: "What was decided and what happens next." },
+        choice: { type: "string", description: "Optional chosen option." },
+        rationale: { type: "string", description: "Why, including what the CTO and CEO weighed." },
       },
       required: ["kind", "title", "summary"],
     },

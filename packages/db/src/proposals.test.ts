@@ -89,4 +89,30 @@ describe("proposals", () => {
       decideProposal(prisma, scope, { proposalId: "p-9", decision: "approve" }),
     ).rejects.toThrow("Proposal not found");
   });
+
+  it("records a launch team decision as already decided by the team", async () => {
+    const create = vi.fn(async (args: { data: Record<string, unknown> }) =>
+      row({ ...args.data, id: "p-2" }),
+    );
+    const prisma = {
+      proposal: { findUnique: vi.fn().mockResolvedValue(null), create },
+    } as unknown as PrismaClient;
+    const { proposal } = await createProposal(prisma, scope, {
+      botId: "ceo-1",
+      submitKey: "call-2",
+      kind: "decision",
+      title: "Use one engineer",
+      summary: "Staff one engineer on gpt-6.1-sol",
+      options: [],
+      recommendation: "Cheapest model that fits",
+      teamDecision: { chosenOption: "One engineer" },
+    });
+    expect(create.mock.calls[0]?.[0].data).toMatchObject({
+      status: "approved",
+      decidedBy: "team",
+      chosenOption: "One engineer",
+    });
+    expect(create.mock.calls[0]?.[0].data).not.toHaveProperty("teamDecision");
+    expect(proposal).toMatchObject({ status: "approved", decidedBy: "team" });
+  });
 });

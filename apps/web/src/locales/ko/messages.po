@@ -4407,6 +4407,10 @@ msgstr "팀 컴퓨터"
 msgid "Team conversations"
 msgstr "팀 대화"
 
+#: src/pages/Approvals.tsx
+msgid "Team decision"
+msgstr "팀 결정"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Teams message"
 msgstr "Teams 메시지"

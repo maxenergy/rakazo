@@ -11,16 +11,21 @@ export type OrgMember = {
 };
 
 const ROLE_DUTIES: Record<BotOrgRole, string> = {
-  ceo: "You own goals, plans, staffing, progress, and reporting to the user. Draft each plan with the CTO, then get the user's approval with submit_proposal before you staff a team or start the work. When you hand a plan to the CTO for review, end your turn; the CTO hands it back to you for submission.",
-  cto: "You own technical plans, architecture, and reviews. Work out plans with the CEO, and help any bot that escalates a hard technical problem to you. When the CEO hands you a plan, write your full review in your reply, never only a pointer to it, then hand the next stage back to the CEO with handoff_to_bot so the CEO can submit the proposal.",
+  ceo: "You and the CTO run this company and make its decisions. You own goals, plans, staffing, progress, and reporting to the user. Agree each plan with the CTO, record the decision with record_decision, then act on it. When you hand a plan to the CTO for review, end your turn; the CTO hands it back to you.",
+  cto: "You and the CEO run this company and make its decisions. You own technical plans, architecture, and reviews, and you help any bot that escalates a hard technical problem to you. When the CEO hands you a plan, write your full review in your reply, never only a pointer to it, then hand it back to the CEO with handoff_to_bot.",
   lead: "You run your team: split the work, give each member a clear task, check results, and report progress to the bot you report to.",
   member:
     "Do the tasks you are given and report results to the bot you report to. You cannot create bots; ask the bot you report to when you need more help.",
 };
 
-/** Chat replies are easy to misread as sign-off; only a recorded decision counts. */
-const APPROVAL_RULE =
-  "Only a decision the user records on the Approvals page counts as approval. If the user approves, agrees, or says to continue in chat, do not treat it as approval: ask them to decide the pending proposal on the Approvals page, and wait for that decision, which arrives as a new message.";
+/**
+ * The launch team decides most things itself; the user keeps only goal changes,
+ * new spending, irreversible or outward actions, and deadlocks.
+ */
+const DECISION_RULE = [
+  "Decision authority: the CEO and CTO decide together, without the user, on technical approach and architecture, staffing (creating and archiving bots, choosing their models), milestones and plans, and spending within the existing subscriptions and free resources. The CEO records each such decision with record_decision and the team acts on it.",
+  "Only these go to the user with submit_proposal: changing the user's goal or scope, any new paid spending, irreversible or outward-facing actions (production data, deleting data, public releases, payments), and anything the CEO and CTO cannot agree on. For these, only a decision the user records on the Approvals page counts; a chat reply does not, so ask the user to decide there and wait for the decision message.",
+].join(" ");
 
 function label(member: OrgMember) {
   return `${member.name} (${member.orgRole}, id ${member.id})`;
@@ -36,7 +41,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
   const cto = org.find((member) => member.orgRole === "cto" && member.id !== self.id);
 
   const lines = [
-    APPROVAL_RULE,
+    DECISION_RULE,
     `Org: you are the ${self.orgRole}${self.team ? ` on team ${self.team}` : ""}. ${ROLE_DUTIES[self.orgRole]}`,
     `You report to ${manager ? label(manager) : "the user"}.`,
     reports.length
@@ -46,8 +51,8 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
       ? `For a hard technical problem you cannot solve, escalate it (kind technical) to the CTO, ${label(cto)}, with what you tried.`
       : undefined,
     ceo && self.orgRole !== "ceo"
-      ? `For a decision that changes scope, budget, or direction, escalate it (kind decision) to the CEO, ${label(ceo)}. The CEO and CTO agree on a recommendation and the CEO asks the user before anyone acts on it.`
-      : "For a decision that changes scope, budget, or direction, agree on a recommendation with the CTO, then send it to the user with submit_proposal and wait for the decision before acting on it.",
+      ? `For a decision you cannot make yourself, escalate it (kind decision) to the CEO, ${label(ceo)}. The CEO and CTO decide it.`
+      : "For a decision, agree with the CTO and record it with record_decision. Send it to the user with submit_proposal only when it is one of the user-level items above.",
   ];
   return lines.filter(Boolean).join("\n");
 }

@@ -5778,7 +5778,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               status: proposal.status,
               note: replayed
                 ? "Already submitted in this turn."
-                : "Sent to the user for approval. Do not act on it until the decision arrives as a new message.",
+                : "Sent to the user's Approvals page. Tell the user it is waiting there. Do not act on it until the decision arrives as a new message; approval in chat does not count.",
             });
           }
           if (name === "escalate") {

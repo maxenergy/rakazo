@@ -30,6 +30,14 @@ describe("org context", () => {
     expect(renderOrgContext(null, org)).toBeUndefined();
   });
 
+  it("tells every org member that only the Approvals page counts as approval", () => {
+    for (const member of org) {
+      expect(renderOrgContext(member, org)).toContain(
+        "Only a decision the user records on the Approvals page counts as approval.",
+      );
+    }
+  });
+
   it("tells a member who it reports to and where to escalate", () => {
     const text = renderOrgContext(member, org) ?? "";
     expect(text).toContain("you are the member on team Research");

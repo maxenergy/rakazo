@@ -289,6 +289,7 @@ import {
   ChoiceCard,
   McpApprovalCard,
 } from "./shell/message-cards";
+import { PendingApprovalsLink } from "./shell/pending-approvals-link";
 import { commitSpaceRename, sidebarGroupsForSpaces } from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
@@ -3427,6 +3428,7 @@ export function ShellPage() {
             </div>
           ) : null}
         </div>
+        <PendingApprovalsLink onNavigate={() => setMobileSidebarOpen(false)} />
         <button
           type="button"
           onClick={() => setPluginsOpen(true)}

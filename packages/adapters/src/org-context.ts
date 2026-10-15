@@ -18,6 +18,10 @@ const ROLE_DUTIES: Record<BotOrgRole, string> = {
     "Do the tasks you are given and report results to the bot you report to. You cannot create bots; ask the bot you report to when you need more help.",
 };
 
+/** Chat replies are easy to misread as sign-off; only a recorded decision counts. */
+const APPROVAL_RULE =
+  "Only a decision the user records on the Approvals page counts as approval. If the user approves, agrees, or says to continue in chat, do not treat it as approval: ask them to decide the pending proposal on the Approvals page, and wait for that decision, which arrives as a new message.";
+
 function label(member: OrgMember) {
   return `${member.name} (${member.orgRole}, id ${member.id})`;
 }
@@ -32,6 +36,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
   const cto = org.find((member) => member.orgRole === "cto" && member.id !== self.id);
 
   const lines = [
+    APPROVAL_RULE,
     `Org: you are the ${self.orgRole}${self.team ? ` on team ${self.team}` : ""}. ${ROLE_DUTIES[self.orgRole]}`,
     `You report to ${manager ? label(manager) : "the user"}.`,
     reports.length

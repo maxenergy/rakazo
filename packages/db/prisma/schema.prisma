@@ -244,6 +244,7 @@ model Space {
   board                       Board?
   tickets                     Ticket[]
   ticketComments              TicketComment[]
+  proposals                   Proposal[]
 
   @@unique([id, organizationId])
   @@index([organizationId, createdAt])
@@ -449,6 +450,7 @@ model Bot {
   assignedTickets   Ticket[]          @relation("TicketAssigneeBot")
   createdTickets    Ticket[]          @relation("TicketCreatorBot")
   ticketComments    TicketComment[]   @relation("TicketCommentAuthorBot")
+  proposals         Proposal[]
 
   externalConversations ExternalConversation[]
 
@@ -1483,4 +1485,32 @@ model TicketComment {
 
   @@index([ticketId, createdAt])
   @@map("ticket_comments")
+}
+
+/// A plan or decision a bot asks the user to approve before acting on it.
+model Proposal {
+  id             String    @id @default(cuid())
+  spaceId        String
+  space          Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId         String
+  botId          String
+  bot            Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  kind           String
+  title          String
+  summary        String
+  options        String[]  @default([])
+  recommendation String    @default("")
+  status         String    @default("pending")
+  chosenOption   String?
+  comment        String?
+  decidedAt      DateTime?
+  /// Tool-call effect key, so a replayed submit_proposal returns the same row.
+  submitKey      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([spaceId, submitKey])
+  @@index([spaceId, userId, status, createdAt])
+  @@index([botId])
+  @@map("proposals")
 }

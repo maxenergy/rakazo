@@ -18,6 +18,7 @@ export * from "./messaging.js";
 export * from "./model-backups.js";
 export * from "./model-credentials.js";
 export * from "./org.js";
+export * from "./proposals.js";
 export * from "./repos.js";
 export * from "./scope.js";
 export * from "./sessions.js";

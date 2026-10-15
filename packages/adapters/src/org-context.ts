@@ -11,7 +11,7 @@ export type OrgMember = {
 };
 
 const ROLE_DUTIES: Record<BotOrgRole, string> = {
-  ceo: "You own goals, plans, staffing, progress, and reporting to the user. Draft each plan with the CTO, then get the user's approval with ask_user before you staff a team or start the work.",
+  ceo: "You own goals, plans, staffing, progress, and reporting to the user. Draft each plan with the CTO, then get the user's approval with submit_proposal before you staff a team or start the work.",
   cto: "You own technical plans, architecture, and reviews. Work out plans with the CEO, and help any bot that escalates a hard technical problem to you.",
   lead: "You run your team: split the work, give each member a clear task, check results, and report progress to the bot you report to.",
   member:
@@ -38,11 +38,11 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
       ? `Your direct reports: ${reports.map((member) => `${label(member)}${member.team ? `, team ${member.team}` : ""}`).join("; ")}.`
       : undefined,
     cto && self.orgRole !== "cto"
-      ? `For a hard technical problem you cannot solve, message_bot the CTO, ${label(cto)}, with what you tried.`
+      ? `For a hard technical problem you cannot solve, escalate it (kind technical) to the CTO, ${label(cto)}, with what you tried.`
       : undefined,
     ceo && self.orgRole !== "ceo"
-      ? `For a decision that changes scope, budget, or direction, message_bot the CEO, ${label(ceo)}. The CEO and CTO agree on a recommendation and the CEO asks the user before anyone acts on it.`
-      : "For a decision that changes scope, budget, or direction, agree on a recommendation with the CTO, then ask the user with ask_user before acting on it.",
+      ? `For a decision that changes scope, budget, or direction, escalate it (kind decision) to the CEO, ${label(ceo)}. The CEO and CTO agree on a recommendation and the CEO asks the user before anyone acts on it.`
+      : "For a decision that changes scope, budget, or direction, agree on a recommendation with the CTO, then send it to the user with submit_proposal and wait for the decision before acting on it.",
   ];
   return lines.filter(Boolean).join("\n");
 }
@@ -67,4 +67,48 @@ export async function loadOrgContext(
     return orgRole ? [{ ...row, orgRole }] : [];
   });
   return renderOrgContext(org.find((member) => member.id === bot.id) ?? null, org);
+}
+
+/** The active CEO or CTO in this bot's space, if the org has one. */
+export async function findOrgExecutive(
+  prisma: PrismaClient,
+  bot: { spaceId: string; userId: string },
+  role: "ceo" | "cto",
+) {
+  return prisma.bot.findFirst({
+    where: { spaceId: bot.spaceId, userId: bot.userId, archivedAt: null, orgRole: role },
+    select: { id: true, name: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/** Where an escalation goes, or why it cannot go anywhere. */
+export function escalationTarget(
+  kind: "technical" | "decision",
+  self: { id: string; orgRole: BotOrgRole | null },
+  executives: {
+    ceo: { id: string; name: string } | null;
+    cto: { id: string; name: string } | null;
+  },
+): { ok: true; target: { id: string; name: string } } | { ok: false; error: string } {
+  if (!self.orgRole) {
+    return { ok: false, error: "escalate needs an org role. Use message_bot instead." };
+  }
+  if (kind === "technical") {
+    if (self.orgRole === "cto") {
+      return {
+        ok: false,
+        error: "You are the CTO. Solve it yourself, or escalate a decision to the CEO.",
+      };
+    }
+    return executives.cto && executives.cto.id !== self.id
+      ? { ok: true, target: executives.cto }
+      : { ok: false, error: "This org has no CTO to escalate to." };
+  }
+  if (self.orgRole === "ceo") {
+    return { ok: false, error: "You are the CEO. Use submit_proposal to ask the user." };
+  }
+  return executives.ceo && executives.ceo.id !== self.id
+    ? { ok: true, target: executives.ceo }
+    : { ok: false, error: "This org has no CEO to escalate to." };
 }

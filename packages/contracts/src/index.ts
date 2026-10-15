@@ -19,6 +19,7 @@ export * from "./model-backups.js";
 export * from "./onboarding.js";
 export * from "./openai-compatible-ui.js";
 export * from "./org.js";
+export * from "./proposals.js";
 export * from "./reactions.js";
 export * from "./rpc.js";
 export * from "./runs.js";

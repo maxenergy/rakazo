@@ -105,6 +105,7 @@ import {
   IntegrationProviderConfigSchema,
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
+import { DecideProposalInput, ListProposalsInput, ProposalSchema } from "./proposals.js";
 import { MessageReactionSchema } from "./reactions.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
 import { SearchQueryOutputSchema } from "./search.js";
@@ -596,6 +597,11 @@ export const appContract = {
     get: oc.output(BoardSchema),
     rename: oc.input(RenameBoardInput).output(BoardSchema),
     subscribe: oc.output(eventIterator(BoardEventSchema)),
+  },
+  proposals: {
+    list: oc.input(ListProposalsInput).output(z.array(ProposalSchema)),
+    /** Approve or reject a pending proposal, then wake the bot that sent it. */
+    decide: oc.input(DecideProposalInput).output(ProposalSchema),
   },
   tickets: {
     list: oc.input(ListTicketsInput).output(ListTicketsOutput),

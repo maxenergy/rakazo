@@ -1011,6 +1011,50 @@ export const builtinAgentTools: ConnectorTool[] = [
     },
   },
   {
+    name: "submit_proposal",
+    description:
+      "Send a plan or decision to the user for approval. Do not act on it until the decision arrives as a new message. If you have an org role, only the CEO may submit; others use escalate.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: {
+          type: "string",
+          enum: ["plan", "decision"],
+          description:
+            "plan for a plan of work; decision for a choice about scope, budget, or direction.",
+        },
+        title: { type: "string", description: "Short title." },
+        summary: {
+          type: "string",
+          description: "The full proposal: goal, approach, team and models, cost, risks.",
+        },
+        options: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional choices for the user to pick from, at most 6.",
+        },
+        recommendation: { type: "string", description: "Optional recommended option and why." },
+      },
+      required: ["kind", "title", "summary"],
+    },
+  },
+  {
+    name: "escalate",
+    description:
+      "Escalate within your org: technical sends a hard technical problem to the CTO; decision sends a decision about scope, budget, or direction to the CEO, who takes it to the user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["technical", "decision"] },
+        message: {
+          type: "string",
+          description: "The problem or decision, what you tried, and the options you see.",
+        },
+      },
+      required: ["kind", "message"],
+    },
+  },
+  {
     name: "create_space",
     description:
       "Propose a new space in the current organization when the user asks for a separate data boundary. A space can contain many bots and groups, but its chats, files, memory, tools, and integrations stay isolated from other spaces. This always shows the user a confirmation card before creation. Creating the space is the whole action; do not create bots in it unless the user asks later.",

@@ -106,6 +106,7 @@ import {
 import type { McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  createProposal,
   createSpaceForMember,
   createThreadMessageInTransaction,
   effectiveMemoryScope,
@@ -289,7 +290,7 @@ import {
   modelAcceptsImageInput,
   modelIdSupportsImages,
 } from "./model-vision.js";
-import { loadOrgContext } from "./org-context.js";
+import { escalationTarget, findOrgExecutive, loadOrgContext } from "./org-context.js";
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
 import { codexLiveListsModel } from "./pi-codex-catalog.js";
 import { toOAuthCredential } from "./pi-credentials.js";
@@ -313,6 +314,7 @@ import {
   searchChartCatalog,
 } from "./plot-tool.js";
 import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
+import { parseProposalArgs } from "./proposal-tools.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
@@ -5753,6 +5755,59 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
           }
           if (name === "list_secrets") return listBotSecrets(deps.prisma, run);
+          if (name === "submit_proposal") {
+            const role = parseBotOrgRole(bot.orgRole);
+            if (role && role !== "ceo") {
+              return finish({
+                error: "Only the CEO submits proposals to the user. Use escalate instead.",
+              });
+            }
+            const parsed = parseProposalArgs(args);
+            if (!parsed.ok) return finish({ error: parsed.error });
+            const { proposal, replayed } = await createProposal(deps.prisma, run, {
+              ...parsed.draft,
+              title: redactSecrets(parsed.draft.title, runSecrets),
+              summary: redactSecrets(parsed.draft.summary, runSecrets),
+              recommendation: redactSecrets(parsed.draft.recommendation, runSecrets),
+              botId: bot.id,
+              submitKey: effectKey,
+            });
+            return finish({
+              ok: true,
+              proposalId: proposal.id,
+              status: proposal.status,
+              note: replayed
+                ? "Already submitted in this turn."
+                : "Sent to the user for approval. Do not act on it until the decision arrives as a new message.",
+            });
+          }
+          if (name === "escalate") {
+            const kind = args.kind === "technical" || args.kind === "decision" ? args.kind : null;
+            if (!kind) return finish({ error: 'kind must be "technical" or "decision".' });
+            const [ceo, cto] = await Promise.all([
+              findOrgExecutive(deps.prisma, run, "ceo"),
+              findOrgExecutive(deps.prisma, run, "cto"),
+            ]);
+            const routed = escalationTarget(
+              kind,
+              { id: bot.id, orgRole: parseBotOrgRole(bot.orgRole) },
+              { ceo, cto },
+            );
+            if (!routed.ok) return finish({ error: routed.error });
+            const sent = await messageBot(
+              deps,
+              { ...run, sourceMessageId: run.sourceMessageId },
+              { id: bot.id, name: bot.name },
+              {
+                bot_id: routed.target.id,
+                message: `[${kind} escalation] ${redactSecrets(String(args.message ?? ""), runSecrets)}`,
+                intent: kind === "technical" ? "request" : "question",
+                deliveryKey: effectKey,
+              },
+            );
+            if (!sent.ok) return finish({ error: sent.error });
+            return finish({ ok: true, botId: sent.botId, name: sent.name, note: sent.note });
+          }
           if (name === "forget_secret") {
             const parsed = BotSecretName.safeParse(args.name);
             if (!parsed.success) return finish({ error: "A valid credential name is required." });

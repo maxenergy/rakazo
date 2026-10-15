@@ -48,6 +48,9 @@ const WelcomePage = lazy(() =>
 const ArtifactsPage = lazy(() =>
   import("./pages/Artifacts").then((module) => ({ default: module.ArtifactsPage })),
 );
+const ApprovalsPage = lazy(() =>
+  import("./pages/Approvals").then((module) => ({ default: module.ApprovalsPage })),
+);
 const BoardPage = lazy(() =>
   import("./pages/Board").then((module) => ({ default: module.BoardPage })),
 );
@@ -178,6 +181,7 @@ function SessionApp() {
             <Route path="/app/artifacts" element={<ArtifactsPage />} />
             <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
             {ticketBoardEnabled ? <Route path="/app/board" element={<BoardPage />} /> : null}
+            <Route path="/app/approvals" element={<ApprovalsPage />} />
             <Route path="/app/:botId" element={<ShellPage />} />
           </Route>
         </Routes>

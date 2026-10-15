@@ -151,6 +151,25 @@ export function inferScript(
       },
     ];
   }
+  // Generic hook for end-to-end checks of any tool: "call the tool NAME with {json}".
+  const toolCall = /call the tool\s+([a-z_.]+)\s+with\s+(\{[\s\S]*\})\s*$/i.exec(prompt);
+  if (toolCall?.[1] && toolCall[2]) {
+    let args: Record<string, unknown> | undefined;
+    try {
+      args = JSON.parse(toolCall[2]) as Record<string, unknown>;
+    } catch {
+      args = undefined;
+    }
+    if (args) {
+      return [
+        {
+          assistant: `calling ${toolCall[1]}.`,
+          toolCalls: [{ name: toolCall[1], args }],
+          complete: true,
+        },
+      ];
+    }
+  }
   // Before every content-based intent so payload text cannot steal the branch.
   const shellCommand = /run the shell command\s+([\s\S]+)$/i.exec(prompt)?.[1]?.trim();
   if (shellCommand) {

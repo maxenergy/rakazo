@@ -96,6 +96,7 @@ import {
   prepareStoredModelAuth,
   probeCatalogProviderModels,
   probeOpenAiCompatibleModels,
+  proposalDecisionText,
   provisionComputer,
   queueComputerUpdate,
   releaseComputerExecutionLease,
@@ -182,6 +183,7 @@ import {
   createRepos,
   createSpaceForMember,
   createThreadMessageInTransaction,
+  decideProposal,
   defaultModelCredentialCandidates,
   deleteEmptySpaceForMember,
   deleteUnreferencedCredentialSecret,
@@ -196,12 +198,14 @@ import {
   IsolationError,
   issueMessagingLinkCode,
   listBoards,
+  listProposals,
   listSpaceBackupModels,
   listTicketComments,
   lockOwnedGroup,
   newestModelCredentialOrder,
   newestVoiceCredentialOrder,
   Prisma,
+  ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
   releaseSpaceDeletionClaim,
@@ -3826,6 +3830,36 @@ export function createRouter(deps: RouterDeps) {
         } finally {
           void follow.return(undefined).catch(() => {});
         }
+      }),
+    },
+    proposals: {
+      list: authed.proposals.list.handler(async ({ context, input }) =>
+        listProposals(deps.prisma, context.actor, input.status),
+      ),
+      decide: authed.proposals.decide.handler(async ({ context, input }) => {
+        let proposal: Awaited<ReturnType<typeof decideProposal>>;
+        try {
+          proposal = await decideProposal(deps.prisma, context.actor, input);
+        } catch (error) {
+          if (error instanceof ProposalDecisionError) {
+            throw new ORPCError("BAD_REQUEST", { message: error.message });
+          }
+          throw error;
+        }
+        if (proposal.status === "pending") return proposal;
+        // The decision is saved either way; an archived bot just is not woken.
+        try {
+          const target = await resolveThreadTarget(deps.prisma, context.actor, {
+            botId: proposal.botId,
+          });
+          await sendThreadMessage(deps, context.actor, target, {
+            text: proposalDecisionText({ ...proposal, status: proposal.status }),
+            clientNonce: `proposal-decision:${proposal.id}`,
+          });
+        } catch (error) {
+          getLogger().error("proposal decision delivery", error);
+        }
+        return proposal;
       }),
     },
     tickets: {

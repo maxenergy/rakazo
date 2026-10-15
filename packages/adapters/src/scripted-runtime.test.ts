@@ -289,3 +289,21 @@ describe("inferScript save_shared_memory", () => {
     ]);
   });
 });
+
+describe("inferScript generic tool calls", () => {
+  it("calls the named tool with the given JSON arguments", () => {
+    expect(
+      inferScript('call the tool escalate with {"kind":"technical","message":"Build fails"}'),
+    ).toEqual([
+      {
+        assistant: "calling escalate.",
+        toolCalls: [{ name: "escalate", args: { kind: "technical", message: "Build fails" } }],
+        complete: true,
+      },
+    ]);
+  });
+
+  it("ignores malformed JSON", () => {
+    expect(inferScript("call the tool escalate with {not json}")[0]?.toolCalls).toBeUndefined();
+  });
+});

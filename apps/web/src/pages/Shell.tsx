@@ -93,6 +93,7 @@ import {
   Box,
   ChevronDown,
   CircleAlert,
+  ClipboardCheck,
   Clock,
   Copy,
   FolderOpen,
@@ -3454,6 +3455,18 @@ export function ShellPage() {
               align="start"
               className="w-[calc(316px-1.5rem)] max-w-[calc(100vw-3rem)] gap-0 p-1 data-closed:animate-none"
             >
+              <Button
+                variant="ghost"
+                className="w-full justify-start font-normal"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setMobileSidebarOpen(false);
+                  navigate("/app/approvals");
+                }}
+              >
+                <ClipboardCheck className="text-muted-foreground" strokeWidth={1.75} />
+                <Trans>Approvals</Trans>
+              </Button>
               {bootstrapMe?.ticketBoardEnabled ? (
                 <Button
                   variant="ghost"

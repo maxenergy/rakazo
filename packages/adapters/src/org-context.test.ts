@@ -34,8 +34,8 @@ describe("org context", () => {
     const text = renderOrgContext(member, org) ?? "";
     expect(text).toContain("you are the member on team Research");
     expect(text).toContain("You report to Research lead (lead, id lead-1).");
-    expect(text).toContain("message_bot the CTO, CTO (cto, id cto-1)");
-    expect(text).toContain("message_bot the CEO, CEO (ceo, id ceo-1)");
+    expect(text).toContain("escalate it (kind technical) to the CTO, CTO (cto, id cto-1)");
+    expect(text).toContain("escalate it (kind decision) to the CEO, CEO (ceo, id ceo-1)");
     expect(text).toContain("You cannot create bots");
   });
 
@@ -44,14 +44,14 @@ describe("org context", () => {
     expect(text).toContain("You report to the user.");
     expect(text).toContain("Your direct reports: Research lead (lead, id lead-1), team Research.");
     expect(text).toContain(
-      "agree on a recommendation with the CTO, then ask the user with ask_user",
+      "agree on a recommendation with the CTO, then send it to the user with submit_proposal",
     );
-    expect(text).not.toContain("message_bot the CEO");
+    expect(text).not.toContain("to the CEO");
   });
 
   it("does not tell the CTO to escalate to itself", () => {
     const text = renderOrgContext(cto, org) ?? "";
-    expect(text).not.toContain("message_bot the CTO");
-    expect(text).toContain("message_bot the CEO");
+    expect(text).not.toContain("to the CTO,");
+    expect(text).toContain("escalate it (kind decision) to the CEO");
   });
 });

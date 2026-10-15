@@ -49,6 +49,12 @@ describe("org context", () => {
     expect(text).not.toContain("to the CEO");
   });
 
+  it("tells the CTO to review in full and hand the proposal back to the CEO", () => {
+    const text = renderOrgContext(cto, org) ?? "";
+    expect(text).toContain("write your full review in your reply");
+    expect(text).toContain("hand the next stage back to the CEO with handoff_to_bot");
+  });
+
   it("does not tell the CTO to escalate to itself", () => {
     const text = renderOrgContext(cto, org) ?? "";
     expect(text).not.toContain("to the CTO,");

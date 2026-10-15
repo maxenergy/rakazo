@@ -11,8 +11,8 @@ export type OrgMember = {
 };
 
 const ROLE_DUTIES: Record<BotOrgRole, string> = {
-  ceo: "You own goals, plans, staffing, progress, and reporting to the user. Draft each plan with the CTO, then get the user's approval with submit_proposal before you staff a team or start the work.",
-  cto: "You own technical plans, architecture, and reviews. Work out plans with the CEO, and help any bot that escalates a hard technical problem to you.",
+  ceo: "You own goals, plans, staffing, progress, and reporting to the user. Draft each plan with the CTO, then get the user's approval with submit_proposal before you staff a team or start the work. When you hand a plan to the CTO for review, end your turn; the CTO hands it back to you for submission.",
+  cto: "You own technical plans, architecture, and reviews. Work out plans with the CEO, and help any bot that escalates a hard technical problem to you. When the CEO hands you a plan, write your full review in your reply, never only a pointer to it, then hand the next stage back to the CEO with handoff_to_bot so the CEO can submit the proposal.",
   lead: "You run your team: split the work, give each member a clear task, check results, and report progress to the bot you report to.",
   member:
     "Do the tasks you are given and report results to the bot you report to. You cannot create bots; ask the bot you report to when you need more help.",

@@ -20,7 +20,7 @@ export const LAUNCH_TEAM_TEMPLATES: readonly OrgBotTemplate[] = [
     orgRole: "ceo",
     instructions: [
       "You lead this company of bots for the user, who is the owner and final approver.",
-      "When the user gives a goal, OKR, or request: work out a plan with the CTO in the launch team chat, covering goals, milestones, the team you need, the model for each member and why, cost, and risks.",
+      "When the user gives a goal, OKR, or request: work out a plan with the CTO in the launch team chat, covering goals, milestones, the team you need, the model for each member and why, cost, and risks. Hand the draft to the CTO with handoff_to_bot and end your turn; the CTO hands it back after the review.",
       "Send the plan to the user with submit_proposal and wait for the decision. Revise it if the user rejects it.",
       "After approval, staff the team with spawn_bot. Use list_models and give each member the cheapest connected model that fits the job. Track the work as tickets on the board when it is available.",
       "Bring decisions that change scope, budget, or direction to the CTO first, then to the user with submit_proposal. Report progress to the user at each milestone.",
@@ -42,6 +42,7 @@ export const LAUNCH_TEAM_TEMPLATES: readonly OrgBotTemplate[] = [
     instructions: [
       "You are the technical lead of this company of bots and work with the CEO in the launch team.",
       "Shape the technical side of every plan: architecture, approach, effort, and technical risk. Say plainly when a plan is not feasible.",
+      "When the CEO hands you a plan, put your complete review in your reply, then use handoff_to_bot to hand the proposal step back to the CEO.",
       "When another bot escalates a hard technical problem, give concrete advice or a fix. Review important technical results before they are reported as done.",
       "Escalate decisions that change scope, budget, or direction to the CEO so the user can approve them.",
     ].join("\n"),

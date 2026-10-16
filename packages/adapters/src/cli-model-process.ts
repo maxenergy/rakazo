@@ -171,7 +171,12 @@ export type CliProcessOptions = {
   ) => void;
 };
 
-export type CliFailureCause = "context_too_long" | "rate_limited" | "auth" | "exit_code";
+export type CliFailureCause =
+  | "context_too_long"
+  | "rate_limited"
+  | "auth"
+  | "network"
+  | "exit_code";
 
 /** A CLI that exited with an error, with a coarse cause read from its own output. */
 export class CliProcessError extends Error {
@@ -192,6 +197,12 @@ export function classifyCliFailure(output: string): CliFailureCause {
     )
   )
     return "context_too_long";
+  if (
+    /routing discovery failed|request timed out|reconnecting|connection (reset|refused|closed)|econn|enotfound|etimedout|network error|stream disconnected|dns/.test(
+      text,
+    )
+  )
+    return "network";
   if (/rate.?limit|usage limit|quota|too many requests|\b429\b/.test(text)) return "rate_limited";
   if (
     /unauthori[sz]ed|\b401\b|not logged in|log ?in again|sign ?in again|expired token|refresh token/.test(

@@ -48,6 +48,9 @@ type CliReply = { text: string; calls: { name: string; argumentsJson: string }[]
  */
 const CLI_INFERENCE_TIMEOUT_MS = 10 * 60_000;
 const CLI_INFERENCE_ATTEMPTS = 2;
+/** A network failure gets one more try, after a pause for the connection to recover. */
+const CLI_NETWORK_ATTEMPTS = 3;
+const CLI_NETWORK_RETRY_DELAY_MS = 45_000;
 
 /** A coarse failure label that never carries CLI output. */
 function cliFailureReason(error: unknown) {
@@ -522,10 +525,18 @@ function streamCliModel(
               ? { "cli.tool": error.toolName }
               : {}),
           });
-          if (attempt >= CLI_INFERENCE_ATTEMPTS) throw error;
+          const reason = cliFailureReason(error);
+          if (attempt >= (reason === "network" ? CLI_NETWORK_ATTEMPTS : CLI_INFERENCE_ATTEMPTS))
+            throw error;
+          if (reason === "network") {
+            // The prompt was fine; wait for the connection instead of shrinking it.
+            await new Promise((resolve) => setTimeout(resolve, CLI_NETWORK_RETRY_DELAY_MS));
+            options.signal?.throwIfAborted();
+            continue;
+          }
           // A retry sends a tighter context: an oversized prompt is the usual reason
           // a long run's CLI turn fails outright, and the CLI may say so.
-          budgetScale = cliFailureReason(error) === "context_too_long" ? 0.3 : 0.5;
+          budgetScale = reason === "context_too_long" ? 0.3 : 0.5;
         }
       }
       if (reply.text) {

@@ -200,6 +200,14 @@ describe("CLI failure classification", () => {
     );
     expect(classifyCliFailure("You've hit your usage limit")).toBe("rate_limited");
     expect(classifyCliFailure("401 Unauthorized")).toBe("auth");
+    expect(
+      classifyCliFailure(
+        '{"type":"turn.failed","error":{"message":"workspace routing discovery failed"}}',
+      ),
+    ).toBe("network");
+    expect(classifyCliFailure("failed to refresh available models: request timed out")).toBe(
+      "network",
+    );
     expect(classifyCliFailure("used 4012 tokens")).toBe("exit_code");
   });
 });

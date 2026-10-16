@@ -13,7 +13,12 @@ import type {
 import { createAssistantMessageEventStream, createProvider } from "@earendil-works/pi-ai";
 import { getLogger } from "@rakazo/logging";
 import type { CliModelProvider } from "./cli-model-process.js";
-import { CLI_MODEL_PROVIDERS, isCliProfileId, runCliProcess } from "./cli-model-process.js";
+import {
+  CLI_MODEL_PROVIDERS,
+  CliProcessError,
+  isCliProfileId,
+  runCliProcess,
+} from "./cli-model-process.js";
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -45,6 +50,7 @@ const CLI_INFERENCE_ATTEMPTS = 2;
 
 /** A coarse failure label that never carries CLI output. */
 function cliFailureReason(error: unknown) {
+  if (error instanceof CliProcessError) return error.reason;
   const text = error instanceof Error ? error.message : "";
   if (/timed out/i.test(text)) return "timeout";
   if (/size limit/i.test(text)) return "output_too_large";
@@ -227,6 +233,8 @@ export function boundCliMessages(
 function cliPrompt(
   context: TranscriptContext,
   contextWindow?: number,
+  /** Fraction of the usual context budget, lowered when a retry follows a failure. */
+  budgetScale = 1,
 ): { prompt: string; tools: Set<string> } {
   const tools = new Set<string>();
   for (const message of context.messages) {
@@ -248,7 +256,7 @@ function cliPrompt(
       contextWindow
         ? boundCliMessages(
             context.messages,
-            Math.floor(contextWindow * CLI_CHARS_PER_TOKEN * CLI_CONTEXT_SHARE),
+            Math.floor(contextWindow * CLI_CHARS_PER_TOKEN * CLI_CONTEXT_SHARE * budgetScale),
           )
         : context.messages,
     )}`,
@@ -408,15 +416,19 @@ function streamCliModel(
       if (!isCliProfileId(options?.apiKey))
         throw new Error("Sign in to this CLI connection first.");
       options.signal?.throwIfAborted();
-      const { prompt, tools } = cliPrompt(context, model.contextWindow);
+      const { tools } = cliPrompt(context, model.contextWindow);
       stream.push({ type: "start", partial: message });
       directory = await mkdtemp(join(tmpdir(), "rakazo-cli-request-"));
       const schemaPath = join(directory, "response.json");
       await writeFile(schemaPath, JSON.stringify(RESPONSE_SCHEMA), { mode: 0o600 });
-      await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
       const provider = model.provider as CliModelProvider;
       let reply: CliReply | undefined;
       for (let attempt = 1; !reply; attempt += 1) {
+        // A retry sends a tighter context: an oversized prompt is the usual reason
+        // a long run's CLI turn fails outright.
+        const { prompt } = cliPrompt(context, model.contextWindow, attempt === 1 ? 1 : 0.5);
+        // Grok CLI reads the prompt from this file instead of stdin.
+        await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
         try {
           const output = await runCliProcess({
             provider,

@@ -292,4 +292,30 @@ describe("subscription CLI provider conformance", () => {
       "only restrict this CLI process",
     );
   });
+
+  it("retries a failed CLI turn with a tighter context", async () => {
+    vi.mocked(runCliProcess)
+      .mockRejectedValueOnce(
+        new Error("Codex CLI failed. Check sign-in, model access, and subscription limits."),
+      )
+      .mockResolvedValueOnce(output("codex-cli"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("codex-cli")!.getModels()[0]!;
+    const big = "x".repeat(Math.floor(model.contextWindow * 3 * 0.6 * 0.8));
+    const messages = [
+      { role: "user" as const, content: "Start", timestamp: 0 },
+      ...Array.from({ length: 30 }, (_, index) => ({
+        role: "toolResult" as const,
+        toolCallId: `call-${index}`,
+        toolName: "shell",
+        content: [{ type: "text" as const, text: big.slice(0, big.length / 30) }],
+        isError: false,
+        timestamp: index + 1,
+      })),
+    ];
+    const result = await models.streamSimple(model, { messages }, { apiKey: profileId }).result();
+    expect(result.stopReason).toBe("stop");
+    const [first, second] = vi.mocked(runCliProcess).mock.calls.map((call) => call[0].input ?? "");
+    expect(second!.length).toBeLessThan(first!.length);
+  });
 });

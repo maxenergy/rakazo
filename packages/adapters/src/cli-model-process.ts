@@ -171,6 +171,39 @@ export type CliProcessOptions = {
   ) => void;
 };
 
+export type CliFailureCause = "context_too_long" | "rate_limited" | "auth" | "exit_code";
+
+/** A CLI that exited with an error, with a coarse cause read from its own output. */
+export class CliProcessError extends Error {
+  constructor(
+    message: string,
+    readonly reason: CliFailureCause,
+  ) {
+    super(message);
+  }
+}
+
+/** Classify a failed CLI run from the tail of its output. The output itself is never kept. */
+export function classifyCliFailure(output: string): CliFailureCause {
+  const text = output.toLowerCase();
+  if (
+    /context.?length|context.?window|maximum context|too many tokens|prompt is too long|input is too long|token limit/.test(
+      text,
+    )
+  )
+    return "context_too_long";
+  if (/rate.?limit|usage limit|quota|too many requests|\b429\b/.test(text)) return "rate_limited";
+  if (
+    /unauthori[sz]ed|\b401\b|not logged in|log ?in again|sign ?in again|expired token|refresh token/.test(
+      text,
+    )
+  )
+    return "auth";
+  return "exit_code";
+}
+
+const CLI_DIAGNOSTIC_TAIL = 16 * 1024;
+
 export async function runCliProcess(options: CliProcessOptions): Promise<string> {
   options.signal?.throwIfAborted();
   const directory = await prepareCliProfile(options.profileId);
@@ -219,6 +252,7 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
       stdio: "pipe",
     });
     let output = "";
+    let diagnostics = "";
     let failure: Error | undefined;
     let stopped = false;
     const stop = () => {
@@ -261,6 +295,7 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
     child.stderr.setEncoding("utf8");
     const receive = (text: string, stdout: boolean) => {
       if (stdout) output += text;
+      diagnostics = (diagnostics + text).slice(-CLI_DIAGNOSTIC_TAIL);
       if (output.length > 4 * 1024 * 1024) {
         failure = new Error("CLI response exceeded the size limit.");
         stop();
@@ -285,8 +320,9 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
       if (failure) reject(failure);
       else if (code !== 0 && !stopped)
         reject(
-          new Error(
+          new CliProcessError(
             `${CLI_MODEL_PROVIDERS[options.provider].name} failed. Check sign-in, model access, and subscription limits.`,
+            classifyCliFailure(diagnostics),
           ),
         );
       else resolveResult(output);

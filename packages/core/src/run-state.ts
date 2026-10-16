@@ -13,7 +13,13 @@ const TERMINAL: RunStatus[] = ["completed", "failed", "cancelled"];
  * Routine and webhook runs are not the conversation. The creation intro has no tools;
  * a message that lands during it waits, and the continuation after the intro finishes answers it.
  */
-const NON_CONVERSATIONAL_RUN_TRIGGERS = new Set(["routine", "webhook", "created", "tickets"]);
+const NON_CONVERSATIONAL_RUN_TRIGGERS = new Set([
+  "routine",
+  "webhook",
+  "created",
+  "tickets",
+  "org_check_in",
+]);
 
 /**
  * Background triggers do internal work that must not leak into the chat: the

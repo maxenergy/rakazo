@@ -118,38 +118,92 @@ export class CliReplyError extends Error {
   }
 }
 
-/** Escape raw control characters inside JSON strings, such as a multi-line shell command. */
-function escapeControlCharsInStrings(text: string) {
+/**
+ * Whether a quote can end the string it is in, judged by what JSON allows next:
+ * a key ends before a colon, an object value before `}` or the next `"key":`, and
+ * an array item before `]` or a comma.
+ */
+function quoteEndsString(rest: string, container: "object" | "array" | undefined, key: boolean) {
+  const next = rest.trimStart();
+  if (key) return next.startsWith(":");
+  if (container === "object")
+    return next.startsWith("}") || /^,\s*"(?:[^"\\]|\\.)*"\s*:/.test(next);
+  if (container === "array") return next.startsWith("]") || next.startsWith(",");
+  return !next;
+}
+
+/**
+ * Escape raw control characters inside JSON strings, such as a multi-line shell
+ * command, and with `quotes`, also escape a double quote that cannot end its string,
+ * such as the quotes of a Python one-liner inside a shell command.
+ */
+function repairJsonStrings(text: string, quotes: boolean) {
   let out = "";
   let inString = false;
   let escaped = false;
-  for (const char of text) {
-    if (inString && !escaped && char < " ") {
-      out += char === "\n" ? "\\n" : char === "\r" ? "\\r" : char === "\t" ? "\\t" : "";
-      continue;
-    }
-    if (escaped) escaped = false;
-    else if (char === "\\") escaped = inString;
-    else if (char === '"') inString = !inString;
+  let key = false;
+  let expectKey = false;
+  const containers: ("object" | "array")[] = [];
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]!;
+    if (inString) {
+      if (!escaped && char < " ") {
+        out += char === "\n" ? "\\n" : char === "\r" ? "\\r" : char === "\t" ? "\\t" : "";
+        continue;
+      }
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') {
+        if (quotes && !quoteEndsString(text.slice(index + 1), containers.at(-1), key)) {
+          out += '\\"';
+          continue;
+        }
+        inString = false;
+      }
+    } else if (char === '"') {
+      inString = true;
+      key = containers.at(-1) === "object" && expectKey;
+    } else if (char === "{" || char === "[") {
+      containers.push(char === "{" ? "object" : "array");
+      expectKey = char === "{";
+    } else if (char === "}" || char === "]") containers.pop();
+    else if (char === ":") expectKey = false;
+    else if (char === ",") expectKey = containers.at(-1) === "object";
     out += char;
   }
   return out;
 }
 
+function parseRepairedArguments(text: string, quotes: boolean) {
+  // Keep valid escapes, read left to right in pairs; double any other backslash.
+  return JSON.parse(
+    repairJsonStrings(text, quotes).replace(
+      /\\(u[0-9a-fA-F]{4}|["\\/bfnrt])|\\/g,
+      (escape, valid) => (valid ? escape : "\\\\"),
+    ),
+  );
+}
+
 /**
- * Tool arguments from a CLI model, repaired for three common slips: a backslash
- * escape JSON does not allow (often from shell or regex text), raw newlines or
- * tabs inside a string, and arguments encoded twice so they parse to a string
- * instead of an object.
+ * Tool arguments from a CLI model, repaired for common slips: a backslash escape
+ * JSON does not allow (often from shell or regex text), raw newlines or tabs inside
+ * a string, unescaped quotes inside a string, and arguments encoded twice so they
+ * parse to a string instead of an object.
  */
 export function parseToolArguments(text: string): unknown {
   let value: unknown;
   try {
     value = JSON.parse(text);
   } catch {
-    // Keep valid escapes; double the backslash of any other escape.
-    const repaired = escapeControlCharsInStrings(text).replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
-    value = parseJson(repaired, "bad_arguments");
+    try {
+      value = parseRepairedArguments(text, false);
+    } catch {
+      try {
+        value = parseRepairedArguments(text, true);
+      } catch {
+        throw new CliReplyError("Invalid CLI model response.", "bad_arguments");
+      }
+    }
   }
   if (typeof value === "string") value = parseJson(value, "bad_arguments");
   return value;
@@ -347,7 +401,7 @@ function cliPrompt(
   }
   return {
     tools,
-    prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.\nDo not use the CLI's own tools, files, shell, extensions, or MCP servers. Rakazo executes tools separately.\nThe CLI's own sandbox, approval, and escalation settings (for example a read-only sandbox) only restrict this CLI process. They do not describe your environment: the tools in the conversation run on Rakazo's side, and their own descriptions and results say what they can do, including writing files and running commands.\nTo request a tool defined in the conversation, return its name and JSON-encoded object arguments in calls. Return user-visible text in text. After tool results, continue the conversation.\nReturn only one JSON object matching this schema: ${JSON.stringify(RESPONSE_SCHEMA)}\nConversation:\n${JSON.stringify(
+    prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.\nDo not use the CLI's own tools, files, shell, extensions, or MCP servers. Rakazo executes tools separately.\nThe CLI's own sandbox, approval, and escalation settings (for example a read-only sandbox) only restrict this CLI process. They do not describe your environment: the tools in the conversation run on Rakazo's side, and their own descriptions and results say what they can do, including writing files and running commands.\nTo request a tool defined in the conversation, return its name and JSON-encoded object arguments in calls. argumentsJson must parse as JSON: escape every double quote and backslash inside its strings. For a long or heavily quoted command, write the script to a file first, then run the file. Return user-visible text in text. After tool results, continue the conversation.\nReturn only one JSON object matching this schema: ${JSON.stringify(RESPONSE_SCHEMA)}\nConversation:\n${JSON.stringify(
       contextWindow
         ? boundCliMessages(
             context.messages,

@@ -344,6 +344,14 @@ describe("subscription CLI provider conformance", () => {
       command: "cd app\n\tpnpm test",
       cwd: "\\repo",
     });
+    expect(
+      parseToolArguments(
+        String.raw`{"command":"psql -c \"SELECT 1\"\npython3 -c 'from pathlib import Path; print(Path("a.log").read_text())'","timeout":60}`,
+      ),
+    ).toEqual({
+      command: `psql -c "SELECT 1"\npython3 -c 'from pathlib import Path; print(Path("a.log").read_text())'`,
+      timeout: 60,
+    });
     expect(parseToolArguments(JSON.stringify(JSON.stringify({ path: "a.txt" })))).toEqual({
       path: "a.txt",
     });

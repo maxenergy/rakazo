@@ -172,7 +172,13 @@ import {
 } from "./auto-review.js";
 import { createAutoReviewProvider } from "./auto-review-factory.js";
 import { attachedImageArtifactIds, resolveUpdateBotAvatar } from "./bot-avatar.js";
-import { loadBotMessageContext, messageBot, returnBotMessageOutcome } from "./bot-messages.js";
+import {
+  loadBotMessageContext,
+  markPeerMessageSeen,
+  messageBot,
+  peerMessageAlreadySeen,
+  returnBotMessageOutcome,
+} from "./bot-messages.js";
 import {
   listConnectedBotModels,
   parseBotModelSelection,
@@ -3364,6 +3370,29 @@ export function createRunExecutor(deps: ExecutorDeps) {
 
       const runSecrets = [...deps.secrets];
       try {
+        if (run.trigger === "bot_message" && (await peerMessageAlreadySeen(deps.prisma, run))) {
+          // An org bot's later turn already had this message in its history.
+          const skipped = await deps.events.finalizeRun({
+            spaceId: run.spaceId,
+            threadId: run.threadId,
+            botId: run.botId,
+            runId,
+            taskId: run.taskId,
+            attemptId: attempt.id,
+            leaseOwner: workerId,
+            leaseFence: fence,
+            outcome: "completed",
+            blocks: [],
+          });
+          if (!skipped) return;
+          await markPeerMessageSeen(deps.prisma, runId);
+          if (skipped.continuationRunId) {
+            await deps.jobs
+              .enqueue(runContinueJob(skipped.continuationRunId))
+              .catch((error) => getLogger().error("steering continuation enqueue", error));
+          }
+          return;
+        }
         const sourceBlocks =
           run.trigger === "messaging" && run.sourceMessageId
             ? ((

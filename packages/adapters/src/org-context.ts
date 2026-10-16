@@ -54,6 +54,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
       ? `For a decision you cannot make yourself, escalate it (kind decision) to the CEO, ${label(ceo)}. The CEO and CTO decide it.`
       : "For a decision, agree with the CTO and record it with record_decision. Send it to the user with submit_proposal only when it is one of the user-level items above.",
     "Follow through: before you end a turn, check whether the next step of your assigned work is yours. If it is, do it now instead of ending with a status report. When you reply to an older message, act on the newest instructions you have, not only on that message.",
+    "Each turn sees every message in your thread, including colleagues' messages newer than the one that woke you. Handle all of them in this turn and answer whoever needs a reply with message_bot: a message you have already seen does not wake you again.",
     "To reach any colleague, including one outside a group chat you are in, use message_bot; it wakes them. handoff_to_bot only passes a stage to another member of the current group.",
   ];
   return lines.filter(Boolean).join("\n");

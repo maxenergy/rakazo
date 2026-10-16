@@ -80,6 +80,8 @@ export const TicketCommentSchema = z.object({
 export type TicketComment = z.infer<typeof TicketCommentSchema>;
 
 export const TicketSchema = z.object({
+  projectId: Id.nullable(),
+  milestoneId: Id.nullable(),
   id: Id,
   boardId: Id,
   spaceId: Id,

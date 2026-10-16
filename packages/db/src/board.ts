@@ -93,6 +93,8 @@ function coerceTicketPriority(value: string | null | undefined): TicketPriority 
 
 export function toTicketDto(row: TicketRow, ticketPrefix: string): Ticket {
   return {
+    projectId: row.projectId,
+    milestoneId: row.milestoneId,
     id: row.id,
     boardId: row.boardId,
     spaceId: row.spaceId,

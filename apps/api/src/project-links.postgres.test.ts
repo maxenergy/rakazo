@@ -133,6 +133,27 @@ describePostgres("ticket association API isolation", () => {
     expect(changes).not.toHaveBeenCalled();
   });
 
+  it("returns association fields when setting, clearing, and switching projects", async () => {
+    const api = client();
+    const ticket = await api.tickets.create({ title: "Response links", assigneeBotId: botId });
+    expect(ticket).toMatchObject({ projectId: null, milestoneId: null });
+    expect(await api.tickets.update({ id: ticket.id, projectId, milestoneId })).toMatchObject({
+      projectId, milestoneId,
+    });
+    expect(await api.tickets.get({ id: ticket.id })).toMatchObject({ projectId, milestoneId });
+    expect(await api.tickets.update({ id: ticket.id, milestoneId: null })).toMatchObject({
+      projectId, milestoneId: null,
+    });
+    await api.tickets.update({ id: ticket.id, milestoneId });
+    const other = await prisma.project.create({ data: { spaceId, name: "Response other project" } });
+    expect(await api.tickets.update({ id: ticket.id, projectId: other.id })).toMatchObject({
+      projectId: other.id, milestoneId: null,
+    });
+    expect(await api.tickets.update({ id: ticket.id, projectId: null })).toMatchObject({
+      projectId: null, milestoneId: null,
+    });
+  });
+
   it("ignores caller-supplied spaceId and resolves associations in the authenticated space", async () => {
     const input = { title: "Scoped", assigneeBotId: botId, milestoneId, spaceId: foreignSpaceId };
     const ticket = await client().tickets.create(input);

@@ -7,6 +7,7 @@ import {
   buildBotMessageWakePrompt,
   clampBotMessage,
   nextBotMessageHop,
+  ORG_BOT_MESSAGE_MAX_HOPS,
   resolveBotAddress,
 } from "@rakazo/core";
 import {
@@ -97,7 +98,7 @@ export async function messageBot(
 
   const candidates = await deps.prisma.bot.findMany({
     where: { spaceId: run.spaceId, userId: run.userId, archivedAt: null },
-    select: { id: true, name: true, title: true, thread: { select: { id: true } } },
+    select: { id: true, name: true, title: true, orgRole: true, thread: { select: { id: true } } },
   });
   const target = resolveBotAddress(candidates, {
     botId: input.bot_id,
@@ -114,7 +115,12 @@ export async function messageBot(
       sourceContext.intent === "request" ||
       sourceContext.intent === "question") &&
     sourceContext?.fromBotId === target.id;
-  if (botMessageHopExhausted(hop) && !returnsToSender) {
+  const senderRole = candidates.find((candidate) => candidate.id === sender.id)?.orgRole;
+  const orgChain = Boolean(senderRole && target.orgRole);
+  if (
+    botMessageHopExhausted(hop, orgChain ? ORG_BOT_MESSAGE_MAX_HOPS : undefined) &&
+    !returnsToSender
+  ) {
     return {
       ok: false as const,
       error:

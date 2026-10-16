@@ -6,6 +6,11 @@ import { getLogger } from "@rakazo/logging";
 
 /** How long a whole org must sit with no run before the CEO is asked to pick up open work. */
 export const ORG_CHECK_IN_IDLE_MS = 10 * 60_000;
+/**
+ * After a check-in found nothing to start, wait this long before the next one: a
+ * colleague's subscription limit or another outside wait can clear in the meantime.
+ */
+export const ORG_CHECK_IN_REPEAT_MS = 60 * 60_000;
 /** Check-ins per org per day, so an org that keeps stalling cannot burn its subscriptions. */
 export const ORG_CHECK_IN_DAILY_LIMIT = 12;
 
@@ -13,6 +18,7 @@ export function orgCheckInPrompt(idleMinutes: number) {
   return [
     `Team check-in (automatic, not from the user): no bot in your org has worked for ${idleMinutes} minutes and nothing is queued.`,
     "Review the open work: tickets, your latest decisions, and your team's last reports. If a next step is ready, assign it now with message_bot.",
+    "A colleague whose turns failed on a CLI or subscription limit is usually available again after the limit resets, so try them again instead of waiting.",
     "If the team is waiting on the user, say what for in one sentence. If the agreed work is done, report that to the user. Do not start work outside the agreed plan.",
   ].join("\n");
 }
@@ -26,14 +32,16 @@ export type OrgCheckInState = {
 };
 
 /**
- * Whether an idle org needs its CEO woken. Never twice in a row: after a check-in the
- * org needs real work before the next one, so a CEO that finds nothing to do ends it.
+ * Whether an idle org needs its CEO woken. Right after a check-in the org waits longer,
+ * so a CEO that finds nothing to do is not woken again every few minutes.
  */
 export function orgNeedsCheckIn(state: OrgCheckInState) {
   if (state.activeRuns > 0 || state.pendingProposals > 0) return false;
   if (state.checkInsToday >= ORG_CHECK_IN_DAILY_LIMIT) return false;
-  if (!state.lastRun || state.lastRun.trigger === "org_check_in") return false;
-  return state.now.getTime() - state.lastRun.updatedAt.getTime() >= ORG_CHECK_IN_IDLE_MS;
+  if (!state.lastRun) return false;
+  const wait =
+    state.lastRun.trigger === "org_check_in" ? ORG_CHECK_IN_REPEAT_MS : ORG_CHECK_IN_IDLE_MS;
+  return state.now.getTime() - state.lastRun.updatedAt.getTime() >= wait;
 }
 
 /** Wake the CEO of each org whose bots have all gone quiet with work possibly left open. */

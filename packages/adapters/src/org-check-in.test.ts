@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ORG_CHECK_IN_DAILY_LIMIT,
   ORG_CHECK_IN_IDLE_MS,
+  ORG_CHECK_IN_REPEAT_MS,
   orgCheckInPrompt,
   orgNeedsCheckIn,
 } from "./org-check-in.js";
@@ -31,8 +32,13 @@ describe("orgNeedsCheckIn", () => {
     expect(orgNeedsCheckIn({ ...quiet, pendingProposals: 1 })).toBe(false);
   });
 
-  it("never checks in twice without real work in between", () => {
+  it("waits longer after a check-in that found nothing to start", () => {
     expect(orgNeedsCheckIn({ ...quiet, lastRun: idle("org_check_in") })).toBe(false);
+    const hourAgo = {
+      trigger: "org_check_in",
+      updatedAt: new Date(now.getTime() - ORG_CHECK_IN_REPEAT_MS),
+    };
+    expect(orgNeedsCheckIn({ ...quiet, lastRun: hourAgo })).toBe(true);
   });
 
   it("skips an org that never ran and stops at the daily limit", () => {

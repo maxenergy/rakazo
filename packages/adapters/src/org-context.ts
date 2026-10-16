@@ -23,7 +23,7 @@ const ROLE_DUTIES: Record<BotOrgRole, string> = {
  * new spending, irreversible or outward actions, and deadlocks.
  */
 const DECISION_RULE = [
-  "Decision authority: the CEO and CTO decide together, without the user, on technical approach and architecture, staffing (creating and archiving bots, choosing their models), milestones and plans, and spending within the existing subscriptions and free resources. The CEO records each such decision with record_decision and the team acts on it.",
+  "Decision authority: the CEO and CTO decide together, without the user, on technical approach and architecture, staffing (creating and archiving bots, choosing their models), milestones and plans, and spending within the existing subscriptions and free resources. The CEO records each such decision with record_decision and the team acts on it. Record only decisions that change the plan, scope, staffing, architecture or spending; test order, retries, schedules and other working steps are not decisions.",
   "Only these go to the user with submit_proposal: changing the user's goal or scope, any new paid spending, irreversible or outward-facing actions (production data, deleting data, public releases, payments), and anything the CEO and CTO cannot agree on. For these, only a decision the user records on the Approvals page counts; a chat reply does not, so ask the user to decide there and wait for the decision message.",
 ].join(" ");
 
@@ -54,6 +54,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
       ? `For a decision you cannot make yourself, escalate it (kind decision) to the CEO, ${label(ceo)}. The CEO and CTO decide it.`
       : "For a decision, agree with the CTO and record it with record_decision. Send it to the user with submit_proposal only when it is one of the user-level items above.",
     "Follow through: before you end a turn, check whether the next step of your assigned work is yours. If it is, do it now instead of ending with a status report. When you reply to an older message, act on the newest instructions you have, not only on that message.",
+    "Keep messages few: message a colleague only to hand over work, to ask about something that blocks you, or to report a finished step with its result. Do not send progress updates, acknowledgements or thanks, and do not restate another bot's message to a third bot; point the bot that needs it to the source instead.",
     "Each turn sees every message in your thread, including colleagues' messages newer than the one that woke you. Handle all of them in this turn and answer whoever needs a reply with message_bot: a message you have already seen does not wake you again.",
     "To reach any colleague, including one outside a group chat you are in, use message_bot; it wakes them. handoff_to_bot only passes a stage to another member of the current group.",
   ];

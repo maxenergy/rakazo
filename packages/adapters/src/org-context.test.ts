@@ -36,6 +36,10 @@ describe("org context", () => {
       expect(text).toContain("the CEO and CTO decide together, without the user");
       expect(text).toContain("Only these go to the user with submit_proposal");
       expect(text).toContain("a chat reply does not");
+      expect(text).toContain(
+        "test order, retries, schedules and other working steps are not decisions",
+      );
+      expect(text).toContain("Do not send progress updates, acknowledgements or thanks");
     }
   });
 

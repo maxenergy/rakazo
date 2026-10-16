@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
@@ -203,6 +203,23 @@ export function classifyCliFailure(output: string): CliFailureCause {
 }
 
 const CLI_DIAGNOSTIC_TAIL = 16 * 1024;
+const CLI_FAILURE_FILES_KEPT = 20;
+
+/**
+ * Keep the tail of a failed CLI run for the operator, in DATA_DIR next to the CLI
+ * profiles and with the same owner-only access. It is never sent to bots or users,
+ * since CLI output can contain account details.
+ */
+async function saveCliFailure(provider: CliModelProvider, diagnostics: string) {
+  const directory = join(resolve(process.env.DATA_DIR || "data"), "model-cli-failures");
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const file = join(directory, `${new Date().toISOString().replace(/[:.]/g, "-")}-${provider}.log`);
+  await writeFile(file, diagnostics, { mode: 0o600 });
+  const files = (await readdir(directory)).filter((name) => name.endsWith(".log")).sort();
+  for (const old of files.slice(0, Math.max(0, files.length - CLI_FAILURE_FILES_KEPT)))
+    await rm(join(directory, old), { force: true });
+  return file;
+}
 
 export async function runCliProcess(options: CliProcessOptions): Promise<string> {
   options.signal?.throwIfAborted();
@@ -318,14 +335,17 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
       clearTimeout(timer);
       options.signal?.removeEventListener("abort", abort);
       if (failure) reject(failure);
-      else if (code !== 0 && !stopped)
-        reject(
-          new CliProcessError(
-            `${CLI_MODEL_PROVIDERS[options.provider].name} failed. Check sign-in, model access, and subscription limits.`,
-            classifyCliFailure(diagnostics),
-          ),
+      else if (code !== 0 && !stopped) {
+        const error = new CliProcessError(
+          `${CLI_MODEL_PROVIDERS[options.provider].name} failed. Check sign-in, model access, and subscription limits.`,
+          classifyCliFailure(diagnostics),
         );
-      else resolveResult(output);
+        if (!options.interactiveAuth)
+          void saveCliFailure(options.provider, `exit code ${code}\n${diagnostics}`).catch(
+            () => undefined,
+          );
+        reject(error);
+      } else resolveResult(output);
     });
     if (options.input !== undefined) child.stdin.end(options.input);
   });

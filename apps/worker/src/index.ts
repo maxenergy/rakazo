@@ -1,3 +1,4 @@
+import { writeSync } from "node:fs";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
 import { ComposioConnector, IntegrationProviderSettings } from "@rakazo/adapters";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
@@ -310,6 +311,10 @@ async function main() {
     logger.error("unhandledRejection", reason);
     if (isTooManyDatabaseConnections(reason)) return;
     void stop().finally(() => process.exit(1));
+  });
+  // A silent stop with no exit line was killed or crashed natively, not exited by Node.
+  process.on("exit", (code) => {
+    writeSync(2, `worker exiting code=${code} stopping=${stopping}\n`);
   });
 
   logger.info("worker ready", { degraded: secrets.describe().capabilities.degraded ?? false });

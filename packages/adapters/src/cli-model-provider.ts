@@ -16,6 +16,7 @@ import type { CliModelProvider } from "./cli-model-process.js";
 import {
   CLI_MODEL_PROVIDERS,
   CliProcessError,
+  classifyCliFailure,
   isCliProfileId,
   runCliProcess,
 } from "./cli-model-process.js";
@@ -51,6 +52,7 @@ const CLI_INFERENCE_ATTEMPTS = 2;
 /** A coarse failure label that never carries CLI output. */
 function cliFailureReason(error: unknown) {
   if (error instanceof CliProcessError) return error.reason;
+  if (error instanceof CliReplyError) return error.reason;
   const text = error instanceof Error ? error.message : "";
   if (/timed out/i.test(text)) return "timeout";
   if (/size limit/i.test(text)) return "output_too_large";
@@ -95,27 +97,57 @@ const ANTIGRAVITY_MODELS = [
   },
 ];
 
+/** A CLI reply Rakazo cannot use, with a coarse reason that is safe to log. */
+export class CliReplyError extends Error {
+  constructor(
+    message: string,
+    readonly reason:
+      | "parse_error"
+      | "invalid_shape"
+      | "unknown_tool"
+      | "bad_arguments"
+      | "empty_response",
+    /** The tool name a model asked for, when that was the problem. */
+    readonly toolName?: string,
+  ) {
+    super(message);
+  }
+}
+
+function parseJson(text: string, reason: CliReplyError["reason"]): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new CliReplyError("Invalid CLI model response.", reason);
+  }
+}
+
 export function parseCliReply(text: string, tools: ReadonlySet<string>): CliReply {
   const stripped = text
     .trim()
     .replace(/^```(?:json)?\s*\n?/, "")
     .replace(/\n?```$/, "");
-  const reply: unknown = JSON.parse(stripped);
-  if (!reply || typeof reply !== "object") throw new Error("Invalid CLI model response.");
+  const reply = parseJson(stripped, "parse_error");
+  if (!reply || typeof reply !== "object")
+    throw new CliReplyError("Invalid CLI model response.", "invalid_shape");
   const value = reply as Partial<CliReply>;
   if (typeof value.text !== "string" || !Array.isArray(value.calls) || value.calls.length > 16)
-    throw new Error("Invalid CLI model response.");
+    throw new CliReplyError("Invalid CLI model response.", "invalid_shape");
   for (const call of value.calls) {
-    if (
-      !call ||
-      typeof call.name !== "string" ||
-      !tools.has(call.name) ||
-      typeof call.argumentsJson !== "string"
-    )
-      throw new Error("CLI requested an unavailable tool.");
-    const args: unknown = JSON.parse(call.argumentsJson);
+    if (!call || typeof call.name !== "string" || typeof call.argumentsJson !== "string")
+      throw new CliReplyError("Invalid CLI model response.", "invalid_shape");
+    // Models trained on function calling sometimes prefix the namespace.
+    const name = call.name.replace(/^functions\./, "");
+    if (!tools.has(name))
+      throw new CliReplyError(
+        "CLI requested an unavailable tool.",
+        "unknown_tool",
+        name.slice(0, 80),
+      );
+    call.name = name;
+    const args = parseJson(call.argumentsJson, "bad_arguments");
     if (!args || typeof args !== "object" || Array.isArray(args))
-      throw new Error("Invalid CLI tool arguments.");
+      throw new CliReplyError("Invalid CLI tool arguments.", "bad_arguments");
   }
   // A valid empty reply is a silent completion, not a CLI/auth failure.
   // The shared runtime decides whether the run still needs a final answer.
@@ -126,13 +158,19 @@ export function cliResponseText(provider: CliModelProvider, output: string): str
   if (provider === "codex-cli") {
     let text = "";
     for (const line of output.split("\n").filter(Boolean)) {
-      const event = JSON.parse(line);
+      const event = parseJson(line, "parse_error") as {
+        type?: string;
+        item?: { type?: string; text?: string };
+      };
       if (event.type === "error" || event.type === "turn.failed")
-        throw new Error("Codex request failed. Check sign-in and subscription limits.");
+        throw new CliProcessError(
+          "Codex request failed. Check sign-in and subscription limits.",
+          classifyCliFailure(line),
+        );
       if (event.type === "item.completed" && event.item?.type === "agent_message")
-        text = event.item.text;
+        text = event.item.text ?? "";
     }
-    if (!text) throw new Error("Codex returned no model response.");
+    if (!text) throw new CliReplyError("Codex returned no model response.", "empty_response");
     return text;
   }
   const result = JSON.parse(output);
@@ -446,6 +484,9 @@ function streamCliModel(
             "cli.provider": provider,
             "cli.attempt": attempt,
             "cli.reason": cliFailureReason(error),
+            ...(error instanceof CliReplyError && error.toolName
+              ? { "cli.tool": error.toolName }
+              : {}),
           });
           if (attempt >= CLI_INFERENCE_ATTEMPTS) throw error;
         }

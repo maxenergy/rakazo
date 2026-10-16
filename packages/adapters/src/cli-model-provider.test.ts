@@ -318,4 +318,18 @@ describe("subscription CLI provider conformance", () => {
     const [first, second] = vi.mocked(runCliProcess).mock.calls.map((call) => call[0].input ?? "");
     expect(second!.length).toBeLessThan(first!.length);
   });
+
+  it("accepts a namespaced tool name and names an unknown tool", () => {
+    const reply = parseCliReply(
+      JSON.stringify({ text: "", calls: [{ name: "functions.shell", argumentsJson: "{}" }] }),
+      new Set(["shell"]),
+    );
+    expect(reply.calls[0]?.name).toBe("shell");
+    expect(() =>
+      parseCliReply(
+        JSON.stringify({ text: "", calls: [{ name: "apply_patch", argumentsJson: "{}" }] }),
+        new Set(["shell"]),
+      ),
+    ).toThrow(expect.objectContaining({ reason: "unknown_tool", toolName: "apply_patch" }));
+  });
 });

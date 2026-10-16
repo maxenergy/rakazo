@@ -114,6 +114,24 @@ export class CliReplyError extends Error {
   }
 }
 
+/**
+ * Tool arguments from a CLI model, repaired for two common slips: a backslash
+ * escape JSON does not allow (often from shell or regex text), and arguments
+ * encoded twice so they parse to a string instead of an object.
+ */
+export function parseToolArguments(text: string): unknown {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    // Keep valid escapes; double the backslash of any other escape.
+    const repaired = text.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+    value = parseJson(repaired, "bad_arguments");
+  }
+  if (typeof value === "string") value = parseJson(value, "bad_arguments");
+  return value;
+}
+
 function parseJson(text: string, reason: CliReplyError["reason"]): unknown {
   try {
     return JSON.parse(text);
@@ -145,9 +163,11 @@ export function parseCliReply(text: string, tools: ReadonlySet<string>): CliRepl
         name.slice(0, 80),
       );
     call.name = name;
-    const args = parseJson(call.argumentsJson, "bad_arguments");
+    const args = parseToolArguments(call.argumentsJson);
     if (!args || typeof args !== "object" || Array.isArray(args))
       throw new CliReplyError("Invalid CLI tool arguments.", "bad_arguments");
+    // Store the repaired form so the tool call below parses the same arguments.
+    call.argumentsJson = JSON.stringify(args);
   }
   // A valid empty reply is a silent completion, not a CLI/auth failure.
   // The shared runtime decides whether the run still needs a final answer.

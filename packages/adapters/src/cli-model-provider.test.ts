@@ -7,6 +7,7 @@ import {
   cliInferenceArgs,
   cliResponseText,
   parseCliReply,
+  parseToolArguments,
   registerCliModelProviders,
 } from "./cli-model-provider.js";
 
@@ -331,5 +332,24 @@ describe("subscription CLI provider conformance", () => {
         new Set(["shell"]),
       ),
     ).toThrow(expect.objectContaining({ reason: "unknown_tool", toolName: "apply_patch" }));
+  });
+
+  it("repairs invalid escapes and double-encoded tool arguments", () => {
+    expect(
+      parseToolArguments(String.raw`{"command":"grep -E \"a\.b\" file | sed 's/\$//'"}`),
+    ).toEqual({
+      command: String.raw`grep -E "a\.b" file | sed 's/\$//'`,
+    });
+    expect(parseToolArguments(JSON.stringify(JSON.stringify({ path: "a.txt" })))).toEqual({
+      path: "a.txt",
+    });
+    const reply = parseCliReply(
+      JSON.stringify({
+        text: "",
+        calls: [{ name: "shell", argumentsJson: String.raw`{"command":"echo \$HOME"}` }],
+      }),
+      new Set(["shell"]),
+    );
+    expect(JSON.parse(reply.calls[0]!.argumentsJson)).toEqual({ command: String.raw`echo \$HOME` });
   });
 });

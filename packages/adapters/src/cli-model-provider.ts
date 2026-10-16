@@ -212,8 +212,22 @@ export function cliResponseText(provider: CliModelProvider, output: string): str
 
 // A CLI reports no token usage, so nothing upstream trims a long run's context.
 // Keep the serialized conversation inside the model window here instead.
-const CLI_CHARS_PER_TOKEN = 3;
-const CLI_CONTEXT_SHARE = 0.6;
+// Conservative for mixed text: CJK often costs about one token per character.
+const CLI_CHARS_PER_TOKEN = 1.5;
+const CLI_CONTEXT_SHARE = 0.5;
+/**
+ * A CLI can allow less context than the model's catalog window: Claude Code on a
+ * subscription refuses prompts above its default window before calling the API.
+ */
+const CLI_CONTEXT_WINDOW_CAP: Partial<Record<CliModelProvider, number>> = {
+  "claude-code": 200_000,
+};
+
+function cliContextWindow(provider: CliModelProvider, catalogWindow: number | undefined) {
+  const cap = CLI_CONTEXT_WINDOW_CAP[provider];
+  if (!catalogWindow) return cap;
+  return cap ? Math.min(cap, catalogWindow) : catalogWindow;
+}
 const CLI_RECENT_MESSAGES = 12;
 const CLI_OLD_TEXT_LIMIT = 2_000;
 
@@ -481,10 +495,10 @@ function streamCliModel(
       await writeFile(schemaPath, JSON.stringify(RESPONSE_SCHEMA), { mode: 0o600 });
       const provider = model.provider as CliModelProvider;
       let reply: CliReply | undefined;
+      let budgetScale = 1;
+      const contextWindow = cliContextWindow(provider, model.contextWindow);
       for (let attempt = 1; !reply; attempt += 1) {
-        // A retry sends a tighter context: an oversized prompt is the usual reason
-        // a long run's CLI turn fails outright.
-        const { prompt } = cliPrompt(context, model.contextWindow, attempt === 1 ? 1 : 0.5);
+        const { prompt } = cliPrompt(context, contextWindow, budgetScale);
         // Grok CLI reads the prompt from this file instead of stdin.
         await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
         try {
@@ -509,6 +523,9 @@ function streamCliModel(
               : {}),
           });
           if (attempt >= CLI_INFERENCE_ATTEMPTS) throw error;
+          // A retry sends a tighter context: an oversized prompt is the usual reason
+          // a long run's CLI turn fails outright, and the CLI may say so.
+          budgetScale = cliFailureReason(error) === "context_too_long" ? 0.3 : 0.5;
         }
       }
       if (reply.text) {

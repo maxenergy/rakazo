@@ -352,4 +352,28 @@ describe("subscription CLI provider conformance", () => {
     );
     expect(JSON.parse(reply.calls[0]!.argumentsJson)).toEqual({ command: String.raw`echo \$HOME` });
   });
+
+  it("caps Claude Code's context below a larger catalog window", async () => {
+    vi.mocked(runCliProcess).mockResolvedValue(output("claude-code"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = {
+      ...models.getProvider("claude-code")!.getModels()[0]!,
+      contextWindow: 1_000_000,
+    };
+    const messages = [
+      { role: "user" as const, content: "Start", timestamp: 0 },
+      ...Array.from({ length: 40 }, (_, index) => ({
+        role: "toolResult" as const,
+        toolCallId: `call-${index}`,
+        toolName: "shell",
+        content: [{ type: "text" as const, text: "测".repeat(20_000) }],
+        isError: false,
+        timestamp: index + 1,
+      })),
+    ];
+    await models.streamSimple(model, { messages }, { apiKey: profileId }).result();
+    const input = vi.mocked(runCliProcess).mock.calls[0]?.[0].input ?? "";
+    // 200k tokens x 1.5 chars x 50% share, plus the fixed instructions.
+    expect(input.length).toBeLessThan(160_000);
+  });
 });

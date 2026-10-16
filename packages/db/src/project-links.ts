@@ -12,6 +12,13 @@ export class ProjectLinkError extends Error {
 export type TicketLinks = { projectId: string | null; milestoneId: string | null };
 export type TicketLinkPatch = { projectId?: string | null; milestoneId?: string | null };
 
+export function isProjectItemArchived(
+  item: { archivedAt: Date | null },
+  project?: { archivedAt: Date | null },
+): boolean {
+  return item.archivedAt !== null || (project !== undefined && project.archivedAt !== null);
+}
+
 /** Call before locking a ticket; keep these parent locks until its write commits. */
 export async function resolveTicketLinks(
   tx: Prisma.TransactionClient,
@@ -44,7 +51,8 @@ export async function resolveTicketLinks(
   >`SELECT id, "archivedAt" FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR SHARE`;
   const project = projects[0];
   if (!project) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
-  if (project.archivedAt) throw new ProjectLinkError("BAD_REQUEST", "Project is archived.");
+  if (isProjectItemArchived(project))
+    throw new ProjectLinkError("BAD_REQUEST", "Project is archived.");
   if (milestoneId) {
     const milestones = await tx.$queryRaw<
       { id: string; projectId: string; archivedAt: Date | null }[]
@@ -53,9 +61,46 @@ export async function resolveTicketLinks(
     if (!milestone) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
     if (milestone.projectId !== projectId)
       throw new ProjectLinkError("BAD_REQUEST", "Milestone does not belong to project.");
-    if (milestone.archivedAt) throw new ProjectLinkError("BAD_REQUEST", "Milestone is archived.");
+    if (isProjectItemArchived(milestone, project))
+      throw new ProjectLinkError("BAD_REQUEST", "Milestone is archived.");
   }
   return { projectId, milestoneId };
+}
+
+/** Archive only the project; existing links and child timestamps remain intact. */
+export async function archiveProject(
+  tx: Prisma.TransactionClient,
+  spaceId: string,
+  projectId: string,
+) {
+  const rows = await tx.$queryRaw<
+    { id: string; archivedAt: Date | null }[]
+  >`SELECT id, "archivedAt" FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
+  const project = rows[0];
+  if (!project) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  if (isProjectItemArchived(project)) return;
+  await tx.project.update({ where: { id: projectId }, data: { archivedAt: new Date() } });
+}
+
+export async function archiveMilestone(
+  tx: Prisma.TransactionClient,
+  spaceId: string,
+  milestoneId: string,
+) {
+  const candidate = await tx.milestone.findFirst({ where: { id: milestoneId, spaceId } });
+  if (!candidate) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  const projects = await tx.$queryRaw<
+    { id: string; archivedAt: Date | null }[]
+  >`SELECT id, "archivedAt" FROM projects WHERE id = ${candidate.projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
+  const project = projects[0];
+  if (!project) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  const rows = await tx.$queryRaw<
+    { id: string; archivedAt: Date | null }[]
+  >`SELECT id, "archivedAt" FROM milestones WHERE id = ${milestoneId} AND "spaceId" = ${spaceId} AND "projectId" = ${project.id} FOR UPDATE`;
+  const milestone = rows[0];
+  if (!milestone) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  if (isProjectItemArchived(milestone, project)) return;
+  await tx.milestone.update({ where: { id: milestoneId }, data: { archivedAt: new Date() } });
 }
 
 /** The caller owns the transaction; tickets and comments remain intact. */

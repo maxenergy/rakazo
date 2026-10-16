@@ -609,7 +609,8 @@ function streamCliModel(
               `reply error ${reason}\n${responseText.slice(-CLI_REPLY_KEPT_CHARS)}`,
             ).catch(() => undefined);
           }
-          if (attempt >= CLI_INFERENCE_ATTEMPTS) throw error;
+          // A subscription limit lasts until its reset; retrying now only fails again.
+          if (attempt >= CLI_INFERENCE_ATTEMPTS || reason === "rate_limited") throw error;
           // A malformed reply is a sampling slip; ask again with the same context.
           if (error instanceof CliReplyError) continue;
           if (reason === "network") {

@@ -1,7 +1,7 @@
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CliModelProvider } from "./cli-model-process.js";
-import { CLI_MODEL_PROVIDERS, runCliProcess } from "./cli-model-process.js";
+import { CLI_MODEL_PROVIDERS, CliProcessError, runCliProcess } from "./cli-model-process.js";
 import {
   boundCliMessages,
   cliInferenceArgs,
@@ -154,6 +154,19 @@ describe("subscription CLI provider conformance", () => {
       .result();
     expect(unbound.stopReason).toBe("error");
     expect(runCliProcess).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a turn that hit the subscription limit", async () => {
+    vi.mocked(runCliProcess).mockRejectedValue(
+      new CliProcessError("CLI request failed.", "rate_limited"),
+    );
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("claude-code")!.getModels()[0]!;
+    const result = await models
+      .streamSimple(model, { messages: [] }, { apiKey: profileId })
+      .result();
+    expect(result.stopReason).toBe("error");
+    expect(runCliProcess).toHaveBeenCalledTimes(1);
   });
 
   it("propagates cancellation and failure without leaking CLI diagnostics or API fallback", async () => {

@@ -3845,6 +3845,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             messagingChannelRun,
             voiceCall,
             disabledBuiltinTools: bot.disabledBuiltinTools,
+            orgMessaging: parseBotOrgRole(bot.orgRole) !== null,
           }),
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity && !isBackgroundRunTrigger(run.trigger)
@@ -7619,6 +7620,8 @@ export function selectBuiltinToolsForRun(options: {
   voiceCall?: boolean;
   /** Built-in names this bot turned off. Unknown names are ignored. */
   disabledBuiltinTools?: readonly string[];
+  /** The bot has an org role: it may message any colleague, even from a group. */
+  orgMessaging?: boolean;
 }) {
   const disabled = disabledBuiltinToolSet(options.disabledBuiltinTools);
   return selectCloudAgentTools(
@@ -7630,6 +7633,7 @@ export function selectBuiltinToolsForRun(options: {
             options.pageBrowserAllowed ?? options.graphicalToolsAllowed,
           ),
           options.groupId,
+          options.orgMessaging,
         ),
         options.trigger,
       ),

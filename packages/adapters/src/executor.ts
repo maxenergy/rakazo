@@ -474,6 +474,11 @@ const STATIC_SHELL_EXPANSIONS: Readonly<Record<string, string>> = {
   USER: "rakazo",
   WORKSPACE: "/home/rakazo/workspace",
   XDG_CONFIG_HOME: "/home/rakazo/.config",
+  // Exit status, argument count and process ids: always a number, never a command name.
+  "?": "0",
+  "#": "0",
+  $: "0",
+  "!": "0",
 };
 const SAFE_SHELL_CONTROL_OPS = new Set([
   "&&",
@@ -2598,7 +2603,9 @@ function protectedWordRefusal(words: readonly string[]): string | undefined {
   }
   for (let index = 0; index < words.length; index += 1) {
     const word = words[index] ?? "";
-    const base = (word.split("/").at(-1) ?? "").toLowerCase();
+    // `source` and `eval` are shell builtins, so only the bare word runs them. A path
+    // ending in `/source` names a directory or file, such as an unpacked source tree.
+    const base = word.toLowerCase();
     if (base !== "eval" && base !== "source" && word !== ".") continue;
     const next = words[index + 1];
     // Virtualenv activation is the one source form that does not run an arbitrary script.

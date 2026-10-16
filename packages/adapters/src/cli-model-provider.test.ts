@@ -274,4 +274,22 @@ describe("subscription CLI provider conformance", () => {
     const messages = [{ role: "user" as const, content: "Hello", timestamp: 0 }];
     expect(boundCliMessages(messages, 10_000)).toEqual(messages);
   });
+
+  it("tells the model that the CLI sandbox does not limit Rakazo tools", async () => {
+    vi.mocked(runCliProcess).mockResolvedValue(output("codex-cli"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("codex-cli")!.getModels()[0]!;
+    await models
+      .streamSimple(
+        model,
+        { messages: [{ role: "user", content: "Run it", timestamp: 0 }] },
+        {
+          apiKey: profileId,
+        },
+      )
+      .result();
+    expect(vi.mocked(runCliProcess).mock.calls[0]?.[0].input).toContain(
+      "only restrict this CLI process",
+    );
+  });
 });

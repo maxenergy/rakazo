@@ -19,6 +19,7 @@ import {
   classifyCliFailure,
   isCliProfileId,
   runCliProcess,
+  saveCliFailure,
 } from "./cli-model-process.js";
 
 const RESPONSE_SCHEMA = {
@@ -47,9 +48,9 @@ type CliReply = { text: string; calls: { name: string; argumentsJson: string }[]
  * budget would cut off long turns. Give each CLI turn the process default instead.
  */
 const CLI_INFERENCE_TIMEOUT_MS = 10 * 60_000;
-const CLI_INFERENCE_ATTEMPTS = 2;
-/** A network failure gets one more try, after a pause for the connection to recover. */
-const CLI_NETWORK_ATTEMPTS = 3;
+const CLI_INFERENCE_ATTEMPTS = 3;
+const CLI_REPLY_KEPT_CHARS = 16_000;
+/** A network failure is retried after a pause for the connection to recover. */
 const CLI_NETWORK_RETRY_DELAY_MS = 45_000;
 
 /** A coarse failure label that never carries CLI output. */
@@ -117,10 +118,29 @@ export class CliReplyError extends Error {
   }
 }
 
+/** Escape raw control characters inside JSON strings, such as a multi-line shell command. */
+function escapeControlCharsInStrings(text: string) {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (const char of text) {
+    if (inString && !escaped && char < " ") {
+      out += char === "\n" ? "\\n" : char === "\r" ? "\\r" : char === "\t" ? "\\t" : "";
+      continue;
+    }
+    if (escaped) escaped = false;
+    else if (char === "\\") escaped = inString;
+    else if (char === '"') inString = !inString;
+    out += char;
+  }
+  return out;
+}
+
 /**
- * Tool arguments from a CLI model, repaired for two common slips: a backslash
- * escape JSON does not allow (often from shell or regex text), and arguments
- * encoded twice so they parse to a string instead of an object.
+ * Tool arguments from a CLI model, repaired for three common slips: a backslash
+ * escape JSON does not allow (often from shell or regex text), raw newlines or
+ * tabs inside a string, and arguments encoded twice so they parse to a string
+ * instead of an object.
  */
 export function parseToolArguments(text: string): unknown {
   let value: unknown;
@@ -128,7 +148,7 @@ export function parseToolArguments(text: string): unknown {
     value = JSON.parse(text);
   } catch {
     // Keep valid escapes; double the backslash of any other escape.
-    const repaired = text.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+    const repaired = escapeControlCharsInStrings(text).replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
     value = parseJson(repaired, "bad_arguments");
   }
   if (typeof value === "string") value = parseJson(value, "bad_arguments");
@@ -504,6 +524,7 @@ function streamCliModel(
         const { prompt } = cliPrompt(context, contextWindow, budgetScale);
         // Grok CLI reads the prompt from this file instead of stdin.
         await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
+        let responseText = "";
         try {
           const output = await runCliProcess({
             provider,
@@ -514,7 +535,8 @@ function streamCliModel(
             signal: options.signal,
             timeoutMs: Math.max(options.timeoutMs ?? 0, CLI_INFERENCE_TIMEOUT_MS),
           });
-          reply = parseCliReply(cliResponseText(provider, output), tools);
+          responseText = cliResponseText(provider, output);
+          reply = parseCliReply(responseText, tools);
         } catch (error) {
           if (options.signal?.aborted) throw error;
           getLogger().warn("cli.inference_failed", {
@@ -526,8 +548,16 @@ function streamCliModel(
               : {}),
           });
           const reason = cliFailureReason(error);
-          if (attempt >= (reason === "network" ? CLI_NETWORK_ATTEMPTS : CLI_INFERENCE_ATTEMPTS))
-            throw error;
+          if (error instanceof CliReplyError && responseText) {
+            // Kept privately, like CLI diagnostics, so a malformed reply can be studied.
+            void saveCliFailure(
+              provider,
+              `reply error ${reason}\n${responseText.slice(-CLI_REPLY_KEPT_CHARS)}`,
+            ).catch(() => undefined);
+          }
+          if (attempt >= CLI_INFERENCE_ATTEMPTS) throw error;
+          // A malformed reply is a sampling slip; ask again with the same context.
+          if (error instanceof CliReplyError) continue;
           if (reason === "network") {
             // The prompt was fine; wait for the connection instead of shrinking it.
             await new Promise((resolve) => setTimeout(resolve, CLI_NETWORK_RETRY_DELAY_MS));

@@ -168,8 +168,8 @@ describe("subscription CLI provider conformance", () => {
     expect(result.stopReason).toBe("error");
     expect(result.errorMessage).not.toMatch(/secret-access-token|account@example/);
     expect(result.errorMessage).toContain("No API fallback");
-    // One retry after a non-cancelled failure, then the error surfaces.
-    expect(runCliProcess).toHaveBeenCalledTimes(2);
+    // Two retries after a non-cancelled failure, then the error surfaces.
+    expect(runCliProcess).toHaveBeenCalledTimes(3);
     const controller = new AbortController();
     vi.mocked(runCliProcess).mockImplementationOnce(async (options) => {
       expect(options.signal).toBe(controller.signal);
@@ -181,7 +181,7 @@ describe("subscription CLI provider conformance", () => {
       .result();
     expect(aborted.stopReason).toBe("aborted");
     // A cancelled turn is not retried.
-    expect(runCliProcess).toHaveBeenCalledTimes(3);
+    expect(runCliProcess).toHaveBeenCalledTimes(4);
   });
 
   it("gives a CLI turn ten minutes and retries a transient failure once", async () => {
@@ -339,6 +339,10 @@ describe("subscription CLI provider conformance", () => {
       parseToolArguments(String.raw`{"command":"grep -E \"a\.b\" file | sed 's/\$//'"}`),
     ).toEqual({
       command: String.raw`grep -E "a\.b" file | sed 's/\$//'`,
+    });
+    expect(parseToolArguments('{"command":"cd app\n\tpnpm test",\n"cwd":"\\\\repo"}')).toEqual({
+      command: "cd app\n\tpnpm test",
+      cwd: "\\repo",
     });
     expect(parseToolArguments(JSON.stringify(JSON.stringify({ path: "a.txt" })))).toEqual({
       path: "a.txt",

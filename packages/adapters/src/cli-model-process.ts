@@ -221,7 +221,7 @@ const CLI_FAILURE_FILES_KEPT = 20;
  * profiles and with the same owner-only access. It is never sent to bots or users,
  * since CLI output can contain account details.
  */
-async function saveCliFailure(provider: CliModelProvider, diagnostics: string) {
+export async function saveCliFailure(provider: CliModelProvider, diagnostics: string) {
   const directory = join(resolve(process.env.DATA_DIR || "data"), "model-cli-failures");
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const file = join(directory, `${new Date().toISOString().replace(/[:.]/g, "-")}-${provider}.log`);

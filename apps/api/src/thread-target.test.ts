@@ -316,6 +316,50 @@ describe("threadSnapshot", () => {
     expect(findManyEvents).not.toHaveBeenCalled();
   });
 
+  it("clears a failure once a later peer or ticket run completes", async () => {
+    const failed = {
+      id: "run-failed",
+      botId: "bot-1",
+      threadId: "thread-1",
+      taskId: "task-1",
+      status: "failed",
+      trigger: "spawn",
+      modelProvider: null,
+      modelId: null,
+      error: "CLI request failed.",
+      startedAt: null,
+      completedAt: new Date("2026-08-23T00:00:01.000Z"),
+      createdAt: new Date("2026-08-23T00:00:00.000Z"),
+    };
+    const later = {
+      ...failed,
+      id: "run-ticket",
+      status: "completed",
+      trigger: "tickets",
+      error: null,
+      createdAt: new Date("2026-08-23T00:05:00.000Z"),
+    };
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "thread-1" }]),
+      message: { findMany: vi.fn().mockResolvedValue([]) },
+      event: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn() },
+      run: { findFirst: botRunFindFirst([failed, later]) },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+    const target = {
+      kind: "bot",
+      botId: "bot-1",
+      threadId: "thread-1",
+      bot: { computer: null },
+    } as ThreadTarget;
+
+    const snapshot = await threadSnapshot({ prisma }, target);
+
+    expect(snapshot.run).toBeNull();
+  });
+
   it("prefers a waiting peer ask over a concurrent user run", async () => {
     const waitingPeer = {
       id: "run-peer-waiting",
@@ -973,12 +1017,15 @@ function botRunFindFirst(
       where?: {
         status?: { in?: string[] };
         trigger?: TriggerFilter;
+        createdAt?: { gt?: Date };
       };
       select?: { id?: boolean };
     }) => {
       const statuses = args.where?.status?.in;
+      const after = args.where?.createdAt?.gt;
       const matched = rows
         .filter((row) => !statuses || statuses.includes(row.status))
+        .filter((row) => !after || (row.createdAt?.getTime() ?? 0) > after.getTime())
         .filter((row) => matchesTriggerFilter(row.trigger, args.where?.trigger))
         .sort((a, b) => {
           const byCreated = (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0);

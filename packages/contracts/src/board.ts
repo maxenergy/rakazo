@@ -120,6 +120,8 @@ export const GetTicketInput = z
 export type GetTicketInput = z.infer<typeof GetTicketInput>;
 
 export const CreateTicketInput = z.object({
+  projectId: Id.nullable().optional(),
+  milestoneId: Id.nullable().optional(),
   boardId: Id.optional(),
   title: z.string().trim().min(1).max(TICKET_TITLE_MAX_LENGTH),
   description: z.string().max(TICKET_DESCRIPTION_MAX_LENGTH).optional(),
@@ -129,6 +131,8 @@ export const CreateTicketInput = z.object({
 export type CreateTicketInput = z.infer<typeof CreateTicketInput>;
 
 export const UpdateTicketInput = z.object({
+  projectId: Id.nullable().optional(),
+  milestoneId: Id.nullable().optional(),
   id: Id,
   title: z.string().trim().min(1).max(TICKET_TITLE_MAX_LENGTH).optional(),
   description: z.string().max(TICKET_DESCRIPTION_MAX_LENGTH).nullable().optional(),

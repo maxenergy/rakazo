@@ -205,6 +205,7 @@ import {
   newestModelCredentialOrder,
   newestVoiceCredentialOrder,
   Prisma,
+  ProjectLinkError,
   ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
@@ -803,7 +804,14 @@ export function createRouter(deps: RouterDeps) {
     })
     .use(async ({ context, next }) => {
       if (!context.actor) throw new ORPCError("UNAUTHORIZED");
-      return next({ context: { ...context, actor: context.actor } });
+      try {
+        return await next({ context: { ...context, actor: context.actor } });
+      } catch (error) {
+        if (error instanceof ProjectLinkError) {
+          throw new ORPCError(error.code, { message: error.message });
+        }
+        throw error;
+      }
     });
   const ticketDeps = {
     prisma: deps.prisma,

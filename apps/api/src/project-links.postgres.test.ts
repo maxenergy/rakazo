@@ -2,7 +2,7 @@ import { createRouterClient } from "@orpc/server";
 import type { Actor } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { createDb } from "@rakazo/db";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
 
@@ -72,6 +72,18 @@ describePostgres("ticket association API isolation", () => {
         data: { spaceId: foreignSpaceId, projectId: foreignProjectId, name: "Foreign milestone" },
       })
     ).id;
+  });
+
+  afterEach(async () => {
+    const violations = await prisma.$queryRaw<
+      { projects: bigint; milestones: bigint; mismatches: bigint }[]
+    >`
+      SELECT
+        (SELECT count(*) FROM tickets t JOIN projects p ON p.id = t."projectId" WHERE t."spaceId" <> p."spaceId") AS projects,
+        (SELECT count(*) FROM tickets t JOIN milestones m ON m.id = t."milestoneId" WHERE t."spaceId" <> m."spaceId") AS milestones,
+        (SELECT count(*) FROM tickets t JOIN milestones m ON m.id = t."milestoneId" WHERE t."projectId" IS DISTINCT FROM m."projectId") AS mismatches
+    `;
+    expect(violations).toEqual([{ projects: 0n, milestones: 0n, mismatches: 0n }]);
   });
 
   afterAll(async () => {

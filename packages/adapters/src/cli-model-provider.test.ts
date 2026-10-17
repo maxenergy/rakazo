@@ -1,11 +1,15 @@
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CliModelProvider } from "./cli-model-process.js";
-import { CLI_MODEL_PROVIDERS, runCliProcess } from "./cli-model-process.js";
+import { CLI_MODEL_PROVIDERS, CliProcessError, runCliProcess } from "./cli-model-process.js";
 import {
+  boundCliMessages,
   cliInferenceArgs,
   cliResponseText,
+  collapseSystemMessages,
+  modelVisibleMessage,
   parseCliReply,
+  parseToolArguments,
   registerCliModelProviders,
 } from "./cli-model-provider.js";
 
@@ -154,6 +158,19 @@ describe("subscription CLI provider conformance", () => {
     expect(runCliProcess).not.toHaveBeenCalled();
   });
 
+  it("does not retry a turn that hit the subscription limit", async () => {
+    vi.mocked(runCliProcess).mockRejectedValue(
+      new CliProcessError("CLI request failed.", "rate_limited"),
+    );
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("claude-code")!.getModels()[0]!;
+    const result = await models
+      .streamSimple(model, { messages: [] }, { apiKey: profileId })
+      .result();
+    expect(result.stopReason).toBe("error");
+    expect(runCliProcess).toHaveBeenCalledTimes(1);
+  });
+
   it("propagates cancellation and failure without leaking CLI diagnostics or API fallback", async () => {
     vi.mocked(runCliProcess).mockRejectedValue(
       new Error("secret-access-token account@example.invalid"),
@@ -166,7 +183,8 @@ describe("subscription CLI provider conformance", () => {
     expect(result.stopReason).toBe("error");
     expect(result.errorMessage).not.toMatch(/secret-access-token|account@example/);
     expect(result.errorMessage).toContain("No API fallback");
-    expect(runCliProcess).toHaveBeenCalledOnce();
+    // Two retries after a non-cancelled failure, then the error surfaces.
+    expect(runCliProcess).toHaveBeenCalledTimes(3);
     const controller = new AbortController();
     vi.mocked(runCliProcess).mockImplementationOnce(async (options) => {
       expect(options.signal).toBe(controller.signal);
@@ -177,7 +195,22 @@ describe("subscription CLI provider conformance", () => {
       .streamSimple(model, { messages: [] }, { apiKey: profileId, signal: controller.signal })
       .result();
     expect(aborted.stopReason).toBe("aborted");
+    // A cancelled turn is not retried.
+    expect(runCliProcess).toHaveBeenCalledTimes(4);
+  });
+
+  it("gives a CLI turn ten minutes and retries a transient failure once", async () => {
+    vi.mocked(runCliProcess)
+      .mockRejectedValueOnce(new Error("CLI request timed out. Try again."))
+      .mockResolvedValueOnce(output("codex-cli"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("codex-cli")!.getModels()[0]!;
+    const result = await models
+      .streamSimple(model, { messages: [] }, { apiKey: profileId, timeoutMs: 120_000 })
+      .result();
+    expect(result.stopReason).toBe("stop");
     expect(runCliProcess).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(runCliProcess).mock.calls[0]?.[0].timeoutMs).toBe(600_000);
   });
 
   it("validates tool names, object arguments, and failed vendor responses", () => {
@@ -228,5 +261,239 @@ describe("subscription CLI provider conformance", () => {
     expect(grok).toContain("--prompt-file");
     expect(grok).toContain("dontAsk");
     expect(grok).not.toContain("--always-approve");
+  });
+
+  it("keeps a long run inside the model window by shortening and dropping old steps", () => {
+    const step = (index: number) => ({
+      role: "toolResult" as const,
+      toolCallId: `call-${index}`,
+      toolName: "shell",
+      content: [{ type: "text" as const, text: `output ${index} ${"x".repeat(5_000)}` }],
+      isError: false,
+      timestamp: index,
+    });
+    const messages = [
+      { role: "user" as const, content: "Run the baseline", timestamp: 0 },
+      ...Array.from({ length: 60 }, (_, index) => step(index + 1)),
+    ];
+    const bounded = boundCliMessages(messages, 60_000);
+    const size = JSON.stringify(bounded).length;
+    expect(size).toBeLessThanOrEqual(60_000 + 1_000);
+    expect(bounded[0]).toEqual(messages[0]);
+    expect(JSON.stringify(bounded[1])).toContain("earlier steps were omitted");
+    // The most recent steps stay whole.
+    expect(bounded.at(-1)).toEqual(messages.at(-1));
+    expect(JSON.stringify(bounded)).toContain(`output 60 ${"x".repeat(5_000)}`);
+  });
+
+  it("replays repeated system messages into one with the current sections and tools", () => {
+    const tool = (name: string) => ({
+      name,
+      description: `${name} ${"x".repeat(5_000)}`,
+      parameters: { type: "object", properties: {} },
+    });
+    const system = (index: number) => ({
+      role: "system" as const,
+      content: index === 0 ? "Base prompt" : "",
+      sections: { scratchpad: `step ${index}` },
+      ...(index === 2
+        ? { toolsRemoved: [{ name: "write_file" }] }
+        : { toolsAdded: [tool("shell"), tool("write_file")] }),
+      timestamp: index,
+    });
+    const messages = [
+      system(0),
+      { role: "user" as const, content: "Build it", timestamp: 0 },
+      system(1),
+      system(2),
+    ] as Parameters<typeof collapseSystemMessages>[0];
+    const collapsed = collapseSystemMessages(messages);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed[0]).toMatchObject({
+      role: "system",
+      content: "Base prompt",
+      sections: { scratchpad: "step 2" },
+    });
+    const tools = (collapsed[0] as { toolsAdded?: Array<{ name: string }> }).toolsAdded ?? [];
+    expect(tools.map((item) => item.name)).toEqual(["shell"]);
+    expect(collapsed[1]).toMatchObject({ role: "user", content: "Build it" });
+  });
+
+  it("leaves a tool result's details out of what the model sees", () => {
+    const result = {
+      role: "toolResult" as const,
+      toolCallId: "call-1",
+      toolName: "read_history",
+      content: [{ type: "text" as const, text: "3 messages" }],
+      details: { payload: "z".repeat(1_000_000) },
+      isError: false,
+      timestamp: 1,
+    } as Parameters<typeof modelVisibleMessage>[0];
+    const visible = modelVisibleMessage(result);
+    expect(JSON.stringify(visible)).not.toContain("payload");
+    expect(visible).toMatchObject({ role: "toolResult", toolCallId: "call-1" });
+  });
+
+  it("omits the arguments of old tool calls that carried whole files", () => {
+    const call = (index: number) => ({
+      role: "assistant" as const,
+      content: [
+        {
+          type: "toolCall" as const,
+          id: `call-${index}`,
+          name: "write_file",
+          arguments: { path: `f${index}.ts`, content: "y".repeat(50_000) },
+        },
+      ],
+      timestamp: index,
+    });
+    const messages = [
+      { role: "user" as const, content: "Write the files", timestamp: 0 },
+      ...Array.from({ length: 20 }, (_, index) => call(index + 1)),
+    ] as Parameters<typeof boundCliMessages>[0];
+    const bounded = boundCliMessages(messages, 400_000);
+    const text = JSON.stringify(bounded);
+    expect(text.length).toBeLessThanOrEqual(400_000);
+    expect(text).toContain("characters of arguments omitted");
+    expect(text).toContain("call-1");
+  });
+
+  it("trims a single huge latest tool result to its start and end", () => {
+    const log = `gh pr diff 1\n${"x".repeat(3_000_000)}\nexit=0`;
+    const messages = [
+      { role: "user" as const, content: "Review the PR", timestamp: 0 },
+      {
+        role: "toolResult" as const,
+        toolCallId: "call-1",
+        toolName: "shell",
+        content: [{ type: "text" as const, text: log }],
+        isError: false,
+        timestamp: 1,
+      },
+    ];
+    const bounded = boundCliMessages(messages, 100_000);
+    const text = JSON.stringify(bounded);
+    expect(text.length).toBeLessThanOrEqual(100_000 + 1_000);
+    expect(text).toContain("gh pr diff 1");
+    expect(text).toContain("exit=0");
+    expect(text).toContain("characters omitted to fit the model context");
+  });
+
+  it("leaves a conversation that already fits untouched", () => {
+    const messages = [{ role: "user" as const, content: "Hello", timestamp: 0 }];
+    expect(boundCliMessages(messages, 10_000)).toEqual(messages);
+  });
+
+  it("tells the model that the CLI sandbox does not limit Rakazo tools", async () => {
+    vi.mocked(runCliProcess).mockResolvedValue(output("codex-cli"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("codex-cli")!.getModels()[0]!;
+    await models
+      .streamSimple(
+        model,
+        { messages: [{ role: "user", content: "Run it", timestamp: 0 }] },
+        {
+          apiKey: profileId,
+        },
+      )
+      .result();
+    expect(vi.mocked(runCliProcess).mock.calls[0]?.[0].input).toContain(
+      "only restrict this CLI process",
+    );
+  });
+
+  it("retries a failed CLI turn with a tighter context", async () => {
+    vi.mocked(runCliProcess)
+      .mockRejectedValueOnce(
+        new Error("Codex CLI failed. Check sign-in, model access, and subscription limits."),
+      )
+      .mockResolvedValueOnce(output("codex-cli"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("codex-cli")!.getModels()[0]!;
+    const big = "x".repeat(Math.floor(model.contextWindow * 3 * 0.6 * 0.8));
+    const messages = [
+      { role: "user" as const, content: "Start", timestamp: 0 },
+      ...Array.from({ length: 30 }, (_, index) => ({
+        role: "toolResult" as const,
+        toolCallId: `call-${index}`,
+        toolName: "shell",
+        content: [{ type: "text" as const, text: big.slice(0, big.length / 30) }],
+        isError: false,
+        timestamp: index + 1,
+      })),
+    ];
+    const result = await models.streamSimple(model, { messages }, { apiKey: profileId }).result();
+    expect(result.stopReason).toBe("stop");
+    const [first, second] = vi.mocked(runCliProcess).mock.calls.map((call) => call[0].input ?? "");
+    expect(second!.length).toBeLessThan(first!.length);
+  });
+
+  it("accepts a namespaced tool name and names an unknown tool", () => {
+    const reply = parseCliReply(
+      JSON.stringify({ text: "", calls: [{ name: "functions.shell", argumentsJson: "{}" }] }),
+      new Set(["shell"]),
+    );
+    expect(reply.calls[0]?.name).toBe("shell");
+    expect(() =>
+      parseCliReply(
+        JSON.stringify({ text: "", calls: [{ name: "apply_patch", argumentsJson: "{}" }] }),
+        new Set(["shell"]),
+      ),
+    ).toThrow(expect.objectContaining({ reason: "unknown_tool", toolName: "apply_patch" }));
+  });
+
+  it("repairs invalid escapes and double-encoded tool arguments", () => {
+    expect(
+      parseToolArguments(String.raw`{"command":"grep -E \"a\.b\" file | sed 's/\$//'"}`),
+    ).toEqual({
+      command: String.raw`grep -E "a\.b" file | sed 's/\$//'`,
+    });
+    expect(parseToolArguments('{"command":"cd app\n\tpnpm test",\n"cwd":"\\\\repo"}')).toEqual({
+      command: "cd app\n\tpnpm test",
+      cwd: "\\repo",
+    });
+    expect(
+      parseToolArguments(
+        String.raw`{"command":"psql -c \"SELECT 1\"\npython3 -c 'from pathlib import Path; print(Path("a.log").read_text())'","timeout":60}`,
+      ),
+    ).toEqual({
+      command: `psql -c "SELECT 1"\npython3 -c 'from pathlib import Path; print(Path("a.log").read_text())'`,
+      timeout: 60,
+    });
+    expect(parseToolArguments(JSON.stringify(JSON.stringify({ path: "a.txt" })))).toEqual({
+      path: "a.txt",
+    });
+    const reply = parseCliReply(
+      JSON.stringify({
+        text: "",
+        calls: [{ name: "shell", argumentsJson: String.raw`{"command":"echo \$HOME"}` }],
+      }),
+      new Set(["shell"]),
+    );
+    expect(JSON.parse(reply.calls[0]!.argumentsJson)).toEqual({ command: String.raw`echo \$HOME` });
+  });
+
+  it("caps Claude Code's context below a larger catalog window", async () => {
+    vi.mocked(runCliProcess).mockResolvedValue(output("claude-code"));
+    const models = registerCliModelProviders(builtinModels());
+    const model = {
+      ...models.getProvider("claude-code")!.getModels()[0]!,
+      contextWindow: 1_000_000,
+    };
+    const messages = [
+      { role: "user" as const, content: "Start", timestamp: 0 },
+      ...Array.from({ length: 40 }, (_, index) => ({
+        role: "toolResult" as const,
+        toolCallId: `call-${index}`,
+        toolName: "shell",
+        content: [{ type: "text" as const, text: "测".repeat(20_000) }],
+        isError: false,
+        timestamp: index + 1,
+      })),
+    ];
+    await models.streamSimple(model, { messages }, { apiKey: profileId }).result();
+    const input = vi.mocked(runCliProcess).mock.calls[0]?.[0].input ?? "";
+    // 200k tokens x 1.5 chars x 50% share, plus the fixed instructions.
+    expect(input.length).toBeLessThan(160_000);
   });
 });

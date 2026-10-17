@@ -12,8 +12,11 @@ import {
   ensureBoard,
   findTicket,
   listTicketComments,
+  lockTicketForLinkUpdate,
+  resolveTicketLinks,
   toTicketCommentDto,
   toTicketDto,
+  withTransactionRetry,
 } from "@rakazo/db";
 import type { TicketChangeNotifier } from "./ticket-changes.js";
 
@@ -150,6 +153,8 @@ export async function createTicket(
     description?: string;
     priority?: string;
     ownerBotId?: string;
+    projectId?: string | null;
+    milestoneId?: string | null;
   },
 ) {
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
@@ -162,22 +167,31 @@ export async function createTicket(
   if (!(await botInSpace(deps, input.spaceId, data.assigneeBotId)))
     return { error: "Unknown bot." };
   const board = await ensureBoard(deps.prisma, input.spaceId);
-  const row = await deps.prisma.$transaction(async (tx) => {
-    const number = await allocateTicketNumber(tx, board.id);
-    return tx.ticket.create({
-      data: {
-        boardId: board.id,
-        spaceId: input.spaceId,
-        number,
-        title: data.title,
-        description: data.description ?? null,
-        priority: data.priority,
-        assigneeBotId: data.assigneeBotId,
-        createdByBotId: input.botId ?? null,
-        createdByUserId: input.userId ?? null,
-      },
-    });
-  });
+  const row = await withTransactionRetry(() =>
+    deps.prisma.$transaction(async (tx) => {
+      const links = await resolveTicketLinks(
+        tx,
+        input.spaceId,
+        { projectId: null, milestoneId: null },
+        data,
+      );
+      const number = await allocateTicketNumber(tx, board.id);
+      return tx.ticket.create({
+        data: {
+          ...links,
+          boardId: board.id,
+          spaceId: input.spaceId,
+          number,
+          title: data.title,
+          description: data.description ?? null,
+          priority: data.priority,
+          assigneeBotId: data.assigneeBotId,
+          createdByBotId: input.botId ?? null,
+          createdByUserId: input.userId ?? null,
+        },
+      });
+    }),
+  );
   await deps.onTicketChange?.({
     spaceId: input.spaceId,
     boardId: board.id,
@@ -199,6 +213,8 @@ export async function updateTicket(
     priority?: string | null;
     status?: string;
     ownerBotId?: string;
+    projectId?: string | null;
+    milestoneId?: string | null;
   },
 ) {
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
@@ -208,34 +224,36 @@ export async function updateTicket(
   if (data.assigneeBotId && !(await botInSpace(deps, input.spaceId, data.assigneeBotId)))
     return { error: "Unknown bot." };
   const board = await ensureBoard(deps.prisma, input.spaceId);
-  const result = await deps.prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tickets WHERE id = ${data.id} AND "spaceId" = ${input.spaceId} FOR UPDATE`;
-    const current = await tx.ticket.findFirst({
-      where: { id: data.id, spaceId: input.spaceId, boardId: board.id },
-    });
-    if (!current) return null;
-    const row = await tx.ticket.update({
-      where: { id: current.id },
-      data: {
-        ...(data.title !== undefined ? { title: data.title } : {}),
-        ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.priority !== undefined ? { priority: data.priority ?? "normal" } : {}),
-        ...(data.assigneeBotId !== undefined ? { assigneeBotId: data.assigneeBotId } : {}),
-        ...(data.status !== undefined
-          ? {
-              status: data.status,
-              completedAt: isTicketCompletedStatus(data.status)
-                ? (current.completedAt ?? new Date())
-                : null,
-            }
-          : {}),
-      },
-    });
-    return {
-      row,
-      reassigned: data.assigneeBotId !== undefined && data.assigneeBotId !== current.assigneeBotId,
-    };
-  });
+  const result = await withTransactionRetry(() =>
+    deps.prisma.$transaction(async (tx) => {
+      const locked = await lockTicketForLinkUpdate(tx, input.spaceId, board.id, data.id, data);
+      if (!locked) return null;
+      const { current, links } = locked;
+      const row = await tx.ticket.update({
+        where: { id: current.id },
+        data: {
+          ...links,
+          ...(data.title !== undefined ? { title: data.title } : {}),
+          ...(data.description !== undefined ? { description: data.description } : {}),
+          ...(data.priority !== undefined ? { priority: data.priority ?? "normal" } : {}),
+          ...(data.assigneeBotId !== undefined ? { assigneeBotId: data.assigneeBotId } : {}),
+          ...(data.status !== undefined
+            ? {
+                status: data.status,
+                completedAt: isTicketCompletedStatus(data.status)
+                  ? (current.completedAt ?? new Date())
+                  : null,
+              }
+            : {}),
+        },
+      });
+      return {
+        row,
+        reassigned:
+          data.assigneeBotId !== undefined && data.assigneeBotId !== current.assigneeBotId,
+      };
+    }),
+  );
   if (!result) return { error: "Ticket not found." };
   await deps.onTicketChange?.({
     spaceId: input.spaceId,

@@ -13,6 +13,12 @@ export const BOT_MESSAGE_MAX_LENGTH = 8_000;
  */
 export const BOT_MESSAGE_MAX_HOPS = 6;
 
+/**
+ * A chain between two bots that both hold an org role. Org teams coordinate
+ * long work over many exchanges, so they get a higher cap that still ends loops.
+ */
+export const ORG_BOT_MESSAGE_MAX_HOPS = 40;
+
 /** Cap total description characters across the rendered teammate directory. */
 export const BOT_DIRECTORY_DESCRIPTIONS_MAX_LENGTH = 8_000;
 
@@ -35,8 +41,8 @@ export function nextBotMessageHop(sourceHop: number | undefined): number {
   return Number.isInteger(sourceHop) && (sourceHop as number) > 0 ? (sourceHop as number) + 1 : 1;
 }
 
-export function botMessageHopExhausted(hop: number): boolean {
-  return hop > BOT_MESSAGE_MAX_HOPS;
+export function botMessageHopExhausted(hop: number, maxHops = BOT_MESSAGE_MAX_HOPS): boolean {
+  return hop > maxHops;
 }
 
 export type BotMessageContext = Extract<MessageBlock, { kind: "bot_message_received" }>;

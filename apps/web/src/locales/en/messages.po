@@ -412,6 +412,10 @@ msgstr "Agent connections"
 msgid "Agents:"
 msgstr "Agents:"
 
+#: src/pages/Board.tsx
+msgid "All"
+msgstr "All"
+
 #: src/pages/Artifacts.tsx
 msgid "All bots"
 msgstr "All bots"
@@ -535,6 +539,7 @@ msgstr "Approval boundaries"
 
 #: src/pages/Approvals.tsx
 #: src/pages/Shell.tsx
+#: src/pages/shell/pending-approvals-link.tsx
 msgid "Approvals"
 msgstr "Approvals"
 
@@ -560,6 +565,7 @@ msgstr "Archive"
 msgid "archived"
 msgstr "archived"
 
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "Archived"
@@ -688,6 +694,7 @@ msgstr "Avatars"
 #: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Back"
 msgstr "Back"
@@ -2156,6 +2163,10 @@ msgstr "Email is not allowed to register"
 msgid "Email verification required"
 msgstr "Email verification required"
 
+#: src/components/ProjectProgress.tsx
+msgid "Ended"
+msgstr "Ended"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "Ends {day}"
@@ -2640,6 +2651,10 @@ msgstr "Link a chat app"
 msgid "Link SSO"
 msgstr "Link SSO"
 
+#: src/pages/Board.tsx
+msgid "List"
+msgstr "List"
+
 #: src/pages/Artifacts.tsx
 msgid "List view"
 msgstr "List view"
@@ -2902,6 +2917,14 @@ msgstr "Messaging"
 #: src/lib/call-session.ts
 msgid "Microphone failed"
 msgstr "Microphone failed"
+
+#: src/pages/Board.tsx
+msgid "Milestone"
+msgstr "Milestone"
+
+#: src/pages/Projects.tsx
+msgid "Milestones"
+msgstr "Milestones"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3199,6 +3222,7 @@ msgstr "No skills yet"
 msgid "No team conversations yet."
 msgstr "No team conversations yet."
 
+#: src/components/ProjectProgress.tsx
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr "No tickets yet"
@@ -3518,9 +3542,18 @@ msgstr "Private"
 msgid "Private workspace with its own bots and groups."
 msgstr "Private workspace with its own bots and groups."
 
+#: src/pages/Board.tsx
+msgid "Project"
+msgstr "Project"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "Project ID"
+
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+msgid "Projects"
+msgstr "Projects"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4443,6 +4476,10 @@ msgstr "Team Computer"
 msgid "Team conversations"
 msgstr "Team conversations"
 
+#: src/pages/Approvals.tsx
+msgid "Team decision"
+msgstr "Team decision"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Teams message"
 msgstr "Teams message"
@@ -4591,6 +4628,12 @@ msgstr "This subscription sign-in is not available in Rakazo yet. Use a deployme
 msgid "This week"
 msgstr "This week"
 
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+#: src/pages/Shell.tsx
+msgid "Tickets"
+msgstr "Tickets"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
 msgstr "Time of day"
@@ -4674,6 +4717,10 @@ msgstr "Type your answer"
 #: src/pages/BotContextMenu.tsx
 msgid "Unassigned"
 msgstr "Unassigned"
+
+#: src/pages/Board.tsx
+msgid "Unassociated"
+msgstr "Unassociated"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

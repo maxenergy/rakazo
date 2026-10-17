@@ -105,6 +105,16 @@ import {
   IntegrationProviderConfigSchema,
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
+import {
+  CreateMilestoneInput,
+  CreateProjectInput,
+  ListMilestonesInput,
+  ListProjectsInput,
+  MilestoneSchema,
+  ProjectSchema,
+  UpdateMilestoneInput,
+  UpdateProjectInput,
+} from "./projects.js";
 import { DecideProposalInput, ListProposalsInput, ProposalSchema } from "./proposals.js";
 import { MessageReactionSchema } from "./reactions.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
@@ -602,6 +612,22 @@ export const appContract = {
     list: oc.input(ListProposalsInput).output(z.array(ProposalSchema)),
     /** Approve or reject a pending proposal, then wake the bot that sent it. */
     decide: oc.input(DecideProposalInput).output(ProposalSchema),
+  },
+  projects: {
+    list: oc.input(ListProjectsInput).output(z.array(ProjectSchema)),
+    get: oc.input(z.object({ id: Id })).output(ProjectSchema),
+    create: oc.input(CreateProjectInput).output(ProjectSchema),
+    update: oc.input(UpdateProjectInput).output(ProjectSchema),
+    archive: oc.input(z.object({ id: Id })).output(ProjectSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
+  },
+  milestones: {
+    list: oc.input(ListMilestonesInput).output(z.array(MilestoneSchema)),
+    get: oc.input(z.object({ id: Id })).output(MilestoneSchema),
+    create: oc.input(CreateMilestoneInput).output(MilestoneSchema),
+    update: oc.input(UpdateMilestoneInput).output(MilestoneSchema),
+    archive: oc.input(z.object({ id: Id })).output(MilestoneSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
   },
   tickets: {
     list: oc.input(ListTicketsInput).output(ListTicketsOutput),

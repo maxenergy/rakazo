@@ -397,7 +397,24 @@ export async function threadSnapshot(
                   select: { id: true },
                 })
               : null;
-          const currentRun = run?.status === "failed" && newestTerminal?.id !== run.id ? null : run;
+          // A later successful turn of any kind clears it too: an org bot's work after a
+          // failure arrives as peer messages and tickets, which the probe above skips.
+          const laterSuccess =
+            run?.status === "failed" && newestTerminal?.id === run.id
+              ? await tx.run.findFirst({
+                  where: {
+                    botId: target.botId,
+                    threadId: target.threadId,
+                    status: { in: ["completed"] },
+                    createdAt: { gt: run.createdAt },
+                  },
+                  select: { id: true },
+                })
+              : null;
+          const currentRun =
+            run?.status === "failed" && (newestTerminal?.id !== run.id || laterSuccess)
+              ? null
+              : run;
           const liveEvents =
             currentRun && isActive(currentRun.status as RunStatus)
               ? await tx.event.findMany({

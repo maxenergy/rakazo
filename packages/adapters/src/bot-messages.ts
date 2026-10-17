@@ -1,5 +1,6 @@
 import { runContinueJob } from "@rakazo/adapter-kit";
 import type { BotMessageIntent, MessageBlock } from "@rakazo/contracts";
+import { parseBotOrgRole } from "@rakazo/contracts";
 import {
   BOT_MESSAGE_MAX_LENGTH,
   botMessageContext,
@@ -7,6 +8,7 @@ import {
   buildBotMessageWakePrompt,
   clampBotMessage,
   nextBotMessageHop,
+  ORG_BOT_MESSAGE_MAX_HOPS,
   resolveBotAddress,
 } from "@rakazo/core";
 import {
@@ -97,7 +99,7 @@ export async function messageBot(
 
   const candidates = await deps.prisma.bot.findMany({
     where: { spaceId: run.spaceId, userId: run.userId, archivedAt: null },
-    select: { id: true, name: true, title: true, thread: { select: { id: true } } },
+    select: { id: true, name: true, title: true, orgRole: true, thread: { select: { id: true } } },
   });
   const target = resolveBotAddress(candidates, {
     botId: input.bot_id,
@@ -114,7 +116,12 @@ export async function messageBot(
       sourceContext.intent === "request" ||
       sourceContext.intent === "question") &&
     sourceContext?.fromBotId === target.id;
-  if (botMessageHopExhausted(hop) && !returnsToSender) {
+  const senderRole = candidates.find((candidate) => candidate.id === sender.id)?.orgRole;
+  const orgChain = Boolean(senderRole && target.orgRole);
+  if (
+    botMessageHopExhausted(hop, orgChain ? ORG_BOT_MESSAGE_MAX_HOPS : undefined) &&
+    !returnsToSender
+  ) {
     return {
       ok: false as const,
       error:
@@ -384,6 +391,43 @@ export async function returnBotMessageOutcome(
   );
   if (outcome.ok) await markBotOutcomeReturned(deps.prisma, run.id);
   return outcome.ok;
+}
+
+/**
+ * Whether an org bot already had this peer message in front of it: a later turn of the
+ * same thread completed after starting with the message in its history. Colleagues send
+ * an org bot many messages while it works, and answering each one again in its own turn
+ * is most of what keeps a busy org slow.
+ */
+export async function peerMessageAlreadySeen(
+  prisma: PrismaClient,
+  run: { id: string; threadId: string; botId: string; sourceMessageId: string | null },
+) {
+  if (!run.sourceMessageId) return false;
+  const [bot, source] = await Promise.all([
+    prisma.bot.findUnique({ where: { id: run.botId }, select: { orgRole: true } }),
+    prisma.message.findUnique({
+      where: { id: run.sourceMessageId },
+      select: { createdAt: true },
+    }),
+  ]);
+  if (!parseBotOrgRole(bot?.orgRole) || !source) return false;
+  const covering = await prisma.run.findFirst({
+    where: {
+      threadId: run.threadId,
+      botId: run.botId,
+      id: { not: run.id },
+      status: "completed",
+      startedAt: { gt: source.createdAt },
+    },
+    select: { id: true },
+  });
+  return covering !== null;
+}
+
+/** A peer turn skipped as already seen has no outcome of its own to return. */
+export async function markPeerMessageSeen(prisma: PrismaClient, runId: string) {
+  await markBotOutcomeReturned(prisma, runId);
 }
 
 async function markBotOutcomeReturned(prisma: PrismaClient, runId: string) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewFromBlocks } from "./thread-listing.js";
+import { previewFromBlocks, rosterActiveRun } from "./thread-listing.js";
 
 describe("previewFromBlocks", () => {
   it("preserves literal URL paths in autolinks", () => {
@@ -24,5 +24,21 @@ describe("previewFromBlocks", () => {
   it("returns empty when there is no text block", () => {
     expect(previewFromBlocks([{ kind: "steps", steps: [] }])).toBe("");
     expect(previewFromBlocks(undefined)).toBe("");
+  });
+});
+
+describe("rosterActiveRun", () => {
+  it("shows the turn a bot is working on, not the turns queued behind it", () => {
+    const runs = [{ status: "queued" }, { status: "queued" }, { status: "running" }];
+    expect(rosterActiveRun(runs)?.status).toBe("running");
+  });
+  it("puts a run that needs the user ahead of work", () => {
+    expect(rosterActiveRun([{ status: "running" }, { status: "waiting_input" }])?.status).toBe(
+      "waiting_input",
+    );
+  });
+  it("reports a bot with only queued turns as waiting, and none as idle", () => {
+    expect(rosterActiveRun([{ status: "queued" }])?.status).toBe("queued");
+    expect(rosterActiveRun([])).toBeUndefined();
   });
 });

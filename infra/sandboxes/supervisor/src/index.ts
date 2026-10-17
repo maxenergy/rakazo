@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, writeSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import http from "node:http";
 import { homedir } from "node:os";
@@ -1017,8 +1017,16 @@ function startSupervisor() {
     await logger.flush({ timeoutMs: 2_000 });
     process.exit(0);
   };
-  process.once("SIGTERM", () => void shutdown());
-  process.once("SIGINT", () => void shutdown());
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.once(signal, () => {
+      logger.info("supervisor stopping", { "process.signal": signal });
+      void shutdown();
+    });
+  }
+  // A silent stop with no exit line was killed or crashed natively, not exited by Node.
+  process.on("exit", (code) => {
+    writeSync(2, `supervisor exiting code=${code} stopping=${stopping}\n`);
+  });
   return server;
 }
 

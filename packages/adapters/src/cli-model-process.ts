@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
@@ -171,6 +171,67 @@ export type CliProcessOptions = {
   ) => void;
 };
 
+export type CliFailureCause =
+  | "context_too_long"
+  | "rate_limited"
+  | "auth"
+  | "network"
+  | "exit_code";
+
+/** A CLI that exited with an error, with a coarse cause read from its own output. */
+export class CliProcessError extends Error {
+  constructor(
+    message: string,
+    readonly reason: CliFailureCause,
+  ) {
+    super(message);
+  }
+}
+
+/** Classify a failed CLI run from the tail of its output. The output itself is never kept. */
+export function classifyCliFailure(output: string): CliFailureCause {
+  const text = output.toLowerCase();
+  if (
+    /context.?length|context.?window|maximum context|too many tokens|prompt is too long|input is too long|input exceeds the maximum length|input_too_large|token limit/.test(
+      text,
+    )
+  )
+    return "context_too_long";
+  if (
+    /routing discovery failed|request timed out|reconnecting|connection (reset|refused|closed)|econn|enotfound|etimedout|network error|stream disconnected|dns/.test(
+      text,
+    )
+  )
+    return "network";
+  if (/rate.?limit|usage limit|quota|too many requests|\b429\b/.test(text)) return "rate_limited";
+  if (
+    /unauthori[sz]ed|\b401\b|not logged in|log ?in again|sign ?in again|expired token|refresh token/.test(
+      text,
+    )
+  )
+    return "auth";
+  return "exit_code";
+}
+
+const CLI_DIAGNOSTIC_TAIL = 16 * 1024;
+const CLI_FAILURE_FILES_KEPT = 20;
+
+/**
+ * Keep the tail of a failed CLI run for the operator, in DATA_DIR next to the CLI
+ * profiles and with the same owner-only access. It is never sent to bots or users,
+ * since CLI output can contain account details.
+ */
+export async function saveCliFailure(provider: CliModelProvider, diagnostics: string) {
+  const directory = join(resolve(process.env.DATA_DIR || "data"), "model-cli-failures");
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const file = join(directory, `${new Date().toISOString().replace(/[:.]/g, "-")}-${provider}.log`);
+  await writeFile(file, diagnostics, { mode: 0o600 });
+  const files = (await readdir(directory)).filter((name) => name.endsWith(".log")).sort();
+  for (const old of files.slice(0, Math.max(0, files.length - CLI_FAILURE_FILES_KEPT)))
+    await rm(join(directory, old), { force: true });
+  return file;
+}
+
 export async function runCliProcess(options: CliProcessOptions): Promise<string> {
   options.signal?.throwIfAborted();
   const directory = await prepareCliProfile(options.profileId);
@@ -219,6 +280,7 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
       stdio: "pipe",
     });
     let output = "";
+    let diagnostics = "";
     let failure: Error | undefined;
     let stopped = false;
     const stop = () => {
@@ -261,6 +323,7 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
     child.stderr.setEncoding("utf8");
     const receive = (text: string, stdout: boolean) => {
       if (stdout) output += text;
+      diagnostics = (diagnostics + text).slice(-CLI_DIAGNOSTIC_TAIL);
       if (output.length > 4 * 1024 * 1024) {
         failure = new Error("CLI response exceeded the size limit.");
         stop();
@@ -283,13 +346,17 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
       clearTimeout(timer);
       options.signal?.removeEventListener("abort", abort);
       if (failure) reject(failure);
-      else if (code !== 0 && !stopped)
-        reject(
-          new Error(
-            `${CLI_MODEL_PROVIDERS[options.provider].name} failed. Check sign-in, model access, and subscription limits.`,
-          ),
+      else if (code !== 0 && !stopped) {
+        const error = new CliProcessError(
+          `${CLI_MODEL_PROVIDERS[options.provider].name} failed. Check sign-in, model access, and subscription limits.`,
+          classifyCliFailure(diagnostics),
         );
-      else resolveResult(output);
+        if (!options.interactiveAuth)
+          void saveCliFailure(options.provider, `exit code ${code}\n${diagnostics}`).catch(
+            () => undefined,
+          );
+        reject(error);
+      } else resolveResult(output);
     });
     if (options.input !== undefined) child.stdin.end(options.input);
   });

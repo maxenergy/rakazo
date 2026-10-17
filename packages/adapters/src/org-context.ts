@@ -11,12 +11,21 @@ export type OrgMember = {
 };
 
 const ROLE_DUTIES: Record<BotOrgRole, string> = {
-  ceo: "You own goals, plans, staffing, progress, and reporting to the user. Draft each plan with the CTO, then get the user's approval with submit_proposal before you staff a team or start the work. When you hand a plan to the CTO for review, end your turn; the CTO hands it back to you for submission.",
-  cto: "You own technical plans, architecture, and reviews. Work out plans with the CEO, and help any bot that escalates a hard technical problem to you. When the CEO hands you a plan, write your full review in your reply, never only a pointer to it, then hand the next stage back to the CEO with handoff_to_bot so the CEO can submit the proposal.",
+  ceo: "You and the CTO run this company and make its decisions. You own goals, plans, staffing, progress, and reporting to the user. Agree each plan with the CTO, record the decision with record_decision, then act on it. When you hand a plan to the CTO for review, end your turn; the CTO messages you its verdict. When a milestone or ticket is finished, or a blocker needs the user, post one short report with report_to_group: what was finished, the evidence (PR and CI links), what comes next, and what is needed from the user (or none). Only you report there, and never with progress updates.",
+  cto: "You and the CEO run this company and make its decisions. You own technical plans, architecture, and reviews, and you help any bot that escalates a hard technical problem to you. When the CEO hands you a plan, write your full review in your reply, never only a pointer to it, then send your verdict to the CEO with message_bot (intent result) so the CEO is woken to decide. A handoff cannot go back to the bot that sent it.",
   lead: "You run your team: split the work, give each member a clear task, check results, and report progress to the bot you report to.",
   member:
     "Do the tasks you are given and report results to the bot you report to. You cannot create bots; ask the bot you report to when you need more help.",
 };
+
+/**
+ * The launch team decides most things itself; the user keeps only goal changes,
+ * new spending, irreversible or outward actions, and deadlocks.
+ */
+const DECISION_RULE = [
+  "Decision authority: the CEO and CTO decide together, without the user, on technical approach and architecture, staffing (creating and archiving bots, choosing their models), milestones and plans, and spending within the existing subscriptions and free resources. The CEO records each such decision with record_decision and the team acts on it. Record only decisions that change the plan, scope, staffing, architecture or spending; test order, retries, schedules and other working steps are not decisions.",
+  "Only these go to the user with submit_proposal: changing the user's goal or scope, any new paid spending, irreversible or outward-facing actions (production data, deleting data, public releases, payments), and anything the CEO and CTO cannot agree on. For these, only a decision the user records on the Approvals page counts; a chat reply does not, so ask the user to decide there and wait for the decision message.",
+].join(" ");
 
 function label(member: OrgMember) {
   return `${member.name} (${member.orgRole}, id ${member.id})`;
@@ -32,6 +41,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
   const cto = org.find((member) => member.orgRole === "cto" && member.id !== self.id);
 
   const lines = [
+    DECISION_RULE,
     `Org: you are the ${self.orgRole}${self.team ? ` on team ${self.team}` : ""}. ${ROLE_DUTIES[self.orgRole]}`,
     `You report to ${manager ? label(manager) : "the user"}.`,
     reports.length
@@ -41,8 +51,12 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
       ? `For a hard technical problem you cannot solve, escalate it (kind technical) to the CTO, ${label(cto)}, with what you tried.`
       : undefined,
     ceo && self.orgRole !== "ceo"
-      ? `For a decision that changes scope, budget, or direction, escalate it (kind decision) to the CEO, ${label(ceo)}. The CEO and CTO agree on a recommendation and the CEO asks the user before anyone acts on it.`
-      : "For a decision that changes scope, budget, or direction, agree on a recommendation with the CTO, then send it to the user with submit_proposal and wait for the decision before acting on it.",
+      ? `For a decision you cannot make yourself, escalate it (kind decision) to the CEO, ${label(ceo)}. The CEO and CTO decide it.`
+      : "For a decision, agree with the CTO and record it with record_decision. Send it to the user with submit_proposal only when it is one of the user-level items above.",
+    "Follow through: before you end a turn, check whether the next step of your assigned work is yours. If it is, do it now instead of ending with a status report. When you reply to an older message, act on the newest instructions you have, not only on that message.",
+    "Keep messages few: message a colleague only to hand over work, to ask about something that blocks you, or to report a finished step with its result. Do not send progress updates, acknowledgements or thanks, and do not restate another bot's message to a third bot; point the bot that needs it to the source instead.",
+    "Each turn sees every message in your thread, including colleagues' messages newer than the one that woke you. Handle all of them in this turn and answer whoever needs a reply with message_bot: a message you have already seen does not wake you again.",
+    "To reach any colleague, including one outside a group chat you are in, use message_bot; it wakes them. handoff_to_bot only passes a stage to another member of the current group.",
   ];
   return lines.filter(Boolean).join("\n");
 }

@@ -6,6 +6,7 @@ import { PassThrough } from "node:stream";
 import { spawn as spawnTerminal } from "node-pty";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  classifyCliFailure,
   cliEnvironment,
   cliExecutable,
   cliProfileDirectory,
@@ -189,5 +190,24 @@ describe("CLI credential and command boundary", () => {
     await expect(prepareCliProfile("11111111-1111-4111-8111-111111111111")).rejects.toThrow(
       "profile root",
     );
+  });
+});
+
+describe("CLI failure classification", () => {
+  it("names the cause without keeping the output", () => {
+    expect(classifyCliFailure('{"type":"error","message":"context_length_exceeded"}')).toBe(
+      "context_too_long",
+    );
+    expect(classifyCliFailure("You've hit your usage limit")).toBe("rate_limited");
+    expect(classifyCliFailure("401 Unauthorized")).toBe("auth");
+    expect(
+      classifyCliFailure(
+        '{"type":"turn.failed","error":{"message":"workspace routing discovery failed"}}',
+      ),
+    ).toBe("network");
+    expect(classifyCliFailure("failed to refresh available models: request timed out")).toBe(
+      "network",
+    );
+    expect(classifyCliFailure("used 4012 tokens")).toBe("exit_code");
   });
 });

@@ -20,6 +20,7 @@ type ProposalRow = {
   chosenOption: string | null;
   comment: string | null;
   decidedAt: Date | null;
+  decidedBy?: string;
   createdAt: Date;
   bot: { name: string };
 };
@@ -40,6 +41,7 @@ export function mapProposal(row: ProposalRow): Proposal {
     chosenOption: row.chosenOption,
     comment: row.comment,
     decidedAt: row.decidedAt?.toISOString() ?? null,
+    decidedBy: row.decidedBy === "team" ? "team" : "user",
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -56,14 +58,29 @@ export async function createProposal(
     summary: string;
     options: string[];
     recommendation: string;
+    /** A decision the launch team made itself: recorded as already decided. */
+    teamDecision?: { chosenOption: string | null };
   },
 ): Promise<{ proposal: Proposal; replayed: boolean }> {
   const where = { spaceId_submitKey: { spaceId: scope.spaceId, submitKey: input.submitKey } };
   const existing = await prisma.proposal.findUnique({ where, include: withBotName });
   if (existing) return { proposal: mapProposal(existing), replayed: true };
   try {
+    const { teamDecision, ...fields } = input;
     const row = await prisma.proposal.create({
-      data: { spaceId: scope.spaceId, userId: scope.userId, ...input },
+      data: {
+        spaceId: scope.spaceId,
+        userId: scope.userId,
+        ...fields,
+        ...(teamDecision
+          ? {
+              status: "approved",
+              decidedBy: "team",
+              decidedAt: new Date(),
+              chosenOption: teamDecision.chosenOption,
+            }
+          : {}),
+      },
       include: withBotName,
     });
     return { proposal: mapProposal(row), replayed: false };

@@ -171,6 +171,8 @@ import {
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  archiveMilestone,
+  archiveProject,
   BotSectionNameConflictError,
   CannotDeleteDefaultSpaceError,
   CannotDeleteLastSpaceError,
@@ -180,12 +182,16 @@ import {
   claimEmptySpaceDeletionForMember,
   createExternalConversationRepos,
   createGroupRepos,
+  createMilestone,
+  createProject,
   createRepos,
   createSpaceForMember,
   createThreadMessageInTransaction,
   decideProposal,
   defaultModelCredentialCandidates,
   deleteEmptySpaceForMember,
+  deleteMilestone,
+  deleteProject,
   deleteUnreferencedCredentialSecret,
   ensureBoard,
   findDefaultModelCredential,
@@ -205,9 +211,12 @@ import {
   newestModelCredentialOrder,
   newestVoiceCredentialOrder,
   Prisma,
+  ProjectLinkError,
   ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
+  readMilestones,
+  readProjects,
   releaseSpaceDeletionClaim,
   renameSpaceForMember,
   renewSpaceDeletionClaim,
@@ -225,6 +234,9 @@ import {
   toTicketCommentDto,
   toTicketDto,
   touchGroupUpdatedAt,
+  updateMilestone,
+  updateProject,
+  validateProjectFilter,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
@@ -803,7 +815,14 @@ export function createRouter(deps: RouterDeps) {
     })
     .use(async ({ context, next }) => {
       if (!context.actor) throw new ORPCError("UNAUTHORIZED");
-      return next({ context: { ...context, actor: context.actor } });
+      try {
+        return await next({ context: { ...context, actor: context.actor } });
+      } catch (error) {
+        if (error instanceof ProjectLinkError) {
+          throw new ORPCError(error.code, { message: error.message });
+        }
+        throw error;
+      }
     });
   const ticketDeps = {
     prisma: deps.prisma,
@@ -3832,6 +3851,174 @@ export function createRouter(deps: RouterDeps) {
         }
       }),
     },
+    projects: {
+      list: boardEnabled.projects.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readProjects(tx, spaceId, input);
+              return rows;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      get: boardEnabled.projects.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readProjects(tx, spaceId, input);
+              return rows[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      create: boardEnabled.projects.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createProject(tx, spaceId, input);
+              return (await readProjects(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.projects.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateProject(tx, spaceId, input);
+              return (await readProjects(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      archive: boardEnabled.projects.archive.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await archiveProject(tx, spaceId, input.id);
+              return (await readProjects(tx, spaceId, { id: input.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.projects.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteProject(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+    },
+    milestones: {
+      list: boardEnabled.milestones.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readMilestones(tx, spaceId, input);
+              return rows;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      get: boardEnabled.milestones.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readMilestones(tx, spaceId, input);
+              return rows[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      create: boardEnabled.milestones.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createMilestone(tx, spaceId, input);
+              return (await readMilestones(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.milestones.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateMilestone(tx, spaceId, input);
+              return (await readMilestones(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      archive: boardEnabled.milestones.archive.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await archiveMilestone(tx, spaceId, input.id);
+              return (await readMilestones(tx, spaceId, { id: input.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.milestones.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteMilestone(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+    },
     proposals: {
       list: authed.proposals.list.handler(async ({ context, input }) =>
         listProposals(deps.prisma, context.actor, input.status),
@@ -3880,10 +4067,22 @@ export function createRouter(deps: RouterDeps) {
               }
             : {}),
         };
-        const rows = await deps.prisma.ticket.findMany({
-          where,
-          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-        });
+        const rows = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await validateProjectFilter(tx, context.actor.spaceId, input);
+              return tx.ticket.findMany({
+                where: {
+                  ...where,
+                  ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
+                  ...(input.milestoneId !== undefined ? { milestoneId: input.milestoneId } : {}),
+                },
+                orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+              });
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
         return { tickets: rows.map((row) => toTicketDto(row, board.ticketPrefix)) };
       }),
       get: boardEnabled.tickets.get.handler(async ({ context, input }) => {

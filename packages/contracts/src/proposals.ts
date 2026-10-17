@@ -29,6 +29,8 @@ export const ProposalSchema = z.object({
   chosenOption: z.string().nullable(),
   comment: z.string().nullable(),
   decidedAt: z.string().nullable(),
+  /** Who decided: the owner on the Approvals page, or the CEO and CTO themselves. */
+  decidedBy: z.enum(["user", "team"]).default("user"),
   createdAt: z.string(),
 });
 export type Proposal = z.infer<typeof ProposalSchema>;

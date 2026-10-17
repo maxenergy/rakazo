@@ -79,7 +79,9 @@ export function ApprovalsPage() {
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="font-medium">{proposal.title}</span>
                       <span className="text-muted-foreground">
-                        {proposal.status === "approved" ? (
+                        {proposal.decidedBy === "team" ? (
+                          <Trans>Team decision</Trans>
+                        ) : proposal.status === "approved" ? (
                           <Trans>Approved</Trans>
                         ) : (
                           <Trans>Rejected</Trans>

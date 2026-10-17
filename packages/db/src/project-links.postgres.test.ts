@@ -276,6 +276,30 @@ describePostgres("project links (PostgreSQL)", () => {
     expect(await prisma.milestone.findUnique({ where: { id: milestone.id } })).toBeNull();
   });
 
+  it("deletes a space containing a ticket linked to a project and milestone", async () => {
+    const target = await prisma.space.create({
+      data: { id: `links-delete-${suffix}`, organizationId, name: "Delete space" },
+    });
+    const targetBoard = await ensureBoard(prisma, target.id);
+    const { project, milestone } = await fixture(target.id);
+    const ticket = await prisma.ticket.create({
+      data: {
+        spaceId: target.id,
+        boardId: targetBoard.id,
+        number: 1,
+        title: "Space cascade fixture",
+        projectId: project.id,
+        milestoneId: milestone.id,
+      },
+    });
+    await prisma.space.delete({ where: { id: target.id } });
+    expect(await prisma.space.findUnique({ where: { id: target.id } })).toBeNull();
+    expect(await prisma.ticket.findUnique({ where: { id: ticket.id } })).toBeNull();
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).toBeNull();
+    expect(await prisma.milestone.findUnique({ where: { id: milestone.id } })).toBeNull();
+    expect(await prisma.space.findUnique({ where: { id: spaceId } })).not.toBeNull();
+  });
+
   it("deletes a single milestone atomically while retaining the project and sibling links", async () => {
     const { project, milestone } = await fixture();
     const sibling = await prisma.milestone.create({

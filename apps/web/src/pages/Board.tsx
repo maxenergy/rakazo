@@ -134,8 +134,10 @@ export function BoardPage() {
         </p>
       ) : null}
       <div className="flex flex-wrap gap-3 border-b px-4 py-3">
-        <label htmlFor={`${filterId}-project`} className="min-w-0 flex-1 text-sm">
-          <Trans>Project</Trans>
+        <div className="min-w-0 flex-1 text-sm">
+          <label htmlFor={`${filterId}-project`}>
+            <Trans>Project</Trans>
+          </label>
           <NativeSelect
             id={`${filterId}-project`}
             className="w-full"
@@ -150,9 +152,11 @@ export function BoardPage() {
               </NativeSelectOption>
             ))}
           </NativeSelect>
-        </label>
-        <label htmlFor={`${filterId}-milestone`} className="min-w-0 flex-1 text-sm">
-          <Trans>Milestone</Trans>
+        </div>
+        <div className="min-w-0 flex-1 text-sm">
+          <label htmlFor={`${filterId}-milestone`}>
+            <Trans>Milestone</Trans>
+          </label>
           <NativeSelect
             id={`${filterId}-milestone`}
             className="w-full"
@@ -167,9 +171,11 @@ export function BoardPage() {
               </NativeSelectOption>
             ))}
           </NativeSelect>
-        </label>
-        <label htmlFor={`${filterId}-status`} className="min-w-0 text-sm">
-          <Trans>Status</Trans>
+        </div>
+        <div className="min-w-0 text-sm">
+          <label htmlFor={`${filterId}-status`}>
+            <Trans>Status</Trans>
+          </label>
           <NativeSelect
             id={`${filterId}-status`}
             className="w-full"
@@ -188,7 +194,7 @@ export function BoardPage() {
               </NativeSelectOption>
             ))}
           </NativeSelect>
-        </label>
+        </div>
       </div>
       <main className="relative min-h-0 min-w-0 flex-1 overflow-auto p-4">
         {listView ? (

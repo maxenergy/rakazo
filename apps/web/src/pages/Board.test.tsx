@@ -372,6 +372,11 @@ it.each([360, 390])(
         ),
       ).toBe(false);
       expect(page.container.querySelectorAll("select")).toHaveLength(3);
+      expect(
+        Array.from(page.container.querySelectorAll("select")).map(
+          (select) => select.labels?.[0]?.textContent,
+        ),
+      ).toEqual(["Project", "Milestone", "Status"]);
     } finally {
       await page.cleanup();
     }

@@ -330,10 +330,28 @@ function shortenOldMessage(message: TranscriptMessage): TranscriptMessage {
   return changed ? ({ ...message, content } as TranscriptMessage) : message;
 }
 
+/** Keep the start and end of each oversized text part, which hold a log's command and result. */
+function trimLatestMessage(message: TranscriptMessage, limit: number): TranscriptMessage {
+  if (message.role === "system" || !Array.isArray(message.content)) return message;
+  let changed = false;
+  const content = message.content.map((part) => {
+    if (part.type !== "text" || part.text.length <= limit) return part;
+    changed = true;
+    const half = Math.floor(limit / 2);
+    const omitted = part.text.length - 2 * half;
+    return {
+      ...part,
+      text: `${part.text.slice(0, half)}\n[${omitted} characters omitted to fit the model context]\n${part.text.slice(-half)}`,
+    };
+  });
+  return changed ? ({ ...message, content } as TranscriptMessage) : message;
+}
+
 /**
  * Fit the conversation into a character budget: shorten text in older messages,
  * then drop the oldest steps after the first user message, marking the gap.
- * System messages and the most recent messages are always kept whole.
+ * System messages are always kept whole; the most recent messages are trimmed only when
+ * they alone overflow the budget.
  */
 export function boundCliMessages(
   messages: readonly TranscriptMessage[],
@@ -367,6 +385,14 @@ export function boundCliMessages(
   if (size > budgetChars) {
     for (let index = 0; index < kept.length - 2; index += 1) {
       kept[index] = shortenOldMessage(kept[index]!);
+    }
+    // A single huge tool result (a full diff or CI log) can overflow on its own, and
+    // the CLI then rejects the whole prompt. Keep its start and end within budget.
+    const latest = kept.slice(-2);
+    const others = total(kept) - total(latest);
+    const room = Math.max(CLI_OLD_TEXT_LIMIT, Math.floor((budgetChars - others) / 2));
+    for (let index = Math.max(0, kept.length - 2); index < kept.length; index += 1) {
+      kept[index] = trimLatestMessage(kept[index]!, room);
     }
   }
   if (dropped === 0) return kept;

@@ -284,6 +284,27 @@ describe("subscription CLI provider conformance", () => {
     expect(JSON.stringify(bounded)).toContain(`output 60 ${"x".repeat(5_000)}`);
   });
 
+  it("trims a single huge latest tool result to its start and end", () => {
+    const log = `gh pr diff 1\n${"x".repeat(3_000_000)}\nexit=0`;
+    const messages = [
+      { role: "user" as const, content: "Review the PR", timestamp: 0 },
+      {
+        role: "toolResult" as const,
+        toolCallId: "call-1",
+        toolName: "shell",
+        content: [{ type: "text" as const, text: log }],
+        isError: false,
+        timestamp: 1,
+      },
+    ];
+    const bounded = boundCliMessages(messages, 100_000);
+    const text = JSON.stringify(bounded);
+    expect(text.length).toBeLessThanOrEqual(100_000 + 1_000);
+    expect(text).toContain("gh pr diff 1");
+    expect(text).toContain("exit=0");
+    expect(text).toContain("characters omitted to fit the model context");
+  });
+
   it("leaves a conversation that already fits untouched", () => {
     const messages = [{ role: "user" as const, content: "Hello", timestamp: 0 }];
     expect(boundCliMessages(messages, 10_000)).toEqual(messages);

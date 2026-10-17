@@ -192,7 +192,7 @@ export class CliProcessError extends Error {
 export function classifyCliFailure(output: string): CliFailureCause {
   const text = output.toLowerCase();
   if (
-    /context.?length|context.?window|maximum context|too many tokens|prompt is too long|input is too long|token limit/.test(
+    /context.?length|context.?window|maximum context|too many tokens|prompt is too long|input is too long|input exceeds the maximum length|input_too_large|token limit/.test(
       text,
     )
   )

@@ -12,7 +12,7 @@ export const ORG_CHECK_IN_IDLE_MS = 10 * 60_000;
  */
 export const ORG_CHECK_IN_REPEAT_MS = 60 * 60_000;
 /** Check-ins per org per day, so an org that keeps stalling cannot burn its subscriptions. */
-export const ORG_CHECK_IN_DAILY_LIMIT = 12;
+export const ORG_CHECK_IN_DAILY_LIMIT = 24;
 
 export function orgCheckInPrompt(idleMinutes: number) {
   return [

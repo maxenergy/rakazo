@@ -31,6 +31,8 @@ describe("parseTicketRef", () => {
 
 describe("ticket contracts", () => {
   const ticket = {
+    projectId: null,
+    milestoneId: null,
     id: "ticket-1",
     boardId: "board-1",
     spaceId: "space-1",

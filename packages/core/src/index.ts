@@ -37,6 +37,8 @@ export * from "./message-visibility.js";
 export * from "./messaging-commands.js";
 export * from "./messaging-prompts.js";
 export * from "./model-catalog-copy.js";
+export * from "./model-catalog-metadata.js";
+export * from "./model-catalog-metadata-copy.js";
 export * from "./model-oauth.js";
 export * from "./model-probe.js";
 export * from "./model-providers.js";
@@ -64,6 +66,3 @@ export * from "./time-separators.js";
 export * from "./tool-activity.js";
 export * from "./user-error.js";
 export * from "./voice-chat-groups.js";
-
-export * from "./model-catalog-metadata.js";
-export * from "./model-catalog-metadata-copy.js";

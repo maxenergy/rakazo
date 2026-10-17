@@ -101,6 +101,21 @@ describePostgres("project and milestone API isolation", () => {
   it("hides foreign and missing resources consistently without notifying", async () => {
     const api = client();
     notify.mockClear();
+    const foreignSnapshot = async () => ({
+      projects: await prisma.project.findMany({
+        where: { spaceId: foreignSpaceId },
+        orderBy: { id: "asc" },
+      }),
+      milestones: await prisma.milestone.findMany({
+        where: { spaceId: foreignSpaceId },
+        orderBy: { id: "asc" },
+      }),
+      tickets: await prisma.ticket.findMany({
+        where: { spaceId: foreignSpaceId },
+        orderBy: { id: "asc" },
+      }),
+    });
+    const before = await foreignSnapshot();
     for (const id of [foreignProjectId, `missing-${suffix}`]) {
       for (const action of [
         () => api.projects.get({ id }),
@@ -109,11 +124,13 @@ describePostgres("project and milestone API isolation", () => {
         () => api.projects.delete({ id }),
         () => api.milestones.list({ projectId: id }),
         () => api.milestones.create({ projectId: id, name: "Rejected" }),
-      ])
+      ]) {
         await expect(action()).rejects.toMatchObject({
           code: "NOT_FOUND",
           message: "Resource not found.",
         });
+        expect(await foreignSnapshot()).toEqual(before);
+      }
     }
     for (const id of [foreignMilestoneId, `missing-${suffix}`]) {
       for (const action of [
@@ -121,11 +138,13 @@ describePostgres("project and milestone API isolation", () => {
         () => api.milestones.update({ id, name: "Rejected" }),
         () => api.milestones.archive({ id }),
         () => api.milestones.delete({ id }),
-      ])
+      ]) {
         await expect(action()).rejects.toMatchObject({
           code: "NOT_FOUND",
           message: "Resource not found.",
         });
+        expect(await foreignSnapshot()).toEqual(before);
+      }
     }
     expect(notify).not.toHaveBeenCalled();
     expect((await api.projects.list({})).map((row) => row.id)).not.toContain(foreignProjectId);

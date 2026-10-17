@@ -2332,7 +2332,8 @@ msgstr "标记异常操作"
 msgid "Forgot password?"
 msgstr "忘记密码？"
 
-#: src/pages/ModelSettingsOverlay.tsx
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
 msgid "Free"
 msgstr "免费"
 
@@ -4942,3 +4943,72 @@ msgstr "你的名字"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "你的一支随时在线的 Agent 团队<0/>可以交给它们真正的工作。"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "{price} USD / million tokens"
+msgstr "{price} 美元 / 百万 token"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache read: {price}"
+msgstr "缓存读取：{price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache write: {price}"
+msgstr "缓存写入：{price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Context window: {tokens}"
+msgstr "上下文窗口：{tokens}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cost unknown"
+msgstr "成本未知"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Does not support reasoning"
+msgstr "不支持推理"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Input: {price}"
+msgstr "输入：{price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Maximum output tokens: {tokens}"
+msgstr "最大输出 token：{tokens}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "No charge"
+msgstr "不收费"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Output: {price}"
+msgstr "输出：{price}"
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Sort by cost"
+msgstr "按成本排序"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Subscription, cost unknown"
+msgstr "订阅，成本未知"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Supports reasoning"
+msgstr "支持推理"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Unknown"
+msgstr "未知"

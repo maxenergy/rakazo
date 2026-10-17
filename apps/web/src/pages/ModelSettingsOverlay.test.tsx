@@ -84,6 +84,19 @@ vi.mock("@rakazo/ui-web", () => {
         {children}
       </button>
     ),
+    Checkbox: ({
+      checked,
+      onCheckedChange,
+    }: {
+      checked?: boolean;
+      onCheckedChange?: (checked: boolean) => void;
+    }) => (
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onCheckedChange?.(event.target.checked)}
+      />
+    ),
     Dialog: Pass,
     DialogClose: Pass,
     DialogContent: Pass,
@@ -97,6 +110,7 @@ vi.mock("@rakazo/ui-web", () => {
   };
 });
 
+import { i18n } from "@lingui/core";
 import { rpc } from "../lib/rpc";
 import { ModelSettingsOverlay } from "./ModelSettingsOverlay";
 
@@ -195,6 +209,8 @@ async function renderSettings() {
 }
 
 beforeEach(() => {
+  i18n.load("en", {});
+  i18n.activate("en");
   vi.mocked(rpc.me).mockResolvedValue(account("deepseek", "deepseek-chat"));
   models.list.mockResolvedValue([deepseekEntry]);
   models.credentials.mockResolvedValue([]);
@@ -373,5 +389,65 @@ it("shows a stored OpenAI-compatible key and stays empty when none is saved", as
     expect(input.placeholder).toBe("Optional");
   } finally {
     await empty.unmount();
+  }
+});
+
+it.each([undefined, false, true])(
+  "renders unknown catalog limits and reasoning=%s safely",
+  async (reasoning) => {
+    models.list.mockResolvedValue([
+      { ...deepseekEntry, contextWindow: null, maxTokens: null, reasoning },
+    ]);
+    const view = await renderSettings();
+    try {
+      expect(view.container.textContent).toContain("Context window: Unknown");
+      expect(view.container.textContent).toContain("Maximum output tokens: Unknown");
+      expect(view.container.textContent).toContain("Cost unknown");
+      expect(view.container.textContent?.includes("Does not support reasoning")).toBe(
+        reasoning === false,
+      );
+      expect(view.container.textContent?.includes("Supports reasoning")).toBe(reasoning === true);
+      expect(view.container.textContent).not.toContain("$0");
+    } finally {
+      await view.unmount();
+    }
+  },
+);
+
+it("keeps catalog order by default and selects the first cost-sorted model by keyboard", async () => {
+  const priced = (id: string, input: number) => ({
+    ...deepseekEntry,
+    id,
+    label: id,
+    billingModes: ["api-key"],
+    pricing: {
+      inputPerMTok: input,
+      outputPerMTok: 1,
+      cacheReadPerMTok: null,
+      cacheWritePerMTok: null,
+    },
+  });
+  models.list.mockResolvedValue([priced("Expensive", 5), priced("Cheap", 1)]);
+  vi.mocked(rpc.me).mockResolvedValue(account("deepseek", "Expensive"));
+  const view = await renderSettings();
+  try {
+    const trigger = view.container.querySelector('button[role="combobox"]') as HTMLButtonElement;
+    await act(async () => trigger.click());
+    const labels = () =>
+      [...view.container.querySelectorAll('[role="option"]')].map((option) => option.textContent);
+    expect(labels()).toEqual(["Expensive", "Cheap"]);
+    const checkbox = view.container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    await act(async () => checkbox.click());
+    expect(labels()).toEqual(["Cheap", "Expensive"]);
+    const search = view.container.querySelector(
+      'input[aria-label="Search models"]',
+    ) as HTMLInputElement;
+    await act(async () =>
+      search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })),
+    );
+    expect(trigger.textContent).toContain("Cheap");
+  } finally {
+    await view.unmount();
   }
 });

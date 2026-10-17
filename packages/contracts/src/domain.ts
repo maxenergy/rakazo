@@ -1185,6 +1185,14 @@ export const SpaceMemoryConfigSchema = z.object({
 });
 export type SpaceMemoryConfig = z.infer<typeof SpaceMemoryConfigSchema>;
 
+/** Base-tier prices in USD per million tokens; null means unknown. */
+export const ModelCatalogPricingSchema = z.object({
+  inputPerMTok: z.number().nonnegative().nullable(),
+  outputPerMTok: z.number().nonnegative().nullable(),
+  cacheReadPerMTok: z.number().nonnegative().nullable(),
+  cacheWritePerMTok: z.number().nonnegative().nullable(),
+});
+
 export const ModelCatalogEntrySchema = z.object({
   provider: z.string(),
   providerName: z.string().optional(),
@@ -1195,6 +1203,10 @@ export const ModelCatalogEntrySchema = z.object({
   oauthLabel: z.string().optional(),
   authHint: z.string().optional(),
   subscription: z.boolean().optional(),
+  billingModes: z.array(z.enum(["api-key", "subscription"])).optional(),
+  pricing: ModelCatalogPricingSchema.nullable().optional(),
+  contextWindow: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional(),
+  maxTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional(),
   signIn: ModelOAuthSignInModeSchema.optional(),
   reasoning: z.boolean().optional(),
   supportsMaxTokens: z.boolean().optional(),

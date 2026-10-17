@@ -17,11 +17,14 @@ import {
 } from "@rakazo/contracts";
 import {
   COMPATIBLE_THINKING_LEVELS,
+  catalogCostState,
+  catalogMetadataLines,
   clampCatalogThinkingLevel,
   createModelProbe,
   filterModelCatalog,
   initialModelProbeState,
   pickCatalogModelId,
+  sortModelCatalogByCost,
 } from "@rakazo/core";
 import {
   AlertDialog,
@@ -33,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
+  Checkbox,
   Dialog,
   DialogClose,
   DialogContent,
@@ -52,9 +56,10 @@ import {
   modelPreflightTestingLabel,
 } from "../components/ModelConnectionPreflightNotice";
 import { useCopyText } from "../lib/copy-text";
+import { localizedCatalogMetadata } from "../lib/localized-catalog-metadata";
 import { localizedProviderHint, localizedSignInLabel } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry, ModelCredential } from "../lib/model-auth";
-import { modelBillingLabel, thinkingLevelLabel } from "../lib/model-catalog";
+import { thinkingLevelLabel } from "../lib/model-catalog";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
 import {
   classifyModelConnectionFailure,
@@ -733,6 +738,7 @@ export function ModelSettingsOverlay({
           </span>
           <ModelPicker
             options={modelsForProvider}
+            authKind={usingServerCredentials ? undefined : credential?.authKind}
             value={selected.id}
             onChange={(nextModelId) => {
               cancelOAuthAttempt();
@@ -797,11 +803,15 @@ export function ModelSettingsOverlay({
             </NativeSelect>
           </label>
         ) : null}
-        {selected.billing && !usingServerCredentials ? (
-          <p className="mt-2 text-[13px] leading-[1.5] text-muted-foreground">
-            {modelBillingLabel(selected.billing)}
-          </p>
-        ) : null}
+        <div className="mt-2 text-[13px] text-muted-foreground">
+          {catalogMetadataLines(
+            selected,
+            usingServerCredentials ? undefined : credential?.authKind,
+            localizedCatalogMetadata,
+          ).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
       </>
     ) : null;
 
@@ -1547,10 +1557,12 @@ export function ModelSettingsOverlay({
 }
 
 function ModelPicker({
+  authKind,
   options,
   value,
   onChange,
 }: {
+  authKind: ModelCredential["authKind"];
   options: ModelCatalogEntry[];
   value: string;
   onChange: (value: string) => void;
@@ -1561,6 +1573,7 @@ function ModelPicker({
   const searchRef = useRef<HTMLInputElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const listboxId = useId();
+  const sortByCostId = useId();
   const selectedIndex = Math.max(
     0,
     options.findIndex((option) => option.id === value),
@@ -1568,8 +1581,13 @@ function ModelPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(selectedIndex);
-  const filteredOptions = useMemo(() => filterModelCatalog(options, query), [options, query]);
+  const [sortByCost, setSortByCost] = useState(false);
+  const filteredOptions = useMemo(() => {
+    const matched = filterModelCatalog(options, query);
+    return sortByCost ? sortModelCatalogByCost(matched, () => authKind) : matched;
+  }, [options, query, sortByCost, authKind]);
   const groups = useMemo(() => {
+    if (sortByCost) return [{ name: "", entries: filteredOptions }];
     const grouped = new Map<string, ModelCatalogEntry[]>();
     for (const option of filteredOptions) {
       const key = option.providerName ?? option.provider;
@@ -1578,7 +1596,7 @@ function ModelPicker({
       else grouped.set(key, [option]);
     }
     return [...grouped].map(([name, entries]) => ({ name, entries }));
-  }, [filteredOptions]);
+  }, [filteredOptions, sortByCost]);
   const groupRanges = useMemo(() => {
     let index = 0;
     return groups.map((group) => {
@@ -1674,6 +1692,16 @@ function ModelPicker({
     }
   }
 
+  function openPicker() {
+    setHighlightedIndex(
+      Math.max(
+        0,
+        filteredOptions.findIndex((option) => option.id === value),
+      ),
+    );
+    setOpen(true);
+  }
+
   function onTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
     if (event.key === "Escape" && open) {
       event.preventDefault();
@@ -1683,7 +1711,7 @@ function ModelPicker({
     }
     if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      setOpen(true);
+      openPicker();
       return;
     }
     if (event.key === "ArrowUp") {
@@ -1719,6 +1747,17 @@ function ModelPicker({
 
   return (
     <div ref={rootRef} className="relative mt-2">
+      <label htmlFor={sortByCostId} className="flex items-center gap-2 text-sm">
+        <Checkbox
+          id={sortByCostId}
+          checked={sortByCost}
+          onCheckedChange={(checked) => {
+            setSortByCost(checked);
+            setHighlightedIndex(0);
+          }}
+        />
+        <Trans>Sort by cost</Trans>
+      </label>
       <button
         ref={triggerRef}
         type="button"
@@ -1728,7 +1767,10 @@ function ModelPicker({
         aria-expanded={open}
         aria-haspopup="listbox"
         className="flex h-10 w-full items-center justify-between rounded-lg border border-input bg-transparent px-3 text-start text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (open) setOpen(false);
+          else openPicker();
+        }}
         onKeyDown={onTriggerKeyDown}
       >
         <span className="min-w-0 truncate">{options[selectedIndex]?.label}</span>
@@ -1769,12 +1811,13 @@ function ModelPicker({
                     {group.name}
                   </p>
                 ) : null}
-                {group.entries.map((option, groupIndex) => {
-                  const index = group.start + groupIndex;
+                {group.entries.map((option) => {
+                  const index = filteredOptions.indexOf(option);
                   return (
                     <ModelOption
                       key={`${option.provider}:${option.id}`}
                       option={option}
+                      authKind={authKind}
                       optionDomId={optionDomId(index)}
                       index={index}
                       value={value}
@@ -1800,6 +1843,7 @@ function ModelPicker({
 }
 
 function ModelOption({
+  authKind,
   option,
   optionDomId,
   index,
@@ -1809,6 +1853,7 @@ function ModelOption({
   choose,
   onOptionKeyDown,
 }: {
+  authKind: ModelCredential["authKind"];
   option: ModelCatalogEntry;
   optionDomId: string;
   index: number;
@@ -1837,7 +1882,7 @@ function ModelOption({
     >
       <span className="min-w-0 truncate">{option.label}</span>
       <span className="flex shrink-0 items-center gap-2 text-[12px] text-muted-foreground">
-        {option.billing.toLowerCase().includes("free") ? t`Free` : null}
+        {catalogCostState(option, authKind) === "free" ? t`Free` : null}
         {option.id === value ? (
           <Check size={14} strokeWidth={2} className="text-foreground" aria-hidden="true" />
         ) : null}

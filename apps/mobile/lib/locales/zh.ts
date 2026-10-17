@@ -1,4 +1,18 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Sort by cost": "按成本排序",
+  "Subscription, cost unknown": "订阅，成本未知",
+  "Cost unknown": "成本未知",
+  Unknown: "未知",
+  "No charge": "不收费",
+  "{price} USD / million tokens": "{price} 美元 / 百万 token",
+  "Input: {price}": "输入：{price}",
+  "Output: {price}": "输出：{price}",
+  "Cache read: {price}": "缓存读取：{price}",
+  "Cache write: {price}": "缓存写入：{price}",
+  "Context window: {tokens}": "上下文窗口：{tokens}",
+  "Maximum output tokens: {tokens}": "最大输出 token：{tokens}",
+  "Supports reasoning": "支持推理",
+  "Does not support reasoning": "不支持推理",
   "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
     "CLI 调用失败。请检查登录状态、所选模型和订阅额度。未切换至 API 调用。",
   "Connecting…": "正在连接…",

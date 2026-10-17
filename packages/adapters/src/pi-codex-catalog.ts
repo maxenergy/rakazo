@@ -552,7 +552,9 @@ function withLiveFields(entry: PiCatalogEntry, model: CodexCatalogModel): PiCata
   const thinkingLevels = liveThinkingLevels(model);
   return thinkingLevels
     ? { ...entry, reasoning: true, thinkingLevels }
-    : { ...entry, reasoning: entry.reasoning || model.reasoningEfforts.length > 0 };
+    : model.reasoningEfforts.length > 0
+      ? { ...entry, reasoning: true }
+      : { ...entry };
 }
 
 function liveThinkingLevels(model: CodexCatalogModel): ThinkingLevel[] | undefined {

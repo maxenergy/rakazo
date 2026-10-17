@@ -157,9 +157,10 @@ msgstr "{name} terminou"
 msgid "{name} stopped"
 msgstr "{name} foi interrompido"
 
-#: src/lib/model-catalog.ts
-msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
-msgstr "O login com assinatura de {provider} ainda não está disponível na interface do Rakazo. Pule esta etapa se o ambiente já tiver credenciais."
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "{price} USD / million tokens"
+msgstr "{price} USD / milhão de tokens"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
@@ -532,6 +533,12 @@ msgstr "Aparência"
 msgid "Approval boundaries"
 msgstr "Limites de aprovação"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+msgid "Approvals"
+msgstr "Aprovações"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "Aprovar"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "Aprove este servidor para permitir que seu agente use suas ferramentas."
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "Aprovado"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "Avatares"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -794,6 +806,16 @@ msgstr "Navegador"
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
 msgstr "Integrado"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache read: {price}"
+msgstr "Leitura de cache: {price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache write: {price}"
+msgstr "Gravação de cache: {price}"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1079,9 +1101,14 @@ msgstr "Comando"
 msgid "Command variable"
 msgstr "Variável de comando"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "Comentário"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "Comentário (opcional)"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1132,10 +1159,6 @@ msgstr "Configure um catálogo de plugins no servidor para conectar aplicativos.
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "Configurado por implantação"
-
-#: src/lib/model-catalog.ts
-msgid "Configured model: {provider}"
-msgstr "Modelo configurado: {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -1248,6 +1271,11 @@ msgstr "A conexão com o {0} ainda está pendente. Você pode fechar isso e veri
 msgid "Context limit"
 msgstr "Limite de contexto"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Context window: {tokens}"
+msgstr "Janela de contexto: {tokens}"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -1286,6 +1314,11 @@ msgstr "Copiar"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr "Copiar exemplo de .env"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cost unknown"
+msgstr "Custo desconhecido"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -1856,6 +1889,14 @@ msgstr "dia"
 msgid "days"
 msgstr "dias"
 
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "Decidido"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "Decisão"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
 msgstr "Recusar"
@@ -2030,6 +2071,11 @@ msgstr "O Docker está configurado, mas os computadores não estão respondendo.
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "O Docker limita o acesso ao seu computador para maior segurança. Usar {hostLabel} permite que os bots trabalhem com seus arquivos e ferramentas locais."
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Does not support reasoning"
+msgstr "Não oferece suporte a raciocínio"
 
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
@@ -2481,6 +2527,11 @@ msgstr "Inativa"
 msgid "Inherit default"
 msgstr "Herdar (padrão)"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Input: {price}"
+msgstr "Entrada: {price}"
+
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "Entradas"
@@ -2760,6 +2811,11 @@ msgstr "Máximo de 10 modelos de backup."
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "Máximo de tokens de saída"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Maximum output tokens: {tokens}"
+msgstr "Máximo de tokens de saída: {tokens}"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -3061,6 +3117,11 @@ msgstr "Nenhum bot"
 msgid "No bots match"
 msgstr "Nenhum bot correspondente"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "No charge"
+msgstr "Sem cobrança"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No chat apps linked yet."
 msgstr "Ainda não há aplicativos de chat vinculados."
@@ -3104,10 +3165,6 @@ msgstr "Ainda sem mensagens com {peerBotName}."
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No model catalog is available."
 msgstr "Nenhum catálogo de modelos está disponível."
-
-#: src/lib/model-catalog.ts
-msgid "No model charges. Deterministic fixture for tests."
-msgstr "Sem custos de modelo. Simulação determinística para testes."
 
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
@@ -3181,6 +3238,10 @@ msgstr "Nada ainda está em execução"
 #: src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "Nada memorizado ainda"
+
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "Nada para aprovar"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
@@ -3297,6 +3358,10 @@ msgstr "Abrindo o chat…"
 msgid "Opening your Space…"
 msgstr "Abrindo seu espaço de trabalho..."
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "Opção"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3331,6 +3396,11 @@ msgstr "Mensagem original indisponível"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "Outro modelo..."
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Output: {price}"
+msgstr "Saída: {price}"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -3410,6 +3480,10 @@ msgstr "Escolha um modelo da lista ou informe um id de modelo servido por este e
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "Fixar"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "Plano"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3585,6 +3659,14 @@ msgstr "Atualizando…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "O cadastro está fechado"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "Rejeitar"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "Rejeitado"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
@@ -3838,14 +3920,6 @@ msgstr "Em execução · Parar"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "Executando..."
-
-#: src/lib/model-catalog.ts
-msgid "Runs on a URL you control. Rakazo does not pay for model usage."
-msgstr "Executa em uma URL que você controla. O Rakazo não paga pelo uso do modelo."
-
-#: src/lib/model-catalog.ts
-msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
-msgstr "Executa na infraestrutura configurada pelo proprietário do ambiente. O Rakazo não cobra pelo modelo."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -4146,14 +4220,6 @@ msgstr "Entre na sua conta existente para vincular SSO"
 msgid "Sign in with {provider}"
 msgstr "Entrar com {provider}"
 
-#: src/lib/model-catalog.ts
-msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
-msgstr "Entre com {provider} para usar sua assinatura. O Rakazo não paga."
-
-#: src/lib/model-catalog.ts
-msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
-msgstr "Entre com SuperGrok ou X Premium, ou cole uma chave API da xAI. O Rakazo não paga."
-
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
 msgstr "Entre com a assinatura ou teste a chave de API."
@@ -4202,6 +4268,10 @@ msgstr "Atualização do software"
 #: src/lib/user-error.ts
 msgid "Something went wrong. Try again."
 msgstr "Algo deu errado. Tente novamente."
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Sort by cost"
+msgstr "Ordenar por custo"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4317,10 +4387,20 @@ msgstr "Assinar"
 msgid "Subscription required"
 msgstr "Assinatura necessária"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Subscription, cost unknown"
+msgstr "Assinatura, custo desconhecido"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
 msgstr "Suporta imagens"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Supports reasoning"
+msgstr "Oferece suporte a raciocínio"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -4603,6 +4683,11 @@ msgstr "Indisponível"
 msgid "Uninstall"
 msgstr "Desinstalar"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Unknown"
+msgstr "Desconhecido"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Unknown tool"
 msgstr "Ferramenta desconhecida"
@@ -4732,10 +4817,6 @@ msgstr "Nome de usuário"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "Usa as credenciais de {hostCredentialSource} próprias deste servidor para acessar {selectedProviderName}."
-
-#: src/lib/model-catalog.ts
-msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
-msgstr "Usa sua chave API de {provider}. O Rakazo não paga pelo uso do modelo."
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
@@ -4894,72 +4975,3 @@ msgstr "O seu nome"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Sua equipe de agentes sempre ativos<0/>, a quem você pode dar trabalho de verdade."
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "{price} USD / million tokens"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cache read: {price}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cache write: {price}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Context window: {tokens}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cost unknown"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Does not support reasoning"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Input: {price}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Maximum output tokens: {tokens}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "No charge"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Output: {price}"
-msgstr ""
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Sort by cost"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Subscription, cost unknown"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Supports reasoning"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Unknown"
-msgstr ""

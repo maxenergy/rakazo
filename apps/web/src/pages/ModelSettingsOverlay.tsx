@@ -1863,7 +1863,6 @@ function ModelOption({
   choose: (index: number) => void;
   onOptionKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => void;
 }) {
-  const { t } = useLingui();
   return (
     <button
       id={optionDomId}
@@ -1882,7 +1881,7 @@ function ModelOption({
     >
       <span className="min-w-0 truncate">{option.label}</span>
       <span className="flex shrink-0 items-center gap-2 text-[12px] text-muted-foreground">
-        {catalogCostState(option, authKind) === "free" ? t`Free` : null}
+        {catalogCostState(option, authKind) === "free" ? localizedCatalogMetadata("Free") : null}
         {option.id === value ? (
           <Check size={14} strokeWidth={2} className="text-foreground" aria-hidden="true" />
         ) : null}

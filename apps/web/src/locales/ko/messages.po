@@ -157,9 +157,10 @@ msgstr "{name} 완료"
 msgid "{name} stopped"
 msgstr "{name} 중지됨"
 
-#: src/lib/model-catalog.ts
-msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
-msgstr "Rakazo에서 {provider} 구독 로그인은 아직 지원하지 않습니다. 이 배포에 인증 정보가 이미 있다면 건너뛰세요."
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "{price} USD / million tokens"
+msgstr "백만 토큰당 {price} USD"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
@@ -532,6 +533,12 @@ msgstr "모양"
 msgid "Approval boundaries"
 msgstr "승인이 필요한 범위"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+msgid "Approvals"
+msgstr "승인"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "승인"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "이 서버를 승인하면 Bot이 제공되는 도구를 사용할 수 있습니다."
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "승인됨"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "아바타"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -794,6 +806,16 @@ msgstr "브라우저"
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
 msgstr "기본 제공"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache read: {price}"
+msgstr "캐시 읽기: {price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache write: {price}"
+msgstr "캐시 쓰기: {price}"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1079,9 +1101,14 @@ msgstr "실행 명령"
 msgid "Command variable"
 msgstr "명령 변수"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "댓글"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "댓글 (선택 사항)"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1132,10 +1159,6 @@ msgstr "앱을 연결하려면 서버에 플러그인 카탈로그를 설정하�
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "서버에서 설정됨"
-
-#: src/lib/model-catalog.ts
-msgid "Configured model: {provider}"
-msgstr "설정된 모델: {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -1248,6 +1271,11 @@ msgstr "{0} 연결이 아직 진행 중입니다. 이 창을 닫고 나중에 �
 msgid "Context limit"
 msgstr "컨텍스트 한도"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Context window: {tokens}"
+msgstr "컨텍스트 창: {tokens}"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -1286,6 +1314,11 @@ msgstr "복사"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr ".env 예제 복사"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cost unknown"
+msgstr "비용 알 수 없음"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -1856,6 +1889,14 @@ msgstr "일"
 msgid "days"
 msgstr "일"
 
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "결정됨"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "결정"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
 msgstr "거절"
@@ -2030,6 +2071,11 @@ msgstr "Docker는 설정되어 있지만 컴퓨터가 응답하지 않습니다.
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker는 보안을 위해 컴퓨터 접근을 제한합니다. {hostLabel}에서는 Bot이 로컬 파일과 도구로 작업할 수 있습니다."
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Does not support reasoning"
+msgstr "추론 미지원"
 
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
@@ -2481,6 +2527,11 @@ msgstr "비활성"
 msgid "Inherit default"
 msgstr "기본 설정 사용"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Input: {price}"
+msgstr "입력: {price}"
+
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "입력값"
@@ -2760,6 +2811,11 @@ msgstr "백업 모델은 최대 10개까지 추가할 수 있습니다."
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "최대 출력 토큰 수"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Maximum output tokens: {tokens}"
+msgstr "최대 출력 토큰: {tokens}"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -3061,6 +3117,11 @@ msgstr "봇 없음"
 msgid "No bots match"
 msgstr "일치하는 봇 없음"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "No charge"
+msgstr "요금 없음"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No chat apps linked yet."
 msgstr "아직 연결된 채팅 앱이 없습니다."
@@ -3104,10 +3165,6 @@ msgstr "{peerBotName}와의 메시지가 아직 없습니다."
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No model catalog is available."
 msgstr "사용 가능한 모델 목록이 없습니다."
-
-#: src/lib/model-catalog.ts
-msgid "No model charges. Deterministic fixture for tests."
-msgstr "모델 요금이 없습니다. 테스트용 결정론적 시뮬레이션입니다."
 
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
@@ -3181,6 +3238,10 @@ msgstr "실행 중인 작업 없음"
 #: src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "아직 기억한 내용이 없습니다"
+
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "승인할 항목 없음"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
@@ -3297,6 +3358,10 @@ msgstr "채팅 여는 중…"
 msgid "Opening your Space…"
 msgstr "작업공간을 여는 중…"
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "옵션"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3331,6 +3396,11 @@ msgstr "원본 메시지를 사용할 수 없습니다"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "다른 모델 직접 입력…"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Output: {price}"
+msgstr "출력: {price}"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -3410,6 +3480,10 @@ msgstr "목록에서 모델을 선택하거나 이 엔드포인트가 제공하�
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "고정"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "계획"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3585,6 +3659,14 @@ msgstr "새로고침 중…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "가입이 마감되었습니다"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "거부"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "거부됨"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
@@ -3838,14 +3920,6 @@ msgstr "실행 중 · 중지"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "실행 중…"
-
-#: src/lib/model-catalog.ts
-msgid "Runs on a URL you control. Rakazo does not pay for model usage."
-msgstr "사용자가 제어하는 URL에서 실행됩니다. Rakazo는 모델 사용료를 지불하지 않습니다."
-
-#: src/lib/model-catalog.ts
-msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
-msgstr "배포 소유자가 설정한 인프라에서 실행됩니다. Rakazo에서 모델 요금을 부과하지 않습니다."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -4146,14 +4220,6 @@ msgstr "SSO를 연결하려면 기존 계정에 로그인하세요"
 msgid "Sign in with {provider}"
 msgstr "{provider}(으)로 로그인"
 
-#: src/lib/model-catalog.ts
-msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
-msgstr "{provider}(으)로 로그인하여 구독을 사용합니다. Rakazo는 비용을 지불하지 않습니다."
-
-#: src/lib/model-catalog.ts
-msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
-msgstr "SuperGrok 또는 X Premium으로 로그인하거나 xAI API 키를 붙여넣으세요. Rakazo는 비용을 지불하지 않습니다."
-
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
 msgstr "구독으로 로그인하거나 대신 API 키를 테스트하세요."
@@ -4202,6 +4268,10 @@ msgstr "소프트웨어 업데이트"
 #: src/lib/user-error.ts
 msgid "Something went wrong. Try again."
 msgstr "문제가 발생했습니다. 다시 시도하세요."
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Sort by cost"
+msgstr "비용순 정렬"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4317,10 +4387,20 @@ msgstr "구독"
 msgid "Subscription required"
 msgstr "구독 필요"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Subscription, cost unknown"
+msgstr "구독, 비용 알 수 없음"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
 msgstr "이미지 지원"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Supports reasoning"
+msgstr "추론 지원"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -4603,6 +4683,11 @@ msgstr "사용할 수 없음"
 msgid "Uninstall"
 msgstr "제거"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Unknown"
+msgstr "알 수 없음"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Unknown tool"
 msgstr "알 수 없는 도구"
@@ -4732,10 +4817,6 @@ msgstr "사용자 이름"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "이 서버의 자체 {hostCredentialSource} 자격 증명으로 {selectedProviderName}에 액세스합니다."
-
-#: src/lib/model-catalog.ts
-msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
-msgstr "사용자의 {provider} API 키를 사용합니다. Rakazo는 모델 사용료를 지불하지 않습니다."
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
@@ -4894,72 +4975,3 @@ msgstr "이름"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "언제든 실제 작업을 맡길 수 있는<0/>나만의 Agent 팀"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "{price} USD / million tokens"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cache read: {price}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cache write: {price}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Context window: {tokens}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cost unknown"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Does not support reasoning"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Input: {price}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Maximum output tokens: {tokens}"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "No charge"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Output: {price}"
-msgstr ""
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Sort by cost"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Subscription, cost unknown"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Supports reasoning"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Unknown"
-msgstr ""

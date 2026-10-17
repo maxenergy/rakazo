@@ -157,9 +157,10 @@ msgstr "{name} finished"
 msgid "{name} stopped"
 msgstr "{name} stopped"
 
-#: src/lib/model-catalog.ts
-msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
-msgstr "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "{price} USD / million tokens"
+msgstr "{price} USD / million tokens"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
@@ -532,6 +533,12 @@ msgstr "Appearance"
 msgid "Approval boundaries"
 msgstr "Approval boundaries"
 
+#: src/pages/Approvals.tsx
+#: src/pages/Shell.tsx
+msgid "Approvals"
+msgstr "Approvals"
+
+#: src/pages/Approvals.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -540,6 +547,10 @@ msgstr "Approve"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "Approve this server to let your agent use its tools."
+
+#: src/pages/Approvals.tsx
+msgid "Approved"
+msgstr "Approved"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Archive"
@@ -674,6 +685,7 @@ msgid "Avatars"
 msgstr "Avatars"
 
 #: src/components/computer/FilesApp.tsx
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -794,6 +806,16 @@ msgstr "Browser"
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
 msgstr "Built-in"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache read: {price}"
+msgstr "Cache read: {price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache write: {price}"
+msgstr "Cache write: {price}"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1079,9 +1101,14 @@ msgstr "Command"
 msgid "Command variable"
 msgstr "Command variable"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "Comment"
+
+#: src/pages/Approvals.tsx
+msgid "Comment (optional)"
+msgstr "Comment (optional)"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
@@ -1132,10 +1159,6 @@ msgstr "Configure a plugin catalog on the server to connect apps."
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "Configured by deployment"
-
-#: src/lib/model-catalog.ts
-msgid "Configured model: {provider}"
-msgstr "Configured model: {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -1248,6 +1271,11 @@ msgstr "Connection to {0} is still pending. You can close this and check again."
 msgid "Context limit"
 msgstr "Context limit"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Context window: {tokens}"
+msgstr "Context window: {tokens}"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -1286,6 +1314,11 @@ msgstr "Copy"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr "Copy .env example"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cost unknown"
+msgstr "Cost unknown"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -1856,6 +1889,14 @@ msgstr "day"
 msgid "days"
 msgstr "days"
 
+#: src/pages/Approvals.tsx
+msgid "Decided"
+msgstr "Decided"
+
+#: src/pages/Approvals.tsx
+msgid "Decision"
+msgstr "Decision"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
 msgstr "Decline"
@@ -2030,6 +2071,11 @@ msgstr "Docker is configured but computers are not responding. Confirm the sandb
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Does not support reasoning"
+msgstr "Does not support reasoning"
 
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
@@ -2481,6 +2527,11 @@ msgstr "Inactive"
 msgid "Inherit default"
 msgstr "Inherit default"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Input: {price}"
+msgstr "Input: {price}"
+
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "Inputs"
@@ -2760,6 +2811,11 @@ msgstr "Maximum of 10 backup models."
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "Maximum output tokens"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Maximum output tokens: {tokens}"
+msgstr "Maximum output tokens: {tokens}"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -3061,6 +3117,11 @@ msgstr "No bots"
 msgid "No bots match"
 msgstr "No bots match"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "No charge"
+msgstr "No charge"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No chat apps linked yet."
 msgstr "No chat apps linked yet."
@@ -3104,10 +3165,6 @@ msgstr "No messages with {peerBotName} yet."
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No model catalog is available."
 msgstr "No model catalog is available."
-
-#: src/lib/model-catalog.ts
-msgid "No model charges. Deterministic fixture for tests."
-msgstr "No model charges. Deterministic fixture for tests."
 
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
@@ -3181,6 +3238,10 @@ msgstr "Nothing is still running"
 #: src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "Nothing remembered yet"
+
+#: src/pages/Approvals.tsx
+msgid "Nothing to approve"
+msgstr "Nothing to approve"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Notifications"
@@ -3297,6 +3358,10 @@ msgstr "Opening chat…"
 msgid "Opening your Space…"
 msgstr "Opening your Space…"
 
+#: src/pages/Approvals.tsx
+msgid "Option"
+msgstr "Option"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3331,6 +3396,11 @@ msgstr "Original message unavailable"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "Other model…"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Output: {price}"
+msgstr "Output: {price}"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -3410,6 +3480,10 @@ msgstr "Pick a model from the list or enter a model id served by this endpoint."
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
 msgstr "Pin"
+
+#: src/pages/Approvals.tsx
+msgid "Plan"
+msgstr "Plan"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -3585,6 +3659,14 @@ msgstr "Refreshing…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "Registration is closed"
+
+#: src/pages/Approvals.tsx
+msgid "Reject"
+msgstr "Reject"
+
+#: src/pages/Approvals.tsx
+msgid "Rejected"
+msgstr "Rejected"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
@@ -3838,14 +3920,6 @@ msgstr "Running · Stop"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "Running…"
-
-#: src/lib/model-catalog.ts
-msgid "Runs on a URL you control. Rakazo does not pay for model usage."
-msgstr "Runs on a URL you control. Rakazo does not pay for model usage."
-
-#: src/lib/model-catalog.ts
-msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
-msgstr "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -4146,14 +4220,6 @@ msgstr "Sign in to your existing account to link SSO"
 msgid "Sign in with {provider}"
 msgstr "Sign in with {provider}"
 
-#: src/lib/model-catalog.ts
-msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
-msgstr "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
-
-#: src/lib/model-catalog.ts
-msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
-msgstr "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
-
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
 msgstr "Sign in with the subscription, or test the API key instead."
@@ -4202,6 +4268,10 @@ msgstr "Software update"
 #: src/lib/user-error.ts
 msgid "Something went wrong. Try again."
 msgstr "Something went wrong. Try again."
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Sort by cost"
+msgstr "Sort by cost"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4317,10 +4387,20 @@ msgstr "Subscribe"
 msgid "Subscription required"
 msgstr "Subscription required"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Subscription, cost unknown"
+msgstr "Subscription, cost unknown"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
 msgstr "Supports images"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Supports reasoning"
+msgstr "Supports reasoning"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -4603,6 +4683,11 @@ msgstr "Unavailable"
 msgid "Uninstall"
 msgstr "Uninstall"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Unknown"
+msgstr "Unknown"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Unknown tool"
 msgstr "Unknown tool"
@@ -4732,10 +4817,6 @@ msgstr "Username"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
-
-#: src/lib/model-catalog.ts
-msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
-msgstr "Uses your {provider} API key. Rakazo does not pay for model usage."
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
@@ -4894,72 +4975,3 @@ msgstr "Your name"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Your team of always-on agents<0/>that you can give real work to."
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "{price} USD / million tokens"
-msgstr "{price} USD / million tokens"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cache read: {price}"
-msgstr "Cache read: {price}"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cache write: {price}"
-msgstr "Cache write: {price}"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Context window: {tokens}"
-msgstr "Context window: {tokens}"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Cost unknown"
-msgstr "Cost unknown"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Does not support reasoning"
-msgstr "Does not support reasoning"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Input: {price}"
-msgstr "Input: {price}"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Maximum output tokens: {tokens}"
-msgstr "Maximum output tokens: {tokens}"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "No charge"
-msgstr "No charge"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Output: {price}"
-msgstr "Output: {price}"
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Sort by cost"
-msgstr "Sort by cost"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Subscription, cost unknown"
-msgstr "Subscription, cost unknown"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Supports reasoning"
-msgstr "Supports reasoning"
-
-#. js-lingui-explicit-id
-#: src/lib/localized-catalog-metadata.ts
-msgid "Unknown"
-msgstr "Unknown"

@@ -87,33 +87,36 @@ describe("catalog cost metadata", () => {
       "Does not support reasoning",
     );
   });
-});
 
-it("handles empty, all unknown, subscription and mixed billing sorting", () => {
-  const known = entry("known", 2, 3);
-  const subscription = {
-    ...entry("subscription", 0, 0),
-    billingModes: ["subscription"] as ModelCatalogEntry["billingModes"],
-  };
-  const mixed = {
-    ...entry("mixed", 1, 1),
-    billingModes: ["api-key", "subscription"] as ModelCatalogEntry["billingModes"],
-  };
-  const unknown = entry("unknown");
-  expect(sortModelCatalogByCost([])).toEqual([]);
-  expect(ids(sortModelCatalogByCost([unknown, subscription, mixed]))).toEqual([
-    "unknown",
-    "subscription",
-    "mixed",
-  ]);
-  expect(ids(sortModelCatalogByCost([subscription, mixed, known, unknown]))).toEqual([
-    "known",
-    "subscription",
-    "mixed",
-    "unknown",
-  ]);
-  expect(ids(sortModelCatalogByCost([known, mixed], () => "api_key"))).toEqual(["mixed", "known"]);
-  expect(catalogMetadataLines(subscription, undefined, translate)[0]).toBe(
-    "Subscription, cost unknown",
-  );
+  it("handles empty, all unknown, subscription and mixed billing sorting", () => {
+    const known = entry("known", 2, 3);
+    const subscription = {
+      ...entry("subscription", 0, 0),
+      billingModes: ["subscription"] as ModelCatalogEntry["billingModes"],
+    };
+    const mixed = {
+      ...entry("mixed", 1, 1),
+      billingModes: ["api-key", "subscription"] as ModelCatalogEntry["billingModes"],
+    };
+    const unknown = entry("unknown");
+    expect(sortModelCatalogByCost([])).toEqual([]);
+    expect(ids(sortModelCatalogByCost([unknown, subscription, mixed]))).toEqual([
+      "unknown",
+      "subscription",
+      "mixed",
+    ]);
+    expect(ids(sortModelCatalogByCost([subscription, mixed, known, unknown]))).toEqual([
+      "known",
+      "subscription",
+      "mixed",
+      "unknown",
+    ]);
+    expect(ids(sortModelCatalogByCost([known, mixed], () => "api_key"))).toEqual([
+      "mixed",
+      "known",
+    ]);
+    expect(catalogMetadataLines(subscription, undefined, translate)[0]).toBe(
+      "Subscription, cost unknown",
+    );
+  });
 });

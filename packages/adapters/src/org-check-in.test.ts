@@ -12,7 +12,7 @@ const idle = (trigger = "bot_message") => ({
   trigger,
   updatedAt: new Date(now.getTime() - ORG_CHECK_IN_IDLE_MS),
 });
-const quiet = { now, activeRuns: 0, pendingProposals: 0, checkInsToday: 0, lastRun: idle() };
+const quiet = { now, activeRuns: 0, checkInsToday: 0, lastRun: idle() };
 
 describe("orgNeedsCheckIn", () => {
   it("wakes the CEO once the whole org has been idle long enough", () => {
@@ -26,10 +26,6 @@ describe("orgNeedsCheckIn", () => {
   it("waits until the org has been idle for the full window", () => {
     const recent = { trigger: "bot_message", updatedAt: new Date(now.getTime() - 60_000) };
     expect(orgNeedsCheckIn({ ...quiet, lastRun: recent })).toBe(false);
-  });
-
-  it("leaves an org alone while it waits on the user's decision", () => {
-    expect(orgNeedsCheckIn({ ...quiet, pendingProposals: 1 })).toBe(false);
   });
 
   it("waits longer after a check-in that found nothing to start", () => {

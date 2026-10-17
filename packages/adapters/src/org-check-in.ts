@@ -19,6 +19,7 @@ export function orgCheckInPrompt(idleMinutes: number) {
     `Team check-in (automatic, not from the user): no bot in your org has worked for ${idleMinutes} minutes and nothing is queued.`,
     "Review the open work: tickets, your latest decisions, and your team's last reports. If a next step is ready, assign it now with message_bot.",
     "A colleague whose turns failed on a CLI or subscription limit is usually available again after the limit resets, so try them again instead of waiting.",
+    "A proposal waiting on the user holds back only the work that depends on it; keep the rest of the plan moving.",
     "If the team is waiting on the user, say what for in one sentence. If the agreed work is done, report that to the user. Do not start work outside the agreed plan.",
   ].join("\n");
 }
@@ -26,7 +27,6 @@ export function orgCheckInPrompt(idleMinutes: number) {
 export type OrgCheckInState = {
   now: Date;
   activeRuns: number;
-  pendingProposals: number;
   checkInsToday: number;
   lastRun: { trigger: string; updatedAt: Date } | null;
 };
@@ -36,7 +36,7 @@ export type OrgCheckInState = {
  * so a CEO that finds nothing to do is not woken again every few minutes.
  */
 export function orgNeedsCheckIn(state: OrgCheckInState) {
-  if (state.activeRuns > 0 || state.pendingProposals > 0) return false;
+  if (state.activeRuns > 0) return false;
   if (state.checkInsToday >= ORG_CHECK_IN_DAILY_LIMIT) return false;
   if (!state.lastRun) return false;
   const wait =
@@ -57,9 +57,8 @@ export async function reconcileOrgCheckIns(
     if (!ceo.thread) continue;
     const org = { spaceId: ceo.spaceId, userId: ceo.userId, orgRole: { not: null } };
     const orgRuns = { spaceId: ceo.spaceId, bot: org };
-    const [activeRuns, pendingProposals, checkInsToday, lastRun] = await Promise.all([
+    const [activeRuns, checkInsToday, lastRun] = await Promise.all([
       deps.prisma.run.count({ where: { ...orgRuns, status: { in: [...ACTIVE_RUN_STATUSES] } } }),
-      deps.prisma.proposal.count({ where: { spaceId: ceo.spaceId, status: "pending" } }),
       deps.prisma.run.count({
         where: {
           botId: ceo.id,
@@ -73,7 +72,7 @@ export async function reconcileOrgCheckIns(
         select: { trigger: true, updatedAt: true },
       }),
     ]);
-    if (!orgNeedsCheckIn({ now, activeRuns, pendingProposals, checkInsToday, lastRun })) continue;
+    if (!orgNeedsCheckIn({ now, activeRuns, checkInsToday, lastRun })) continue;
     const idleMinutes = Math.round(
       (now.getTime() - (lastRun?.updatedAt ?? now).getTime()) / 60_000,
     );

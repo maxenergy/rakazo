@@ -458,10 +458,12 @@ function TicketDialog({
               </NativeSelect>
             </label>
           ) : null}
-          <label htmlFor={`${formId}-project`} className="block space-y-1 text-sm">
-            <span>
-              <Trans>Project</Trans>
-            </span>
+          <div className="block space-y-1 text-sm">
+            <label htmlFor={`${formId}-project`}>
+              <span>
+                <Trans>Project</Trans>
+              </span>
+            </label>
             <NativeSelect
               id={`${formId}-project`}
               className="w-full"
@@ -480,11 +482,13 @@ function TicketDialog({
                   </NativeSelectOption>
                 ))}
             </NativeSelect>
-          </label>
-          <label htmlFor={`${formId}-milestone`} className="block space-y-1 text-sm">
-            <span>
-              <Trans>Milestone</Trans>
-            </span>
+          </div>
+          <div className="block space-y-1 text-sm">
+            <label htmlFor={`${formId}-milestone`}>
+              <span>
+                <Trans>Milestone</Trans>
+              </span>
+            </label>
             <NativeSelect
               id={`${formId}-milestone`}
               className="w-full"
@@ -498,7 +502,7 @@ function TicketDialog({
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-          </label>
+          </div>
           <label htmlFor={`${formId}-priority`} className="block space-y-1 text-sm">
             <span>
               <Trans>Priority</Trans>

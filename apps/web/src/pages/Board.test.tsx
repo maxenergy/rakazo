@@ -377,6 +377,18 @@ it.each([360, 390])(
           (select) => select.labels?.[0]?.textContent,
         ),
       ).toEqual(["Project", "Milestone", "Status"]);
+      await act(async () =>
+        Array.from(page.container.querySelectorAll("button"))
+          .find((button) => button.textContent === "New ticket")!
+          .click(),
+      );
+      const form = page.container.querySelector("form")!;
+      expect(
+        form.querySelector<HTMLSelectElement>('select[id$="-project"]')?.labels?.[0]?.textContent,
+      ).toBe("Project");
+      expect(
+        form.querySelector<HTMLSelectElement>('select[id$="-milestone"]')?.labels?.[0]?.textContent,
+      ).toBe("Milestone");
     } finally {
       await page.cleanup();
     }

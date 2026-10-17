@@ -7,6 +7,7 @@ import {
   cliInferenceArgs,
   cliResponseText,
   collapseSystemMessages,
+  modelVisibleMessage,
   parseCliReply,
   parseToolArguments,
   registerCliModelProviders,
@@ -316,6 +317,21 @@ describe("subscription CLI provider conformance", () => {
     const tools = (collapsed[0] as { toolsAdded?: Array<{ name: string }> }).toolsAdded ?? [];
     expect(tools.map((item) => item.name)).toEqual(["shell"]);
     expect(collapsed[1]).toMatchObject({ role: "user", content: "Build it" });
+  });
+
+  it("leaves a tool result's details out of what the model sees", () => {
+    const result = {
+      role: "toolResult" as const,
+      toolCallId: "call-1",
+      toolName: "read_history",
+      content: [{ type: "text" as const, text: "3 messages" }],
+      details: { payload: "z".repeat(1_000_000) },
+      isError: false,
+      timestamp: 1,
+    } as Parameters<typeof modelVisibleMessage>[0];
+    const visible = modelVisibleMessage(result);
+    expect(JSON.stringify(visible)).not.toContain("payload");
+    expect(visible).toMatchObject({ role: "toolResult", toolCallId: "call-1" });
   });
 
   it("omits the arguments of old tool calls that carried whole files", () => {

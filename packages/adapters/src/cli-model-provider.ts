@@ -456,6 +456,23 @@ export function collapseSystemMessages(
   return [merged, ...messages.filter((message) => message.role !== "system")];
 }
 
+/**
+ * Drop the fields a provider never sends to a model. A tool result's details can
+ * hold a whole file or history payload for Rakazo's own use, and a CLI prompt
+ * serializes every field, so one result once came to 6.4 million characters.
+ */
+export function modelVisibleMessage(message: TranscriptMessage): TranscriptMessage {
+  if (message.role === "toolResult") {
+    const { details: _details, usage: _usage, ...visible } = message;
+    return visible as TranscriptMessage;
+  }
+  if (message.role === "assistant") {
+    const { usage: _usage, ...visible } = message;
+    return visible as TranscriptMessage;
+  }
+  return message;
+}
+
 /** Size of each part of an oversized conversation, without any of its content. */
 function conversationSizes(messages: readonly TranscriptMessage[]) {
   const sizes: Record<string, number> = {};
@@ -488,7 +505,7 @@ function cliPrompt(
       throw new Error("This CLI connection accepts text. Choose a vision connection for images.");
     }
   }
-  const collapsed = collapseSystemMessages(context.messages);
+  const collapsed = collapseSystemMessages(context.messages.map(modelVisibleMessage));
   const budgetChars = contextWindow
     ? Math.floor(contextWindow * CLI_CHARS_PER_TOKEN * CLI_CONTEXT_SHARE * budgetScale)
     : undefined;

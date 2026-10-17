@@ -1,0 +1,43 @@
+import * as z from "zod";
+import { Id, IsoDate } from "./ids.js";
+
+const name = z.string().trim().min(1).max(200);
+const description = z.string().max(20_000);
+export const ProjectProgressSchema = z.object({
+  total: z.number().int().nonnegative(),
+  completed: z.number().int().nonnegative(),
+  ratio: z.number().min(0).max(1).nullable(),
+});
+export const ProjectSchema = z.object({
+  id: Id,
+  spaceId: Id,
+  name: z.string(),
+  description: z.string().nullable(),
+  archivedAt: IsoDate.nullable(),
+  archived: z.boolean(),
+  createdAt: IsoDate,
+  updatedAt: IsoDate,
+  progress: ProjectProgressSchema,
+});
+export const MilestoneSchema = ProjectSchema.extend({ projectId: Id, dueAt: IsoDate.nullable() });
+export const CreateProjectInput = z.object({ name, description: description.optional() });
+export const UpdateProjectInput = z.object({
+  id: Id,
+  name: name.optional(),
+  description: description.nullable().optional(),
+});
+export const ListProjectsInput = z.object({
+  archived: z.boolean().default(false),
+  q: z.string().trim().max(200).optional(),
+});
+export const CreateMilestoneInput = CreateProjectInput.extend({
+  projectId: Id,
+  dueAt: IsoDate.nullable().optional(),
+});
+export const UpdateMilestoneInput = UpdateProjectInput.extend({
+  dueAt: IsoDate.nullable().optional(),
+});
+export const ListMilestonesInput = ListProjectsInput.extend({ projectId: Id });
+export type Project = z.infer<typeof ProjectSchema>;
+export type Milestone = z.infer<typeof MilestoneSchema>;
+export type ProjectProgress = z.infer<typeof ProjectProgressSchema>;

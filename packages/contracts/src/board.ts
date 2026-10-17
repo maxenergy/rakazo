@@ -101,6 +101,8 @@ export const TicketSchema = z.object({
 export type Ticket = z.infer<typeof TicketSchema>;
 
 export const ListTicketsInput = z.object({
+  projectId: Id.nullable().optional(),
+  milestoneId: Id.nullable().optional(),
   boardId: Id.optional(),
   status: TicketStatusSchema.optional(),
   assigneeBotId: Id.optional(),

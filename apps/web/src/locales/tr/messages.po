@@ -411,6 +411,10 @@ msgstr "Ajan bağlantıları"
 msgid "Agents:"
 msgstr "Agent'lar:"
 
+#: src/pages/Board.tsx
+msgid "All"
+msgstr "Tümü"
+
 #: src/pages/Artifacts.tsx
 msgid "All bots"
 msgstr "Tüm botlar"
@@ -560,6 +564,7 @@ msgstr "Arşivle"
 msgid "archived"
 msgstr "arşivlendi"
 
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "Arşivlendi"
@@ -688,6 +693,7 @@ msgstr "Avatarlar"
 #: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Back"
 msgstr "Geri"
@@ -2135,6 +2141,10 @@ msgstr "Bu e-posta adresinin kaydolmasına izin verilmiyor"
 msgid "Email verification required"
 msgstr "E-posta doğrulaması gerekiyor"
 
+#: src/components/ProjectProgress.tsx
+msgid "Ended"
+msgstr "Sona eren"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "{day} tarihinde sona erer"
@@ -2613,6 +2623,10 @@ msgstr "Sohbet uygulaması bağla"
 msgid "Link SSO"
 msgstr "SSO bağla"
 
+#: src/pages/Board.tsx
+msgid "List"
+msgstr "Liste"
+
 #: src/pages/Artifacts.tsx
 msgid "List view"
 msgstr "Liste görünümü"
@@ -2870,6 +2884,14 @@ msgstr "Mesajlaşma"
 #: src/lib/call-session.ts
 msgid "Microphone failed"
 msgstr "Mikrofon hatası"
+
+#: src/pages/Board.tsx
+msgid "Milestone"
+msgstr "Kilometre taşı"
+
+#: src/pages/Projects.tsx
+msgid "Milestones"
+msgstr "Kilometre taşları"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3166,6 +3188,7 @@ msgstr "Henüz beceri yok"
 msgid "No team conversations yet."
 msgstr "Henüz ekip konuşması yok."
 
+#: src/components/ProjectProgress.tsx
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr "Henüz iş kaydı yok"
@@ -3480,9 +3503,18 @@ msgstr "Özel"
 msgid "Private workspace with its own bots and groups."
 msgstr "Kendi botları ve grupları olan özel çalışma alanı."
 
+#: src/pages/Board.tsx
+msgid "Project"
+msgstr "Proje"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "Proje kimliği"
+
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+msgid "Projects"
+msgstr "Projeler"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4559,6 +4591,12 @@ msgstr "Bu abonelik girişi Rakazo'da henüz kullanılamıyor. Bir dağıtım ki
 msgid "This week"
 msgstr "Bu hafta"
 
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+#: src/pages/Shell.tsx
+msgid "Tickets"
+msgstr "Biletler"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
 msgstr "Günün saati"
@@ -4642,6 +4680,10 @@ msgstr "Yanıtını yaz"
 #: src/pages/BotContextMenu.tsx
 msgid "Unassigned"
 msgstr "Atanmamış"
+
+#: src/pages/Board.tsx
+msgid "Unassociated"
+msgstr "İlişkilendirilmemiş"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

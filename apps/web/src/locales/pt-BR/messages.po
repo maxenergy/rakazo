@@ -411,6 +411,10 @@ msgstr "Conexões de agentes"
 msgid "Agents:"
 msgstr "Agentes:"
 
+#: src/pages/Board.tsx
+msgid "All"
+msgstr "Todos"
+
 #: src/pages/Artifacts.tsx
 msgid "All bots"
 msgstr "Todos os bots"
@@ -560,6 +564,7 @@ msgstr "Arquivar"
 msgid "archived"
 msgstr "arquivado"
 
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "Arquivado"
@@ -688,6 +693,7 @@ msgstr "Avatares"
 #: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Back"
 msgstr "Voltar"
@@ -2135,6 +2141,10 @@ msgstr "Este e-mail não tem permissão para se cadastrar"
 msgid "Email verification required"
 msgstr "É necessário verificar o e-mail"
 
+#: src/components/ProjectProgress.tsx
+msgid "Ended"
+msgstr "Encerrados"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "Termina em {day}"
@@ -2613,6 +2623,10 @@ msgstr "Vincular aplicativo de chat"
 msgid "Link SSO"
 msgstr "Vincular SSO"
 
+#: src/pages/Board.tsx
+msgid "List"
+msgstr "Lista"
+
 #: src/pages/Artifacts.tsx
 msgid "List view"
 msgstr "Visualização em lista"
@@ -2870,6 +2884,14 @@ msgstr "Mensagens"
 #: src/lib/call-session.ts
 msgid "Microphone failed"
 msgstr "Falha no microfone"
+
+#: src/pages/Board.tsx
+msgid "Milestone"
+msgstr "Marco"
+
+#: src/pages/Projects.tsx
+msgid "Milestones"
+msgstr "Marcos"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3166,6 +3188,7 @@ msgstr "Ainda não há habilidades"
 msgid "No team conversations yet."
 msgstr "Ainda não há conversas de equipe."
 
+#: src/components/ProjectProgress.tsx
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr "Nenhum chamado ainda"
@@ -3480,9 +3503,18 @@ msgstr "Privado"
 msgid "Private workspace with its own bots and groups."
 msgstr "Espaço de trabalho privado com seus próprios bots e grupos."
 
+#: src/pages/Board.tsx
+msgid "Project"
+msgstr "Projeto"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "ID do projeto"
+
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+msgid "Projects"
+msgstr "Projetos"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4559,6 +4591,12 @@ msgstr "Este login de assinatura ainda não está disponível no Rakazo. Use uma
 msgid "This week"
 msgstr "Esta semana"
 
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+#: src/pages/Shell.tsx
+msgid "Tickets"
+msgstr "Tickets"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
 msgstr "Hora do dia"
@@ -4642,6 +4680,10 @@ msgstr "Digite sua resposta"
 #: src/pages/BotContextMenu.tsx
 msgid "Unassigned"
 msgstr "Não atribuído"
+
+#: src/pages/Board.tsx
+msgid "Unassociated"
+msgstr "Sem associação"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

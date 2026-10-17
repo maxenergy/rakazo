@@ -19,6 +19,8 @@ export * from "./model-backups.js";
 export * from "./model-credentials.js";
 export * from "./org.js";
 export * from "./project-links.js";
+export * from "./project-writes.js";
+export * from "./projects.js";
 export * from "./proposals.js";
 export * from "./repos.js";
 export * from "./scope.js";

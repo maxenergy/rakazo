@@ -33,6 +33,18 @@ describe("disabled ticket board", () => {
         () => client.boards.get(),
         () => client.boards.rename({ name: "Launch" }),
         () => client.boards.subscribe(),
+        () => client.projects.list({}),
+        () => client.projects.get({ id: "project-1" }),
+        () => client.projects.create({ name: "Launch" }),
+        () => client.projects.update({ id: "project-1", name: "Changed" }),
+        () => client.projects.archive({ id: "project-1" }),
+        () => client.projects.delete({ id: "project-1" }),
+        () => client.milestones.list({ projectId: "project-1" }),
+        () => client.milestones.get({ id: "milestone-1" }),
+        () => client.milestones.create({ projectId: "project-1", name: "Launch" }),
+        () => client.milestones.update({ id: "milestone-1", name: "Changed" }),
+        () => client.milestones.archive({ id: "milestone-1" }),
+        () => client.milestones.delete({ id: "milestone-1" }),
         () => client.tickets.list({}),
         () => client.tickets.get({ id: "ticket-1" }),
         () => client.tickets.create({ title: "Launch", assigneeBotId: "bot-1" }),
@@ -71,4 +83,33 @@ it.each([false, true])("includes the board capability in me (%s)", async (ticket
   } as unknown as RouterDeps;
   const client = createRouterClient(createRouter(deps), { context: { actor } });
   await expect(client.me()).resolves.toHaveProperty("ticketBoardEnabled", ticketBoardEnabled);
+});
+
+it("requires an authenticated actor for project and milestone routes", async () => {
+  const query = vi.fn(() => {
+    throw new Error("Unexpected database access");
+  });
+  const client = createRouterClient(
+    createRouter({
+      prisma: new Proxy({}, { get: () => query }),
+      env: { ticketBoardEnabled: true },
+    } as unknown as RouterDeps),
+    { context: { actor: undefined } },
+  );
+  const calls = [
+    () => client.projects.list({}),
+    () => client.projects.get({ id: "project-1" }),
+    () => client.projects.create({ name: "Launch" }),
+    () => client.projects.update({ id: "project-1", name: "Changed" }),
+    () => client.projects.archive({ id: "project-1" }),
+    () => client.projects.delete({ id: "project-1" }),
+    () => client.milestones.list({ projectId: "project-1" }),
+    () => client.milestones.get({ id: "milestone-1" }),
+    () => client.milestones.create({ projectId: "project-1", name: "Launch" }),
+    () => client.milestones.update({ id: "milestone-1", name: "Changed" }),
+    () => client.milestones.archive({ id: "milestone-1" }),
+    () => client.milestones.delete({ id: "milestone-1" }),
+  ];
+  for (const call of calls) await expect(call()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  expect(query).not.toHaveBeenCalled();
 });

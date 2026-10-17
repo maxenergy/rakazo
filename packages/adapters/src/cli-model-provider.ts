@@ -179,7 +179,7 @@ function parseRepairedArguments(text: string, quotes: boolean) {
   return JSON.parse(
     repairJsonStrings(text, quotes).replace(
       /\\(u[0-9a-fA-F]{4}|["\\/bfnrt])|\\/g,
-      (escape, valid) => (valid ? escape : "\\\\"),
+      (matchedEscape, valid) => (valid ? matchedEscape : "\\\\"),
     ),
   );
 }

@@ -27,10 +27,11 @@ test("onboarding preflight stays on the connection being tested", async ({ page 
   await expect(page.getByRole("button", { name: "Test API key" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Test sign-in" })).toHaveCount(0);
 
+  // Anthropic subscriptions connect through Claude Code, so use Copilot for in-app sign-in.
   await provider.click();
-  await page.getByRole("option", { name: "Anthropic" }).click();
+  await page.getByRole("option", { name: "GitHub Copilot" }).click();
   await expect(page.getByRole("button", { name: "Test sign-in" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Test API key" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Test API key" })).toBeVisible();
   await captureScreenshot(page, testInfo, "onboarding-model-preflight");
 
   let holdProbe = false;
@@ -117,15 +118,16 @@ test("settings preflight distinguishes a stored API key from sign-in", async ({
   await expect(catalogAlert).toContainText("was not listed");
   await expect(settings.getByText("Models list OK")).toHaveCount(0);
 
-  await page.getByPlaceholder("Search providers").fill("Anthropic");
-  await settings.getByRole("button").filter({ hasText: "Anthropic" }).first().click();
+  // Anthropic subscriptions connect through Claude Code, so use Copilot for in-app sign-in.
+  await page.getByPlaceholder("Search providers").fill("GitHub Copilot");
+  await settings.getByRole("button").filter({ hasText: "GitHub Copilot" }).first().click();
   await expect(settings.getByRole("button", { name: "Test sign-in" })).toBeVisible();
-  await expect(settings.getByRole("button", { name: "Test API key" })).toHaveCount(0);
-  await settings.getByLabel(/API key/).fill("sk-anthropic-test");
+  await expect(settings.getByRole("button", { name: "Test API key" })).toBeVisible();
+  await settings.getByLabel(/API key/).fill("sk-copilot-test");
   await settings.getByRole("button", { name: "Connect API key" }).click();
   await expect(settings.getByText(/Connected and using/)).toBeVisible();
   await expect(settings.getByRole("button", { name: "Sign in again" })).toHaveCount(0);
-  await expect(settings.getByRole("button", { name: "Sign in with Claude Pro/Max" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Sign in with GitHub Copilot" })).toBeVisible();
   await settings.getByRole("button", { name: "Test sign-in" }).click();
   const signInAlert = settings.getByRole("alert");
   await expect(signInAlert).toContainText("An API key is stored");

@@ -59,6 +59,7 @@ export const BUILTIN_TOOL_NAMES = [
   "submit_proposal",
   "record_decision",
   "escalate",
+  "report_to_group",
   "create_space",
   "spawn_bot",
   "list_models",

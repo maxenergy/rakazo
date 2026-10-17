@@ -1055,6 +1055,22 @@ export const builtinAgentTools: ConnectorTool[] = [
     },
   },
   {
+    name: "report_to_group",
+    description:
+      "CEO only: post a short milestone report to the user in the org's group chat. Use it when a milestone or ticket is finished, or when a blocker needs the user's attention, not for progress updates. Say what was finished, the evidence (PR and CI links), what comes next, and what is needed from the user (or none).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          maxLength: 2000,
+          description: "The report, at most five short lines.",
+        },
+      },
+      required: ["message"],
+    },
+  },
+  {
     name: "escalate",
     description:
       "Escalate within your org: technical sends a hard technical problem to the CTO; decision sends a decision about scope, budget, or direction to the CEO, who takes it to the user.",

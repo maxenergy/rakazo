@@ -54,6 +54,7 @@ describe("org context", () => {
 
   it("lists the CEO's direct reports and has it record decisions with the CTO", () => {
     const text = renderOrgContext(ceo, org) ?? "";
+    expect(text).toContain("post one short report with report_to_group");
     expect(text).toContain("You report to the user.");
     expect(text).toContain("Your direct reports: Research lead (lead, id lead-1), team Research.");
     expect(text).toContain("agree with the CTO and record it with record_decision");

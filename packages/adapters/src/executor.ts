@@ -79,6 +79,7 @@ import {
   isMessagingChannelRun,
   isOneShotRoutineCrons,
   isTerminal,
+  LAUNCH_TEAM_NAME,
   messagingChannelId,
   messagingChannelPrivacyBlock,
   messagingDmSurfaceNote,
@@ -5818,6 +5819,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 : "Sent to the user's Approvals page. Tell the user it is waiting there. Do not act on it until the decision arrives as a new message; approval in chat does not count.",
             });
           }
+          if (name === "report_to_group") {
+            if (parseBotOrgRole(bot.orgRole) !== "ceo") {
+              return finish({
+                error: "Only the CEO reports to the group. Report to the CEO instead.",
+              });
+            }
+            const text = redactSecrets(String(args.message ?? ""), runSecrets)
+              .trim()
+              .slice(0, ORG_GROUP_REPORT_MAX_LENGTH);
+            if (!text) return finish({ error: "message is required" });
+            const posted = await postOrgGroupReport(deps, bot, text, `org-report:${effectKey}`);
+            if (!posted)
+              return finish({ error: "You are not in an active group chat to report to." });
+            return finish({ ok: true, group: posted.groupName });
+          }
           if (name === "record_decision") {
             const role = parseBotOrgRole(bot.orgRole);
             if (role !== "ceo" && role !== "cto") {
@@ -8365,6 +8381,63 @@ function redactBlocks(blocks: MessageBlock[], secrets: string[]): MessageBlock[]
 
 function isUniqueViolation(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+const ORG_GROUP_REPORT_MAX_LENGTH = 2_000;
+
+/**
+ * Post a CEO's milestone report into the org's group chat, where the user follows the
+ * team. Prefers the launch team group; posting does not wake the other members.
+ */
+async function postOrgGroupReport(
+  deps: ExecutorDeps,
+  bot: { id: string; spaceId: string; userId: string },
+  text: string,
+  clientNonce: string,
+) {
+  const groups = await deps.prisma.chatGroup.findMany({
+    where: {
+      spaceId: bot.spaceId,
+      userId: bot.userId,
+      archivedAt: null,
+      members: { some: { botId: bot.id } },
+      thread: { isNot: null },
+    },
+    select: { name: true, thread: { select: { id: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  const group = groups.find((item) => item.name === LAUNCH_TEAM_NAME) ?? groups[0];
+  if (!group?.thread) return null;
+  const threadId = group.thread.id;
+  const blocks: MessageBlock[] = [{ kind: "text", text }];
+  const event = await deps.prisma.$transaction(async (tx) => {
+    const existing = await tx.message.findUnique({
+      where: { threadId_clientNonce: { threadId, clientNonce } },
+      select: { id: true },
+    });
+    if (existing) return null;
+    const message = await createThreadMessageInTransaction(tx, {
+      threadId,
+      role: "bot",
+      blocks,
+      botId: bot.id,
+      markUnread: true,
+      clientNonce,
+    });
+    return appendEventInTransaction(tx, {
+      spaceId: bot.spaceId,
+      threadId,
+      botId: bot.id,
+      type: "thread.message.created",
+      payload: { messageId: message.id, role: "bot", blocks },
+    });
+  });
+  if (event) {
+    await deps.events.notify(threadId, event.seq).catch((error) => {
+      getLogger().error("org group report notification", error);
+    });
+  }
+  return { groupName: group.name };
 }
 
 async function publishMessage(

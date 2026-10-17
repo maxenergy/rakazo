@@ -413,7 +413,7 @@ msgstr "Agent'lar:"
 
 #: src/pages/Board.tsx
 msgid "All"
-msgstr ""
+msgstr "Tümü"
 
 #: src/pages/Artifacts.tsx
 msgid "All bots"
@@ -2143,7 +2143,7 @@ msgstr "E-posta doğrulaması gerekiyor"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
-msgstr ""
+msgstr "Sona eren"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2625,7 +2625,7 @@ msgstr "SSO bağla"
 
 #: src/pages/Board.tsx
 msgid "List"
-msgstr ""
+msgstr "Liste"
 
 #: src/pages/Artifacts.tsx
 msgid "List view"
@@ -2887,11 +2887,11 @@ msgstr "Mikrofon hatası"
 
 #: src/pages/Board.tsx
 msgid "Milestone"
-msgstr ""
+msgstr "Kilometre taşı"
 
 #: src/pages/Projects.tsx
 msgid "Milestones"
-msgstr ""
+msgstr "Kilometre taşları"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3505,7 +3505,7 @@ msgstr "Kendi botları ve grupları olan özel çalışma alanı."
 
 #: src/pages/Board.tsx
 msgid "Project"
-msgstr ""
+msgstr "Proje"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3514,7 +3514,7 @@ msgstr "Proje kimliği"
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
-msgstr ""
+msgstr "Projeler"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4595,7 +4595,7 @@ msgstr "Bu hafta"
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Tickets"
-msgstr ""
+msgstr "Biletler"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
@@ -4683,7 +4683,7 @@ msgstr "Atanmamış"
 
 #: src/pages/Board.tsx
 msgid "Unassociated"
-msgstr ""
+msgstr "İlişkilendirilmemiş"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

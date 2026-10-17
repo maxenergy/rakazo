@@ -413,7 +413,7 @@ msgstr "एजेंट:"
 
 #: src/pages/Board.tsx
 msgid "All"
-msgstr ""
+msgstr "सभी"
 
 #: src/pages/Artifacts.tsx
 msgid "All bots"
@@ -2143,7 +2143,7 @@ msgstr "ईमेल सत्यापन आवश्यक है"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
-msgstr ""
+msgstr "समाप्त"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2625,7 +2625,7 @@ msgstr "SSO लिंक करें"
 
 #: src/pages/Board.tsx
 msgid "List"
-msgstr ""
+msgstr "सूची"
 
 #: src/pages/Artifacts.tsx
 msgid "List view"
@@ -2887,11 +2887,11 @@ msgstr "माइक्रोफ़ोन विफल"
 
 #: src/pages/Board.tsx
 msgid "Milestone"
-msgstr ""
+msgstr "मील का पत्थर"
 
 #: src/pages/Projects.tsx
 msgid "Milestones"
-msgstr ""
+msgstr "मील के पत्थर"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3505,7 +3505,7 @@ msgstr "अपने बॉट और समूह वाला निजी क
 
 #: src/pages/Board.tsx
 msgid "Project"
-msgstr ""
+msgstr "परियोजना"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3514,7 +3514,7 @@ msgstr "प्रोजेक्ट ID"
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
-msgstr ""
+msgstr "परियोजनाएँ"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4595,7 +4595,7 @@ msgstr "इस सप्ताह"
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Tickets"
-msgstr ""
+msgstr "टिकट"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
@@ -4683,7 +4683,7 @@ msgstr "असाइन नहीं किया गया"
 
 #: src/pages/Board.tsx
 msgid "Unassociated"
-msgstr ""
+msgstr "असंबद्ध"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

@@ -247,7 +247,7 @@ export function BoardPage() {
           ticket={selected === "new" ? null : selected}
           bots={bots}
           projects={data?.projects ?? []}
-          commentRevision={data ? tickets : undefined}
+          commentRevision={data}
           onClose={() => setSelected(null)}
           onSaved={reload}
         />

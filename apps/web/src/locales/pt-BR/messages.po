@@ -413,7 +413,7 @@ msgstr "Agentes:"
 
 #: src/pages/Board.tsx
 msgid "All"
-msgstr ""
+msgstr "Todos"
 
 #: src/pages/Artifacts.tsx
 msgid "All bots"
@@ -2143,7 +2143,7 @@ msgstr "É necessário verificar o e-mail"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
-msgstr ""
+msgstr "Encerrados"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2625,7 +2625,7 @@ msgstr "Vincular SSO"
 
 #: src/pages/Board.tsx
 msgid "List"
-msgstr ""
+msgstr "Lista"
 
 #: src/pages/Artifacts.tsx
 msgid "List view"
@@ -2887,11 +2887,11 @@ msgstr "Falha no microfone"
 
 #: src/pages/Board.tsx
 msgid "Milestone"
-msgstr ""
+msgstr "Marco"
 
 #: src/pages/Projects.tsx
 msgid "Milestones"
-msgstr ""
+msgstr "Marcos"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3505,7 +3505,7 @@ msgstr "Espaço de trabalho privado com seus próprios bots e grupos."
 
 #: src/pages/Board.tsx
 msgid "Project"
-msgstr ""
+msgstr "Projeto"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3514,7 +3514,7 @@ msgstr "ID do projeto"
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
-msgstr ""
+msgstr "Projetos"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4595,7 +4595,7 @@ msgstr "Esta semana"
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Tickets"
-msgstr ""
+msgstr "Tickets"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
@@ -4683,7 +4683,7 @@ msgstr "Não atribuído"
 
 #: src/pages/Board.tsx
 msgid "Unassociated"
-msgstr ""
+msgstr "Sem associação"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

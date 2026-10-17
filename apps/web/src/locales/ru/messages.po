@@ -413,7 +413,7 @@ msgstr "Агенты:"
 
 #: src/pages/Board.tsx
 msgid "All"
-msgstr ""
+msgstr "Все"
 
 #: src/pages/Artifacts.tsx
 msgid "All bots"
@@ -2143,7 +2143,7 @@ msgstr "Требуется подтверждение электронной п�
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
-msgstr ""
+msgstr "Завершены"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2625,7 +2625,7 @@ msgstr "Привязать SSO"
 
 #: src/pages/Board.tsx
 msgid "List"
-msgstr ""
+msgstr "Список"
 
 #: src/pages/Artifacts.tsx
 msgid "List view"
@@ -2887,11 +2887,11 @@ msgstr "Ошибка микрофона"
 
 #: src/pages/Board.tsx
 msgid "Milestone"
-msgstr ""
+msgstr "Этап"
 
 #: src/pages/Projects.tsx
 msgid "Milestones"
-msgstr ""
+msgstr "Этапы"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3505,7 +3505,7 @@ msgstr "Приватное пространство со своими ботам
 
 #: src/pages/Board.tsx
 msgid "Project"
-msgstr ""
+msgstr "Проект"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3514,7 +3514,7 @@ msgstr "ID проекта"
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
-msgstr ""
+msgstr "Проекты"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4595,7 +4595,7 @@ msgstr "Эта неделя"
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Tickets"
-msgstr ""
+msgstr "Тикеты"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
@@ -4683,7 +4683,7 @@ msgstr "Без раздела"
 
 #: src/pages/Board.tsx
 msgid "Unassociated"
-msgstr ""
+msgstr "Без связи"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

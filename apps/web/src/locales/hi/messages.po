@@ -411,6 +411,10 @@ msgstr "एजेंट कनेक्शन"
 msgid "Agents:"
 msgstr "एजेंट:"
 
+#: src/pages/Board.tsx
+msgid "All"
+msgstr "सभी"
+
 #: src/pages/Artifacts.tsx
 msgid "All bots"
 msgstr "सभी बॉट"
@@ -560,6 +564,7 @@ msgstr "आर्काइव करें"
 msgid "archived"
 msgstr "आर्काइव किया गया"
 
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "आर्काइव किया गया"
@@ -688,6 +693,7 @@ msgstr "अवतार"
 #: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Back"
 msgstr "वापस"
@@ -2135,6 +2141,10 @@ msgstr "इस ईमेल को पंजीकरण की अनुमत�
 msgid "Email verification required"
 msgstr "ईमेल सत्यापन आवश्यक है"
 
+#: src/components/ProjectProgress.tsx
+msgid "Ended"
+msgstr "समाप्त"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "{day} को समाप्त होगा"
@@ -2613,6 +2623,10 @@ msgstr "चैट ऐप लिंक करें"
 msgid "Link SSO"
 msgstr "SSO लिंक करें"
 
+#: src/pages/Board.tsx
+msgid "List"
+msgstr "सूची"
+
 #: src/pages/Artifacts.tsx
 msgid "List view"
 msgstr "सूची दृश्य"
@@ -2870,6 +2884,14 @@ msgstr "मैसेजिंग"
 #: src/lib/call-session.ts
 msgid "Microphone failed"
 msgstr "माइक्रोफ़ोन विफल"
+
+#: src/pages/Board.tsx
+msgid "Milestone"
+msgstr "मील का पत्थर"
+
+#: src/pages/Projects.tsx
+msgid "Milestones"
+msgstr "मील के पत्थर"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3166,6 +3188,7 @@ msgstr "अभी तक कोई स्किल नहीं"
 msgid "No team conversations yet."
 msgstr "अभी कोई टीम बातचीत नहीं है।"
 
+#: src/components/ProjectProgress.tsx
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr "अभी कोई टिकट नहीं है"
@@ -3480,9 +3503,18 @@ msgstr "निजी"
 msgid "Private workspace with its own bots and groups."
 msgstr "अपने बॉट और समूह वाला निजी कार्यक्षेत्र।"
 
+#: src/pages/Board.tsx
+msgid "Project"
+msgstr "परियोजना"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "प्रोजेक्ट ID"
+
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+msgid "Projects"
+msgstr "परियोजनाएँ"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4559,6 +4591,12 @@ msgstr "यह सब्सक्रिप्शन साइन-इन अभ�
 msgid "This week"
 msgstr "इस सप्ताह"
 
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+#: src/pages/Shell.tsx
+msgid "Tickets"
+msgstr "टिकट"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
 msgstr "दिन का समय"
@@ -4642,6 +4680,10 @@ msgstr "अपना उत्तर लिखें"
 #: src/pages/BotContextMenu.tsx
 msgid "Unassigned"
 msgstr "असाइन नहीं किया गया"
+
+#: src/pages/Board.tsx
+msgid "Unassociated"
+msgstr "असंबद्ध"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

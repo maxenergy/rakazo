@@ -3476,11 +3476,23 @@ export function ShellPage() {
                   onClick={() => {
                     setMenuOpen(false);
                     setMobileSidebarOpen(false);
-                    navigate("/app/board");
+                    navigate(
+                      window.matchMedia("(max-width: 767px)").matches
+                        ? "/app/tickets"
+                        : "/app/board",
+                    );
                   }}
                 >
-                  <SquareKanban className="text-muted-foreground" strokeWidth={1.75} />
-                  <Trans>Board</Trans>
+                  <SquareKanban
+                    className="hidden text-muted-foreground md:block"
+                    strokeWidth={1.75}
+                  />
+                  <span className="hidden md:inline">
+                    <Trans>Board</Trans>
+                  </span>
+                  <span className="md:hidden">
+                    <Trans>Tickets</Trans>
+                  </span>
                 </Button>
               ) : null}
               <Button

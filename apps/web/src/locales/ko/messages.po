@@ -411,6 +411,10 @@ msgstr "Agent 연결"
 msgid "Agents:"
 msgstr "사용 Bot:"
 
+#: src/pages/Board.tsx
+msgid "All"
+msgstr "전체"
+
 #: src/pages/Artifacts.tsx
 msgid "All bots"
 msgstr "모든 봇"
@@ -560,6 +564,7 @@ msgstr "보관"
 msgid "archived"
 msgstr "보관됨"
 
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "보관됨"
@@ -688,6 +693,7 @@ msgstr "아바타"
 #: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Back"
 msgstr "뒤로"
@@ -2135,6 +2141,10 @@ msgstr "이 이메일은 가입이 허용되지 않습니다"
 msgid "Email verification required"
 msgstr "이메일 인증이 필요합니다"
 
+#: src/components/ProjectProgress.tsx
+msgid "Ended"
+msgstr "종료됨"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "{day} 종료"
@@ -2613,6 +2623,10 @@ msgstr "채팅 앱 연결"
 msgid "Link SSO"
 msgstr "SSO 연결"
 
+#: src/pages/Board.tsx
+msgid "List"
+msgstr "목록"
+
 #: src/pages/Artifacts.tsx
 msgid "List view"
 msgstr "목록 보기"
@@ -2870,6 +2884,14 @@ msgstr "메시징"
 #: src/lib/call-session.ts
 msgid "Microphone failed"
 msgstr "마이크를 사용할 수 없습니다."
+
+#: src/pages/Board.tsx
+msgid "Milestone"
+msgstr "마일스톤"
+
+#: src/pages/Projects.tsx
+msgid "Milestones"
+msgstr "마일스톤"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3166,6 +3188,7 @@ msgstr "아직 스킬이 없습니다"
 msgid "No team conversations yet."
 msgstr "아직 팀 대화가 없습니다."
 
+#: src/components/ProjectProgress.tsx
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr "아직 티켓이 없습니다"
@@ -3480,9 +3503,18 @@ msgstr "Bot 전용"
 msgid "Private workspace with its own bots and groups."
 msgstr "자체 봇과 그룹이 있는 비공개 작업 공간입니다."
 
+#: src/pages/Board.tsx
+msgid "Project"
+msgstr "프로젝트"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "프로젝트 ID"
+
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+msgid "Projects"
+msgstr "프로젝트"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4559,6 +4591,12 @@ msgstr "이 구독 로그인 방식은 아직 Rakazo에서 지원되지 않습�
 msgid "This week"
 msgstr "이번 주"
 
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+#: src/pages/Shell.tsx
+msgid "Tickets"
+msgstr "티켓"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
 msgstr "실행 시각"
@@ -4642,6 +4680,10 @@ msgstr "답변을 입력하세요"
 #: src/pages/BotContextMenu.tsx
 msgid "Unassigned"
 msgstr "섹션 없음"
+
+#: src/pages/Board.tsx
+msgid "Unassociated"
+msgstr "연결되지 않음"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

@@ -15,9 +15,7 @@ export async function readProjects(
   const rows = await tx.project.findMany({
     where: {
       spaceId,
-      ...(input.id !== undefined
-        ? { id: input.id }
-        : { archivedAt: input.archived ? { not: null } : null }),
+      ...(input.id !== undefined ? { id: input.id } : {}),
       ...(input.q
         ? {
             OR: [
@@ -31,12 +29,16 @@ export async function readProjects(
   });
   if (input.id !== undefined && rows.length === 0)
     throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  const visible =
+    input.id !== undefined
+      ? rows
+      : rows.filter((row) => isProjectItemArchived(row) === (input.archived ?? false));
   const counts = await tx.ticket.groupBy({
     by: ["projectId", "status"],
-    where: { spaceId, projectId: { in: rows.map((row) => row.id) } },
+    where: { spaceId, projectId: { in: visible.map((row) => row.id) } },
     _count: { _all: true },
   });
-  return rows.map((row) => {
+  return visible.map((row) => {
     const groups = counts.filter((group) => group.projectId === row.id);
     return {
       ...row,

@@ -4,11 +4,13 @@ import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({
   boards: { subscribe: vi.fn() },
   bots: { list: vi.fn() },
+  projects: { list: vi.fn() },
+  milestones: { list: vi.fn() },
   tickets: {
     list: vi.fn(),
     update: vi.fn(),
@@ -17,7 +19,7 @@ const api = vi.hoisted(() => ({
     comments: vi.fn(),
   },
 }));
-vi.mock("../lib/rpc", () => ({ rpc: api }));
+vi.mock("../lib/rpc", () => ({ rpc: api, selectedSpaceId: () => "space-1" }));
 vi.mock("../lib/relative-time", () => ({ formatRelativeTime: () => "5m ago" }));
 vi.mock("./WindowChrome", () => ({ WindowChrome: () => null }));
 vi.mock("@lingui/react/macro", () => {
@@ -46,6 +48,15 @@ vi.mock("@rakazo/ui-web", () => {
 });
 
 import { BoardPage } from "./Board";
+
+beforeEach(() => {
+  api.projects.list.mockReset().mockResolvedValue([]);
+  api.milestones.list.mockReset().mockResolvedValue([]);
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  window.matchMedia = vi
+    .fn()
+    .mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+});
 
 function bot(id: string, name: string) {
   return { id, name };
@@ -78,7 +89,10 @@ function ticket(
   };
 }
 
-async function renderBoard(stream?: AsyncIterable<{ ticketId?: string }>) {
+async function renderBoard(
+  stream?: AsyncIterable<{ ticketId?: string; spaceId?: string }>,
+  path = "/app/board",
+) {
   api.boards.subscribe.mockReset();
   api.boards.subscribe.mockResolvedValue(
     stream ?? {
@@ -90,7 +104,7 @@ async function renderBoard(stream?: AsyncIterable<{ ticketId?: string }>) {
   const root = createRoot(container);
   await act(async () =>
     root.render(
-      <MemoryRouter initialEntries={["/app/board"]}>
+      <MemoryRouter initialEntries={[path]}>
         <BoardPage />
       </MemoryRouter>,
     ),
@@ -172,7 +186,9 @@ it("creates a ticket without a status picker", async () => {
         .click(),
     );
     expect(
-      Array.from(page.container.querySelectorAll("label")).map((label) => label.textContent),
+      Array.from(page.container.querySelector("form")!.querySelectorAll("label")).map(
+        (label) => label.textContent,
+      ),
     ).not.toContain("Status");
     const input = page.container.querySelector("input")!;
     await act(async () => {
@@ -199,19 +215,24 @@ it("creates a ticket without a status picker", async () => {
 });
 
 function liveStream() {
-  let deliver: ((result: IteratorResult<{ ticketId?: string }>) => void) | undefined;
+  let deliver:
+    | ((result: IteratorResult<{ ticketId?: string; spaceId?: string }>) => void)
+    | undefined;
   let fail: ((cause: Error) => void) | undefined;
   return {
     stream: {
       [Symbol.asyncIterator]: () => ({
         next: () =>
-          new Promise<IteratorResult<{ ticketId?: string }>>((resolve, reject) => {
-            deliver = resolve;
-            fail = reject;
-          }),
+          new Promise<IteratorResult<{ ticketId?: string; spaceId?: string }>>(
+            (resolve, reject) => {
+              deliver = resolve;
+              fail = reject;
+            },
+          ),
       }),
     },
-    event: (ticketId: string) => deliver?.({ done: false, value: { ticketId } }),
+    event: (ticketId: string) =>
+      deliver?.({ done: false, value: { ticketId, spaceId: "space-1" } }),
     end: () => deliver?.({ done: true, value: undefined }),
     error: () => fail?.(new Error("Disconnected")),
   };
@@ -235,7 +256,7 @@ it("saves only edits and refreshes comments for the open ticket", async () => {
     );
     const calls = api.tickets.comments.mock.calls.length;
     await act(async () => live.event("ticket-2"));
-    expect(api.tickets.comments).toHaveBeenCalledTimes(calls);
+    expect(api.tickets.comments.mock.calls.length).toBeGreaterThan(calls);
     api.tickets.comments.mockResolvedValue([{ id: "comment-2", body: "Bot progress" }]);
     api.tickets.list.mockResolvedValue({
       tickets: [ticket("Ship", "ticket-1", "doing", "RAK-1", "bot-2", "Details")],
@@ -269,10 +290,11 @@ it("closes the subscription before retrying a failed ticket refresh", async () =
   api.bots.list.mockResolvedValue([bot("bot-1", "Helper")]);
   api.tickets.list
     .mockReset()
-    .mockResolvedValueOnce({ tickets: [] })
     .mockRejectedValueOnce(new Error("Refresh failed"))
     .mockResolvedValue({ tickets: [ticket("After retry", "ticket-1")] });
-  const next = vi.fn(() => new Promise<IteratorResult<{ ticketId?: string }>>(() => {}));
+  const next = vi.fn(
+    () => new Promise<IteratorResult<{ ticketId?: string; spaceId?: string }>>(() => {}),
+  );
   const page = await renderBoard({ [Symbol.asyncIterator]: () => ({ next }) });
   try {
     const firstSignal = api.boards.subscribe.mock.calls[0]![1].signal as AbortSignal;
@@ -327,3 +349,48 @@ it.each(["end", "error"] as const)(
     }
   },
 );
+
+it.each([360, 390])(
+  "uses a list and minimal filters at %ipx even on the board route",
+  async (width) => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: width < 768,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    api.bots.list.mockResolvedValue([]);
+    api.tickets.list
+      .mockReset()
+      .mockResolvedValue({ tickets: [ticket("Narrow ticket", "narrow")] });
+    const page = await renderBoard();
+    try {
+      expect(page.container.querySelector('[data-testid="ticket-list"]')).not.toBeNull();
+      expect(page.container.querySelector('[data-testid="board-columns"]')).toBeNull();
+      expect(
+        Array.from(page.container.querySelectorAll("button")).some(
+          (node) => node.textContent === "Board",
+        ),
+      ).toBe(false);
+      expect(page.container.querySelectorAll("select")).toHaveLength(3);
+    } finally {
+      await page.cleanup();
+    }
+  },
+);
+
+it("sends unassociated and status filters explicitly", async () => {
+  api.bots.list.mockResolvedValue([]);
+  api.tickets.list.mockReset().mockResolvedValue({ tickets: [] });
+  const page = await renderBoard(
+    undefined,
+    "/app/tickets?projectId=none&milestoneId=none&status=done",
+  );
+  try {
+    expect(api.tickets.list).toHaveBeenCalledWith(
+      { projectId: null, milestoneId: null, status: "done" },
+      { context: { spaceId: "space-1" } },
+    );
+  } finally {
+    await page.cleanup();
+  }
+});

@@ -411,6 +411,10 @@ msgstr "Agent 连接"
 msgid "Agents:"
 msgstr "Agent："
 
+#: src/pages/Board.tsx
+msgid "All"
+msgstr "全部"
+
 #: src/pages/Artifacts.tsx
 msgid "All bots"
 msgstr "所有机器人"
@@ -560,6 +564,7 @@ msgstr "归档"
 msgid "archived"
 msgstr "已归档"
 
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "已归档"
@@ -688,6 +693,7 @@ msgstr "头像"
 #: src/pages/Approvals.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Back"
 msgstr "返回"
@@ -2135,6 +2141,10 @@ msgstr "该邮箱不允许注册"
 msgid "Email verification required"
 msgstr "需要验证邮箱"
 
+#: src/components/ProjectProgress.tsx
+msgid "Ended"
+msgstr "已结束"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "于 {day} 结束"
@@ -2613,6 +2623,10 @@ msgstr "关联聊天应用"
 msgid "Link SSO"
 msgstr "关联 SSO"
 
+#: src/pages/Board.tsx
+msgid "List"
+msgstr "列表"
+
 #: src/pages/Artifacts.tsx
 msgid "List view"
 msgstr "列表视图"
@@ -2870,6 +2884,14 @@ msgstr "消息"
 #: src/lib/call-session.ts
 msgid "Microphone failed"
 msgstr "麦克风失败"
+
+#: src/pages/Board.tsx
+msgid "Milestone"
+msgstr "里程碑"
+
+#: src/pages/Projects.tsx
+msgid "Milestones"
+msgstr "里程碑"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3166,6 +3188,7 @@ msgstr "暂无技能"
 msgid "No team conversations yet."
 msgstr "暂无团队会话。"
 
+#: src/components/ProjectProgress.tsx
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr "暂无工单"
@@ -3480,9 +3503,18 @@ msgstr "私有"
 msgid "Private workspace with its own bots and groups."
 msgstr "拥有独立机器人和群组的私密工作区。"
 
+#: src/pages/Board.tsx
+msgid "Project"
+msgstr "项目"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "项目 ID"
+
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+msgid "Projects"
+msgstr "项目"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
@@ -4559,6 +4591,12 @@ msgstr "此订阅登录在 Rakazo 中尚不可用。请使用部署凭据或选�
 msgid "This week"
 msgstr "本周"
 
+#: src/pages/Board.tsx
+#: src/pages/Projects.tsx
+#: src/pages/Shell.tsx
+msgid "Tickets"
+msgstr "工单"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
 msgstr "时间"
@@ -4642,6 +4680,10 @@ msgstr "输入你的回答"
 #: src/pages/BotContextMenu.tsx
 msgid "Unassigned"
 msgstr "未分配"
+
+#: src/pages/Board.tsx
+msgid "Unassociated"
+msgstr "未关联"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"

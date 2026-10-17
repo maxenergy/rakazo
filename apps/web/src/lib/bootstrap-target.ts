@@ -10,6 +10,8 @@ function botIdFromPath(pathname: string) {
     segments[2] === "g" ||
     segments[2] === "artifacts" ||
     segments[2] === "board" ||
+    segments[2] === "tickets" ||
+    segments[2] === "projects" ||
     segments[2] === "approvals"
   )
     return undefined;

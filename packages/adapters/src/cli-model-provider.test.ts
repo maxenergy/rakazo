@@ -6,6 +6,7 @@ import {
   boundCliMessages,
   cliInferenceArgs,
   cliResponseText,
+  collapseSystemMessages,
   parseCliReply,
   parseToolArguments,
   registerCliModelProviders,
@@ -282,6 +283,63 @@ describe("subscription CLI provider conformance", () => {
     // The most recent steps stay whole.
     expect(bounded.at(-1)).toEqual(messages.at(-1));
     expect(JSON.stringify(bounded)).toContain(`output 60 ${"x".repeat(5_000)}`);
+  });
+
+  it("replays repeated system messages into one with the current sections and tools", () => {
+    const tool = (name: string) => ({
+      name,
+      description: `${name} ${"x".repeat(5_000)}`,
+      parameters: { type: "object", properties: {} },
+    });
+    const system = (index: number) => ({
+      role: "system" as const,
+      content: index === 0 ? "Base prompt" : "",
+      sections: { scratchpad: `step ${index}` },
+      ...(index === 2
+        ? { toolsRemoved: [{ name: "write_file" }] }
+        : { toolsAdded: [tool("shell"), tool("write_file")] }),
+      timestamp: index,
+    });
+    const messages = [
+      system(0),
+      { role: "user" as const, content: "Build it", timestamp: 0 },
+      system(1),
+      system(2),
+    ] as Parameters<typeof collapseSystemMessages>[0];
+    const collapsed = collapseSystemMessages(messages);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed[0]).toMatchObject({
+      role: "system",
+      content: "Base prompt",
+      sections: { scratchpad: "step 2" },
+    });
+    const tools = (collapsed[0] as { toolsAdded?: Array<{ name: string }> }).toolsAdded ?? [];
+    expect(tools.map((item) => item.name)).toEqual(["shell"]);
+    expect(collapsed[1]).toMatchObject({ role: "user", content: "Build it" });
+  });
+
+  it("omits the arguments of old tool calls that carried whole files", () => {
+    const call = (index: number) => ({
+      role: "assistant" as const,
+      content: [
+        {
+          type: "toolCall" as const,
+          id: `call-${index}`,
+          name: "write_file",
+          arguments: { path: `f${index}.ts`, content: "y".repeat(50_000) },
+        },
+      ],
+      timestamp: index,
+    });
+    const messages = [
+      { role: "user" as const, content: "Write the files", timestamp: 0 },
+      ...Array.from({ length: 20 }, (_, index) => call(index + 1)),
+    ] as Parameters<typeof boundCliMessages>[0];
+    const bounded = boundCliMessages(messages, 400_000);
+    const text = JSON.stringify(bounded);
+    expect(text.length).toBeLessThanOrEqual(400_000);
+    expect(text).toContain("characters of arguments omitted");
+    expect(text).toContain("call-1");
   });
 
   it("trims a single huge latest tool result to its start and end", () => {

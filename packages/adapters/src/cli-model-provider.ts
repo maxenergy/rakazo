@@ -319,6 +319,13 @@ function shortenOldMessage(message: TranscriptMessage): TranscriptMessage {
   if (message.role === "system" || !Array.isArray(message.content)) return message;
   let changed = false;
   const content = message.content.map((part) => {
+    if (part.type === "toolCall") {
+      // A whole file or script passed to a tool earlier is not needed again verbatim.
+      const size = JSON.stringify(part.arguments ?? {}).length;
+      if (size <= CLI_OLD_TEXT_LIMIT) return part;
+      changed = true;
+      return { ...part, arguments: { omitted: `${size} characters of arguments omitted` } };
+    }
     if (part.type !== "text" || part.text.length <= CLI_OLD_TEXT_LIMIT) return part;
     changed = true;
     const omitted = part.text.length - CLI_OLD_TEXT_LIMIT;
@@ -405,6 +412,62 @@ export function boundCliMessages(
   return kept;
 }
 
+type SystemTranscriptMessage = Extract<TranscriptMessage, { role: "system" }>;
+
+/**
+ * Replay every system message into one leading message with the current
+ * instructions, sections and tools. A long run adds a system message each time its
+ * sections or tools change, each carrying full tool definitions; a CLI prompt
+ * serializes the whole transcript, so those copies alone can exceed the CLI's limit.
+ */
+export function collapseSystemMessages(
+  messages: readonly TranscriptMessage[],
+): TranscriptMessage[] {
+  const system = messages.filter(
+    (message): message is SystemTranscriptMessage => message.role === "system",
+  );
+  if (system.length <= 1) return [...messages];
+  const contents: string[] = [];
+  let sections: Record<string, string | null> | undefined;
+  const tools = new Map<string, NonNullable<SystemTranscriptMessage["toolsAdded"]>[number]>();
+  for (const message of system) {
+    const text =
+      typeof message.content === "string"
+        ? message.content
+        : message.content.map((part) => part.text).join("\n");
+    if (text && !contents.includes(text)) contents.push(text);
+    if (message.sections) {
+      sections = { ...sections };
+      for (const [name, value] of Object.entries(message.sections)) {
+        if (value === null) delete sections[name];
+        else sections[name] = value;
+      }
+    }
+    for (const tool of message.toolsRemoved ?? []) tools.delete(tool.name);
+    for (const tool of message.toolsAdded ?? []) tools.set(tool.name, tool);
+  }
+  const merged: SystemTranscriptMessage = {
+    role: "system",
+    content: contents.join("\n\n"),
+    ...(sections ? { sections } : {}),
+    ...(tools.size ? { toolsAdded: [...tools.values()] } : {}),
+    timestamp: system[0]!.timestamp,
+  };
+  return [merged, ...messages.filter((message) => message.role !== "system")];
+}
+
+/** Size of each part of an oversized conversation, without any of its content. */
+function conversationSizes(messages: readonly TranscriptMessage[]) {
+  const sizes: Record<string, number> = {};
+  let largest = 0;
+  for (const message of messages) {
+    const size = messageSize(message);
+    sizes[`cli.chars.${message.role}`] = (sizes[`cli.chars.${message.role}`] ?? 0) + size;
+    largest = Math.max(largest, size);
+  }
+  return { ...sizes, "cli.messages": messages.length, "cli.chars.largest_message": largest };
+}
+
 function cliPrompt(
   context: TranscriptContext,
   contextWindow?: number,
@@ -425,16 +488,22 @@ function cliPrompt(
       throw new Error("This CLI connection accepts text. Choose a vision connection for images.");
     }
   }
+  const collapsed = collapseSystemMessages(context.messages);
+  const budgetChars = contextWindow
+    ? Math.floor(contextWindow * CLI_CHARS_PER_TOKEN * CLI_CONTEXT_SHARE * budgetScale)
+    : undefined;
+  const conversation = budgetChars ? boundCliMessages(collapsed, budgetChars) : collapsed;
+  const conversationText = JSON.stringify(conversation);
+  if (budgetChars && conversationText.length > budgetChars * 2) {
+    getLogger().warn("cli.prompt_oversized", {
+      "cli.chars.total": conversationText.length,
+      "cli.chars.budget": budgetChars,
+      ...conversationSizes(conversation),
+    });
+  }
   return {
     tools,
-    prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.\nDo not use the CLI's own tools, files, shell, extensions, or MCP servers. Rakazo executes tools separately.\nThe CLI's own sandbox, approval, and escalation settings (for example a read-only sandbox) only restrict this CLI process. They do not describe your environment: the tools in the conversation run on Rakazo's side, and their own descriptions and results say what they can do, including writing files and running commands.\nTo request a tool defined in the conversation, return its name and JSON-encoded object arguments in calls. argumentsJson must parse as JSON: escape every double quote and backslash inside its strings. For a long or heavily quoted command, write the script to a file first, then run the file. Return user-visible text in text. After tool results, continue the conversation.\nReturn only one JSON object matching this schema: ${JSON.stringify(RESPONSE_SCHEMA)}\nConversation:\n${JSON.stringify(
-      contextWindow
-        ? boundCliMessages(
-            context.messages,
-            Math.floor(contextWindow * CLI_CHARS_PER_TOKEN * CLI_CONTEXT_SHARE * budgetScale),
-          )
-        : context.messages,
-    )}`,
+    prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.\nDo not use the CLI's own tools, files, shell, extensions, or MCP servers. Rakazo executes tools separately.\nThe CLI's own sandbox, approval, and escalation settings (for example a read-only sandbox) only restrict this CLI process. They do not describe your environment: the tools in the conversation run on Rakazo's side, and their own descriptions and results say what they can do, including writing files and running commands.\nTo request a tool defined in the conversation, return its name and JSON-encoded object arguments in calls. argumentsJson must parse as JSON: escape every double quote and backslash inside its strings. For a long or heavily quoted command, write the script to a file first, then run the file. Return user-visible text in text. After tool results, continue the conversation.\nReturn only one JSON object matching this schema: ${JSON.stringify(RESPONSE_SCHEMA)}\nConversation:\n${conversationText}`,
   };
 }
 

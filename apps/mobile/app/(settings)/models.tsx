@@ -20,6 +20,7 @@ import {
 } from "@rakazo/contracts";
 import {
   COMPATIBLE_THINKING_LEVELS,
+  catalogMetadataLines,
   clampCatalogThinkingLevel,
   createModelProbe,
   featuredModelProviders,
@@ -27,6 +28,7 @@ import {
   initialModelProbeState,
   modelOAuthErrorMessage,
   pickCatalogModelId,
+  sortModelCatalogByCost,
 } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
@@ -116,6 +118,7 @@ export default function Models() {
   const [ownKeyProvider, setOwnKeyProvider] = useState<string | null>(null);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [modelId, setModelId] = useState("");
+  const [sortByCost, setSortByCost] = useState(false);
   const [modelSearch, setModelSearch] = useState({ provider: "", query: "" });
   const [apiKey, setApiKey] = useState("");
   const [accountId, setAccountId] = useState("");
@@ -434,8 +437,14 @@ export default function Models() {
     selected !== undefined &&
     modelQuery.trim().length > 0 &&
     !matchedModels.some((entry) => entry.id === selected.id);
-  const visibleModels =
-    stagedModelHidden && selected ? [selected, ...matchedModels] : matchedModels;
+  const sortedModels = sortByCost
+    ? sortModelCatalogByCost(matchedModels, () =>
+        provider === me?.hostCredentialProvider
+          ? undefined
+          : credentials.find((entry) => entry.provider === provider)?.authKind,
+      )
+    : matchedModels;
+  const visibleModels = stagedModelHidden && selected ? [selected, ...sortedModels] : sortedModels;
   const noModelMatches = showModelSearch && matchedModels.length === 0;
 
   // The search field keeps focus, so tell screen readers once when the results run out.
@@ -1116,6 +1125,23 @@ export default function Models() {
   const catalogModelCard =
     !isOpenAiCompatible && selected ? (
       <>
+        <View style={styles.modelRow}>
+          <Text style={styles.modelLabel}>{t("Sort by cost")}</Text>
+          <NativeSwitch
+            accessibilityLabel={t("Sort by cost")}
+            value={sortByCost}
+            onValueChange={setSortByCost}
+          />
+        </View>
+        {catalogMetadataLines(
+          selected,
+          usingServerCredentials ? undefined : credential?.authKind,
+          t,
+        ).map((line) => (
+          <Text key={line} style={styles.mutedLabel}>
+            {line}
+          </Text>
+        ))}
         {showModelSearch ? (
           <TextInput
             accessibilityLabel={t("Search models")}

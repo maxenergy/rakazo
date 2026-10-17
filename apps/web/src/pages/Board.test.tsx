@@ -358,7 +358,7 @@ it.each([360, 390])(
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     });
-    api.bots.list.mockResolvedValue([]);
+    api.bots.list.mockResolvedValue([bot("bot-1", "Helper")]);
     api.tickets.list
       .mockReset()
       .mockResolvedValue({ tickets: [ticket("Narrow ticket", "narrow")] });
@@ -377,17 +377,19 @@ it.each([360, 390])(
           (select) => select.labels?.[0]?.textContent,
         ),
       ).toEqual(["Project", "Milestone", "Status"]);
-      await act(async () =>
-        Array.from(page.container.querySelectorAll("button"))
-          .find((button) => button.textContent === "New ticket")!
-          .click(),
-      );
-      const form = page.container.querySelector("form")!;
+      const newTicketButton = Array.from(page.container.querySelectorAll("button")).find(
+        (button) => button.textContent === "New ticket",
+      )!;
+      expect(newTicketButton.disabled).toBe(false);
+      await act(async () => newTicketButton.click());
+      const form = page.container.querySelector("form");
+      expect(form).not.toBeNull();
       expect(
-        form.querySelector<HTMLSelectElement>('select[id$="-project"]')?.labels?.[0]?.textContent,
+        form!.querySelector<HTMLSelectElement>('select[id$="-project"]')?.labels?.[0]?.textContent,
       ).toBe("Project");
       expect(
-        form.querySelector<HTMLSelectElement>('select[id$="-milestone"]')?.labels?.[0]?.textContent,
+        form!.querySelector<HTMLSelectElement>('select[id$="-milestone"]')?.labels?.[0]
+          ?.textContent,
       ).toBe("Milestone");
     } finally {
       await page.cleanup();

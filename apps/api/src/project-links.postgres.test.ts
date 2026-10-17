@@ -138,19 +138,25 @@ describePostgres("ticket association API isolation", () => {
     const ticket = await api.tickets.create({ title: "Response links", assigneeBotId: botId });
     expect(ticket).toMatchObject({ projectId: null, milestoneId: null });
     expect(await api.tickets.update({ id: ticket.id, projectId, milestoneId })).toMatchObject({
-      projectId, milestoneId,
+      projectId,
+      milestoneId,
     });
     expect(await api.tickets.get({ id: ticket.id })).toMatchObject({ projectId, milestoneId });
     expect(await api.tickets.update({ id: ticket.id, milestoneId: null })).toMatchObject({
-      projectId, milestoneId: null,
+      projectId,
+      milestoneId: null,
     });
     await api.tickets.update({ id: ticket.id, milestoneId });
-    const other = await prisma.project.create({ data: { spaceId, name: "Response other project" } });
+    const other = await prisma.project.create({
+      data: { spaceId, name: "Response other project" },
+    });
     expect(await api.tickets.update({ id: ticket.id, projectId: other.id })).toMatchObject({
-      projectId: other.id, milestoneId: null,
+      projectId: other.id,
+      milestoneId: null,
     });
     expect(await api.tickets.update({ id: ticket.id, projectId: null })).toMatchObject({
-      projectId: null, milestoneId: null,
+      projectId: null,
+      milestoneId: null,
     });
   });
 

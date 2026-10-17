@@ -147,7 +147,9 @@ describePostgres("project links (PostgreSQL)", () => {
     await expect(
       prisma.$transaction(async (tx) => {
         const original = tx.ticket.findFirst.bind(tx.ticket);
-        const spy = vi.spyOn(tx.ticket, "findFirst").mockImplementationOnce((async (args: Parameters<typeof tx.ticket.findFirst>[0]) => {
+        const spy = vi.spyOn(tx.ticket, "findFirst").mockImplementationOnce((async (
+          args: Parameters<typeof tx.ticket.findFirst>[0],
+        ) => {
           const candidate = await original(args);
           await prisma.ticket.update({
             where: { id: ticket.id },

@@ -85,7 +85,8 @@ for (const width of [360, 390]) {
     await expect(page).toHaveURL(new RegExp(`/milestones/${milestone.id}$`));
     await captureScreenshot(page, testInfo, `milestone-${width}`);
     await page.goto("/app/board");
-    await expect(page.getByTestId("ticket-list")).toBeVisible();
+    await expect(page.getByTestId("ticket-list")).toBeAttached();
+    await expect(page.getByText("No tickets yet", { exact: true })).toBeVisible();
     await expect(page.getByTestId("board-columns")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Board", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Board", exact: true })).toHaveCount(0);

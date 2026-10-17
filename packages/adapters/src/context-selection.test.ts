@@ -281,6 +281,24 @@ describe("bounded context selection", () => {
     });
     expect(decoded.diagnostic).toContain("Tool result truncated");
   });
+  it("condenses older protected messages of a long turn instead of failing it", () => {
+    const steering = Array.from({ length: 12 }, (_, index) =>
+      user(`peer update ${index} ${"进度".repeat(2_000)} end ${index}`),
+    );
+    const newest = user("newest instruction");
+    const messages = [...steering, newest];
+    const roomy = { ...budget, contextWindow: 120_000 };
+    const selected = selectContext(messages, {
+      budget: roomy,
+      strategy: "retrieval",
+      protectedIndexes: messages.map((_, index) => index),
+    });
+    expect(selected.messages.at(-1)).toEqual(newest);
+    const first = selected.messages[0]!.content as string;
+    expect(first).toContain("peer update 0");
+    expect(first).toContain("end 0");
+    expect(first).toContain("characters omitted to fit the model context");
+  });
   it("fails explicitly if mandatory content cannot fit rather than silently losing the request", () => {
     expect(() =>
       selectContext([user("large ".repeat(2000))], { budget, strategy: "retrieval" }),

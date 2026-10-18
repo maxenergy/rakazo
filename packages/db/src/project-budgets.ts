@@ -14,8 +14,10 @@ export type BudgetReservationResult =
     }
   | {
       ok: false;
-      reason: "no_budget" | "insufficient" | "reservation_closed";
+      reason: "no_budget" | "insufficient" | "reservation_closed" | "conflict";
       availableMicroUsd: bigint;
+      /** Stored status of the closed reservation, set with reason reservation_closed. */
+      status?: "settled" | "released" | "expired";
     };
 
 export interface BudgetSettlement {
@@ -43,6 +45,11 @@ interface ReservationRow {
   overrunMicroUsd: bigint;
   status: string;
   settledLate: boolean;
+}
+
+function assertPositiveMicroUsd(value: bigint, label: string) {
+  assertMicroUsd(value, label);
+  if (value <= 0n) throw new Error(`${label} must be greater than zero`);
 }
 
 function assertMicroUsd(value: bigint, label: string) {
@@ -108,7 +115,7 @@ export async function reserveBudget(
     now?: Date;
   },
 ): Promise<BudgetReservationResult> {
-  assertMicroUsd(input.amountMicroUsd, "amountMicroUsd");
+  assertPositiveMicroUsd(input.amountMicroUsd, "amountMicroUsd");
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + (input.ttlMs ?? DEFAULT_RESERVATION_TTL_MS));
   return db.$transaction(async (tx): Promise<BudgetReservationResult> => {
@@ -125,15 +132,15 @@ export async function reserveBudget(
     if (prior) {
       if (prior.budgetId !== budget.id) throw new Error("callId already used for another budget");
       if (prior.amountMicroUsd !== input.amountMicroUsd) {
-        throw new Error("callId already reserved with a different amount");
+        return { ok: false, reason: "conflict", availableMicroUsd: 0n };
       }
       // A closed reservation no longer holds funds; a retry must not look like a live hold.
       if (prior.status !== "reserved") {
-        const open = budget.limitMicroUsd - budget.reservedMicroUsd - budget.settledMicroUsd;
         return {
           ok: false,
           reason: "reservation_closed",
-          availableMicroUsd: open > 0n ? open : 0n,
+          availableMicroUsd: 0n,
+          status: prior.status as "settled" | "released" | "expired",
         };
       }
       return {
@@ -310,14 +317,15 @@ export async function expireBudgetReservations(
   return expired;
 }
 
-type SetProjectBudgetInput = Parameters<typeof setProjectBudgetOnce>[1];
-
-export async function setProjectBudget(db: PrismaClient, input: SetProjectBudgetInput) {
+/** Concurrent first calls both miss the row; the loser hits P2002 and retries through the update path. */
+export async function setProjectBudget(
+  db: PrismaClient,
+  input: Parameters<typeof setProjectBudgetOnce>[1],
+) {
   try {
     return await setProjectBudgetOnce(db, input);
   } catch (error) {
-    // Two first-time creators both saw no row; the loser retries and takes the update path.
-    if ((error as { code?: string }).code === "P2002") return setProjectBudgetOnce(db, input);
-    throw error;
+    if ((error as { code?: string }).code !== "P2002") throw error;
+    return setProjectBudgetOnce(db, input);
   }
 }

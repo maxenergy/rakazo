@@ -57,6 +57,7 @@ CREATE TABLE "budget_reservations" (
 );
 
 CREATE UNIQUE INDEX "budget_reservations_spaceId_callId_key" ON "budget_reservations"("spaceId", "callId");
+CREATE INDEX "budget_reservations_status_expiresAt_idx" ON "budget_reservations"("status", "expiresAt");
 CREATE INDEX "budget_reservations_budgetId_status_expiresAt_idx" ON "budget_reservations"("budgetId", "status", "expiresAt");
 
 ALTER TABLE "budget_reservations"

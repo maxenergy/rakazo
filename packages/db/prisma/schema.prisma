@@ -1627,5 +1627,6 @@ model BudgetReservation {
 
   @@unique([spaceId, callId])
   @@index([budgetId, status, expiresAt])
+  @@index([status, expiresAt])
   @@map("budget_reservations")
 }

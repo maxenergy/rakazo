@@ -19,18 +19,7 @@ export interface RehearsalResult {
 const PRISMA_BANNER = /^◇ injected env \(\d+\) from \.env(?: \/\/ tip: .*)?$/;
 
 /** Drift that is already ticketed. Matched as an exact statement block, never by pattern. */
-const KNOWN_DRIFT: { ticket: string; script: string }[] = [
-  {
-    ticket: "RAK-6",
-    script: [
-      "-- DropForeignKey",
-      'ALTER TABLE "computer_updates" DROP CONSTRAINT "computer_updates_computerId_fkey";',
-      "",
-      "-- AddForeignKey",
-      'ALTER TABLE "computer_updates" ADD CONSTRAINT "computer_updates_computerId_fkey" FOREIGN KEY ("computerId") REFERENCES "computers"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
-    ].join("\n"),
-  },
-];
+const KNOWN_DRIFT: { ticket: string; script: string }[] = [];
 
 function stripBanner(output: string): string {
   return output

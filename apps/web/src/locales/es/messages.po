@@ -157,6 +157,11 @@ msgstr "{name} terminó"
 msgid "{name} stopped"
 msgstr "{name} se detuvo"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "{price} USD / million tokens"
+msgstr "{price} USD / millón de tokens"
+
 #: src/lib/model-catalog.ts
 msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
 msgstr "El inicio de sesión con una suscripción de {provider} aún no está disponible en Rakazo. Omítelo si este despliegue ya tiene credenciales."
@@ -813,6 +818,16 @@ msgstr "Navegador"
 msgid "Built-in"
 msgstr "Integrado"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache read: {price}"
+msgstr "Lectura de caché: {price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache write: {price}"
+msgstr "Escritura de caché: {price}"
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "No se puede alcanzar el servidor."
@@ -1271,6 +1286,11 @@ msgstr "La conexión con {0} sigue pendiente. Puedes cerrar esto y volver a comp
 msgid "Context limit"
 msgstr "Límite de contexto"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Context window: {tokens}"
+msgstr "Ventana de contexto: {tokens}"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -1309,6 +1329,11 @@ msgstr "Copiar"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr "Copiar ejemplo de .env"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cost unknown"
+msgstr "Coste desconocido"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -2062,6 +2087,11 @@ msgstr "Docker está configurado, pero los ordenadores no responden. Confirma qu
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker limita el acceso a tu computadora para mayor seguridad. Usar {hostLabel} permite que los bots trabajen con tus archivos y herramientas locales."
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Does not support reasoning"
+msgstr "No admite razonamiento"
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "¿No tienes una cuenta?"
@@ -2342,7 +2372,8 @@ msgstr "Marcar acciones inesperadas"
 msgid "Forgot password?"
 msgstr "¿Olvidaste la contraseña?"
 
-#: src/pages/ModelSettingsOverlay.tsx
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
 msgid "Free"
 msgstr "Gratis"
 
@@ -2514,6 +2545,11 @@ msgstr "Inactivo"
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
 msgstr "Heredar predeterminado"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Input: {price}"
+msgstr "Entrada: {price}"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -2798,6 +2834,11 @@ msgstr "Máximo de 10 modelos de respaldo."
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "Máximo de tokens de salida"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Maximum output tokens: {tokens}"
+msgstr "Tokens máximos de salida: {tokens}"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -3107,6 +3148,11 @@ msgstr "No hay bots"
 msgid "No bots match"
 msgstr "No hay bots coincidentes"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "No charge"
+msgstr "Sin cargo"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No chat apps linked yet."
 msgstr "Aún no hay apps de chat vinculadas."
@@ -3386,6 +3432,11 @@ msgstr "Mensaje original no disponible"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "Otro modelo…"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Output: {price}"
+msgstr "Salida: {price}"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -4279,6 +4330,10 @@ msgstr "Actualización de software"
 msgid "Something went wrong. Try again."
 msgstr "Algo salió mal. Inténtalo de nuevo."
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Sort by cost"
+msgstr "Ordenar por coste"
+
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "El espacio cambió. Vuelve a abrir Modelos para cargar la lista de respaldo."
@@ -4393,10 +4448,20 @@ msgstr "Suscribirse"
 msgid "Subscription required"
 msgstr "Se requiere una suscripción"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Subscription, cost unknown"
+msgstr "Suscripción, coste desconocido"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
 msgstr "Admite imágenes"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Supports reasoning"
+msgstr "Admite razonamiento"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -4692,6 +4757,11 @@ msgstr "No disponible"
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
 msgstr "Desinstalar"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Unknown"
+msgstr "Desconocido"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Unknown tool"

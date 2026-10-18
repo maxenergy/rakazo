@@ -1,4 +1,5 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Sort by cost": "Nach Kosten sortieren",
   "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
     "CLI-Anfrage fehlgeschlagen. Prüfe die Anmeldung, das ausgewählte Modell und die Abonnementlimits. Es wurde nicht auf die API ausgewichen.",
   "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":

@@ -157,6 +157,11 @@ msgstr "{name}: завершено"
 msgid "{name} stopped"
 msgstr "{name}: остановлено"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "{price} USD / million tokens"
+msgstr "{price} USD / миллион токенов"
+
 #: src/lib/model-catalog.ts
 msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
 msgstr "Вход по подписке {provider} пока недоступен в интерфейсе Rakazo. Пропустите этот шаг, если в развёртывании уже есть учётные данные."
@@ -813,6 +818,16 @@ msgstr "Браузер"
 msgid "Built-in"
 msgstr "Встроенный"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache read: {price}"
+msgstr "Чтение кеша: {price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache write: {price}"
+msgstr "Запись кеша: {price}"
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "Не удаётся связаться с сервером."
@@ -1271,6 +1286,11 @@ msgstr "Соединение с {0} все еще не завершено. Вы 
 msgid "Context limit"
 msgstr "Лимит контекста"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Context window: {tokens}"
+msgstr "Контекстное окно: {tokens}"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -1309,6 +1329,11 @@ msgstr "Копировать"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr "Скопировать пример .env"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cost unknown"
+msgstr "Стоимость неизвестна"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -2062,6 +2087,11 @@ msgstr "Docker настроен, но компьютеры не отвечают
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker ограничивает доступ к вашему компьютеру для дополнительной безопасности. С помощью {hostLabel} боты могут работать с локальными файлами и инструментами."
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Does not support reasoning"
+msgstr "Не поддерживает рассуждения"
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "У вас нет учетной записи?"
@@ -2342,7 +2372,8 @@ msgstr "Пометить неожиданные действия"
 msgid "Forgot password?"
 msgstr "Забыли пароль?"
 
-#: src/pages/ModelSettingsOverlay.tsx
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
 msgid "Free"
 msgstr "Бесплатно"
 
@@ -2514,6 +2545,11 @@ msgstr "Неактивно"
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
 msgstr "Наследовать значение по умолчанию"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Input: {price}"
+msgstr "Ввод: {price}"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -2798,6 +2834,11 @@ msgstr "Можно добавить не более 10 резервных мод
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "Максимум выходных токенов"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Maximum output tokens: {tokens}"
+msgstr "Максимум выходных токенов: {tokens}"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -3107,6 +3148,11 @@ msgstr "Нет ботов"
 msgid "No bots match"
 msgstr "Ни один бот не подходит"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "No charge"
+msgstr "Без оплаты"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No chat apps linked yet."
 msgstr "Приложения для чата пока не связаны."
@@ -3386,6 +3432,11 @@ msgstr "Исходное сообщение недоступно"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "Другая модель…"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Output: {price}"
+msgstr "Вывод: {price}"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -4279,6 +4330,10 @@ msgstr "Обновление программного обеспечения"
 msgid "Something went wrong. Try again."
 msgstr "Что-то пошло не так. Попробуйте ещё раз."
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Sort by cost"
+msgstr "Сортировать по стоимости"
+
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "Пространство изменилось. Откройте раздел «Модели» снова, чтобы загрузить список резервных моделей."
@@ -4393,10 +4448,20 @@ msgstr "Оформить подписку"
 msgid "Subscription required"
 msgstr "Требуется подписка"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Subscription, cost unknown"
+msgstr "Подписка, стоимость неизвестна"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
 msgstr "Поддерживает изображения"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Supports reasoning"
+msgstr "Поддерживает рассуждения"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -4692,6 +4757,11 @@ msgstr "Недоступно"
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
 msgstr "Удалить"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Unknown"
+msgstr "Неизвестно"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Unknown tool"

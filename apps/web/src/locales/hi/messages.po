@@ -157,6 +157,11 @@ msgstr "{name} पूरा हुआ"
 msgid "{name} stopped"
 msgstr "{name} रोक दिया गया"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "{price} USD / million tokens"
+msgstr "{price} USD / दस लाख टोकन"
+
 #: src/lib/model-catalog.ts
 msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
 msgstr "{provider} सदस्यता से लॉगिन अभी Rakazo में उपलब्ध नहीं है। इस डिप्लॉयमेंट में क्रेडेंशियल पहले से हों तो छोड़ें।"
@@ -813,6 +818,16 @@ msgstr "ब्राउज़र"
 msgid "Built-in"
 msgstr "अंतर्निहित"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache read: {price}"
+msgstr "कैश पढ़ना: {price}"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cache write: {price}"
+msgstr "कैश लिखना: {price}"
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "सर्वर तक नहीं पहुंचा जा सका।"
@@ -1271,6 +1286,11 @@ msgstr "{0} से कनेक्शन अभी लंबित है। आ
 msgid "Context limit"
 msgstr "कॉन्टेक्स्ट सीमा"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Context window: {tokens}"
+msgstr "संदर्भ विंडो: {tokens}"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -1309,6 +1329,11 @@ msgstr "कॉपी करें"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr ".env का उदाहरण कॉपी करें"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Cost unknown"
+msgstr "लागत अज्ञात"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -2062,6 +2087,11 @@ msgstr "Docker कॉन्फ़िगर है, लेकिन कंप्�
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker अतिरिक्त सुरक्षा के लिए आपके कंप्यूटर तक पहुँच सीमित करता है। {hostLabel} चुनने पर बॉट्स आपकी स्थानीय फ़ाइलों और टूल्स के साथ काम कर सकते हैं।"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Does not support reasoning"
+msgstr "तर्क का समर्थन नहीं करता"
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "खाता नहीं है?"
@@ -2342,7 +2372,8 @@ msgstr "अप्रत्याशित कार्रवाइयों क�
 msgid "Forgot password?"
 msgstr "पासवर्ड भूल गए?"
 
-#: src/pages/ModelSettingsOverlay.tsx
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
 msgid "Free"
 msgstr "मुफ़्त"
 
@@ -2514,6 +2545,11 @@ msgstr "निष्क्रिय"
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
 msgstr "डिफ़ॉल्ट का पालन करें"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Input: {price}"
+msgstr "इनपुट: {price}"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -2798,6 +2834,11 @@ msgstr "अधिकतम 10 बैकअप मॉडल।"
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "अधिकतम आउटपुट टोकन"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Maximum output tokens: {tokens}"
+msgstr "अधिकतम आउटपुट टोकन: {tokens}"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -3107,6 +3148,11 @@ msgstr "कोई बॉट नहीं"
 msgid "No bots match"
 msgstr "कोई मिलते-जुलते बॉट नहीं"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "No charge"
+msgstr "कोई शुल्क नहीं"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No chat apps linked yet."
 msgstr "अभी कोई चैट ऐप लिंक नहीं है।"
@@ -3386,6 +3432,11 @@ msgstr "मूल संदेश उपलब्ध नहीं है"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "अन्य मॉडल…"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Output: {price}"
+msgstr "आउटपुट: {price}"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -4279,6 +4330,10 @@ msgstr "सॉफ़्टवेयर अपडेट"
 msgid "Something went wrong. Try again."
 msgstr "कुछ गलत हो गया। फिर से कोशिश करें।"
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Sort by cost"
+msgstr "लागत के अनुसार क्रमबद्ध करें"
+
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "स्पेस बदल गया। बैकअप सूची लोड करने के लिए मॉडल फिर खोलें।"
@@ -4393,10 +4448,20 @@ msgstr "सदस्यता लें"
 msgid "Subscription required"
 msgstr "सदस्यता आवश्यक है"
 
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Subscription, cost unknown"
+msgstr "सदस्यता, लागत अज्ञात"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
 msgstr "छवियों का समर्थन"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Supports reasoning"
+msgstr "तर्क का समर्थन करता है"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -4692,6 +4757,11 @@ msgstr "अनुपलब्ध"
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
 msgstr "अनइंस्टॉल करें"
+
+#. js-lingui-explicit-id
+#: src/lib/localized-catalog-metadata.ts
+msgid "Unknown"
+msgstr "अज्ञात"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Unknown tool"

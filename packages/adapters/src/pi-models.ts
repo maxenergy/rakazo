@@ -1,9 +1,10 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
-import type { ModelOAuthSignInMode, ThinkingLevel } from "@rakazo/contracts";
+import type { ModelCatalogEntry, ModelOAuthSignInMode, ThinkingLevel } from "@rakazo/contracts";
 import { isCliModelProvider } from "./cli-model-process.js";
 import { registerCliModelProviders } from "./cli-model-provider.js";
-import { supplementPiModels } from "./pi-current-models.js";
+import { catalogMetadata } from "./pi-catalog-metadata.js";
+import { supplementedCatalogMetadata, supplementPiModels } from "./pi-current-models.js";
 import { LOCAL_PROVIDER_ID, registerLocalProvider } from "./pi-local-provider.js";
 import { SUBSCRIPTION_SIGN_IN_PROVIDERS } from "./pi-oauth.js";
 import {
@@ -26,6 +27,10 @@ export type PiCatalogEntry = {
   subscription: boolean;
   signIn?: ModelOAuthSignInMode;
   reasoning?: boolean;
+  pricing?: ModelCatalogEntry["pricing"];
+  contextWindow?: number | null;
+  maxTokens?: number | null;
+  billingModes?: ModelCatalogEntry["billingModes"];
   supportsMaxTokens?: boolean;
   thinkingLevels?: ThinkingLevel[];
   placeholder?: boolean;
@@ -128,6 +133,26 @@ function buildPiCatalog(): PiCatalogEntry[] {
     const modelIds = providerModels.map((model) => model.id);
     for (const model of providerModels) {
       const thinkingLevels = getSupportedThinkingLevels(model) as ThinkingLevel[];
+      const supplement = supplementedCatalogMetadata(models, provider.id, model.id);
+      const metadata = catalogMetadata(
+        provider.id === OPENAI_COMPATIBLE_PROVIDER_ID
+          ? {}
+          : provider.id === LOCAL_PROVIDER_ID
+            ? {
+                ...(process.env.RAKAZO_LOCAL_CONTEXT_WINDOW?.trim()
+                  ? { contextWindow: model.contextWindow }
+                  : {}),
+                ...(process.env.RAKAZO_LOCAL_MAX_TOKENS?.trim()
+                  ? { maxTokens: model.maxTokens }
+                  : {}),
+              }
+            : isCliModelProvider(provider.id)
+              ? provider.id === "antigravity-cli"
+                ? { contextWindow: model.contextWindow, maxTokens: model.maxTokens }
+                : {}
+              : (supplement ?? model),
+        supplement !== undefined,
+      );
       entries.push({
         provider: provider.id,
         providerName: provider.name,
@@ -144,7 +169,13 @@ function buildPiCatalog(): PiCatalogEntry[] {
               : signInMeta?.hint,
         subscription,
         signIn: ["anthropic", "xai"].includes(provider.id) ? undefined : signInMeta?.mode,
-        reasoning: Boolean(model.reasoning),
+        ...metadata,
+        billingModes: isCliModelProvider(provider.id)
+          ? ["subscription"]
+          : [
+              ...(apiKey ? ["api-key" as const] : []),
+              ...(subscription ? ["subscription" as const] : []),
+            ],
         ...(isCliModelProvider(provider.id) ? { supportsMaxTokens: false } : {}),
         thinkingLevels,
         // Compatibility metadata does not prove a model is served by a user's
@@ -170,7 +201,10 @@ function buildPiCatalog(): PiCatalogEntry[] {
       billing: `Configured via PI_DEFAULT_MODEL (${envDefaultModel}).`,
       auth: "api-key",
       subscription: false,
-      reasoning: true,
+      pricing: null,
+      contextWindow: null,
+      maxTokens: null,
+      billingModes: ["api-key"],
       thinkingLevels: ["off", "minimal", "low", "medium", "high"],
       ...(catalogProbeBaseUrls.has("openrouter") ? { catalogProbe: true } : {}),
     });

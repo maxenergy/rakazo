@@ -966,6 +966,19 @@ describe("applyCodexLiveCatalog", () => {
     expect(ids).not.toContain("gpt-7-codex-new");
   });
 
+  it("preserves unknown reasoning when the live catalog supplies no efforts", () => {
+    const id = "gpt-6.1-sol";
+    const staticEntry = listPiCatalog().find(
+      (entry) => entry.provider === CHATGPT_OAUTH_PROVIDER && entry.id === id,
+    )!;
+    expect(staticEntry).not.toHaveProperty("reasoning");
+    const merged = applyCodexLiveCatalog(base, oauthAuth, liveFor({ "secret-a": [liveModel(id)] }));
+    const entry = merged.find((item) => item.provider === CHATGPT_OAUTH_PROVIDER && item.id === id);
+    expect(entry).toBeDefined();
+    expect(entry).not.toHaveProperty("reasoning");
+    expect(staticEntry).not.toHaveProperty("reasoning");
+  });
+
   it("overrides thinking levels only when the endpoint supplies known efforts", () => {
     const staticEntry = listPiCatalog().find(
       (entry) => entry.provider === CHATGPT_OAUTH_PROVIDER && entry.id === LUNA,

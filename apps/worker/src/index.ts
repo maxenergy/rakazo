@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { writeSync } from "node:fs";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
 import { ComposioConnector, IntegrationProviderSettings } from "@rakazo/adapters";
@@ -42,6 +43,7 @@ import {
   reconcileCloudAgents,
   reconcileComputerUpdates,
   reconcileOrgCheckIns,
+  reconcileTicketWakes,
   resolveDeploymentModel,
   resolvePiSessionRoot,
   resolveSandboxProvider,
@@ -265,6 +267,7 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, databaseCapacityBackoffMs(attempt)));
     }
   }
+  const ticketWakeClaimer = `worker:${randomUUID()}`;
   const reconciler = createJobReconciler({
     prisma,
     jobs,
@@ -274,6 +277,12 @@ async function main() {
     reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
     reconcileOrgCheckIns: () => reconcileOrgCheckIns({ prisma, jobs }),
+    reconcileTicketWakes: async () => {
+      await reconcileTicketWakes(
+        { prisma, jobs, ticketBoardEnabled },
+        { claimer: ticketWakeClaimer },
+      );
+    },
   });
   reconciler.start();
 

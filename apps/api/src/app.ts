@@ -62,6 +62,7 @@ import {
   reconcileCloudAgents,
   reconcileComputerUpdates,
   reconcileOrgCheckIns,
+  reconcileTicketWakes,
   removePiUserSessions,
   ScriptedAgentRuntime,
   SmtpEmailProvider,
@@ -519,6 +520,7 @@ export async function createApp(
   if (inMemoryJobs) {
     await inMemoryJobs.start(jobHandlers);
   }
+  const ticketWakeClaimer = `runtime:${randomUUID()}`;
   const reconciler = inMemoryJobs
     ? createJobReconciler({
         prisma,
@@ -528,6 +530,12 @@ export async function createApp(
         reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
         reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
         reconcileOrgCheckIns: () => reconcileOrgCheckIns({ prisma, jobs }),
+        reconcileTicketWakes: async () => {
+          await reconcileTicketWakes(
+            { prisma, jobs, ticketBoardEnabled },
+            { claimer: ticketWakeClaimer },
+          );
+        },
       })
     : undefined;
   reconciler?.start();

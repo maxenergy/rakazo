@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@rakazo/ui-web";
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ProjectBudget } from "../components/ProjectBudget";
 import { ProjectProgress } from "../components/ProjectProgress";
 import { rpc } from "../lib/rpc";
 import { useBoardRefresh } from "../lib/use-board-refresh";
@@ -84,6 +85,7 @@ export function ProjectsPage() {
             </Button>
           </section>
         ) : null}
+        {projectId && !milestoneId ? <ProjectBudget key={projectId} projectId={projectId} /> : null}
         {!milestoneId ? (
           <>
             <label className="flex items-center gap-2 text-sm">

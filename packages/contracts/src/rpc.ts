@@ -124,7 +124,9 @@ import {
   ListMilestonesInput,
   ListProjectsInput,
   MilestoneSchema,
+  ProjectBudgetSchema,
   ProjectSchema,
+  SetProjectBudgetInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
 } from "./projects.js";
@@ -642,6 +644,8 @@ export const appContract = {
     delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
   },
   projects: {
+    budget: oc.input(z.object({ projectId: Id })).output(ProjectBudgetSchema.nullable()),
+    setBudget: oc.input(SetProjectBudgetInput).output(ProjectBudgetSchema),
     list: oc.input(ListProjectsInput).output(z.array(ProjectSchema)),
     get: oc.input(z.object({ id: Id })).output(ProjectSchema),
     create: oc.input(CreateProjectInput).output(ProjectSchema),

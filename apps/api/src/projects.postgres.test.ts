@@ -118,6 +118,8 @@ describePostgres("project and milestone API isolation", () => {
     for (const id of [foreignProjectId, `missing-${suffix}`]) {
       for (const action of [
         () => api.projects.get({ id }),
+        () => api.projects.budget({ projectId: id }),
+        () => api.projects.setBudget({ projectId: id, limitMicroUsd: "1000000" }),
         () => api.projects.update({ id, name: "Rejected" }),
         () => api.projects.archive({ id }),
         () => api.projects.delete({ id }),
@@ -148,6 +150,31 @@ describePostgres("project and milestone API isolation", () => {
     expect(notify).not.toHaveBeenCalled();
     expect((await api.projects.list({})).map((row) => row.id)).not.toContain(foreignProjectId);
     expect((await api.milestones.list({ projectId })).map((row) => row.id)).toEqual([milestoneId]);
+  });
+
+  it("preserves exact budget amounts and versions through the API", async () => {
+    const api = client();
+    const project = await api.projects.create({ name: "Exact budget" });
+    expect(await api.projects.budget({ projectId: project.id })).toBeNull();
+    const first = await api.projects.setBudget({
+      projectId: project.id,
+      limitMicroUsd: "9007199254740993",
+    });
+    expect(first).toMatchObject({
+      projectId: project.id,
+      version: 1,
+      limitMicroUsd: "9007199254740993",
+      reservedMicroUsd: "0",
+      settledMicroUsd: "0",
+    });
+    expect(await api.projects.budget({ projectId: project.id })).toEqual(first);
+    const second = await api.projects.setBudget({ projectId: project.id, limitMicroUsd: "0" });
+    expect(second).toMatchObject({ version: 2, limitMicroUsd: "0" });
+    const versions = await prisma.projectBudgetVersion.findMany({
+      where: { budget: { projectId: project.id } },
+      orderBy: { version: "asc" },
+    });
+    expect(versions.map((row) => row.limitMicroUsd)).toEqual([9007199254740993n, 0n]);
   });
 
   it("retains associations and progress when the parent is archived", async () => {

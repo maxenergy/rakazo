@@ -1,3 +1,4 @@
+import { getProjectCostSummaries } from "./project-costs.js";
 import { recordUsage, UsageReplayConflictError } from "./usage.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "./client.js";
@@ -482,5 +483,23 @@ describePostgres("project budget reservations", () => {
     await expect(recordUsage(prisma, event, { ...attribution, projectId: null })).rejects.toBeInstanceOf(UsageReplayConflictError);
     expect(await prisma.usageRecord.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toEqual(original);
     expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 250_000n });
+  });
+
+  it("reports deduplicated totals, unknown calls and holding age", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const attribution = { spaceId, projectId, userId: `summary-${projectId}` };
+    const event = { type: "usage" as const, provider: "fixture", model: "fixture", inputTokens: 10, outputTokens: 2, billingKind: "api" as const };
+    const callId = `summary-unknown-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    await recordUsage(prisma, { ...event, callId }, attribution);
+    const since = new Date("2026-10-01T00:00:00Z");
+    await prisma.budgetReservation.update({ where: { spaceId_callId: { spaceId, callId } }, data: { unreconciledAt: since } });
+    const known = { ...event, callId: `summary-known-${projectId}`, costUsdDecimal: "0.25", costSource: "provider_reported" };
+    await recordUsage(prisma, known, attribution);
+    await recordUsage(prisma, known, attribution);
+    await recordUsage(prisma, { ...event, callId: `summary-subscription-${projectId}`, billingKind: "subscription_included" as const }, attribution);
+    const summaries = await prisma.$transaction(tx => getProjectCostSummaries(tx, spaceId));
+    expect(summaries.find(row => row.projectId === projectId)).toMatchObject({ knownMarginalMicroUsd: "250000", unknownCostCalls: 1, subscriptionIncludedCalls: 1, unreconciledMicroUsd: "600000", oldestHoldingAt: since, complete: false });
+    expect(summaries.some(row => row.projectId === null)).toBe(true);
   });
 });

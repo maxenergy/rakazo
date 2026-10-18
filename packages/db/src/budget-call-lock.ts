@@ -7,5 +7,7 @@ export async function lockBudgetCall(
   callId: string,
 ): Promise<void> {
   const identity = `rak:budget-call:${spaceId}:${callId}`;
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${identity}, 0))`;
+  // Prisma cannot deserialize PostgreSQL's void result; preserve lock acquisition
+  // while returning a supported scalar type.
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${identity}, 0))::text`;
 }

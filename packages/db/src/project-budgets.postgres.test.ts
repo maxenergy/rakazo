@@ -134,7 +134,7 @@ describePostgres("project budget reservations", () => {
     expect((await state(projectId)).settledMicroUsd).toBe(350_000n);
   });
 
-  it("releases once and refuses to settle a released reservation", async () => {
+  it("releases once and settles a late charge exactly once", async () => {
     const projectId = await budgetFor(1_000_000n);
     const callId = `release-${projectId}`;
     await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
@@ -144,7 +144,10 @@ describePostgres("project budget reservations", () => {
     ]);
     expect(released.filter(Boolean)).toHaveLength(1);
     expect((await state(projectId)).reservedMicroUsd).toBe(0n);
-    expect(await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 1n })).toBeNull();
+    expect(await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 1n })).toMatchObject({ settledMicroUsd: 1n, settledLate: true, replayed: false });
+    expect(await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 1n })).toMatchObject({ settledMicroUsd: 1n, replayed: true });
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 1n });
+    expect(await prisma.budgetReservation.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toMatchObject({ chargedAfterRelease: true, status: "settled" });
   });
 
   it("expires stale reservations and still records a late settlement", async () => {

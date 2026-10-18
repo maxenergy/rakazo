@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { writeOffBudgetHolding } from "./project-budgets.js";
 import type { PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
 import {
@@ -1082,5 +1083,50 @@ describePostgres("project budget reservations", () => {
         }),
       ).toMatchObject({ status: "settled", settledMicroUsd: 100_000n });
     }
+  });
+
+  it("releases an unreconciled holding once under concurrent audited write-offs", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.$executeRaw`UPDATE "budget_reservations" SET "status" = 'unreconciled' WHERE "spaceId" = ${spaceId} AND "callId" = ${callId}`;
+    const input = {
+      spaceId,
+      callId,
+      actorUserId: "test-operator",
+      reason: "Provider charge cannot be reconciled",
+    };
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => writeOffBudgetHolding(prisma, input)),
+    );
+    expect(results.filter((result) => result && !result.replayed)).toHaveLength(1);
+    expect((await state(projectId)).reservedMicroUsd).toBe(0n);
+    expect((await state(projectId)).settledMicroUsd).toBe(0n);
+    const rows = await prisma.$queryRaw<
+      Array<{
+        status: string;
+        writtenOffBy: string;
+        writeOffReason: string;
+        writtenOffAt: Date;
+        settledMicroUsd: bigint | null;
+      }>
+    >`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId}`;
+    expect(rows[0]).toMatchObject({
+      status: "written_off",
+      writtenOffBy: input.actorUserId,
+      writeOffReason: input.reason,
+      settledMicroUsd: null,
+    });
+    expect(rows[0]?.writtenOffAt).toBeInstanceOf(Date);
+    expect(
+      await writeOffBudgetHolding(prisma, {
+        ...input,
+        actorUserId: "another-operator",
+        reason: "Replay",
+      }),
+    ).toMatchObject({ replayed: true });
+    await expect(writeOffBudgetHolding(prisma, { ...input, reason: " " })).rejects.toThrow(
+      "actor and reason",
+    );
   });
 });

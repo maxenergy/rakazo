@@ -95,7 +95,17 @@ async function recordUsageInTransaction(
         costMicroUsd: costMicroUsd.toString(),
         costSource: event.costSource ?? null,
       };
-      if (!anomalies.some((item) => JSON.stringify(item) === JSON.stringify(anomaly))) {
+      if (
+        !anomalies.some(
+          (item) =>
+            item !== null &&
+            typeof item === "object" &&
+            !Array.isArray(item) &&
+            item.kind === anomaly.kind &&
+            item.costMicroUsd === anomaly.costMicroUsd &&
+            item.costSource === anomaly.costSource,
+        )
+      ) {
         row = await tx.usageRecord.update({
           where: { id: prior.id },
           data: { costAnomalies: [...anomalies, anomaly] },

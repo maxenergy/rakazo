@@ -749,4 +749,52 @@ describePostgres("project budget reservations", () => {
       settledMicroUsd: 700_000n,
     });
   });
+
+  it("preserves settled cost and provenance across both source arrival orders", async () => {
+    for (const [firstSource, laterSource] of [
+      ["pricing_estimate", "provider_reported"],
+      ["provider_reported", "pricing_estimate"],
+    ]) {
+      const projectId = await budgetFor(1_000_000n);
+      const callId = `source-order-${firstSource}-${projectId}`;
+      const attribution = { spaceId, projectId, userId: `source-${projectId}` };
+      const event = {
+        type: "usage" as const,
+        provider: "fixture",
+        model: "fixture",
+        inputTokens: 10,
+        outputTokens: 2,
+        billingKind: "api" as const,
+        callId,
+        costUsdDecimal: "0.1",
+        costSource: firstSource,
+      };
+      await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+      await recordUsage(prisma, event, attribution);
+      const deliver = () =>
+        recordUsage(
+          prisma,
+          { ...event, costUsdDecimal: "0.125", costSource: laterSource },
+          attribution,
+        );
+      await Promise.all(Array.from({ length: 6 }, deliver));
+      const row = await prisma.usageRecord.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      });
+      expect(row).toMatchObject({ costMicroUsd: 100_000n, costSource: firstSource });
+      expect(row.costAnomalies).toEqual([
+        { kind: "amount_source_conflict", costMicroUsd: "125000", costSource: laterSource },
+      ]);
+      expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 0n,
+        settledMicroUsd: 100_000n,
+      });
+      expect(
+        await prisma.budgetReservation.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toMatchObject({ status: "settled", settledMicroUsd: 100_000n });
+    }
+  });
 });

@@ -1,4 +1,4 @@
-import { recordUsage } from "./usage.js";
+import { recordUsage, UsageReplayConflictError } from "./usage.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
@@ -462,5 +462,25 @@ describePostgres("project budget reservations", () => {
     expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 125_000n });
     expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
     expect(await prisma.budgetReservation.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toMatchObject({ status: "settled", writtenOffBy: "fixture-auditor", writeOffReason: "unresolved provider charge", writtenOffAt: expect.any(Date), chargedAfterWriteOff: true, settledMicroUsd: 125_000n, overrunMicroUsd: 25_000n });
+  });
+
+  it("rolls back caller transactions and rejects conflicting usage without balance changes", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `usage-rollback-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
+    const event = { type: "usage" as const, provider: "fixture", model: "fixture", callId, inputTokens: 10, outputTokens: 2, billingKind: "api" as const, costUsdDecimal: "0.25", costSource: "provider_reported" };
+    await expect(prisma.$transaction(async (tx) => {
+      await recordUsage(prisma, event, attribution, { tx });
+      throw new Error("rollback-fixture");
+    })).rejects.toThrow("rollback-fixture");
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(0);
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 600_000n, settledMicroUsd: 0n });
+    await recordUsage(prisma, event, attribution);
+    const original = await prisma.usageRecord.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } });
+    await expect(recordUsage(prisma, { ...event, costUsdDecimal: "0.30" }, attribution)).rejects.toBeInstanceOf(UsageReplayConflictError);
+    await expect(recordUsage(prisma, event, { ...attribution, projectId: null })).rejects.toBeInstanceOf(UsageReplayConflictError);
+    expect(await prisma.usageRecord.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toEqual(original);
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 250_000n });
   });
 });

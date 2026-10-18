@@ -291,3 +291,26 @@ it("shows mutation failures without reporting successful refresh", async () => {
   expect(container.querySelector("[role=alert]")?.textContent).toContain("Archive rejected");
   expect(mocks.goals).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  [0, false],
+  [-1, true],
+])("compares due dates by calendar day (offset %s)", async (offset, overdue) => {
+  const now = new Date();
+  const due = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + offset));
+  mocks.results.mockResolvedValue([
+    {
+      id: "result-date",
+      name: "Date boundary",
+      state: "active",
+      archived: false,
+      currentValue: 3,
+      targetValue: 10,
+      dueAt: due.toISOString(),
+      measure: "items",
+      calculationRule: "Count",
+    },
+  ]);
+  const container = await mount();
+  expect(container.textContent?.includes("Overdue")).toBe(overdue);
+});

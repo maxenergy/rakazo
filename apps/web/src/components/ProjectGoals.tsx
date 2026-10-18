@@ -206,7 +206,12 @@ export function ProjectGoals({ projectId, readOnly }: { projectId: string; readO
                     </p>
                   )}
                   {result.dueAt &&
-                  Date.parse(result.dueAt) < Date.now() &&
+                  Date.parse(result.dueAt.slice(0, 10)) <
+                    Date.UTC(
+                      new Date().getFullYear(),
+                      new Date().getMonth(),
+                      new Date().getDate(),
+                    ) &&
                   result.state !== "achieved" &&
                   result.state !== "cancelled" ? (
                     <p className="text-sm text-destructive">

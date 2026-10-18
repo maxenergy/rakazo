@@ -11,12 +11,16 @@ export const ORG_CHECK_IN_IDLE_MS = 10 * 60_000;
  * colleague's subscription limit or another outside wait can clear in the meantime.
  */
 export const ORG_CHECK_IN_REPEAT_MS = 60 * 60_000;
+/** How long a member may sit without work, while others work, before the CEO is asked. */
+export const ORG_MEMBER_IDLE_MS = 30 * 60_000;
 /** Check-ins per org per day, so an org that keeps stalling cannot burn its subscriptions. */
 export const ORG_CHECK_IN_DAILY_LIMIT = 24;
 
-export function orgCheckInPrompt(idleMinutes: number) {
+export function orgCheckInPrompt(idleMinutes: number, idleMembers: readonly string[] = []) {
   return [
-    `Team check-in (automatic, not from the user): no bot in your org has worked for ${idleMinutes} minutes and nothing is queued.`,
+    idleMembers.length
+      ? `Team check-in (automatic, not from the user): these colleagues have had no work for at least ${Math.round(ORG_MEMBER_IDLE_MS / 60_000)} minutes while others work: ${idleMembers.join(", ")}. Find what blocks each of them and give them work.`
+      : `Team check-in (automatic, not from the user): no bot in your org has worked for ${idleMinutes} minutes and nothing is queued.`,
     "Review the open work: tickets, your latest decisions, and your team's last reports. If a next step is ready, assign it now with message_bot.",
     "A colleague whose turns failed on a CLI or subscription limit is usually available again after the limit resets, so try them again instead of waiting.",
     "A proposal waiting on the user holds back only the work that depends on it; keep the rest of the plan moving.",
@@ -29,6 +33,10 @@ export type OrgCheckInState = {
   activeRuns: number;
   checkInsToday: number;
   lastRun: { trigger: string; updatedAt: Date } | null;
+  /** While some of the org works: whether the CEO has a run, and who has had none for a while. */
+  ceoActive?: boolean;
+  idleMembers?: readonly string[];
+  lastCheckInAt?: Date | null;
 };
 
 /**
@@ -36,12 +44,52 @@ export type OrgCheckInState = {
  * so a CEO that finds nothing to do is not woken again every few minutes.
  */
 export function orgNeedsCheckIn(state: OrgCheckInState) {
-  if (state.activeRuns > 0) return false;
   if (state.checkInsToday >= ORG_CHECK_IN_DAILY_LIMIT) return false;
+  if (state.activeRuns > 0) {
+    // Part of a larger org can sit idle behind a blocker while the rest works.
+    if (state.ceoActive || !state.idleMembers?.length) return false;
+    return (
+      !state.lastCheckInAt ||
+      state.now.getTime() - state.lastCheckInAt.getTime() >= ORG_CHECK_IN_REPEAT_MS
+    );
+  }
   if (!state.lastRun) return false;
   const wait =
     state.lastRun.trigger === "org_check_in" ? ORG_CHECK_IN_REPEAT_MS : ORG_CHECK_IN_IDLE_MS;
   return state.now.getTime() - state.lastRun.updatedAt.getTime() >= wait;
+}
+
+/** Org members other than the CEO with no active run and no run for a while. */
+async function idleOrgMembers(
+  prisma: PrismaClient,
+  ceo: { id: string; spaceId: string; userId: string },
+  now: Date,
+) {
+  const members = await prisma.bot.findMany({
+    where: {
+      spaceId: ceo.spaceId,
+      userId: ceo.userId,
+      archivedAt: null,
+      orgRole: { not: null },
+      id: { not: ceo.id },
+    },
+    select: {
+      name: true,
+      runs: {
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: { status: true, updatedAt: true },
+      },
+    },
+  });
+  const active = new Set<string>(ACTIVE_RUN_STATUSES);
+  return members
+    .filter(({ runs }) => {
+      if (runs.some((run) => active.has(run.status))) return false;
+      const last = runs[0]?.updatedAt;
+      return !last || now.getTime() - last.getTime() >= ORG_MEMBER_IDLE_MS;
+    })
+    .map((member) => member.name);
 }
 
 /** Wake the CEO of each org whose bots have all gone quiet with work possibly left open. */
@@ -57,7 +105,7 @@ export async function reconcileOrgCheckIns(
     if (!ceo.thread) continue;
     const org = { spaceId: ceo.spaceId, userId: ceo.userId, orgRole: { not: null } };
     const orgRuns = { spaceId: ceo.spaceId, bot: org };
-    const [activeRuns, checkInsToday, lastRun] = await Promise.all([
+    const [activeRuns, checkInsToday, lastRun, ceoActiveRuns, lastCheckIn] = await Promise.all([
       deps.prisma.run.count({ where: { ...orgRuns, status: { in: [...ACTIVE_RUN_STATUSES] } } }),
       deps.prisma.run.count({
         where: {
@@ -71,8 +119,25 @@ export async function reconcileOrgCheckIns(
         orderBy: { updatedAt: "desc" },
         select: { trigger: true, updatedAt: true },
       }),
+      deps.prisma.run.count({ where: { botId: ceo.id, status: { in: [...ACTIVE_RUN_STATUSES] } } }),
+      deps.prisma.run.findFirst({
+        where: { botId: ceo.id, trigger: "org_check_in" },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
     ]);
-    if (!orgNeedsCheckIn({ now, activeRuns, checkInsToday, lastRun })) continue;
+    const idleMembers =
+      activeRuns > 0 && ceoActiveRuns === 0 ? await idleOrgMembers(deps.prisma, ceo, now) : [];
+    const state = {
+      now,
+      activeRuns,
+      checkInsToday,
+      lastRun,
+      ceoActive: ceoActiveRuns > 0,
+      idleMembers,
+      lastCheckInAt: lastCheckIn?.createdAt ?? null,
+    };
+    if (!orgNeedsCheckIn(state)) continue;
     const idleMinutes = Math.round(
       (now.getTime() - (lastRun?.updatedAt ?? now).getTime()) / 60_000,
     );
@@ -84,7 +149,7 @@ export async function reconcileOrgCheckIns(
           botId: ceo.id,
           threadId,
           userId: ceo.userId,
-          prompt: orgCheckInPrompt(idleMinutes),
+          prompt: orgCheckInPrompt(idleMinutes, activeRuns > 0 ? idleMembers : []),
           status: "queued",
         },
       });

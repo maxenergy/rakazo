@@ -37,6 +37,20 @@ describe("orgNeedsCheckIn", () => {
     expect(orgNeedsCheckIn({ ...quiet, lastRun: hourAgo })).toBe(true);
   });
 
+  it("asks the CEO about members idle while the rest of the org works", () => {
+    const busy = { ...quiet, activeRuns: 2, ceoActive: false, lastCheckInAt: null };
+    expect(orgNeedsCheckIn({ ...busy, idleMembers: ["Code Reviewer"] })).toBe(true);
+    expect(orgNeedsCheckIn({ ...busy, idleMembers: [] })).toBe(false);
+    expect(orgNeedsCheckIn({ ...busy, idleMembers: ["Code Reviewer"], ceoActive: true })).toBe(
+      false,
+    );
+    const recent = new Date(now.getTime() - 10 * 60_000);
+    expect(
+      orgNeedsCheckIn({ ...busy, idleMembers: ["Code Reviewer"], lastCheckInAt: recent }),
+    ).toBe(false);
+    expect(orgCheckInPrompt(0, ["Code Reviewer"])).toContain("Code Reviewer");
+  });
+
   it("skips an org that never ran and stops at the daily limit", () => {
     expect(orgNeedsCheckIn({ ...quiet, lastRun: null })).toBe(false);
     expect(orgNeedsCheckIn({ ...quiet, checkInsToday: ORG_CHECK_IN_DAILY_LIMIT })).toBe(false);

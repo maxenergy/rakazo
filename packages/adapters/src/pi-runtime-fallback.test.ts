@@ -357,6 +357,14 @@ describe("Pi runtime ordered model fallback", () => {
           }),
         ),
       );
+      const physicalCalls = onUsage.mock.calls.map(([event]) => event.callId);
+      expect(physicalCalls.every((callId) => typeof callId === "string" && callId.length > 0)).toBe(
+        true,
+      );
+      expect(new Set(physicalCalls).size).toBe(targets.length);
+      expect(events.filter((event) => event.type === "usage").map((event) => event.callId)).toEqual(
+        physicalCalls,
+      );
       expect(afterCall).toHaveBeenCalledTimes(targets.length);
       expect(events.filter((event) => event.type === "usage")).toEqual(
         targets.map((target) =>

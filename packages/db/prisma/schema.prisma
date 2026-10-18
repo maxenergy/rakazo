@@ -1504,6 +1504,8 @@ model Ticket {
   comments        TicketComment[]
   dependencies    TicketDependency[] @relation("TicketDependencies")
   dependents      TicketDependency[] @relation("TicketDependents")
+  wakes           TicketWake[]       @relation("TicketWakes")
+  prerequisiteWakes TicketWake[]     @relation("TicketWakePrerequisites")
 
   @@unique([boardId, number])
   @@unique([spaceId, id])
@@ -1524,6 +1526,26 @@ model TicketDependency {
   @@id([spaceId, ticketId, prerequisiteId])
   @@index([spaceId, prerequisiteId])
   @@map("ticket_dependencies")
+}
+
+model TicketWake {
+  id                      String    @id @default(cuid())
+  spaceId                 String
+  ticketId                String
+  prerequisiteId          String
+  prerequisiteCompletedAt DateTime
+  status                  String    @default("pending")
+  claimedBy               String?
+  leaseExpiresAt          DateTime?
+  attempts                Int       @default(0)
+  createdAt               DateTime  @default(now())
+  wokenAt                 DateTime?
+  ticket                  Ticket    @relation("TicketWakes", fields: [spaceId, ticketId], references: [spaceId, id], onDelete: Cascade, onUpdate: Cascade)
+  prerequisite            Ticket    @relation("TicketWakePrerequisites", fields: [spaceId, prerequisiteId], references: [spaceId, id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([spaceId, ticketId, prerequisiteId, prerequisiteCompletedAt], map: "ticket_wakes_dedupe_key")
+  @@index([status, leaseExpiresAt])
+  @@map("ticket_wakes")
 }
 
 model TicketComment {

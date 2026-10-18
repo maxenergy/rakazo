@@ -29,6 +29,7 @@ export * from "./sessions.js";
 export * from "./spaces.js";
 export * from "./ticket-dependencies.js";
 export * from "./ticket-space-lock.js";
+export * from "./ticket-wakes.js";
 export * from "./transaction-retry.js";
 export * from "./usage.js";
 export * from "./voice-credentials.js";

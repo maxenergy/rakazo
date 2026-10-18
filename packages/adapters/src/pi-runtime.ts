@@ -32,6 +32,7 @@ import { DEFAULT_CONTEXT_STRATEGY } from "@rakazo/adapter-kit";
 import { responseLanguageInstruction, usableModelId } from "@rakazo/contracts";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
+import { BudgetExceededError } from "./budget-observer.js";
 import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
 import { DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
 import { registerCliModelProviders } from "./cli-model-provider.js";
@@ -313,7 +314,11 @@ export class PiAgentRuntime implements AgentRuntime {
           credentialScope: apiKey,
           imageTokens: estimatePiImageTokens,
         });
+        let budgetDenial: BudgetExceededError | undefined;
         const usageHooks = {
+          onBeforeCallError: (error: unknown) => {
+            if (error instanceof BudgetExceededError) budgetDenial = error;
+          },
           prepareContext: contextPolicy.prepareContext,
           imageTokens: estimatePiImageTokens,
           recordUsage: request.onUsage,
@@ -602,6 +607,19 @@ export class PiAgentRuntime implements AgentRuntime {
           } finally {
             signal.removeEventListener("abort", onAbort);
           }
+        }
+
+        if (budgetDenial) {
+          queue.push({
+            type: "budget_pause",
+            reason: budgetDenial.reason,
+            availableMicroUsd: budgetDenial.availableMicroUsd.toString(),
+            ...(budgetDenial.call ? { call: {
+              ...budgetDenial.call,
+              amountMicroUsd: budgetDenial.call.amountMicroUsd.toString(),
+            } } : {}),
+          });
+          return;
         }
 
         // Budget abort stops the agent underneath the model, which leaves

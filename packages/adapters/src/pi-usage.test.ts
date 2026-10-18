@@ -510,6 +510,10 @@ describe("Pi usage accounting", () => {
   it("does not start model work when budget reservation fails", async () => {
     const fetcher = vi.fn();
     const push = vi.fn();
+    const failure = new Error("budget exhausted");
+    const onBeforeCallError = vi.fn();
+    const onProviderError = vi.fn();
+    const afterCall = vi.fn();
     const stream = await observedPiStream(
       builtinModels(),
       model,
@@ -518,16 +522,21 @@ describe("Pi usage accounting", () => {
       push,
       {
         beforeCall: () => {
-          throw new Error("budget exhausted");
+          throw failure;
         },
-        afterCall: vi.fn(),
+        afterCall,
       },
+      { operationKind: "answer" },
+      { onBeforeCallError, onProviderError },
     );
     for await (const _event of stream) {
     }
     expect((await stream.result()).errorMessage).toBe("budget exhausted");
     expect(push).not.toHaveBeenCalled();
     expect(fetcher).not.toHaveBeenCalled();
+    expect(onBeforeCallError).toHaveBeenCalledExactlyOnceWith(failure);
+    expect(onProviderError).not.toHaveBeenCalled();
+    expect(afterCall).not.toHaveBeenCalled();
   });
   it("retains bytes and observes fragmented CRLF SSE with explicit zeros", async () => {
     const bytes = new TextEncoder().encode('data: {"usage":{"prompt_tokens":0}}\r\n\r\n');

@@ -35,6 +35,7 @@ export class BudgetExceededError extends Error {
   constructor(
     readonly reason: "no_budget" | "insufficient" | "reservation_closed",
     readonly availableMicroUsd: bigint,
+    readonly call?: BudgetCallScope & { callId: string; amountMicroUsd: bigint },
   ) {
     super(`Project budget does not allow this model call (${reason})`);
     this.name = "BudgetExceededError";
@@ -61,7 +62,11 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
       const callId = randomUUID();
       const amountMicroUsd = options.upperBoundMicroUsd(call);
       const result = await options.port.reserve({ ...scope, callId, amountMicroUsd });
-      if (!result.ok) throw new BudgetExceededError(result.reason, result.availableMicroUsd);
+      if (!result.ok) {
+        throw new BudgetExceededError(result.reason, result.availableMicroUsd, {
+          ...scope, callId, amountMicroUsd,
+        });
+      }
       let inner: string | undefined;
       try {
         inner = options.inner ? await options.inner.beforeCall(call) : undefined;

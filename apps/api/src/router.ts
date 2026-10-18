@@ -4201,6 +4201,27 @@ export function createRouter(deps: RouterDeps) {
           throw error;
         }
         if (proposal.status === "pending") return proposal;
+        const budgetApproval = await deps.prisma.budgetOverrunApproval.findFirst({
+          where: { spaceId: context.actor.spaceId, proposalId: proposal.id },
+        });
+        if (budgetApproval) {
+          // Budget decisions resume their original run; a new user message would
+          // create a second execution. Queued runs also have reconciler recovery.
+          if (budgetApproval.status === "approved") {
+            const binding = JSON.parse(budgetApproval.scope);
+            const resumed = await deps.prisma.run.findFirst({
+              where: { id: binding.runId, spaceId: context.actor.spaceId,
+                threadId: binding.threadId, botId: proposal.botId, status: "queued" },
+              select: { id: true },
+            });
+            if (resumed) {
+              await deps.jobs.enqueue(runContinueJob(resumed.id)).catch((error) => {
+                getLogger().error("budget approval resume enqueue", error);
+              });
+            }
+          }
+          return proposal;
+        }
         // The decision is saved either way; an archived bot just is not woken.
         try {
           const target = await resolveThreadTarget(deps.prisma, context.actor, {

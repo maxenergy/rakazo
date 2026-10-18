@@ -1,3 +1,4 @@
+import { BudgetExceededError } from "./budget-observer.js";
 import type * as AgentCore from "@earendil-works/pi-agent-core";
 import type { AgentOptions } from "@earendil-works/pi-agent-core";
 import type {
@@ -403,6 +404,28 @@ describe("Pi runtime ordered model fallback", () => {
       expect(beforeCall).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("pauses on budget denial without invoking primary or backup models", async () => {
+    const beforeCall = vi.fn<ModelCallObserver["beforeCall"]>(async () => {
+      throw new BudgetExceededError("insufficient", 2n, {
+        spaceId: "space", projectId: "project", callId: "call", amountMicroUsd: 5n,
+      });
+    });
+    const afterCall = vi.fn();
+    const events = await run(
+      request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-backup-key" }]),
+      [],
+      new PiAgentRuntime({ modelCallObserver: { beforeCall, afterCall } }),
+    );
+    expect(events.filter((event) => event.type === "budget_pause")).toEqual([{
+      type: "budget_pause", reason: "insufficient", availableMicroUsd: "2",
+      call: { spaceId: "space", projectId: "project", callId: "call", amountMicroUsd: "5" },
+    }]);
+    expect(events.some((event) => event.type === "done")).toBe(false);
+    expect(beforeCall).toHaveBeenCalledTimes(1);
+    expect(providerState.stream).not.toHaveBeenCalled();
+    expect(afterCall).not.toHaveBeenCalled();
+  });
 
   it("advances after a provider stream throws before output", async () => {
     providerState.stream.mockImplementation((target: Model<"openai-completions">) => {

@@ -1,4 +1,4 @@
-import type { PrismaClient } from "./client.js";
+import type { Prisma, PrismaClient } from "./client.js";
 
 /** Thrown when a requestKey is replayed with a different project, amount or scope. */
 export class OverrunRequestConflictError extends Error {
@@ -34,8 +34,15 @@ export interface OverrunDecisionResult {
 
 /** Bind a pending approval to the project's current budget version. Idempotent on (spaceId, requestKey). */
 export async function requestOverrunApproval(db: PrismaClient, input: OverrunRequestInput) {
+  return db.$transaction((tx) => requestOverrunApprovalInTransaction(tx, input));
+}
+
+/** Create the bound request within the caller transaction. */
+export async function requestOverrunApprovalInTransaction(
+  tx: Prisma.TransactionClient,
+  input: OverrunRequestInput,
+) {
   if (input.amountMicroUsd <= 0n) throw new RangeError("amountMicroUsd must be positive");
-  return db.$transaction(async (tx) => {
     const existing = await tx.budgetOverrunApproval.findUnique({
       where: { spaceId_requestKey: { spaceId: input.spaceId, requestKey: input.requestKey } },
     });
@@ -65,7 +72,6 @@ export async function requestOverrunApproval(db: PrismaClient, input: OverrunReq
         proposalId: input.proposalId ?? null,
       },
     });
-  });
 }
 
 /**
@@ -77,7 +83,14 @@ export async function decideOverrunApproval(
   db: PrismaClient,
   input: OverrunDecisionInput,
 ): Promise<OverrunDecisionResult> {
-  return db.$transaction(async (tx) => {
+  return db.$transaction((tx) => decideOverrunApprovalInTransaction(tx, input));
+}
+
+/** Apply a decision inside the caller transaction so proposal and recovery commit together. */
+export async function decideOverrunApprovalInTransaction(
+  tx: Prisma.TransactionClient,
+  input: OverrunDecisionInput,
+): Promise<OverrunDecisionResult> {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "budget_overrun_approvals"
       WHERE "id" = ${input.approvalId} AND "spaceId" = ${input.spaceId}
@@ -118,5 +131,4 @@ export async function decideOverrunApproval(
       data: { status: "approved", appliedVersion: version, decidedByUserId, decidedAt },
     });
     return { status: "approved", resume: true, replayed: false, appliedVersion: version };
-  });
 }

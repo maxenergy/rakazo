@@ -544,6 +544,12 @@ export interface ModelCallObserver {
 }
 
 export type AgentRuntimeEvent =
+  | {
+      type: "budget_pause";
+      reason: "no_budget" | "insufficient" | "reservation_closed";
+      availableMicroUsd: string;
+      call?: { spaceId: string; projectId: string; callId: string; amountMicroUsd: string };
+    }
   | { type: "text"; text: string }
   | {
       type: "progress";

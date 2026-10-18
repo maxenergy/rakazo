@@ -2,6 +2,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DisposableCluster } from "./disposable-postgres.js";
 import { postgresAvailable, startDisposableCluster } from "./disposable-postgres.js";
+import { endPool, trackPool } from "./pool-lifecycle.js";
 import { startRestartableRuntime } from "./runtime-restart.js";
 
 // Needs RAK_PG_BIN_DIR (and RAK_PG_LIB_DIR for unpacked builds); skipped otherwise,
@@ -33,12 +34,12 @@ describeCluster("acceptance harness (disposable PostgreSQL)", () => {
 
   it("keeps committed data across a server restart", async () => {
     const database = await cluster.createDatabase("restart");
-    const pool = new Pool({ connectionString: cluster.url(database), max: 1 });
+    const pool = trackPool(new Pool({ connectionString: cluster.url(database), max: 1 }));
     await pool.query("CREATE TABLE t (id int primary key)");
     await pool.query("INSERT INTO t VALUES (1)");
-    await pool.end();
+    await endPool(pool);
     await cluster.restartServer();
-    const again = new Pool({ connectionString: cluster.url(database), max: 1 });
+    const again = trackPool(new Pool({ connectionString: cluster.url(database), max: 1 }));
     try {
       expect((await again.query("SELECT id FROM t")).rows).toEqual([{ id: 1 }]);
     } finally {

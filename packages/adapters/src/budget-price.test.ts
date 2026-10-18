@@ -42,3 +42,48 @@ describe("budget upper bound", () => {
     expect(bound(call(0, 0))).toBe(1n);
   });
 });
+
+describe("incomplete budget prices and invalid bounds", () => {
+  it.each([
+    [{ input: 2 }, 1250],
+    [{ output: 3 }, 1550],
+    [{ input: 0, output: 3 }, 1550],
+    [{ input: Number.NaN, output: 3 }, 1550],
+    [{ cacheWrite: 20 }, 3500],
+  ])("reserves missing components using fallback: %j", (rates, expected) => {
+    const bound = createUpperBound({ lookup: () => rates, fallbackPerMTok: 10 });
+    expect(bound(call(100, 100))).toBe(BigInt(expected));
+  });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid fallback %s",
+    (fallbackPerMTok) => {
+      expect(() => createUpperBound({ lookup: () => undefined, fallbackPerMTok })).toThrow(
+        RangeError,
+      );
+    },
+  );
+
+  it.each([0, 0.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects unsafe factor %s",
+    (inputSafetyFactor) => {
+      expect(() =>
+        createUpperBound({ lookup: () => undefined, fallbackPerMTok: 10, inputSafetyFactor }),
+      ).toThrow(RangeError);
+    },
+  );
+
+  it.each([-1, 0.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid token bounds %s",
+    (tokens) => {
+      const bound = createUpperBound({ lookup: () => undefined, fallbackPerMTok: 10 });
+      expect(() => bound(call(tokens, 100))).toThrow(RangeError);
+      expect(() => bound(call(100, tokens))).toThrow(RangeError);
+    },
+  );
+
+  it("rejects reservations exceeding safe numeric precision", () => {
+    const bound = createUpperBound({ lookup: () => undefined, fallbackPerMTok: Number.MAX_VALUE });
+    expect(() => bound(call(100, 100))).toThrow(RangeError);
+  });
+});

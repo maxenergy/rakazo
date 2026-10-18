@@ -183,6 +183,7 @@ import {
 import {
   listConnectedBotModels,
   parseBotModelSelection,
+  recommendModelFromTool,
   setBotModelFromTool,
   validateBotModelSelection,
 } from "./bot-model-tools.js";
@@ -6156,6 +6157,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }
               throw error;
             }
+          }
+          if (name === "recommend_model") {
+            return finish(await recommendModelFromTool(deps, run, args));
           }
           if (name === "list_models") {
             return finish(await listConnectedBotModels(deps, run));

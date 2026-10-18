@@ -44,6 +44,7 @@ const UNATTENDED_SAFE_BUILTIN_TOOLS = new Set([
   "list_files",
   "list_secrets",
   "list_models",
+  "recommend_model",
   "read_file",
   "recall_memory",
   "request_takeover",

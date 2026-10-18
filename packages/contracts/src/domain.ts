@@ -10,6 +10,7 @@ import {
 import { ThreadMessageSchema } from "./events.js";
 import { Id, MemoryScope, RunStatus, SandboxKind } from "./ids.js";
 import { McpHeadersSchema, McpRemoteEndpointSchema, McpTransportSchema } from "./mcp.js";
+import { ModelCapabilitiesSchema } from "./model-capabilities.js";
 import { BOT_TEAM_MAX_LENGTH, BotOrgRoleSchema } from "./org.js";
 import { RunTriggerSchema } from "./runs.js";
 
@@ -1194,6 +1195,7 @@ export const ModelCatalogPricingSchema = z.object({
 });
 
 export const ModelCatalogEntrySchema = z.object({
+  capabilities: ModelCapabilitiesSchema.optional(),
   provider: z.string(),
   providerName: z.string().optional(),
   id: z.string(),

@@ -1,7 +1,9 @@
 import type { Actor } from "@rakazo/contracts";
 import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@rakazo/contracts";
+import { recommendModels } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { findModelCredential } from "@rakazo/db";
+import { z } from "zod";
 import {
   isCatalogModelChoice,
   modelCredentialAuthKindsForSpace,
@@ -69,7 +71,7 @@ export async function validateBotModelSelection(
   return undefined;
 }
 
-export async function listConnectedBotModels(deps: BotModelDeps, scope: BotModelScope) {
+async function connectedModelCandidates(deps: BotModelDeps, scope: BotModelScope) {
   const auth = await modelCredentialAuthKindsForSpace(deps.prisma, deps.secretStore, scope);
   let catalog = listAvailablePiCatalog(auth.byProvider, auth.byModel);
   if (deps.codexCatalog) {
@@ -82,12 +84,11 @@ export async function listConnectedBotModels(deps: BotModelDeps, scope: BotModel
     );
     if (live.size > 0) catalog = applyCodexLiveCatalog(catalog, auth, live);
   }
-  const models = catalog
-    .filter((entry) => {
-      const kind = auth.byModel[entry.provider]?.[entry.id] ?? auth.byProvider[entry.provider];
-      return !entry.placeholder && kind !== undefined && kind !== "disconnected";
-    })
-    .map(({ provider, providerName, id, label }) => ({ provider, providerName, id, label }));
+  const models = catalog.flatMap((entry) => {
+    const kind = auth.byModel[entry.provider]?.[entry.id] ?? auth.byProvider[entry.provider];
+    if (entry.placeholder || kind === undefined || kind === "disconnected") return [];
+    return [{ ...entry, effectiveAuthKind: kind }];
+  });
   const custom = await deps.prisma.spaceModelPreference.findMany({
     where: {
       userId: scope.userId,
@@ -110,9 +111,51 @@ export async function listConnectedBotModels(deps: BotModelDeps, scope: BotModel
       providerName: "OpenAI-compatible",
       id,
       label: id,
+      billing: "Unknown",
+      auth: "api-key",
+      subscription: false,
+      effectiveAuthKind: "openai_compatible",
     });
   }
   return { models };
+}
+
+export async function listConnectedBotModels(deps: BotModelDeps, scope: BotModelScope) {
+  const { models } = await connectedModelCandidates(deps, scope);
+  return {
+    models: models.map(({ provider, providerName, id, label }) => ({
+      provider,
+      providerName,
+      id,
+      label,
+    })),
+  };
+}
+
+const requirementsSchema = z
+  .object({
+    capabilities: z.array(z.enum(["imageInput", "reasoning"])).optional(),
+    contextWindow: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    maxTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    workload: z
+      .object({
+        inputTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        outputTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+export async function recommendModelFromTool(
+  deps: BotModelDeps,
+  scope: BotModelScope,
+  args: Record<string, unknown>,
+) {
+  const parsed = requirementsSchema.safeParse(args);
+  if (!parsed.success) return { error: "Invalid model requirements or token workload" };
+  const { models } = await connectedModelCandidates(deps, scope);
+  return recommendModels(models, parsed.data, (entry) => entry.effectiveAuthKind);
 }
 
 export async function setBotModelFromTool(

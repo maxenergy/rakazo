@@ -42,6 +42,7 @@ export * from "./model-catalog-metadata-copy.js";
 export * from "./model-oauth.js";
 export * from "./model-probe.js";
 export * from "./model-providers.js";
+export * from "./model-recommendation.js";
 export * from "./onboarding.js";
 export * from "./org-templates.js";
 export * from "./remote-images.js";

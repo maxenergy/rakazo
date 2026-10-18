@@ -1164,6 +1164,33 @@ export const builtinAgentTools: ConnectorTool[] = [
     inputSchema: { type: "object", properties: {} },
   },
   {
+    name: "recommend_model",
+    description:
+      "Recommend authorized models in this space using capability requirements and optional token workload estimates. Unknown capabilities cannot satisfy requirements. Returns comparable API cost estimates when available; does not change the selected model.",
+    readOnly: true,
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        capabilities: {
+          type: "array",
+          items: { type: "string", enum: ["imageInput", "reasoning"] },
+        },
+        contextWindow: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        maxTokens: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        workload: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            inputTokens: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+            outputTokens: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+          },
+          required: ["inputTokens", "outputTokens"],
+        },
+      },
+    },
+  },
+  {
     name: "set_bot_model",
     description:
       "Set the model for this bot or an active bot it created. Use bot_id from the teammate directory for a child bot; omit it to configure yourself. Call list_models first, use exact provider/model IDs, and report the saved pair returned by this tool. Do not use the browser to change bot settings.",

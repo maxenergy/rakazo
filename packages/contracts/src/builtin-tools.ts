@@ -74,6 +74,7 @@ export const BUILTIN_TOOL_NAMES = [
   "create_space",
   "spawn_bot",
   "list_models",
+  "recommend_model",
   "set_bot_model",
   "update_bot",
   "archive_bot",

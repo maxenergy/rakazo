@@ -11,7 +11,9 @@ const describeCluster = postgresAvailable() ? describe.sequential : describe.ski
 if (process.env.RAK_REQUIRE_PG === "1" && !postgresAvailable()) {
   describe("acceptance harness (PostgreSQL required)", () => {
     it("has PostgreSQL 16 binaries", () => {
-      throw new Error("RAK_REQUIRE_PG=1 but RAK_PG_BIN_DIR is not set; acceptance tests must not skip");
+      throw new Error(
+        "RAK_REQUIRE_PG=1 but RAK_PG_BIN_DIR is not set; acceptance tests must not skip",
+      );
     });
   });
 }

@@ -609,6 +609,77 @@ describePostgres("project budget reservations", () => {
     });
   });
 
+  it("preserves one winning charge across concurrent conflicting deliveries", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `concurrent-conflict-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    const attribution = { spaceId, projectId, userId: `conflict-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      callId,
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+      costSource: "provider_reported",
+    };
+    const amounts = ["0.25", "0.30"];
+    const deliveries = await Promise.allSettled(
+      amounts.map((costUsdDecimal) =>
+        recordUsage(prisma, { ...event, costUsdDecimal }, attribution),
+      ),
+    );
+    expect(deliveries.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const rejected = deliveries.filter((result) => result.status === "rejected");
+    expect(rejected).toHaveLength(1);
+    for (const result of rejected) {
+      if (result.status === "rejected")
+        expect(result.reason).toBeInstanceOf(UsageReplayConflictError);
+    }
+    const original = await prisma.usageRecord.findUniqueOrThrow({
+      where: { spaceId_callId: { spaceId, callId } },
+    });
+    expect([250_000n, 300_000n]).toContain(original.costMicroUsd);
+    const winningAmount = original.costMicroUsd === 250_000n ? "0.25" : "0.30";
+    const conflicts = [
+      { provider: "other-provider" },
+      { model: "other-model" },
+      { billingKind: "unknown" as const },
+      { costUsdDecimal: winningAmount === "0.25" ? "0.30" : "0.25" },
+    ];
+    const replays = await Promise.allSettled([
+      ...conflicts.map((change) =>
+        recordUsage(prisma, { ...event, costUsdDecimal: winningAmount, ...change }, attribution),
+      ),
+      recordUsage(
+        prisma,
+        { ...event, costUsdDecimal: winningAmount },
+        { ...attribution, projectId: null },
+      ),
+    ]);
+    for (const result of replays) {
+      expect(result.status).toBe("rejected");
+      if (result.status === "rejected")
+        expect(result.reason).toBeInstanceOf(UsageReplayConflictError);
+    }
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+    expect(
+      await prisma.usageRecord.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toEqual(original);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: original.costMicroUsd,
+    });
+    expect(
+      await prisma.budgetReservation.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toMatchObject({ status: "settled", settledMicroUsd: original.costMicroUsd });
+  });
+
   it("reports deduplicated totals, unknown calls and holding age", async () => {
     const projectId = await budgetFor(1_000_000n);
     const attribution = { spaceId, projectId, userId: `summary-${projectId}` };

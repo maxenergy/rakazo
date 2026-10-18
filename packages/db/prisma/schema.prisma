@@ -1721,3 +1721,22 @@ model BudgetReservation {
   @@index([status, expiresAt])
   @@map("budget_reservations")
 }
+
+/// Append-only spend/audit ledger for project budgets. projectId and budgetId are denormalized and
+/// deliberately have no relation, so history survives project deletion. Unique by (spaceId, callId, kind).
+model BudgetSpendLedger {
+  id              String   @id @default(cuid())
+  spaceId         String
+  projectId       String
+  budgetId        String
+  budgetVersion   Int
+  callId          String
+  kind            String
+  amountMicroUsd  BigInt
+  overrunMicroUsd BigInt   @default(0)
+  createdAt       DateTime @default(now())
+
+  @@unique([spaceId, callId, kind])
+  @@index([spaceId, projectId, createdAt])
+  @@map("budget_spend_ledger")
+}

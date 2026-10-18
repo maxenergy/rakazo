@@ -55,6 +55,10 @@ interface BudgetRow {
 }
 
 interface ReservationRow {
+  spaceId: string;
+  projectId: string;
+  budgetVersion: number;
+  callId: string;
   id: string;
   budgetId: string;
   amountMicroUsd: bigint;
@@ -299,6 +303,18 @@ export async function settleBudgetInTransaction(
       closedAt: now,
     },
   });
+  await tx.budgetSpendLedger.create({
+    data: {
+      spaceId: reservation.spaceId,
+      projectId: reservation.projectId,
+      budgetId: reservation.budgetId,
+      budgetVersion: reservation.budgetVersion,
+      callId: reservation.callId,
+      kind: "settled",
+      amountMicroUsd: input.actualMicroUsd,
+      overrunMicroUsd: overrun,
+    },
+  });
   return {
     reservationId: reservation.id,
     status: "settled",
@@ -326,6 +342,17 @@ async function closeReserved(
     await tx.budgetReservation.update({
       where: { id: reservation.id },
       data: { status, closedAt: now },
+    });
+    await tx.budgetSpendLedger.create({
+      data: {
+        spaceId: reservation.spaceId,
+        projectId: reservation.projectId,
+        budgetId: reservation.budgetId,
+        budgetVersion: reservation.budgetVersion,
+        callId: reservation.callId,
+        kind: status,
+        amountMicroUsd: reservation.amountMicroUsd,
+      },
     });
     return true;
   });

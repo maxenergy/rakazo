@@ -52,6 +52,14 @@ const CLI_INFERENCE_ATTEMPTS = 3;
 const CLI_REPLY_KEPT_CHARS = 16_000;
 /** A network failure is retried after a pause for the connection to recover. */
 const CLI_NETWORK_RETRY_DELAY_MS = 45_000;
+/** A network outage (often a local proxy restarting) can last minutes; keep trying for about six. */
+const CLI_NETWORK_ATTEMPTS = 8;
+
+/** How many tries a CLI turn gets for a failure: a subscription limit lasts until its reset. */
+export function cliRetryAttempts(reason: string) {
+  if (reason === "rate_limited") return 1;
+  return reason === "network" ? CLI_NETWORK_ATTEMPTS : CLI_INFERENCE_ATTEMPTS;
+}
 
 /** A coarse failure label that never carries CLI output. */
 function cliFailureReason(error: unknown) {
@@ -722,7 +730,7 @@ function streamCliModel(
             ).catch(() => undefined);
           }
           // A subscription limit lasts until its reset; retrying now only fails again.
-          if (attempt >= CLI_INFERENCE_ATTEMPTS || reason === "rate_limited") throw error;
+          if (attempt >= cliRetryAttempts(reason)) throw error;
           // A malformed reply is a sampling slip; ask again with the same context.
           if (error instanceof CliReplyError) continue;
           if (reason === "network") {

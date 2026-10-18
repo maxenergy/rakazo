@@ -6,6 +6,7 @@ import {
   boundCliMessages,
   cliInferenceArgs,
   cliResponseText,
+  cliRetryAttempts,
   collapseSystemMessages,
   modelVisibleMessage,
   parseCliReply,
@@ -156,6 +157,12 @@ describe("subscription CLI provider conformance", () => {
       .result();
     expect(unbound.stopReason).toBe("error");
     expect(runCliProcess).not.toHaveBeenCalled();
+  });
+
+  it("keeps retrying network failures for minutes but not subscription limits", () => {
+    expect(cliRetryAttempts("network")).toBe(8);
+    expect(cliRetryAttempts("rate_limited")).toBe(1);
+    expect(cliRetryAttempts("bad_arguments")).toBe(3);
   });
 
   it("does not retry a turn that hit the subscription limit", async () => {

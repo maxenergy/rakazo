@@ -728,6 +728,67 @@ describePostgres("project budget reservations", () => {
     expect(summaries.some((row) => row.projectId === null)).toBe(true);
   });
 
+  it("conserves covered balances while keeping uncovered usage separate", async () => {
+    const projectId = await budgetFor(2_000_000n);
+    const attribution = { spaceId, projectId, userId: `conservation-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    const active = `active-${projectId}`;
+    const unknown = `unknown-${projectId}`;
+    const settled = `settled-${projectId}`;
+    for (const [callId, amountMicroUsd] of [
+      [active, 100_000n],
+      [unknown, 200_000n],
+      [settled, 300_000n],
+    ] as const) {
+      await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd });
+    }
+    await recordUsage(prisma, { ...event, callId: unknown }, attribution);
+    const known = {
+      ...event,
+      callId: settled,
+      costUsdDecimal: "0.25",
+      costSource: "provider_reported",
+    };
+    await Promise.all(Array.from({ length: 4 }, () => recordUsage(prisma, known, attribution)));
+    await recordUsage(
+      prisma,
+      { ...event, callId: `uncovered-known-${projectId}`, costUsdDecimal: "0.05" },
+      attribution,
+    );
+    await recordUsage(prisma, { ...event, callId: `uncovered-unknown-${projectId}` }, attribution);
+    const reservations = await prisma.budgetReservation.findMany({
+      where: { spaceId, budget: { projectId } },
+    });
+    const held = reservations
+      .filter((row) => ["reserved", "unreconciled"].includes(row.status))
+      .reduce((sum, row) => sum + row.amountMicroUsd, 0n);
+    const charged = reservations
+      .filter((row) => row.status === "settled")
+      .reduce((sum, row) => sum + (row.settledMicroUsd ?? 0n), 0n);
+    expect(held).toBe(300_000n);
+    expect(charged).toBe(250_000n);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: held,
+      settledMicroUsd: charged,
+    });
+    expect(reservations).toHaveLength(3);
+    expect(await prisma.usageRecord.count({ where: { spaceId, projectId } })).toBe(4);
+    const summaries = await prisma.$transaction((tx) => getProjectCostSummaries(tx, spaceId));
+    expect(summaries.find((row) => row.projectId === projectId)).toMatchObject({
+      knownMarginalMicroUsd: "300000",
+      unknownCostCalls: 2,
+      unreconciledMicroUsd: "200000",
+      complete: false,
+    });
+  });
+
   it("keeps mixed billing totals incomplete and charges separate API calls", async () => {
     const projectId = await budgetFor(1_000_000n);
     const attribution = { spaceId, projectId, userId: `mixed-${projectId}` };

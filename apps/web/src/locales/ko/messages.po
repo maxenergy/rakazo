@@ -253,7 +253,7 @@ msgstr "계정"
 
 #: src/components/GoalEditor.tsx
 msgid "Achieved"
-msgstr ""
+msgstr "달성됨"
 
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Action confirmations"
@@ -342,7 +342,7 @@ msgstr "Executor 추가"
 
 #: src/components/ProjectGoals.tsx
 msgid "Add goal"
-msgstr ""
+msgstr "목표 추가"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
@@ -358,7 +358,7 @@ msgstr "항목 추가"
 
 #: src/components/ProjectGoals.tsx
 msgid "Add key result"
-msgstr ""
+msgstr "핵심 결과 추가"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -588,7 +588,7 @@ msgstr "보관"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archive key result"
-msgstr ""
+msgstr "핵심 결과 보관"
 
 #: src/pages/Shell.tsx
 msgid "archived"
@@ -601,16 +601,16 @@ msgstr "보관됨"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archived goals"
-msgstr ""
+msgstr "보관된 목표"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archived key results"
-msgstr ""
+msgstr "보관된 핵심 결과"
 
 #: src/components/GoalEditor.tsx
 #: src/components/ProjectGoals.tsx
 msgid "Archived milestone"
-msgstr ""
+msgstr "보관된 마일스톤"
 
 #: src/pages/Shell.tsx
 msgid "Archived. Chat, memory, and files kept."
@@ -885,7 +885,7 @@ msgstr "캐시 쓰기: {price}"
 #: src/components/GoalEditor.tsx
 #: src/components/ProjectGoals.tsx
 msgid "Calculation rule"
-msgstr ""
+msgstr "계산 규칙"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1049,7 +1049,7 @@ msgstr "{label} 필터 지우기"
 
 #: src/components/GoalEditor.tsx
 msgid "Clear or replace the archived milestone before saving."
-msgstr ""
+msgstr "저장하기 전에 보관된 마일스톤을 지우거나 교체하세요."
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -1941,7 +1941,7 @@ msgstr "현재 비밀번호"
 
 #: src/components/GoalEditor.tsx
 msgid "Current value"
-msgstr ""
+msgstr "현재 값"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Custom header"
@@ -2043,7 +2043,7 @@ msgstr "계정 삭제"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete goal"
-msgstr ""
+msgstr "목표 삭제"
 
 #: src/pages/GroupPanel.tsx
 msgid "Delete group"
@@ -2051,7 +2051,7 @@ msgstr "그룹 삭제"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete key result"
-msgstr ""
+msgstr "핵심 결과 삭제"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
@@ -2063,11 +2063,11 @@ msgstr "공간 삭제"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete this goal and all its key results?"
-msgstr ""
+msgstr "이 목표와 모든 핵심 결과를 삭제하시겠습니까?"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete this key result?"
-msgstr ""
+msgstr "이 핵심 결과를 삭제하시겠습니까?"
 
 #: src/pages/Shell.tsx
 msgid "deleted"
@@ -2234,7 +2234,7 @@ msgstr "이미지를 끌어다 놓거나 붙여넣으세요"
 
 #: src/components/GoalEditor.tsx
 msgid "Due date"
-msgstr ""
+msgstr "마감일"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Duplicate"
@@ -2254,11 +2254,11 @@ msgstr "수정 후 보내기"
 
 #: src/components/ProjectGoals.tsx
 msgid "Edit goal"
-msgstr ""
+msgstr "목표 편집"
 
 #: src/components/ProjectGoals.tsx
 msgid "Edit key result"
-msgstr ""
+msgstr "핵심 결과 편집"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2530,11 +2530,11 @@ msgstr "Git 이벤트"
 
 #: src/components/ProjectGoals.tsx
 msgid "Goal name"
-msgstr ""
+msgstr "목표 이름"
 
 #: src/components/ProjectGoals.tsx
 msgid "Goals"
-msgstr ""
+msgstr "목표"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -2746,7 +2746,7 @@ msgstr "key"
 
 #: src/components/ProjectGoals.tsx
 msgid "Key result progress"
-msgstr ""
+msgstr "핵심 결과 진행률"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Knowledge"
@@ -2979,7 +2979,7 @@ msgstr "MCP 서버"
 
 #: src/components/GoalEditor.tsx
 msgid "Measure"
-msgstr ""
+msgstr "측정 단위"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3298,11 +3298,11 @@ msgstr "이 봇에 저장된 인증 정보가 없습니다."
 
 #: src/components/ProjectGoals.tsx
 msgid "No data"
-msgstr ""
+msgstr "데이터 없음"
 
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
-msgstr ""
+msgstr "목표 없음"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
@@ -3400,7 +3400,7 @@ msgstr "트리거 없음"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
-msgstr ""
+msgstr "없음"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "None yet"
@@ -3595,7 +3595,7 @@ msgstr "출력: {price}"
 
 #: src/components/ProjectGoals.tsx
 msgid "Overdue"
-msgstr ""
+msgstr "기한 초과"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -3682,7 +3682,7 @@ msgstr "계획"
 
 #: src/components/GoalEditor.tsx
 msgid "Planned"
-msgstr ""
+msgstr "계획됨"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -4601,7 +4601,7 @@ msgstr "시작하는 중…"
 
 #: src/components/GoalEditor.tsx
 msgid "State"
-msgstr ""
+msgstr "상태"
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Board.tsx
@@ -4696,7 +4696,7 @@ msgstr "제어권 가져오기"
 
 #: src/components/GoalEditor.tsx
 msgid "Target value"
-msgstr ""
+msgstr "목표 값"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

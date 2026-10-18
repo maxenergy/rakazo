@@ -253,7 +253,7 @@ msgstr "खाते"
 
 #: src/components/GoalEditor.tsx
 msgid "Achieved"
-msgstr ""
+msgstr "प्राप्त"
 
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Action confirmations"
@@ -342,7 +342,7 @@ msgstr "Executor जोड़ें"
 
 #: src/components/ProjectGoals.tsx
 msgid "Add goal"
-msgstr ""
+msgstr "लक्ष्य जोड़ें"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
@@ -358,7 +358,7 @@ msgstr "आइटम जोड़ें"
 
 #: src/components/ProjectGoals.tsx
 msgid "Add key result"
-msgstr ""
+msgstr "मुख्य परिणाम जोड़ें"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -588,7 +588,7 @@ msgstr "आर्काइव करें"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archive key result"
-msgstr ""
+msgstr "मुख्य परिणाम संग्रहित करें"
 
 #: src/pages/Shell.tsx
 msgid "archived"
@@ -601,16 +601,16 @@ msgstr "आर्काइव किया गया"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archived goals"
-msgstr ""
+msgstr "संग्रहित लक्ष्य"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archived key results"
-msgstr ""
+msgstr "संग्रहित मुख्य परिणाम"
 
 #: src/components/GoalEditor.tsx
 #: src/components/ProjectGoals.tsx
 msgid "Archived milestone"
-msgstr ""
+msgstr "संग्रहित माइलस्टोन"
 
 #: src/pages/Shell.tsx
 msgid "Archived. Chat, memory, and files kept."
@@ -885,7 +885,7 @@ msgstr "कैश लिखना: {price}"
 #: src/components/GoalEditor.tsx
 #: src/components/ProjectGoals.tsx
 msgid "Calculation rule"
-msgstr ""
+msgstr "गणना नियम"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1049,7 +1049,7 @@ msgstr "{label} फ़िल्टर हटाएँ"
 
 #: src/components/GoalEditor.tsx
 msgid "Clear or replace the archived milestone before saving."
-msgstr ""
+msgstr "सहेजने से पहले संग्रहित माइलस्टोन हटाएँ या बदलें।"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -1941,7 +1941,7 @@ msgstr "वर्तमान पासवर्ड"
 
 #: src/components/GoalEditor.tsx
 msgid "Current value"
-msgstr ""
+msgstr "वर्तमान मान"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Custom header"
@@ -2043,7 +2043,7 @@ msgstr "खाता हटाएँ"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete goal"
-msgstr ""
+msgstr "लक्ष्य हटाएँ"
 
 #: src/pages/GroupPanel.tsx
 msgid "Delete group"
@@ -2051,7 +2051,7 @@ msgstr "समूह डिलीट करें"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete key result"
-msgstr ""
+msgstr "मुख्य परिणाम हटाएँ"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
@@ -2063,11 +2063,11 @@ msgstr "स्पेस हटाएँ"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete this goal and all its key results?"
-msgstr ""
+msgstr "यह लक्ष्य और इसके सभी मुख्य परिणाम हटाएँ?"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete this key result?"
-msgstr ""
+msgstr "यह मुख्य परिणाम हटाएँ?"
 
 #: src/pages/Shell.tsx
 msgid "deleted"
@@ -2234,7 +2234,7 @@ msgstr "छवि खींचें, छोड़ें या पेस्ट 
 
 #: src/components/GoalEditor.tsx
 msgid "Due date"
-msgstr ""
+msgstr "नियत तारीख"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Duplicate"
@@ -2254,11 +2254,11 @@ msgstr "पहले संपादित करें"
 
 #: src/components/ProjectGoals.tsx
 msgid "Edit goal"
-msgstr ""
+msgstr "लक्ष्य संपादित करें"
 
 #: src/components/ProjectGoals.tsx
 msgid "Edit key result"
-msgstr ""
+msgstr "मुख्य परिणाम संपादित करें"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2530,11 +2530,11 @@ msgstr "Git इवेंट"
 
 #: src/components/ProjectGoals.tsx
 msgid "Goal name"
-msgstr ""
+msgstr "लक्ष्य का नाम"
 
 #: src/components/ProjectGoals.tsx
 msgid "Goals"
-msgstr ""
+msgstr "लक्ष्य"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -2746,7 +2746,7 @@ msgstr "कुंजी"
 
 #: src/components/ProjectGoals.tsx
 msgid "Key result progress"
-msgstr ""
+msgstr "मुख्य परिणाम की प्रगति"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Knowledge"
@@ -2979,7 +2979,7 @@ msgstr "MCP सर्वर"
 
 #: src/components/GoalEditor.tsx
 msgid "Measure"
-msgstr ""
+msgstr "माप की इकाई"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3298,11 +3298,11 @@ msgstr "इस बॉट के लिए कोई क्रेडेंशि�
 
 #: src/components/ProjectGoals.tsx
 msgid "No data"
-msgstr ""
+msgstr "कोई डेटा नहीं"
 
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
-msgstr ""
+msgstr "कोई लक्ष्य नहीं"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
@@ -3400,7 +3400,7 @@ msgstr "कोई ट्रिगर नहीं"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
-msgstr ""
+msgstr "कोई नहीं"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "None yet"
@@ -3595,7 +3595,7 @@ msgstr "आउटपुट: {price}"
 
 #: src/components/ProjectGoals.tsx
 msgid "Overdue"
-msgstr ""
+msgstr "समय सीमा बीत गई"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -3682,7 +3682,7 @@ msgstr "योजना"
 
 #: src/components/GoalEditor.tsx
 msgid "Planned"
-msgstr ""
+msgstr "नियोजित"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -4601,7 +4601,7 @@ msgstr "शुरू हो रहा है…"
 
 #: src/components/GoalEditor.tsx
 msgid "State"
-msgstr ""
+msgstr "स्थिति"
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Board.tsx
@@ -4696,7 +4696,7 @@ msgstr "नियंत्रण लें"
 
 #: src/components/GoalEditor.tsx
 msgid "Target value"
-msgstr ""
+msgstr "लक्षित मान"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

@@ -253,7 +253,7 @@ msgstr "账户"
 
 #: src/components/GoalEditor.tsx
 msgid "Achieved"
-msgstr ""
+msgstr "已达成"
 
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Action confirmations"
@@ -342,7 +342,7 @@ msgstr "添加 Executor"
 
 #: src/components/ProjectGoals.tsx
 msgid "Add goal"
-msgstr ""
+msgstr "添加目标"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
@@ -358,7 +358,7 @@ msgstr "添加项目"
 
 #: src/components/ProjectGoals.tsx
 msgid "Add key result"
-msgstr ""
+msgstr "添加关键结果"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -588,7 +588,7 @@ msgstr "归档"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archive key result"
-msgstr ""
+msgstr "归档关键结果"
 
 #: src/pages/Shell.tsx
 msgid "archived"
@@ -601,16 +601,16 @@ msgstr "已归档"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archived goals"
-msgstr ""
+msgstr "已归档目标"
 
 #: src/components/ProjectGoals.tsx
 msgid "Archived key results"
-msgstr ""
+msgstr "已归档关键结果"
 
 #: src/components/GoalEditor.tsx
 #: src/components/ProjectGoals.tsx
 msgid "Archived milestone"
-msgstr ""
+msgstr "已归档里程碑"
 
 #: src/pages/Shell.tsx
 msgid "Archived. Chat, memory, and files kept."
@@ -885,7 +885,7 @@ msgstr "缓存写入：{price}"
 #: src/components/GoalEditor.tsx
 #: src/components/ProjectGoals.tsx
 msgid "Calculation rule"
-msgstr ""
+msgstr "计算规则"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1049,7 +1049,7 @@ msgstr "清除筛选条件 {label}"
 
 #: src/components/GoalEditor.tsx
 msgid "Clear or replace the archived milestone before saving."
-msgstr ""
+msgstr "保存前请清除或替换已归档的里程碑。"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -1941,7 +1941,7 @@ msgstr "当前密码"
 
 #: src/components/GoalEditor.tsx
 msgid "Current value"
-msgstr ""
+msgstr "当前值"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Custom header"
@@ -2043,7 +2043,7 @@ msgstr "删除账户"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete goal"
-msgstr ""
+msgstr "删除目标"
 
 #: src/pages/GroupPanel.tsx
 msgid "Delete group"
@@ -2051,7 +2051,7 @@ msgstr "删除群组"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete key result"
-msgstr ""
+msgstr "删除关键结果"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
@@ -2063,11 +2063,11 @@ msgstr "删除工作区"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete this goal and all its key results?"
-msgstr ""
+msgstr "删除此目标及其全部关键结果？"
 
 #: src/components/ProjectGoals.tsx
 msgid "Delete this key result?"
-msgstr ""
+msgstr "删除此关键结果？"
 
 #: src/pages/Shell.tsx
 msgid "deleted"
@@ -2234,7 +2234,7 @@ msgstr "拖放或粘贴图片"
 
 #: src/components/GoalEditor.tsx
 msgid "Due date"
-msgstr ""
+msgstr "截止日期"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Duplicate"
@@ -2254,11 +2254,11 @@ msgstr "先编辑"
 
 #: src/components/ProjectGoals.tsx
 msgid "Edit goal"
-msgstr ""
+msgstr "编辑目标"
 
 #: src/components/ProjectGoals.tsx
 msgid "Edit key result"
-msgstr ""
+msgstr "编辑关键结果"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2530,11 +2530,11 @@ msgstr "Git 事件"
 
 #: src/components/ProjectGoals.tsx
 msgid "Goal name"
-msgstr ""
+msgstr "目标名称"
 
 #: src/components/ProjectGoals.tsx
 msgid "Goals"
-msgstr ""
+msgstr "目标"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -2746,7 +2746,7 @@ msgstr "密钥"
 
 #: src/components/ProjectGoals.tsx
 msgid "Key result progress"
-msgstr ""
+msgstr "关键结果进度"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Knowledge"
@@ -2979,7 +2979,7 @@ msgstr "MCP 服务器"
 
 #: src/components/GoalEditor.tsx
 msgid "Measure"
-msgstr ""
+msgstr "计量单位"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3298,11 +3298,11 @@ msgstr "此机器人尚未保存凭据。"
 
 #: src/components/ProjectGoals.tsx
 msgid "No data"
-msgstr ""
+msgstr "暂无数据"
 
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
-msgstr ""
+msgstr "暂无目标"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
@@ -3400,7 +3400,7 @@ msgstr "无触发器"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
-msgstr ""
+msgstr "无"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "None yet"
@@ -3595,7 +3595,7 @@ msgstr "输出：{price}"
 
 #: src/components/ProjectGoals.tsx
 msgid "Overdue"
-msgstr ""
+msgstr "已逾期"
 
 #: src/pages/Board.tsx
 msgid "Owner"
@@ -3682,7 +3682,7 @@ msgstr "方案"
 
 #: src/components/GoalEditor.tsx
 msgid "Planned"
-msgstr ""
+msgstr "已计划"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -4601,7 +4601,7 @@ msgstr "正在开始…"
 
 #: src/components/GoalEditor.tsx
 msgid "State"
-msgstr ""
+msgstr "状态"
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Board.tsx
@@ -4696,7 +4696,7 @@ msgstr "接管控制权"
 
 #: src/components/GoalEditor.tsx
 msgid "Target value"
-msgstr ""
+msgstr "目标值"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

@@ -1129,4 +1129,69 @@ describePostgres("project budget reservations", () => {
       "actor and reason",
     );
   });
+
+  it("settles a late charge after write-off once", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-late-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.budgetReservation.updateMany({
+      where: { spaceId, callId },
+      data: { status: "unreconciled" },
+    });
+    const audit = { spaceId, callId, actorId: "test-operator", reason: "Unknown charge reviewed" };
+    expect(await writeOffBudgetHolding(prisma, audit)).toBe(true);
+    await Promise.all(
+      Array.from({ length: 6 }, () =>
+        settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n }),
+      ),
+    );
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+    const rows = await prisma.$queryRaw<
+      Array<{
+        status: string;
+        writtenOffBy: string;
+        writeOffReason: string;
+        chargedAfterWriteOff: boolean;
+      }>
+    >`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId}`;
+    expect(rows[0]).toMatchObject({
+      status: "settled",
+      writtenOffBy: audit.actorId,
+      writeOffReason: audit.reason,
+      chargedAfterWriteOff: true,
+    });
+    expect(await writeOffBudgetHolding(prisma, audit)).toBe(false);
+  });
+
+  it("releases the holding once when write-off races settlement", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-race-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.budgetReservation.updateMany({
+      where: { spaceId, callId },
+      data: { status: "unreconciled" },
+    });
+    await Promise.all([
+      writeOffBudgetHolding(prisma, {
+        spaceId,
+        callId,
+        actorId: "test-operator",
+        reason: "Race review",
+      }),
+      settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n }),
+    ]);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+    const replay = await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    expect(replay).toMatchObject({ replayed: true });
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+  });
 });

@@ -9,6 +9,7 @@ import {
   reserveBudget,
   setProjectBudget,
   settleBudget,
+  writeOffBudgetHolding,
 } from "./project-budgets.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -441,5 +442,25 @@ describePostgres("project budget reservations", () => {
     expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 250_000n });
     expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
     expect(await prisma.budgetReservation.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toMatchObject({ status: "settled", chargedAfterRelease: true, settledMicroUsd: 250_000n });
+  });
+
+  it("preserves write-off audit and settles concurrent late usage once", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-usage-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
+    const event = { type: "usage" as const, provider: "fixture", model: "fixture", callId, inputTokens: 10, outputTokens: 2, billingKind: "api" as const };
+    await recordUsage(prisma, event, attribution);
+    const writeOff = { spaceId, callId, actorUserId: "fixture-auditor", reason: " unresolved provider charge " };
+    const results = await Promise.all(Array.from({ length: 6 }, () => writeOffBudgetHolding(prisma, writeOff)));
+    expect(results.filter(result => result && !result.replayed)).toHaveLength(1);
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 0n });
+    await recordUsage(prisma, event, attribution);
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 0n });
+    const known = { ...event, costUsdDecimal: "0.125", costSource: "provider_reported" };
+    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, known, attribution)));
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 125_000n });
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+    expect(await prisma.budgetReservation.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toMatchObject({ status: "settled", writtenOffBy: "fixture-auditor", writeOffReason: "unresolved provider charge", writtenOffAt: expect.any(Date), chargedAfterWriteOff: true, settledMicroUsd: 125_000n, overrunMicroUsd: 25_000n });
   });
 });

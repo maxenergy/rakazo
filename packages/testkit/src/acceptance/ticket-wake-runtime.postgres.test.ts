@@ -11,6 +11,8 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DisposableCluster } from "./disposable-postgres.js";
 import { postgresAvailable, startDisposableCluster } from "./disposable-postgres.js";
+import type { TrackedPool } from "./pool-lifecycle.js";
+import { endPool, trackPool } from "./pool-lifecycle.js";
 import { startRestartableRuntime } from "./runtime-restart.js";
 
 // Needs RAK_PG_BIN_DIR; skipped otherwise, unless RAK_REQUIRE_PG=1 (set in CI), where
@@ -49,11 +51,16 @@ describeCluster("ticket wake runtime wiring", () => {
   it("delivers a crashed runtime's claimed wake exactly once and fences the stale owner", async () => {
     const database = await cluster.createDatabase("wake_runtime");
     await cluster.migrate(database);
+    const pools: TrackedPool[] = [];
     const runtime = await startRestartableRuntime({
-      start: async () => createDb(cluster.url(database)),
+      start: async () => {
+        const db = createDb(cluster.url(database));
+        pools.push(trackPool(db.pool));
+        return db;
+      },
       stop: async (db) => {
         await db.prisma.$disconnect();
-        await db.pool.end();
+        await endPool(db.pool);
       },
     });
     try {
@@ -169,6 +176,11 @@ describeCluster("ticket wake runtime wiring", () => {
       expect(enqueued).toHaveLength(1);
     } finally {
       await runtime.shutdown();
+      for (const pool of pools) {
+        for (const error of pool.errors) {
+          expect(error).toHaveProperty("code", "57P01");
+        }
+      }
     }
   }, 120_000);
 });

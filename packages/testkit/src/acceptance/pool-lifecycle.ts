@@ -23,8 +23,23 @@ export function trackPool<P extends Pool>(pool: P): P & TrackedPool {
 }
 
 /** `pool.end()` can resolve before sockets close; wait for them before stopping Postgres. */
-export async function endPool(pool: Pool): Promise<void> {
+export async function endPool(pool: Pool, timeoutMs = 10_000): Promise<void> {
   const state = tracked.get(pool);
-  await pool.end();
-  if (state) await Promise.all(state.closed);
+  const closing = (async () => {
+    await pool.end();
+    if (state) await Promise.all(state.closed);
+  })();
+  closing.catch(() => undefined);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`endPool: pool clients did not close within ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+  });
+  try {
+    await Promise.race([closing, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }

@@ -1674,6 +1674,7 @@ model ProjectBudget {
   updatedAt        DateTime               @updatedAt
   versions         ProjectBudgetVersion[]
   reservations     BudgetReservation[]
+  overrunApprovals BudgetOverrunApproval[]
 
   @@unique([spaceId, projectId])
   @@map("project_budgets")
@@ -1739,4 +1740,29 @@ model BudgetSpendLedger {
   @@unique([spaceId, callId, kind])
   @@index([spaceId, projectId, createdAt])
   @@map("budget_spend_ledger")
+}
+
+/// Request to raise a project budget limit after spend would exceed it. Bound to the project,
+/// the budget version it was requested against, the extra amount and a scope. Approving applies
+/// exactly that amount once; rejecting applies nothing.
+model BudgetOverrunApproval {
+  id              String        @id @default(cuid())
+  spaceId         String
+  projectId       String
+  budgetId        String
+  budget          ProjectBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budgetVersion   Int
+  amountMicroUsd  BigInt
+  scope           String
+  requestKey      String
+  status          String        @default("pending")
+  proposalId      String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+  appliedVersion  Int?
+  createdAt       DateTime      @default(now())
+
+  @@unique([spaceId, requestKey])
+  @@index([spaceId, projectId, status])
+  @@map("budget_overrun_approvals")
 }

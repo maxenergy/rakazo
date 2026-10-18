@@ -502,4 +502,22 @@ describePostgres("project budget reservations", () => {
     expect(summaries.find(row => row.projectId === projectId)).toMatchObject({ knownMarginalMicroUsd: "250000", unknownCostCalls: 1, subscriptionIncludedCalls: 1, unreconciledMicroUsd: "600000", oldestHoldingAt: since, complete: false });
     expect(summaries.some(row => row.projectId === null)).toBe(true);
   });
+
+  it("converges first delivery, reserve and replay without duplicate settlement", async () => {
+    for (const order of ["usage-first", "reserve-first", "concurrent"]) {
+      const projectId = await budgetFor(1_000_000n);
+      const callId = `first-delivery-${order}-${projectId}`;
+      const attribution = { spaceId, projectId, userId: `first-${projectId}` };
+      const event = { type: "usage" as const, provider: "fixture", model: "fixture", inputTokens: 10, outputTokens: 2, billingKind: "api" as const, callId, costUsdDecimal: "0.25", costSource: "provider_reported" };
+      const reserve = () => reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+      const deliver = () => recordUsage(prisma, event, attribution);
+      if (order === "usage-first") { await deliver(); await reserve(); }
+      else if (order === "reserve-first") { await reserve(); await deliver(); }
+      else await Promise.all([reserve(), deliver(), deliver()]);
+      await Promise.all([deliver(), deliver(), reserve()]);
+      expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+      expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 250_000n });
+      expect(await prisma.budgetReservation.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toMatchObject({ status: "settled", settledMicroUsd: 250_000n });
+    }
+  });
 });

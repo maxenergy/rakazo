@@ -171,6 +171,7 @@ import {
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  archiveKeyResult,
   archiveMilestone,
   archiveProject,
   BotSectionNameConflictError,
@@ -181,7 +182,9 @@ import {
   ComputerLimitError,
   claimEmptySpaceDeletionForMember,
   createExternalConversationRepos,
+  createGoal,
   createGroupRepos,
+  createKeyResult,
   createMilestone,
   createProject,
   createRepos,
@@ -190,6 +193,8 @@ import {
   decideProposal,
   defaultModelCredentialCandidates,
   deleteEmptySpaceForMember,
+  deleteGoal,
+  deleteKeyResult,
   deleteMilestone,
   deleteProject,
   deleteUnreferencedCredentialSecret,
@@ -215,6 +220,8 @@ import {
   ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
+  readGoals,
+  readKeyResults,
   readMilestones,
   readProjects,
   releaseSpaceDeletionClaim,
@@ -234,6 +241,8 @@ import {
   toTicketCommentDto,
   toTicketDto,
   touchGroupUpdatedAt,
+  updateGoal,
+  updateKeyResult,
   updateMilestone,
   updateProject,
   validateProjectFilter,
@@ -3849,6 +3858,160 @@ export function createRouter(deps: RouterDeps) {
         } finally {
           void follow.return(undefined).catch(() => {});
         }
+      }),
+    },
+    goals: {
+      list: boardEnabled.goals.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return readGoals(tx, spaceId, input);
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      get: boardEnabled.goals.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return (await readGoals(tx, spaceId, input))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      create: boardEnabled.goals.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createGoal(tx, spaceId, input);
+              return (await readGoals(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.goals.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateGoal(tx, spaceId, input);
+              return (await readGoals(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.goals.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteGoal(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+    },
+    keyResults: {
+      list: boardEnabled.keyResults.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return readKeyResults(tx, spaceId, input);
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      get: boardEnabled.keyResults.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return (await readKeyResults(tx, spaceId, input))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      create: boardEnabled.keyResults.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createKeyResult(tx, spaceId, input);
+              return (await readKeyResults(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.keyResults.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateKeyResult(tx, spaceId, input);
+              return (await readKeyResults(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      archive: boardEnabled.keyResults.archive.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await archiveKeyResult(tx, spaceId, input.id);
+              return (await readKeyResults(tx, spaceId, { id: input.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.keyResults.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteKeyResult(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
       }),
     },
     projects: {

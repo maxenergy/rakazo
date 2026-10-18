@@ -1451,6 +1451,8 @@ model Project {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   milestones  Milestone[]
+  goals       Goal[]
+  keyResults  KeyResult[]
   tickets     Ticket[]
   budget      ProjectBudget?
 
@@ -1471,6 +1473,7 @@ model Milestone {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   tickets     Ticket[]
+  keyResults  KeyResult[]
 
   @@unique([spaceId, projectId, id])
   @@index([spaceId, projectId, archivedAt, updatedAt, id])
@@ -1594,6 +1597,51 @@ model Proposal {
   @@index([spaceId, userId, status, createdAt])
   @@index([botId])
   @@map("proposals")
+}
+
+model Goal {
+  id          String      @id @default(cuid())
+  spaceId     String
+  projectId   String
+  project     Project     @relation(fields: [spaceId, projectId], references: [spaceId, id], onDelete: Cascade)
+  name        String
+  description String?
+  state       String      @default("planned")
+  dueAt       DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  keyResults  KeyResult[]
+
+  @@unique([spaceId, projectId, id])
+  @@index([spaceId, projectId, archivedAt, updatedAt, id])
+  @@map("goals")
+}
+
+model KeyResult {
+  id              String     @id @default(cuid())
+  spaceId         String
+  projectId       String
+  goalId          String
+  goal            Goal       @relation(fields: [spaceId, projectId, goalId], references: [spaceId, projectId, id], onDelete: Cascade)
+  project         Project    @relation(fields: [spaceId, projectId], references: [spaceId, id], onDelete: Cascade)
+  milestoneId     String?
+  milestone       Milestone? @relation(fields: [spaceId, projectId, milestoneId], references: [spaceId, projectId, id], onDelete: NoAction)
+  name            String
+  description     String?
+  state           String     @default("planned")
+  measure         String
+  targetValue     Float
+  currentValue    Float
+  calculationRule String
+  dueAt           DateTime?
+  archivedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([spaceId, goalId, archivedAt, updatedAt, id])
+  @@index([spaceId, projectId, milestoneId])
+  @@map("key_results")
 }
 
 /// Per-project spending cap in integer micro-USD (1 USD = 1_000_000). `reservedMicroUsd` is the

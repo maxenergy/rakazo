@@ -100,6 +100,16 @@ import {
   VoiceStatusSchema,
 } from "./domain.js";
 import { ComputerCommandSchema, ProductEventSchema } from "./events.js";
+import {
+  CreateGoalInput,
+  CreateKeyResultInput,
+  GoalSchema,
+  KeyResultSchema,
+  ListGoalsInput,
+  ListKeyResultsInput,
+  UpdateGoalInput,
+  UpdateKeyResultInput,
+} from "./goals.js";
 import { Id, IsoDate } from "./ids.js";
 import {
   IntegrationProviderConfigSchema,
@@ -612,6 +622,21 @@ export const appContract = {
     list: oc.input(ListProposalsInput).output(z.array(ProposalSchema)),
     /** Approve or reject a pending proposal, then wake the bot that sent it. */
     decide: oc.input(DecideProposalInput).output(ProposalSchema),
+  },
+  goals: {
+    list: oc.input(ListGoalsInput).output(z.array(GoalSchema)),
+    get: oc.input(z.object({ id: Id })).output(GoalSchema),
+    create: oc.input(CreateGoalInput).output(GoalSchema),
+    update: oc.input(UpdateGoalInput).output(GoalSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
+  },
+  keyResults: {
+    list: oc.input(ListKeyResultsInput).output(z.array(KeyResultSchema)),
+    get: oc.input(z.object({ id: Id })).output(KeyResultSchema),
+    create: oc.input(CreateKeyResultInput).output(KeyResultSchema),
+    update: oc.input(UpdateKeyResultInput).output(KeyResultSchema),
+    archive: oc.input(z.object({ id: Id })).output(KeyResultSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
   },
   projects: {
     list: oc.input(ListProjectsInput).output(z.array(ProjectSchema)),

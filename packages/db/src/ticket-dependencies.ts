@@ -1,5 +1,5 @@
 import type { Prisma } from "./client.js";
-import { ProjectLinkError, isProjectItemArchived } from "./project-links.js";
+import { isProjectItemArchived, ProjectLinkError } from "./project-links.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 
 export function isTicketComplete(status: string): boolean {
@@ -20,8 +20,7 @@ export async function addTicketDependency(
     where: { spaceId, id: { in: [ticketId, prerequisiteId] } },
     include: { project: true, milestone: true },
   });
-  if (tickets.length !== 2)
-    throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  if (tickets.length !== 2) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
   for (const ticket of tickets) {
     if (
       (ticket.project && isProjectItemArchived(ticket.project)) ||

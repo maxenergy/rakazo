@@ -1,6 +1,6 @@
 import type { Prisma } from "./client.js";
-import { lockTicketSpace } from "./ticket-space-lock.js";
 import { isProjectItemArchived, ProjectLinkError } from "./project-links.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 
 async function lockProject(
   tx: Prisma.TransactionClient,

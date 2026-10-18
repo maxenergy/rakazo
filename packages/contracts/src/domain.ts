@@ -1,3 +1,4 @@
+import { ModelCapabilitiesSchema } from "./model-capabilities.js";
 import * as z from "zod";
 import { AGENT_SECRET_NAME_PATTERN } from "./agent-secret-name.js";
 import { BotAvatarValueSchema } from "./bot-avatar.js";
@@ -1194,6 +1195,7 @@ export const ModelCatalogPricingSchema = z.object({
 });
 
 export const ModelCatalogEntrySchema = z.object({
+  capabilities: ModelCapabilitiesSchema.optional(),
   provider: z.string(),
   providerName: z.string().optional(),
   id: z.string(),

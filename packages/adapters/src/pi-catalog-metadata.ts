@@ -5,9 +5,11 @@ export type CatalogMetadataFields = {
   contextWindow?: unknown;
   maxTokens?: unknown;
   reasoning?: unknown;
+  input?: unknown;
 };
 
 export type CatalogMetadata = Pick<ModelCatalogEntry, "reasoning"> & {
+  capabilities: NonNullable<ModelCatalogEntry["capabilities"]>;
   pricing: {
     inputPerMTok: number | null;
     outputPerMTok: number | null;
@@ -30,7 +32,12 @@ function limit(value: unknown): number | null {
 export function catalogMetadata(
   fields: CatalogMetadataFields,
   verifiedZero = false,
+  source = "model-registry",
 ): CatalogMetadata {
+  const evidence = (value: unknown) => ({
+    value: typeof value === "boolean" ? value : null,
+    source: typeof value === "boolean" ? source : null,
+  });
   const cost = fields.cost;
   const pricing = {
     inputPerMTok: price(cost?.input),
@@ -40,6 +47,10 @@ export function catalogMetadata(
   };
   const values = Object.values(pricing);
   return {
+    capabilities: {
+      imageInput: evidence(Array.isArray(fields.input) ? fields.input.includes("image") : undefined),
+      reasoning: evidence(fields.reasoning),
+    },
     pricing:
       values.every((value) => value === null) ||
       (!verifiedZero && values.every((value) => value === 0))

@@ -95,6 +95,12 @@ describe("resolveActionApprovalDetail", () => {
 });
 
 describe("unattendedTriggerToolRequiresApproval", () => {
+  it("allows model recommendations for scheduled and webhook runs", () => {
+    for (const trigger of ["schedule", "webhook"] as const) {
+      expect(unattendedTriggerToolRequiresApproval(trigger, "recommend_model", false)).toBe(false);
+    }
+  });
+
   it("forces approval for webhook-triggered local side effects", () => {
     for (const name of ["shell", "write_file", "browser_act", "computer_act"]) {
       expect(unattendedTriggerToolRequiresApproval("webhook", name, false)).toBe(true);

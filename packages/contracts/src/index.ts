@@ -27,3 +27,5 @@ export * from "./runs.js";
 export * from "./search.js";
 export * from "./terminal.js";
 export * from "./ui-locale.js";
+
+export * from "./model-capabilities.js";

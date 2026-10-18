@@ -1,7 +1,9 @@
+import * as core from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   listConnectedBotModels,
+  recommendModelFromTool,
   parseBotModelSelection,
   setBotModelFromTool,
   validateBotModelSelection,
@@ -244,5 +246,84 @@ describe("bot model tools", () => {
         label: "custom-model",
       },
     ]);
+  });
+});
+
+
+describe("recommend_model validation", () => {
+  function setup() {
+    const credentials = vi.fn().mockResolvedValue([]);
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const preferences = vi.fn().mockResolvedValue([]);
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const load = vi.fn().mockResolvedValue(null);
+    const raw = {
+      bot: { findFirst, updateMany },
+      userModelCredential: { findMany: credentials },
+      spaceModelPreference: { findMany: preferences },
+      secret: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    return {
+      deps: { prisma: raw as unknown as PrismaClient, secretStore: { load } },
+      credentials, load, updateMany, raw,
+    };
+  }
+
+  it.each([
+    { workload: { inputTokens: -1, outputTokens: 1 } },
+    { workload: { inputTokens: 1.5, outputTokens: 1 } },
+    { workload: { inputTokens: Number.MAX_SAFE_INTEGER + 1, outputTokens: 1 } },
+    { capabilities: ["unsupported"] },
+    { contextWindow: 0 },
+    { unexpected: true },
+  ])("rejects malformed requirements before reading credentials: %j", async (args) => {
+    const { deps, load, credentials, updateMany, raw } = setup();
+    await expect(recommendModelFromTool(deps, scope, args)).resolves.toEqual({
+      error: "Invalid model requirements or token workload",
+    });
+    expect(credentials).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(raw.bot.findFirst).not.toHaveBeenCalled();
+    expect(raw.spaceModelPreference.findMany).not.toHaveBeenCalled();
+    expect(raw.secret.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("recommend_model custom compatible billing", () => {
+  it("uses the openai_compatible authKind branch with a workload", async () => {
+    const { deps, preferences, credential, load } = fixture("openai-compatible");
+    preferences.push({
+      id: "preference-custom", modelId: "custom-model", isDefault: true,
+      updatedAt: new Date("2026-01-01"), thinkingLevel: null, credential,
+    });
+    load.mockResolvedValue(JSON.stringify({
+      kind: "openai_compatible", baseUrl: "https://models.example/v1", apiKey: "test-key",
+    }));
+    const recommend = vi.spyOn(core, "recommendModels");
+    try {
+      const result = await recommendModelFromTool(deps, scope, {
+        workload: { inputTokens: 100, outputTokens: 50 },
+      });
+      expect(result).toMatchObject({
+        recommendations: [expect.objectContaining({
+          provider: "openai-compatible", id: "custom-model", billingMode: "api-key",
+        })],
+        modelChanged: false,
+      });
+      expect(recommend).toHaveBeenCalledOnce();
+      const [candidates, , authKindFor] = recommend.mock.calls[0]!;
+      const candidate = candidates.find((entry) => entry.id === "custom-model")!;
+      expect(candidate).toBeDefined();
+      const authKind = authKindFor(candidate);
+      expect(authKind).toBe("openai_compatible");
+      // Suppress the catalog-auth fallback so only the credential branch can succeed.
+      const withoutFallback = { ...candidate, auth: "oauth" as const };
+      expect(core.catalogBillingMode(withoutFallback)).toBe("unknown");
+      expect(core.catalogBillingMode(withoutFallback, authKind)).toBe("api-key");
+    } finally {
+      recommend.mockRestore();
+    }
   });
 });

@@ -182,6 +182,7 @@ import {
 } from "./bot-messages.js";
 import {
   listConnectedBotModels,
+  recommendModelFromTool,
   parseBotModelSelection,
   setBotModelFromTool,
   validateBotModelSelection,
@@ -6152,6 +6153,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }
               throw error;
             }
+          }
+          if (name === "recommend_model") {
+            return finish(await recommendModelFromTool(deps, run, args));
           }
           if (name === "list_models") {
             return finish(await listConnectedBotModels(deps, run));

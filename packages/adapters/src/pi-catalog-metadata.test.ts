@@ -3,7 +3,7 @@ import { catalogMetadata } from "./pi-catalog-metadata.js";
 
 describe("catalog metadata normalization", () => {
   it("leaves missing metadata unknown", () => {
-    expect(catalogMetadata({})).toEqual({ pricing: null, contextWindow: null, maxTokens: null });
+    expect(catalogMetadata({})).toMatchObject({ pricing: null, contextWindow: null, maxTokens: null });
   });
 
   it.each([NaN, Infinity, -1, "10", undefined])("rejects malformed price %s", (value) => {
@@ -26,7 +26,7 @@ describe("catalog metadata normalization", () => {
   );
 
   it("preserves valid limits and explicit false", () => {
-    expect(catalogMetadata({ contextWindow: 100, maxTokens: 20, reasoning: false })).toEqual({
+    expect(catalogMetadata({ contextWindow: 100, maxTokens: 20, reasoning: false })).toMatchObject({
       pricing: null,
       contextWindow: 100,
       maxTokens: 20,
@@ -57,5 +57,18 @@ describe("catalog metadata normalization", () => {
     const before = structuredClone(fields);
     catalogMetadata(fields);
     expect(fields).toEqual(before);
+  });
+});
+
+describe("capability evidence", () => {
+  it("preserves unknown evidence and explicit false values", () => {
+    expect(catalogMetadata({}).capabilities).toEqual({
+      imageInput: { value: null, source: null },
+      reasoning: { value: null, source: null },
+    });
+    expect(catalogMetadata({ input: ["text"], reasoning: false }, false, "catalog-supplement").capabilities).toEqual({
+      imageInput: { value: false, source: "catalog-supplement" },
+      reasoning: { value: false, source: "catalog-supplement" },
+    });
   });
 });

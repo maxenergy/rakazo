@@ -16,6 +16,7 @@ import {
 export type PiCatalogAuth = "api-key" | "oauth" | "both";
 
 export type PiCatalogEntry = {
+  capabilities?: ModelCatalogEntry["capabilities"];
   provider: string;
   providerName: string;
   id: string;
@@ -152,6 +153,7 @@ function buildPiCatalog(): PiCatalogEntry[] {
                 : {}
               : (supplement ?? model),
         supplement !== undefined,
+        supplement !== undefined ? "catalog-supplement" : "model-registry",
       );
       entries.push({
         provider: provider.id,

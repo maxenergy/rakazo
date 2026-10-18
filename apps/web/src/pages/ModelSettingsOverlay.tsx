@@ -59,7 +59,7 @@ import { useCopyText } from "../lib/copy-text";
 import { localizedCatalogMetadata } from "../lib/localized-catalog-metadata";
 import { localizedProviderHint, localizedSignInLabel } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry, ModelCredential } from "../lib/model-auth";
-import { thinkingLevelLabel } from "../lib/model-catalog";
+import { modelBillingLabel, thinkingLevelLabel } from "../lib/model-catalog";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
 import {
   classifyModelConnectionFailure,
@@ -802,6 +802,11 @@ export function ModelSettingsOverlay({
               ))}
             </NativeSelect>
           </label>
+        ) : null}
+        {selected.billing && !usingServerCredentials ? (
+          <p className="mt-2 text-[13px] leading-[1.5] text-muted-foreground">
+            {modelBillingLabel(selected.billing)}
+          </p>
         ) : null}
         <div className="mt-2 text-[13px] text-muted-foreground">
           {catalogMetadataLines(

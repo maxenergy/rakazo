@@ -1452,6 +1452,7 @@ model Project {
   updatedAt   DateTime    @updatedAt
   milestones  Milestone[]
   tickets     Ticket[]
+  budget      ProjectBudget?
 
   @@unique([spaceId, id])
   @@index([spaceId, archivedAt, updatedAt, id])
@@ -1571,4 +1572,59 @@ model Proposal {
   @@index([spaceId, userId, status, createdAt])
   @@index([botId])
   @@map("proposals")
+}
+
+/// Per-project spending cap in integer micro-USD (1 USD = 1_000_000). `reservedMicroUsd` is the
+/// sum of open reservations; `settledMicroUsd` is actual spend. Both change only through
+/// single-statement guarded updates in project-budgets.ts.
+model ProjectBudget {
+  id               String                 @id @default(cuid())
+  spaceId          String
+  projectId        String
+  project          Project                @relation(fields: [spaceId, projectId], references: [spaceId, id], onDelete: Cascade)
+  version          Int                    @default(1)
+  limitMicroUsd    BigInt
+  reservedMicroUsd BigInt                 @default(0)
+  settledMicroUsd  BigInt                 @default(0)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  versions         ProjectBudgetVersion[]
+  reservations     BudgetReservation[]
+
+  @@unique([spaceId, projectId])
+  @@map("project_budgets")
+}
+
+model ProjectBudgetVersion {
+  budgetId        String
+  budget          ProjectBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  version         Int
+  limitMicroUsd   BigInt
+  createdByUserId String?
+  createdAt       DateTime      @default(now())
+
+  @@id([budgetId, version])
+  @@map("project_budget_versions")
+}
+
+/// One row per model call, unique by callId. status: reserved | settled | released | expired.
+model BudgetReservation {
+  id              String        @id @default(cuid())
+  budgetId        String
+  budget          ProjectBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  spaceId         String
+  projectId       String
+  budgetVersion   Int
+  callId          String        @unique
+  amountMicroUsd  BigInt
+  settledMicroUsd BigInt?
+  overrunMicroUsd BigInt        @default(0)
+  status          String        @default("reserved")
+  settledLate     Boolean       @default(false)
+  expiresAt       DateTime
+  createdAt       DateTime      @default(now())
+  closedAt        DateTime?
+
+  @@index([budgetId, status, expiresAt])
+  @@map("budget_reservations")
 }

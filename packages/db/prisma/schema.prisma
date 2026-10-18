@@ -1615,7 +1615,7 @@ model BudgetReservation {
   spaceId         String
   projectId       String
   budgetVersion   Int
-  callId          String        @unique
+  callId          String
   amountMicroUsd  BigInt
   settledMicroUsd BigInt?
   overrunMicroUsd BigInt        @default(0)
@@ -1625,6 +1625,8 @@ model BudgetReservation {
   createdAt       DateTime      @default(now())
   closedAt        DateTime?
 
+  @@unique([spaceId, callId])
   @@index([budgetId, status, expiresAt])
+  @@index([status, expiresAt])
   @@map("budget_reservations")
 }

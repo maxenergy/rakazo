@@ -14,8 +14,10 @@ export type BudgetReservationResult =
     }
   | {
       ok: false;
-      reason: "no_budget" | "insufficient" | "reservation_closed";
+      reason: "no_budget" | "insufficient" | "reservation_closed" | "conflict";
       availableMicroUsd: bigint;
+      /** Stored status of the closed reservation, set with reason reservation_closed. */
+      status?: "settled" | "released" | "expired";
     };
 
 export interface BudgetSettlement {
@@ -45,6 +47,11 @@ interface ReservationRow {
   settledLate: boolean;
 }
 
+function assertPositiveMicroUsd(value: bigint, label: string) {
+  assertMicroUsd(value, label);
+  if (value <= 0n) throw new Error(`${label} must be greater than zero`);
+}
+
 function assertMicroUsd(value: bigint, label: string) {
   if (typeof value !== "bigint" || value < 0n) {
     throw new Error(`${label} must be a non-negative integer micro-USD bigint`);
@@ -52,7 +59,7 @@ function assertMicroUsd(value: bigint, label: string) {
 }
 
 /** Create the budget or change its limit; every change bumps the version and is kept. */
-export async function setProjectBudget(
+async function setProjectBudgetOnce(
   db: PrismaClient,
   input: {
     spaceId: string;
@@ -108,7 +115,7 @@ export async function reserveBudget(
     now?: Date;
   },
 ): Promise<BudgetReservationResult> {
-  assertMicroUsd(input.amountMicroUsd, "amountMicroUsd");
+  assertPositiveMicroUsd(input.amountMicroUsd, "amountMicroUsd");
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + (input.ttlMs ?? DEFAULT_RESERVATION_TTL_MS));
   return db.$transaction(async (tx): Promise<BudgetReservationResult> => {
@@ -119,15 +126,22 @@ export async function reserveBudget(
     const budget = rows[0];
     if (!budget) return { ok: false, reason: "no_budget", availableMicroUsd: 0n };
 
-    const prior = await tx.budgetReservation.findUnique({ where: { callId: input.callId } });
+    const prior = await tx.budgetReservation.findUnique({
+      where: { spaceId_callId: { spaceId: input.spaceId, callId: input.callId } },
+    });
     if (prior) {
       if (prior.budgetId !== budget.id) throw new Error("callId already used for another budget");
       if (prior.amountMicroUsd !== input.amountMicroUsd) {
-        throw new Error("callId already reserved with a different amount");
+        return { ok: false, reason: "conflict", availableMicroUsd: 0n };
       }
       // A closed reservation no longer holds funds; a retry must not look like a live hold.
       if (prior.status !== "reserved") {
-        return { ok: false, reason: "reservation_closed", availableMicroUsd: 0n };
+        return {
+          ok: false,
+          reason: "reservation_closed",
+          availableMicroUsd: 0n,
+          status: prior.status as "settled" | "released" | "expired",
+        };
       }
       return {
         ok: true,
@@ -184,9 +198,9 @@ export async function reserveBudget(
 }
 
 /** Lock order is reservation, then budget, everywhere both are taken. */
-async function lockReservation(tx: Prisma.TransactionClient, callId: string) {
+async function lockReservation(tx: Prisma.TransactionClient, spaceId: string, callId: string) {
   const rows = await tx.$queryRaw<ReservationRow[]>`
-    SELECT * FROM "budget_reservations" WHERE "callId" = ${callId} FOR UPDATE`;
+    SELECT * FROM "budget_reservations" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId} FOR UPDATE`;
   const reservation = rows[0];
   if (!reservation) return null;
   await tx.$queryRaw`SELECT 1 FROM "project_budgets" WHERE "id" = ${reservation.budgetId} FOR UPDATE`;
@@ -200,12 +214,12 @@ async function lockReservation(tx: Prisma.TransactionClient, callId: string) {
  */
 export async function settleBudget(
   db: PrismaClient,
-  input: { callId: string; actualMicroUsd: bigint; now?: Date },
+  input: { spaceId: string; callId: string; actualMicroUsd: bigint; now?: Date },
 ): Promise<BudgetSettlement | null> {
   assertMicroUsd(input.actualMicroUsd, "actualMicroUsd");
   const now = input.now ?? new Date();
   return db.$transaction(async (tx): Promise<BudgetSettlement | null> => {
-    const reservation = await lockReservation(tx, input.callId);
+    const reservation = await lockReservation(tx, input.spaceId, input.callId);
     if (!reservation || reservation.status === "released") return null;
     if (reservation.status === "settled") {
       return {
@@ -253,12 +267,13 @@ export async function settleBudget(
 
 async function closeReserved(
   db: PrismaClient,
+  spaceId: string,
   callId: string,
   status: "released" | "expired",
   now: Date,
 ) {
   return db.$transaction(async (tx) => {
-    const reservation = await lockReservation(tx, callId);
+    const reservation = await lockReservation(tx, spaceId, callId);
     if (reservation?.status !== "reserved") return false;
     await tx.projectBudget.update({
       where: { id: reservation.budgetId },
@@ -275,9 +290,9 @@ async function closeReserved(
 /** Release an unused reservation (the call never ran). No-op unless still reserved. */
 export function releaseBudgetReservation(
   db: PrismaClient,
-  input: { callId: string; now?: Date },
+  input: { spaceId: string; callId: string; now?: Date },
 ): Promise<boolean> {
-  return closeReserved(db, input.callId, "released", input.now ?? new Date());
+  return closeReserved(db, input.spaceId, input.callId, "released", input.now ?? new Date());
 }
 
 /**
@@ -291,13 +306,26 @@ export async function expireBudgetReservations(
   const now = input.now ?? new Date();
   const due = await db.budgetReservation.findMany({
     where: { status: "reserved", expiresAt: { lte: now } },
-    select: { callId: true },
+    select: { spaceId: true, callId: true },
     orderBy: { expiresAt: "asc" },
     take: input.limit ?? 100,
   });
   let expired = 0;
-  for (const { callId } of due) {
-    if (await closeReserved(db, callId, "expired", now)) expired += 1;
+  for (const { spaceId, callId } of due) {
+    if (await closeReserved(db, spaceId, callId, "expired", now)) expired += 1;
   }
   return expired;
+}
+
+/** Concurrent first calls both miss the row; the loser hits P2002 and retries through the update path. */
+export async function setProjectBudget(
+  db: PrismaClient,
+  input: Parameters<typeof setProjectBudgetOnce>[1],
+) {
+  try {
+    return await setProjectBudgetOnce(db, input);
+  } catch (error) {
+    if ((error as { code?: string }).code !== "P2002") throw error;
+    return setProjectBudgetOnce(db, input);
+  }
 }

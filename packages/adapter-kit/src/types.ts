@@ -540,7 +540,11 @@ export interface ModelCallObserver {
     /** Explicit adapter-known write bucket required by this request, not a billing prediction. */
     cacheWriteRetention?: "1h";
   }): string | Promise<string>;
-  afterCall(reservationId: string, usage: AgentUsage | null): void | Promise<void>;
+  afterCall(
+    reservationId: string,
+    usage: AgentUsage | null,
+    lifecycle?: { started: boolean },
+  ): void | Promise<void>;
 }
 
 export type AgentRuntimeEvent =

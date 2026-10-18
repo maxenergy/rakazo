@@ -10,7 +10,11 @@ export interface BudgetPort {
     amountMicroUsd: bigint;
   }): Promise<
     | { ok: true }
-    | { ok: false; reason: "no_budget" | "insufficient" | "reservation_closed"; availableMicroUsd: bigint }
+    | {
+        ok: false;
+        reason: "no_budget" | "insufficient" | "reservation_closed";
+        availableMicroUsd: bigint;
+      }
   >;
   settle(input: { spaceId: string; callId: string; actualMicroUsd: bigint }): Promise<unknown>;
   release(input: { spaceId: string; callId: string }): Promise<unknown>;
@@ -64,7 +68,9 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
       const result = await options.port.reserve({ ...scope, callId, amountMicroUsd });
       if (!result.ok) {
         throw new BudgetExceededError(result.reason, result.availableMicroUsd, {
-          ...scope, callId, amountMicroUsd,
+          ...scope,
+          callId,
+          amountMicroUsd,
         });
       }
       let inner: string | undefined;
@@ -77,18 +83,25 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
       open.set(callId, { spaceId: scope.spaceId, amountMicroUsd, inner });
       return inner === undefined ? callId : `${callId}:${inner}`;
     },
-    async afterCall(reservationId: string, usage: AgentUsage | null) {
+    async afterCall(
+      reservationId: string,
+      usage: AgentUsage | null,
+      lifecycle?: { started: boolean },
+    ) {
       const callId = reservationId.split(":", 1)[0]!;
       const entry = open.get(callId);
       if (!entry) {
-        if (options.inner) await options.inner.afterCall(reservationId, usage);
+        if (options.inner) await options.inner.afterCall(reservationId, usage, lifecycle);
         return;
       }
       open.delete(callId);
       const innerId = reservationId.slice(callId.length + 1);
       try {
         if (usage === null) {
-          await options.port.release({ spaceId: entry.spaceId, callId });
+          // Missing accounting is not evidence that no provider call started.
+          if (lifecycle?.started === false) {
+            await options.port.release({ spaceId: entry.spaceId, callId });
+          }
         } else {
           const actual =
             typeof usage.costUsd === "number" && Number.isFinite(usage.costUsd)
@@ -98,7 +111,7 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
         }
       } finally {
         if (options.inner && entry.inner !== undefined) {
-          await options.inner.afterCall(innerId, usage);
+          await options.inner.afterCall(innerId, usage, lifecycle);
         }
       }
     },

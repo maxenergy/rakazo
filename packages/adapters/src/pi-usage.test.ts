@@ -62,6 +62,7 @@ describe("Pi usage accounting", () => {
         if (fails) throw new Error("Synthetic ledger unavailable");
       });
       const events: AgentRuntimeEvent[] = [];
+      const afterCall = vi.fn();
       const stream = await observedPiStream(
         builtinModels(),
         model,
@@ -74,13 +75,19 @@ describe("Pi usage accounting", () => {
             }),
         },
         (event) => events.push(event),
-        undefined,
+        { beforeCall: () => "reservation", afterCall },
         undefined,
         { recordUsage: sink },
       );
       for await (const _event of stream) {
       }
       expect(sink).toHaveBeenCalledOnce();
+      expect(afterCall).toHaveBeenCalledOnce();
+      expect(afterCall).toHaveBeenCalledWith(
+        "reservation",
+        fails ? null : expect.objectContaining({ inputTokens: 10, outputTokens: 2 }),
+        { started: true },
+      );
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({ inputTokens: 10, outputTokens: 2 });
       expect(events[0]?.type === "usage" ? events[0].accounted : undefined).toBe(
@@ -223,7 +230,7 @@ describe("Pi usage accounting", () => {
     expect(terminalSeen).toBe(false);
     finishSettlement();
     expect((await next).value).toMatchObject({ type: "error" });
-    expect(afterCall).toHaveBeenCalledWith("reservation", null);
+    expect(afterCall).toHaveBeenCalledWith("reservation", null, { started: true });
   });
   it("does not derive an unsafe integer total from valid component counts", () => {
     expect(

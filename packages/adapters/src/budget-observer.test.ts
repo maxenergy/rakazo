@@ -1,16 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  BudgetExceededError,
-  createBudgetObserver,
-  type BudgetPort,
-} from "./budget-observer.js";
+import { BudgetExceededError, type BudgetPort, createBudgetObserver } from "./budget-observer.js";
 
 const call = { provider: "p", modelId: "m", inputTokensEstimate: 10, maxOutputTokens: 10 };
 
 function port(ok = true): BudgetPort {
   return {
     reserve: vi.fn(async () =>
-      ok ? { ok: true as const } : { ok: false as const, reason: "insufficient" as const, availableMicroUsd: 0n },
+      ok
+        ? { ok: true as const }
+        : { ok: false as const, reason: "insufficient" as const, availableMicroUsd: 0n },
     ),
     settle: vi.fn(async () => undefined),
     release: vi.fn(async () => undefined),
@@ -47,10 +45,22 @@ describe("createBudgetObserver", () => {
     const p = port();
     const o = createBudgetObserver({ port: p, scope, upperBoundMicroUsd: () => 5n });
     const id = await o.beforeCall(call);
-    await o.afterCall(id, null);
+    await o.afterCall(id, null, { started: false });
     expect(p.release).toHaveBeenCalledTimes(1);
     expect(p.settle).not.toHaveBeenCalled();
   });
+
+  it.each([true, undefined])(
+    "retains holding when started is %s and accounting is missing",
+    async (started) => {
+      const p = port();
+      const o = createBudgetObserver({ port: p, scope, upperBoundMicroUsd: () => 5n });
+      const id = await o.beforeCall(call);
+      await o.afterCall(id, null, started === undefined ? undefined : { started });
+      expect(p.release).not.toHaveBeenCalled();
+      expect(p.settle).not.toHaveBeenCalled();
+    },
+  );
 
   it("uses a fresh callId for each call, so backup-model calls reserve separately", async () => {
     const p = port();

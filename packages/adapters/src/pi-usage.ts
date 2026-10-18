@@ -265,16 +265,23 @@ export function observedPiStream(
       const cacheRetention = resolvePiCacheRetention(model, options?.cacheRetention);
       const preparedContext = hooks?.prepareContext?.(context, model) ?? context;
       reservation = observer
-        ? await Promise.resolve().then(() => observer.beforeCall({
-            provider: model.provider,
-            modelId: model.id,
-            inputTokensEstimate: estimateModelContextTokens(preparedContext, hooks?.imageTokens),
-            maxOutputTokens: options?.maxTokens ?? model.maxTokens,
-            cacheWriteRetention: requestedPiCacheWriteRetention(model, cacheRetention),
-          })).catch((error: unknown) => {
-            hooks?.onBeforeCallError?.(error);
-            throw error;
-          })
+        ? await Promise.resolve()
+            .then(() =>
+              observer.beforeCall({
+                provider: model.provider,
+                modelId: model.id,
+                inputTokensEstimate: estimateModelContextTokens(
+                  preparedContext,
+                  hooks?.imageTokens,
+                ),
+                maxOutputTokens: options?.maxTokens ?? model.maxTokens,
+                cacheWriteRetention: requestedPiCacheWriteRetention(model, cacheRetention),
+              }),
+            )
+            .catch((error: unknown) => {
+              hooks?.onBeforeCallError?.(error);
+              throw error;
+            })
         : undefined;
       options?.signal?.throwIfAborted();
       started = true;
@@ -338,7 +345,7 @@ export function observedPiStream(
           }
           if (observer && reservation !== undefined) {
             settled = true;
-            await observer.afterCall(reservation, normalized);
+            await observer.afterCall(reservation, normalized, { started });
           }
         }
         if (event.type === "error") hooks?.onProviderError?.(event.error);
@@ -358,7 +365,8 @@ export function observedPiStream(
         // Keep the reservation alive until settlement finishes, before exposing termination.
         settled = true;
         try {
-          await observer.afterCall(reservation, normalized);
+          // Accounting did not complete: preserve exposure even when usage was observed.
+          await observer.afterCall(reservation, null, { started });
         } catch {
           /* Already failing. */
         }

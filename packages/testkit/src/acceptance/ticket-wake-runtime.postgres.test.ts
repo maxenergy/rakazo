@@ -11,6 +11,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DisposableCluster } from "./disposable-postgres.js";
 import { postgresAvailable, startDisposableCluster } from "./disposable-postgres.js";
+import { endPool, trackPool } from "./pool-lifecycle.js";
 import { startRestartableRuntime } from "./runtime-restart.js";
 
 // Needs RAK_PG_BIN_DIR; skipped otherwise, unless RAK_REQUIRE_PG=1 (set in CI), where
@@ -50,10 +51,14 @@ describeCluster("ticket wake runtime wiring", () => {
     const database = await cluster.createDatabase("wake_runtime");
     await cluster.migrate(database);
     const runtime = await startRestartableRuntime({
-      start: async () => createDb(cluster.url(database)),
+      start: async () => {
+        const db = createDb(cluster.url(database));
+        trackPool(db.pool);
+        return db;
+      },
       stop: async (db) => {
         await db.prisma.$disconnect();
-        await db.pool.end();
+        await endPool(db.pool);
       },
     });
     try {

@@ -112,13 +112,13 @@ describePostgres("project budget reservations", () => {
     const callId = `settle-${projectId}`;
     await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 500_000n });
     const results = await Promise.all(
-      Array.from({ length: 6 }, () => settleBudget(prisma, { callId, actualMicroUsd: 300_000n })),
+      Array.from({ length: 6 }, () => settleBudget(prisma, { spaceId, callId, actualMicroUsd: 300_000n })),
     );
     expect(results.filter((r) => r && !r.replayed)).toHaveLength(1);
     const after = await state(projectId);
     expect(after.reservedMicroUsd).toBe(0n);
     expect(after.settledMicroUsd).toBe(300_000n);
-    await settleBudget(prisma, { callId, actualMicroUsd: 900_000n });
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 900_000n });
     expect((await state(projectId)).settledMicroUsd).toBe(300_000n);
   });
 
@@ -126,7 +126,7 @@ describePostgres("project budget reservations", () => {
     const projectId = await budgetFor(1_000_000n);
     const callId = `overrun-${projectId}`;
     await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 200_000n });
-    const settled = await settleBudget(prisma, { callId, actualMicroUsd: 350_000n });
+    const settled = await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 350_000n });
     expect(settled).toMatchObject({ overrunMicroUsd: 150_000n, settledMicroUsd: 350_000n });
     expect((await state(projectId)).settledMicroUsd).toBe(350_000n);
   });
@@ -136,12 +136,12 @@ describePostgres("project budget reservations", () => {
     const callId = `release-${projectId}`;
     await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
     const released = await Promise.all([
-      releaseBudgetReservation(prisma, { callId }),
-      releaseBudgetReservation(prisma, { callId }),
+      releaseBudgetReservation(prisma, { spaceId, callId }),
+      releaseBudgetReservation(prisma, { spaceId, callId }),
     ]);
     expect(released.filter(Boolean)).toHaveLength(1);
     expect((await state(projectId)).reservedMicroUsd).toBe(0n);
-    expect(await settleBudget(prisma, { callId, actualMicroUsd: 1n })).toBeNull();
+    expect(await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 1n })).toBeNull();
   });
 
   it("expires stale reservations and still records a late settlement", async () => {
@@ -163,7 +163,7 @@ describePostgres("project budget reservations", () => {
     ]);
     expect(counts[0] + counts[1]).toBe(1);
     expect((await state(projectId)).reservedMicroUsd).toBe(0n);
-    const settled = await settleBudget(prisma, { callId, actualMicroUsd: 250_000n, now: later });
+    const settled = await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n, now: later });
     expect(settled).toMatchObject({ settledLate: true, settledMicroUsd: 250_000n });
     const after = await state(projectId);
     expect(after.reservedMicroUsd).toBe(0n);
@@ -178,11 +178,11 @@ describePostgres("project budget reservations", () => {
 
     const settledId = `retry-settled-${projectId}`;
     await retry(settledId);
-    await settleBudget(prisma, { callId: settledId, actualMicroUsd: 40_000n });
+    await settleBudget(prisma, { spaceId, callId: settledId, actualMicroUsd: 40_000n });
 
     const releasedId = `retry-released-${projectId}`;
     await retry(releasedId);
-    await releaseBudgetReservation(prisma, { callId: releasedId });
+    await releaseBudgetReservation(prisma, { spaceId, callId: releasedId });
 
     const expiredId = `retry-expired-${projectId}`;
     await reserveBudget(prisma, {
@@ -247,5 +247,49 @@ describePostgres("project budget reservations", () => {
       orderBy: { version: "asc" },
     });
     expect(versions.map((v) => v.limitMicroUsd)).toEqual([100n, 200n]);
+  });
+
+  it("scopes settle and release to the owning space", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `xspace-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    const otherSpace = "other-space-not-existing";
+    expect(await settleBudget(prisma, { spaceId: otherSpace, callId, actualMicroUsd: 1n })).toBeNull();
+    expect(await releaseBudgetReservation(prisma, { spaceId: otherSpace, callId })).toBe(false);
+    expect((await state(projectId)).reservedMicroUsd).toBe(100_000n);
+  });
+
+  it("rejects a replay with a different amount and keeps state", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `amount-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    await expect(
+      reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 200_000n }),
+    ).rejects.toThrow();
+    expect((await state(projectId)).reservedMicroUsd).toBe(100_000n);
+  });
+
+  it("reports real availability when replaying a closed reservation", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `closed-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    await releaseBudgetReservation(prisma, { spaceId, callId });
+    const result = await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "reservation_closed",
+      availableMicroUsd: 1_000_000n,
+    });
+  });
+
+  it("creates the first budget concurrently without a raw unique violation", async () => {
+    const project = await prisma.project.create({ data: { spaceId, name: "Concurrent first" } });
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () =>
+        setProjectBudget(prisma, { spaceId, projectId: project.id, limitMicroUsd: 500n }),
+      ),
+    );
+    expect(results).toHaveLength(6);
+    expect(await prisma.projectBudget.count({ where: { spaceId, projectId: project.id } })).toBe(1);
   });
 });

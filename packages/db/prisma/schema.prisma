@@ -1607,7 +1607,7 @@ model ProjectBudgetVersion {
   @@map("project_budget_versions")
 }
 
-/// One row per model call, unique by callId. status: reserved | settled | released | expired.
+/// One row per model call, unique by (spaceId, callId). status: reserved | settled | released | expired.
 model BudgetReservation {
   id              String        @id @default(cuid())
   budgetId        String
@@ -1615,7 +1615,7 @@ model BudgetReservation {
   spaceId         String
   projectId       String
   budgetVersion   Int
-  callId          String        @unique
+  callId          String
   amountMicroUsd  BigInt
   settledMicroUsd BigInt?
   overrunMicroUsd BigInt        @default(0)
@@ -1625,6 +1625,7 @@ model BudgetReservation {
   createdAt       DateTime      @default(now())
   closedAt        DateTime?
 
+  @@unique([spaceId, callId])
   @@index([budgetId, status, expiresAt])
   @@map("budget_reservations")
 }

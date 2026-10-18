@@ -56,7 +56,7 @@ CREATE TABLE "budget_reservations" (
   CONSTRAINT "budget_reservations_status_check" CHECK ("status" IN ('reserved', 'settled', 'released', 'expired'))
 );
 
-CREATE UNIQUE INDEX "budget_reservations_callId_key" ON "budget_reservations"("callId");
+CREATE UNIQUE INDEX "budget_reservations_spaceId_callId_key" ON "budget_reservations"("spaceId", "callId");
 CREATE INDEX "budget_reservations_budgetId_status_expiresAt_idx" ON "budget_reservations"("budgetId", "status", "expiresAt");
 
 ALTER TABLE "budget_reservations"

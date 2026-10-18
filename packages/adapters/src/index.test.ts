@@ -219,6 +219,17 @@ describe("builtin tools", () => {
       "ticket_create",
       "ticket_update",
       "ticket_comment",
+      "goal_list",
+      "goal_get",
+      "goal_create",
+      "goal_update",
+      "goal_delete",
+      "key_result_list",
+      "key_result_get",
+      "key_result_create",
+      "key_result_update",
+      "key_result_archive",
+      "key_result_delete",
     ];
     const enabled = selectBuiltinToolsForRun({ ...options, ticketBoardEnabled: true }).map(
       (tool) => tool.name,
@@ -226,7 +237,9 @@ describe("builtin tools", () => {
     const disabled = selectBuiltinToolsForRun({ ...options, ticketBoardEnabled: false }).map(
       (tool) => tool.name,
     );
-    expect(enabled.filter((name) => ticketNames.includes(name))).toEqual(ticketNames);
+    expect(enabled.filter((name) => ticketNames.includes(name)).sort()).toEqual(
+      [...ticketNames].sort(),
+    );
     expect(disabled).toEqual(enabled.filter((name) => !ticketNames.includes(name)));
     expect(
       selectBuiltinToolsForRun({

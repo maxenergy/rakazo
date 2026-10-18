@@ -387,4 +387,69 @@ describePostgres("project and milestone API isolation", () => {
     expect(await prisma.project.count({ where: { spaceId } })).toBe(before);
     expect(notify).not.toHaveBeenCalled();
   });
+
+  it("isolates Goal/KR API resources and preserves archived project history", async () => {
+    const api = client();
+    const project = await api.projects.create({ name: "Goal API project" });
+    const goal = await api.goals.create({ projectId: project.id, name: "Revenue" });
+    const kr = await api.keyResults.create({
+      goalId: goal.id,
+      name: "Sales",
+      measure: "USD",
+      targetValue: 100,
+      currentValue: 0,
+      calculationRule: "Verified sales",
+    });
+    expect(await api.goals.get({ id: goal.id })).toMatchObject({
+      id: goal.id,
+      projectId: project.id,
+    });
+    expect(await api.keyResults.update({ id: kr.id, currentValue: 25 })).toMatchObject({
+      currentValue: 25,
+    });
+    notify.mockClear();
+    await expect(
+      api.goals.create({ projectId: foreignProjectId, name: "Forbidden" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(notify).not.toHaveBeenCalled();
+    await api.projects.archive({ id: project.id });
+    expect(await api.goals.get({ id: goal.id })).toMatchObject({
+      archived: true,
+      archivedAt: null,
+    });
+    expect(await api.keyResults.get({ id: kr.id })).toMatchObject({
+      archived: true,
+      currentValue: 25,
+      archivedAt: null,
+    });
+    notify.mockClear();
+    await expect(api.goals.update({ id: goal.id, state: "achieved" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(api.keyResults.update({ id: kr.id, currentValue: 100 })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(
+      api.keyResults.create({
+        goalId: goal.id,
+        name: "Blocked",
+        measure: "USD",
+        targetValue: 1,
+        currentValue: 0,
+        calculationRule: "Verified",
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(api.goals.delete({ id: goal.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(api.keyResults.archive({ id: kr.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(api.keyResults.delete({ id: kr.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(notify).not.toHaveBeenCalled();
+    expect(await prisma.keyResult.findUnique({ where: { id: kr.id } })).toMatchObject({
+      currentValue: 25,
+      archivedAt: null,
+    });
+  });
 });

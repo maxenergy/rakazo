@@ -256,6 +256,7 @@ import { checkpointRunComputerWorkspace } from "./computer-workspace.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
+import { executeGoalTool, isGoalToolName } from "./goal-tools.js";
 import { handoffToGroupBot, loadGroupContext } from "./group-handoff.js";
 import {
   COMPACTION_BATCH_SIZE,
@@ -5367,6 +5368,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }),
             );
           }
+          if (isGoalToolName(name)) {
+            return finish(await executeGoalTool(deps, run.spaceId, name, args));
+          }
           if (name === "ticket_get") {
             return finish(
               await getTicket(deps, {
@@ -7700,7 +7704,9 @@ export function selectBuiltinToolsForRun(options: {
     (tool) =>
       !disabled.has(tool.name) &&
       (options.ticketBoardEnabled ||
-        (tool.name !== "board_tickets" && !tool.name.startsWith("ticket_"))) &&
+        (tool.name !== "board_tickets" &&
+          !tool.name.startsWith("ticket_") &&
+          !isGoalToolName(tool.name))) &&
       (!isBackgroundRunTrigger(options.trigger) ||
         !["message_user", "message_bot", "handoff_to_bot", "message_agent"].includes(tool.name)) &&
       (options.voiceCall || tool.name !== "end_call") &&
@@ -7717,7 +7723,8 @@ export function selectBuiltinToolsForRun(options: {
           "board_tickets",
         ].includes(tool.name) &&
           !tool.name.startsWith("scratchpad_") &&
-          !tool.name.startsWith("ticket_"))),
+          !tool.name.startsWith("ticket_") &&
+          !isGoalToolName(tool.name))),
   );
 }
 

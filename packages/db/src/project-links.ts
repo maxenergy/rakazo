@@ -140,6 +140,7 @@ export async function deleteMilestone(
   >`SELECT id FROM milestones WHERE id = ${milestoneId} AND "spaceId" = ${spaceId} AND "projectId" = ${candidate.projectId} FOR UPDATE`;
   if (!rows.length) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
   await tx.ticket.updateMany({ where: { spaceId, milestoneId }, data: { milestoneId: null } });
+  await tx.keyResult.updateMany({ where: { spaceId, milestoneId }, data: { milestoneId: null } });
   await tx.milestone.delete({ where: { id: milestoneId } });
 }
 

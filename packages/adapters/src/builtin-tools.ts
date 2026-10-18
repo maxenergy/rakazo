@@ -9,6 +9,7 @@ import {
 } from "@rakazo/contracts";
 import { z } from "zod";
 import { allowPrivateHttpSecretOrigins } from "./bot-secrets.js";
+import { goalToolInputs } from "./goal-tools.js";
 
 // The owner flag can land in process.env after static imports run (loadRootEnv
 // parses .env once the entry module is already executing), so the model-facing
@@ -145,6 +146,15 @@ const scheduleCreateInputSchema = {
 };
 
 export const builtinAgentTools: ConnectorTool[] = [
+  ...Object.entries(goalToolInputs).map(
+    ([name, schema]): ConnectorTool => ({
+      name,
+      description: `${name.replaceAll("_", " ")}. Goal/KR values and state require explicit updates; calculationRule describes how values are measured. Project progress never automatically achieves a KR.`,
+      inputSchema: z.toJSONSchema(schema, { io: "input" }),
+      readOnly: name.endsWith("_list") || name.endsWith("_get"),
+    }),
+  ),
+
   {
     name: "computer_observe",
     description:

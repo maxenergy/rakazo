@@ -452,7 +452,6 @@ it("keeps catalog order by default and selects the first cost-sorted model by ke
   }
 });
 
-
 it("shows personal billing alongside cost and limits for the selected model", async () => {
   const billing = "Uses your Amazon Bedrock API key. Rakazo does not pay for model usage.";
   models.list.mockResolvedValue([{ ...deepseekEntry, billing }]);

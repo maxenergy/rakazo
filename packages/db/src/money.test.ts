@@ -13,8 +13,7 @@ describe("decimalUsdToMicroUsd", () => {
     expect(decimalUsdToMicroUsd(input)).toBe(expected);
   });
 
-  it.each(["-1", "NaN", "Infinity", "", "1.2.3", "1e1001"])(
-    "rejects invalid amount %s",
-    (input) => expect(() => decimalUsdToMicroUsd(input)).toThrow(),
+  it.each(["-1", "NaN", "Infinity", "", "1.2.3", "1e1001"])("rejects invalid amount %s", (input) =>
+    expect(() => decimalUsdToMicroUsd(input)).toThrow(),
   );
 });

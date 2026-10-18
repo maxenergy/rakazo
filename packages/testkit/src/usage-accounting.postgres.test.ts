@@ -274,7 +274,9 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
           cacheWriteTokens: null,
           reasoningTokens: 10,
           totalTokens: 130,
-          costUsd: 0.00012,
+          costUsd: null,
+          costMicroUsd: null,
+          billingKind: "unknown",
           costSource: "provider-reported",
         });
       expect(rows.filter((row) => row.operationKind === "answer")).toHaveLength(4);
@@ -310,7 +312,9 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         inputTokens: 60,
         cacheReadTokens: 40,
         outputTokens: 30,
-        costUsd: 0.00012,
+        costUsd: null,
+        costMicroUsd: null,
+        billingKind: "unknown",
         runId: null,
       });
       expect(retained.filter((row) => row.parentRunId === first.runId)).toHaveLength(4);

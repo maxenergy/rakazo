@@ -1,5 +1,5 @@
-import type { Prisma } from "./client.js";
 import { lockBudgetCall } from "./budget-call-lock.js";
+import type { Prisma } from "./client.js";
 import { settleBudgetInTransaction } from "./project-budgets.js";
 
 interface UsageSettlement {
@@ -18,10 +18,20 @@ export async function reconcileUsageInTransaction(
   if (!usage.callId || usage.billingKind === "subscription_included") return;
   await lockBudgetCall(tx, usage.spaceId, usage.callId);
   await tx.$queryRaw`SELECT 1 FROM "usage_records" WHERE "spaceId" = ${usage.spaceId} AND "callId" = ${usage.callId} FOR UPDATE`;
-  const rows = await tx.$queryRaw<{ id: string; budgetId: string; amountMicroUsd: bigint; unreconciledAt: Date | null; status: string }[]>`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${usage.spaceId} AND "callId" = ${usage.callId} FOR UPDATE`;
+  const rows = await tx.$queryRaw<
+    {
+      id: string;
+      budgetId: string;
+      amountMicroUsd: bigint;
+      unreconciledAt: Date | null;
+      status: string;
+    }[]
+  >`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${usage.spaceId} AND "callId" = ${usage.callId} FOR UPDATE`;
   const reservation = rows[0];
   if (!reservation) return;
-  const budgets = await tx.$queryRaw<{ projectId: string }[]>`SELECT * FROM "project_budgets" WHERE "id" = ${reservation.budgetId} FOR UPDATE`;
+  const budgets = await tx.$queryRaw<
+    { projectId: string }[]
+  >`SELECT * FROM "project_budgets" WHERE "id" = ${reservation.budgetId} FOR UPDATE`;
   if (!budgets[0] || budgets[0].projectId !== usage.projectId) {
     throw new Error("Usage project conflicts with reservation attribution");
   }

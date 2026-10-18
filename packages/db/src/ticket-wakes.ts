@@ -1,5 +1,7 @@
 import type { Prisma, PrismaClient } from "./client.js";
 
+export const DEFAULT_TICKET_WAKE_MAX_ATTEMPTS = 5;
+
 export type ClaimedTicketWake = {
   id: string;
   spaceId: string;
@@ -44,18 +46,29 @@ export async function enqueueDependentWakes(
 export async function claimTicketWakes(
   prisma: PrismaClient,
   claimer: string,
-  options: { limit?: number; leaseMs?: number; now?: Date } = {},
+  options: { limit?: number; leaseMs?: number; now?: Date; maxAttempts?: number } = {},
 ): Promise<ClaimedTicketWake[]> {
+  const maxAttempts = options.maxAttempts ?? DEFAULT_TICKET_WAKE_MAX_ATTEMPTS;
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1) {
+    throw new Error("maxAttempts must be a positive safe integer");
+  }
   const limit = options.limit ?? 20;
   const now = options.now ?? new Date();
   const leaseExpiresAt = new Date(now.getTime() + (options.leaseMs ?? 60_000));
+  await prisma.$executeRaw`
+    UPDATE ticket_wakes
+    SET status = 'failed', "outcomeReason" = 'retry_limit_exceeded', "leaseExpiresAt" = NULL
+    WHERE attempts >= ${maxAttempts}
+      AND (status = 'pending' OR (status = 'claimed' AND "leaseExpiresAt" <= ${now}))
+  `;
   return prisma.$queryRaw<ClaimedTicketWake[]>`
     UPDATE ticket_wakes w
     SET status = 'claimed', "claimedBy" = ${claimer}, "leaseExpiresAt" = ${leaseExpiresAt},
         attempts = w.attempts + 1
     WHERE w.id IN (
       SELECT id FROM ticket_wakes
-      WHERE status = 'pending' OR (status = 'claimed' AND "leaseExpiresAt" <= ${now})
+      WHERE attempts < ${maxAttempts}
+        AND (status = 'pending' OR (status = 'claimed' AND "leaseExpiresAt" <= ${now}))
       ORDER BY "createdAt", id
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED

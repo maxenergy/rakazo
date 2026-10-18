@@ -1541,6 +1541,7 @@ model TicketWake {
   claimedBy               String?
   leaseExpiresAt          DateTime?
   attempts                Int       @default(0)
+  outcomeReason           String?
   createdAt               DateTime  @default(now())
   wokenAt                 DateTime?
   ticket                  Ticket    @relation("TicketWakes", fields: [spaceId, ticketId], references: [spaceId, id], onDelete: Cascade, onUpdate: Cascade)

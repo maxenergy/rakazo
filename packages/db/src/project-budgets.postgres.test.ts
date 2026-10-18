@@ -668,6 +668,17 @@ describePostgres("project budget reservations", () => {
       { costUsdDecimal: winningAmount === "0.25" ? "0.30" : "0.25" },
     ];
     const replays = await Promise.allSettled([
+      ...[
+        { runId: `conflicting-run-${projectId}` },
+        { parentRunId: `conflicting-parent-${projectId}` },
+        { rootRunId: `conflicting-root-${projectId}` },
+      ].map((change) =>
+        recordUsage(
+          prisma,
+          { ...event, costUsdDecimal: winningAmount },
+          { ...attribution, ...change },
+        ),
+      ),
       ...conflicts.map((change) =>
         recordUsage(prisma, { ...event, costUsdDecimal: winningAmount, ...change }, attribution),
       ),

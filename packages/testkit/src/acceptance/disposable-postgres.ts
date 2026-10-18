@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Pool } from "pg";
+import { endPool, trackPool } from "./pool-lifecycle.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -58,10 +59,12 @@ async function freePort(): Promise<number> {
 async function waitReady(port: number): Promise<void> {
   const deadline = Date.now() + 30_000;
   for (;;) {
-    const pool = new Pool({
-      connectionString: `postgres://postgres@127.0.0.1:${port}/postgres`,
-      max: 1,
-    });
+    const pool = trackPool(
+      new Pool({
+        connectionString: `postgres://postgres@127.0.0.1:${port}/postgres`,
+        max: 1,
+      }),
+    );
     try {
       await pool.query("SELECT 1");
       return;
@@ -69,7 +72,7 @@ async function waitReady(port: number): Promise<void> {
       if (Date.now() > deadline) throw error;
       await new Promise((resolve) => setTimeout(resolve, 100));
     } finally {
-      await pool.end().catch(() => undefined);
+      await endPool(pool).catch(() => undefined);
     }
   }
 }
@@ -118,7 +121,9 @@ export async function startDisposableCluster(
 
   await startServer();
   const admin = () =>
-    new Pool({ connectionString: `postgres://postgres@127.0.0.1:${port}/postgres`, max: 1 });
+    trackPool(
+      new Pool({ connectionString: `postgres://postgres@127.0.0.1:${port}/postgres`, max: 1 }),
+    );
   const url = (database = "postgres") => `postgres://postgres@127.0.0.1:${port}/${database}`;
 
   const assertName = (database: string) => {
@@ -138,7 +143,7 @@ export async function startDisposableCluster(
       try {
         await pool.query(`CREATE DATABASE "${database}"`);
       } finally {
-        await pool.end();
+        await endPool(pool);
       }
       return database;
     },
@@ -148,7 +153,7 @@ export async function startDisposableCluster(
       try {
         await pool.query(`DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`);
       } finally {
-        await pool.end();
+        await endPool(pool);
       }
     },
     async migrate(database) {

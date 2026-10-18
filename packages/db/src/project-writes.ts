@@ -1,4 +1,5 @@
 import type { Prisma } from "./client.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { isProjectItemArchived, ProjectLinkError } from "./project-links.js";
 
 async function lockProject(
@@ -7,6 +8,7 @@ async function lockProject(
   id: string,
   shared = false,
 ) {
+  await lockTicketSpace(tx, spaceId);
   const rows = shared
     ? await tx.$queryRaw<
         { id: string; archivedAt: Date | null }[]
@@ -23,6 +25,7 @@ export async function createProject(
   spaceId: string,
   input: { name: string; description?: string },
 ) {
+  await lockTicketSpace(tx, spaceId);
   return tx.project.create({ data: { spaceId, ...input } });
 }
 
@@ -54,6 +57,7 @@ export async function updateMilestone(
   spaceId: string,
   input: { id: string; name?: string; description?: string | null; dueAt?: string | null },
 ) {
+  await lockTicketSpace(tx, spaceId);
   const candidate = await tx.milestone.findFirst({ where: { id: input.id, spaceId } });
   if (!candidate) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
   await lockProject(tx, spaceId, candidate.projectId);

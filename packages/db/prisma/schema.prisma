@@ -1501,7 +1501,10 @@ model Ticket {
   updatedAt       DateTime        @updatedAt
   completedAt     DateTime?
   comments        TicketComment[]
+  dependencies    TicketDependency[] @relation("TicketDependencies")
+  dependents      TicketDependency[] @relation("TicketDependents")
 
+  @@unique([spaceId, id])
   @@unique([boardId, number])
   @@unique([spaceId, id])
   @@index([spaceId, projectId, status])
@@ -1509,6 +1512,18 @@ model Ticket {
   @@index([spaceId, status])
   @@index([boardId, status])
   @@map("tickets")
+}
+
+model TicketDependency {
+  spaceId        String
+  ticketId       String
+  prerequisiteId String
+  ticket         Ticket @relation("TicketDependencies", fields: [spaceId, ticketId], references: [spaceId, id], onDelete: Cascade, onUpdate: Cascade)
+  prerequisite   Ticket @relation("TicketDependents", fields: [spaceId, prerequisiteId], references: [spaceId, id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([spaceId, ticketId, prerequisiteId])
+  @@index([spaceId, prerequisiteId])
+  @@map("ticket_dependencies")
 }
 
 model TicketComment {

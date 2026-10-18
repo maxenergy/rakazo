@@ -1,4 +1,5 @@
 import type { Prisma } from "./client.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 
 export class ProjectLinkError extends Error {
   constructor(
@@ -26,6 +27,7 @@ export async function resolveTicketLinks(
   current: TicketLinks,
   patch: TicketLinkPatch,
 ): Promise<TicketLinks> {
+  await lockTicketSpace(tx, spaceId);
   let projectId = patch.projectId === undefined ? current.projectId : patch.projectId;
   let milestoneId = patch.milestoneId === undefined ? current.milestoneId : patch.milestoneId;
   if (patch.projectId === null) {
@@ -73,6 +75,7 @@ export async function archiveProject(
   spaceId: string,
   projectId: string,
 ) {
+  await lockTicketSpace(tx, spaceId);
   const rows = await tx.$queryRaw<
     { id: string; archivedAt: Date | null }[]
   >`SELECT id, "archivedAt" FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
@@ -87,6 +90,7 @@ export async function archiveMilestone(
   spaceId: string,
   milestoneId: string,
 ) {
+  await lockTicketSpace(tx, spaceId);
   const candidate = await tx.milestone.findFirst({ where: { id: milestoneId, spaceId } });
   if (!candidate) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
   const projects = await tx.$queryRaw<
@@ -109,6 +113,7 @@ export async function deleteProject(
   spaceId: string,
   projectId: string,
 ) {
+  await lockTicketSpace(tx, spaceId);
   const rows = await tx.$queryRaw<
     { id: string }[]
   >`SELECT id FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
@@ -126,6 +131,7 @@ export async function deleteMilestone(
   spaceId: string,
   milestoneId: string,
 ) {
+  await lockTicketSpace(tx, spaceId);
   const candidate = await tx.milestone.findFirst({ where: { id: milestoneId, spaceId } });
   if (!candidate) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
   await tx.$queryRaw`SELECT id FROM projects WHERE id = ${candidate.projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
@@ -145,6 +151,7 @@ export async function lockTicketForLinkUpdate(
   ticketId: string,
   patch: TicketLinkPatch,
 ) {
+  await lockTicketSpace(tx, spaceId);
   const where = { id: ticketId, spaceId, boardId };
   const changesLinks = patch.projectId !== undefined || patch.milestoneId !== undefined;
   const candidate = changesLinks ? await tx.ticket.findFirst({ where }) : null;

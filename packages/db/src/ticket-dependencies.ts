@@ -1,9 +1,11 @@
+import { isTicketCompletedStatus, TicketStatusSchema } from "@rakazo/contracts";
 import type { Prisma } from "./client.js";
 import { isProjectItemArchived, ProjectLinkError } from "./project-links.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 
 export function isTicketComplete(status: string): boolean {
-  return status === "done" || status === "closed";
+  const parsed = TicketStatusSchema.safeParse(status);
+  return parsed.success && isTicketCompletedStatus(parsed.data);
 }
 
 /** The caller owns the transaction; acquire this lock before any row lock. */

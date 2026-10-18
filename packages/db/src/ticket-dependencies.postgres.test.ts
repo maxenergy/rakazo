@@ -60,6 +60,7 @@ describePostgres("ticket dependency transactions", () => {
   async function contend(
     holder: (tx: Prisma.TransactionClient) => Promise<unknown>,
     contender: (tx: Prisma.TransactionClient) => Promise<unknown>,
+    isolationLevel: Prisma.TransactionIsolationLevel = "ReadCommitted",
   ) {
     let release!: () => void;
     let held!: () => void;
@@ -79,7 +80,7 @@ describePostgres("ticket dependency transactions", () => {
         held();
         await gate;
       },
-      { timeout: 10000 },
+      { timeout: 10000, isolationLevel },
     );
     const firstResult = first.then(
       () => ({ status: "fulfilled" as const }),
@@ -99,7 +100,7 @@ describePostgres("ticket dependency transactions", () => {
           identify(row!.pid);
           return contender(tx);
         },
-        { timeout: 10000 },
+        { timeout: 10000, isolationLevel },
       );
       secondResult = second.then(
         (value) => ({ status: "fulfilled" as const, value }),
@@ -146,6 +147,45 @@ describePostgres("ticket dependency transactions", () => {
       await prisma.ticketDependency.count({ where: { spaceId, ticketId: { in: [a.id, b.id] } } }),
     ).toBe(1);
   });
+
+  it("prevents opposing edges with a preexisting RepeatableRead snapshot", async () => {
+    const a = await ticket();
+    const b = await ticket();
+    const results = await contend(
+      (tx) => addTicketDependency(tx, spaceId, a.id, b.id),
+      (tx) => addTicketDependency(tx, spaceId, b.id, a.id),
+      "RepeatableRead",
+    );
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(
+      await prisma.ticketDependency.count({
+        where: { spaceId, ticketId: { in: [a.id, b.id] } },
+      }),
+    ).toBe(1);
+  });
+
+  it.each(["archive", "delete"])(
+    "rejects stale RepeatableRead dependency writes after project %s",
+    async (action) => {
+      const project = await prisma.project.create({ data: { spaceId, name: "Snapshot race" } });
+      const upstream = await ticket();
+      const downstream = await ticket();
+      await prisma.ticket.update({ where: { id: upstream.id }, data: { projectId: project.id } });
+      const results = await contend(
+        (tx) =>
+          action === "archive"
+            ? archiveProject(tx, spaceId, project.id)
+            : deleteProject(tx, spaceId, project.id),
+        (tx) => addTicketDependency(tx, spaceId, downstream.id, upstream.id),
+        "RepeatableRead",
+      );
+      expect(results[0].status).toBe("fulfilled");
+      expect(results[1].status).toBe("rejected");
+      expect(
+        await prisma.ticketDependency.count({ where: { spaceId, ticketId: downstream.id } }),
+      ).toBe(0);
+    },
+  );
 
   it.each(["archive", "delete"])(
     "serializes dependency creation after project %s",

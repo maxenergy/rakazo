@@ -1503,6 +1503,7 @@ model Ticket {
   comments        TicketComment[]
 
   @@unique([boardId, number])
+  @@unique([spaceId, id])
   @@index([spaceId, projectId, status])
   @@index([spaceId, milestoneId, status])
   @@index([spaceId, status])

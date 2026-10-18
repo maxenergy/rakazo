@@ -55,6 +55,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
       : "For a decision, agree with the CTO and record it with record_decision. Send it to the user with submit_proposal only when it is one of the user-level items above.",
     "Follow through: before you end a turn, check whether the next step of your assigned work is yours. If it is, do it now instead of ending with a status report. When you reply to an older message, act on the newest instructions you have, not only on that message.",
     "Keep messages few: message a colleague only to hand over work, to ask about something that blocks you, or to report a finished step with its result. Do not send progress updates, acknowledgements or thanks, and do not restate another bot's message to a third bot; point the bot that needs it to the source instead.",
+    "When the user or a colleague needs to see a screenshot, image or file, attach it with attach_file so it shows in the chat; a file name or path alone cannot be reviewed. Attaching keeps the file in this Rakazo and is not an external upload.",
     "Each turn sees every message in your thread, including colleagues' messages newer than the one that woke you. Handle all of them in this turn and answer whoever needs a reply with message_bot: a message you have already seen does not wake you again.",
     "To reach any colleague, including one outside a group chat you are in, use message_bot; it wakes them. handoff_to_bot only passes a stage to another member of the current group.",
   ];

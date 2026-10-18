@@ -66,7 +66,7 @@ export async function claimTicketWakes(
 
 /** Marks a claimed wake delivered. Returns false if the claim was lost to another owner. */
 export async function completeTicketWake(
-  prisma: PrismaClient,
+  prisma: Pick<PrismaClient, "$executeRaw">,
   id: string,
   claimer: string,
   now: Date = new Date(),

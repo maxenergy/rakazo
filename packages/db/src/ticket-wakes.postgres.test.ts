@@ -8,6 +8,14 @@ import { claimTicketWakes, completeTicketWake, enqueueDependentWakes } from "./t
 const databaseUrl = process.env.DATABASE_URL;
 const describePostgres =
   process.env.VERIFY_DATABASE && databaseUrl ? describe.sequential : describe.skip;
+
+if (process.env.VERIFY_DATABASE && !databaseUrl) {
+  describe("durable ticket wakes (PostgreSQL required)", () => {
+    it("has DATABASE_URL", () => {
+      throw new Error("VERIFY_DATABASE is set but DATABASE_URL is not; wake tests must not skip");
+    });
+  });
+}
 describePostgres("durable ticket wakes", () => {
   let prisma: PrismaClient;
   let close: () => Promise<void>;

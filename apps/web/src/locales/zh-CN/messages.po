@@ -162,6 +162,10 @@ msgstr "{name} 已停止"
 msgid "{price} USD / million tokens"
 msgstr "{price} 美元 / 百万 token"
 
+#: src/lib/model-catalog.ts
+msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+msgstr "Rakazo 界面暂不支持 {provider} 订阅登录。如果此部署已配置凭据，可以跳过。"
+
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "剩余 {remaining} · Bot 只看不操作"
@@ -1166,6 +1170,10 @@ msgstr "请在服务器上配置插件目录以连接应用。"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "由部署配置"
+
+#: src/lib/model-catalog.ts
+msgid "Configured model: {provider}"
+msgstr "已配置模型：{provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -3189,6 +3197,10 @@ msgstr "还没有与 {peerBotName} 的消息。"
 msgid "No model catalog is available."
 msgstr "没有可用的模型目录。"
 
+#: src/lib/model-catalog.ts
+msgid "No model charges. Deterministic fixture for tests."
+msgstr "不产生模型费用。用于测试的确定性模拟。"
+
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
 msgstr "未列出模型。"
@@ -3954,6 +3966,14 @@ msgstr "运行中 · 停止"
 msgid "Running…"
 msgstr "正在运行…"
 
+#: src/lib/model-catalog.ts
+msgid "Runs on a URL you control. Rakazo does not pay for model usage."
+msgstr "在你控制的 URL 上运行。Rakazo 不承担模型使用费用。"
+
+#: src/lib/model-catalog.ts
+msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
+msgstr "在部署所有者配置的基础设施上运行。Rakazo 不收取模型费用。"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "此机器人收到来自该提供商的已验证消息时运行。"
@@ -4252,6 +4272,14 @@ msgstr "请登录现有账户以关联 SSO"
 #: src/lib/localized-provider-hint.ts
 msgid "Sign in with {provider}"
 msgstr "使用 {provider} 登录"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
+msgstr "使用 {provider} 登录并使用你的订阅。Rakazo 不承担费用。"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
+msgstr "使用 SuperGrok 或 X Premium 登录，或粘贴 xAI API 密钥。Rakazo 不承担费用。"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
@@ -4864,6 +4892,10 @@ msgstr "用户名"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "使用此服务器自己的 {hostCredentialSource} 凭据访问 {selectedProviderName}。"
+
+#: src/lib/model-catalog.ts
+msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
+msgstr "使用你的 {provider} API 密钥。Rakazo 不承担模型使用费用。"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"

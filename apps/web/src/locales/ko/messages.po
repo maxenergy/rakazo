@@ -162,6 +162,10 @@ msgstr "{name} 중지됨"
 msgid "{price} USD / million tokens"
 msgstr "백만 토큰당 {price} USD"
 
+#: src/lib/model-catalog.ts
+msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+msgstr "Rakazo에서 {provider} 구독 로그인은 아직 지원하지 않습니다. 이 배포에 인증 정보가 이미 있다면 건너뛰세요."
+
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "남은 시간 {remaining} · Bot은 화면만 보고 직접 조작하지 않습니다"
@@ -1166,6 +1170,10 @@ msgstr "앱을 연결하려면 서버에 플러그인 카탈로그를 설정하�
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "서버에서 설정됨"
+
+#: src/lib/model-catalog.ts
+msgid "Configured model: {provider}"
+msgstr "설정된 모델: {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -3189,6 +3197,10 @@ msgstr "{peerBotName}와의 메시지가 아직 없습니다."
 msgid "No model catalog is available."
 msgstr "사용 가능한 모델 목록이 없습니다."
 
+#: src/lib/model-catalog.ts
+msgid "No model charges. Deterministic fixture for tests."
+msgstr "모델 요금이 없습니다. 테스트용 결정론적 시뮬레이션입니다."
+
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
 msgstr "나열된 모델이 없습니다."
@@ -3954,6 +3966,14 @@ msgstr "실행 중 · 중지"
 msgid "Running…"
 msgstr "실행 중…"
 
+#: src/lib/model-catalog.ts
+msgid "Runs on a URL you control. Rakazo does not pay for model usage."
+msgstr "사용자가 제어하는 URL에서 실행됩니다. Rakazo는 모델 사용료를 지불하지 않습니다."
+
+#: src/lib/model-catalog.ts
+msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
+msgstr "배포 소유자가 설정한 인프라에서 실행됩니다. Rakazo에서 모델 요금을 부과하지 않습니다."
+
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "이 봇이 해당 제공업체에서 검증된 메시지를 받으면 실행됩니다."
@@ -4252,6 +4272,14 @@ msgstr "SSO를 연결하려면 기존 계정에 로그인하세요"
 #: src/lib/localized-provider-hint.ts
 msgid "Sign in with {provider}"
 msgstr "{provider}(으)로 로그인"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
+msgstr "{provider}(으)로 로그인하여 구독을 사용합니다. Rakazo는 비용을 지불하지 않습니다."
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
+msgstr "SuperGrok 또는 X Premium으로 로그인하거나 xAI API 키를 붙여넣으세요. Rakazo는 비용을 지불하지 않습니다."
 
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
@@ -4864,6 +4892,10 @@ msgstr "사용자 이름"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "이 서버의 자체 {hostCredentialSource} 자격 증명으로 {selectedProviderName}에 액세스합니다."
+
+#: src/lib/model-catalog.ts
+msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
+msgstr "사용자의 {provider} API 키를 사용합니다. Rakazo는 모델 사용료를 지불하지 않습니다."
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"

@@ -162,6 +162,10 @@ msgstr "{name} रोक दिया गया"
 msgid "{price} USD / million tokens"
 msgstr "{price} USD / दस लाख टोकन"
 
+#: src/lib/model-catalog.ts
+msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+msgstr "{provider} सदस्यता से लॉगिन अभी Rakazo में उपलब्ध नहीं है। इस डिप्लॉयमेंट में क्रेडेंशियल पहले से हों तो छोड़ें।"
+
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "{remaining} शेष · बॉट देख रहा है, कार्रवाई नहीं कर रहा"
@@ -1166,6 +1170,10 @@ msgstr "ऐप कनेक्ट करने के लिए सर्वर 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "डिप्लॉयमेंट द्वारा कॉन्फ़िगर"
+
+#: src/lib/model-catalog.ts
+msgid "Configured model: {provider}"
+msgstr "कॉन्फ़िगर किया गया मॉडल: {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -3189,6 +3197,10 @@ msgstr "{peerBotName} के साथ अभी कोई संदेश न�
 msgid "No model catalog is available."
 msgstr "कोई मॉडल कैटलॉग उपलब्ध नहीं है।"
 
+#: src/lib/model-catalog.ts
+msgid "No model charges. Deterministic fixture for tests."
+msgstr "मॉडल का कोई शुल्क नहीं। टेस्ट के लिए निश्चित सिमुलेशन।"
+
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
 msgstr "कोई मॉडल सूचीबद्ध नहीं।"
@@ -3954,6 +3966,14 @@ msgstr "चल रहा है · रोकें"
 msgid "Running…"
 msgstr "चल रहा है…"
 
+#: src/lib/model-catalog.ts
+msgid "Runs on a URL you control. Rakazo does not pay for model usage."
+msgstr "आपके नियंत्रित URL पर चलता है। Rakazo मॉडल इस्तेमाल का खर्च नहीं देता।"
+
+#: src/lib/model-catalog.ts
+msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
+msgstr "डिप्लॉयमेंट मालिक की कॉन्फ़िगर की गई संरचना पर चलता है। Rakazo मॉडल का शुल्क नहीं लेता।"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "यह बॉट इस प्रदाता से सत्यापित संदेश मिलने पर चलता है।"
@@ -4252,6 +4272,14 @@ msgstr "SSO लिंक करने के लिए अपने मौजू
 #: src/lib/localized-provider-hint.ts
 msgid "Sign in with {provider}"
 msgstr "{provider} से साइन-इन करें"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
+msgstr "{provider} से साइन-इन करके अपनी सदस्यता इस्तेमाल करें। Rakazo खर्च नहीं देता।"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
+msgstr "SuperGrok या X Premium से साइन-इन करें, या xAI API कुंजी पेस्ट करें। Rakazo खर्च नहीं देता।"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
@@ -4864,6 +4892,10 @@ msgstr "यूज़रनेम"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "{selectedProviderName} तक पहुँचने के लिए इस सर्वर के अपने {hostCredentialSource} क्रेडेंशियल का उपयोग करता है।"
+
+#: src/lib/model-catalog.ts
+msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
+msgstr "आपकी {provider} API कुंजी इस्तेमाल करता है। Rakazo मॉडल इस्तेमाल का खर्च नहीं देता।"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"

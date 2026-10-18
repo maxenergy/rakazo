@@ -162,6 +162,10 @@ msgstr "{name} stopped"
 msgid "{price} USD / million tokens"
 msgstr "{price} USD / million tokens"
 
+#: src/lib/model-catalog.ts
+msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+msgstr "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "{remaining} left · bot is watching, not acting"
@@ -1166,6 +1170,10 @@ msgstr "Configure a plugin catalog on the server to connect apps."
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "Configured by deployment"
+
+#: src/lib/model-catalog.ts
+msgid "Configured model: {provider}"
+msgstr "Configured model: {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -3189,6 +3197,10 @@ msgstr "No messages with {peerBotName} yet."
 msgid "No model catalog is available."
 msgstr "No model catalog is available."
 
+#: src/lib/model-catalog.ts
+msgid "No model charges. Deterministic fixture for tests."
+msgstr "No model charges. Deterministic fixture for tests."
+
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
 msgstr "No models listed."
@@ -3954,6 +3966,14 @@ msgstr "Running · Stop"
 msgid "Running…"
 msgstr "Running…"
 
+#: src/lib/model-catalog.ts
+msgid "Runs on a URL you control. Rakazo does not pay for model usage."
+msgstr "Runs on a URL you control. Rakazo does not pay for model usage."
+
+#: src/lib/model-catalog.ts
+msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
+msgstr "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
+
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "Runs when this bot receives a verified message from this provider."
@@ -4252,6 +4272,14 @@ msgstr "Sign in to your existing account to link SSO"
 #: src/lib/localized-provider-hint.ts
 msgid "Sign in with {provider}"
 msgstr "Sign in with {provider}"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
+msgstr "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
+msgstr "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
 
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
@@ -4864,6 +4892,10 @@ msgstr "Username"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
+
+#: src/lib/model-catalog.ts
+msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
+msgstr "Uses your {provider} API key. Rakazo does not pay for model usage."
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"

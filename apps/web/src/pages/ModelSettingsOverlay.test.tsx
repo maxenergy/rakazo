@@ -459,7 +459,7 @@ it("shows personal billing alongside cost and limits for the selected model", as
   try {
     expect(view.container.textContent).toContain(billing);
     expect(view.container.textContent).toContain("Cost unknown");
-    expect(view.container.textContent).toContain("Limits unknown");
+    expect(view.container.textContent).toContain("Context window: Unknown");
   } finally {
     await view.unmount();
   }

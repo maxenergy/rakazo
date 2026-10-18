@@ -162,6 +162,10 @@ msgstr "{name} arrêté"
 msgid "{price} USD / million tokens"
 msgstr "{price} USD / million de tokens"
 
+#: src/lib/model-catalog.ts
+msgid "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials."
+msgstr "La connexion avec un abonnement {provider} n’est pas encore disponible dans Rakazo. Ignorez cette étape si ce déploiement possède déjà des identifiants."
+
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "{remaining} restant · le bot observe, il n'agit pas"
@@ -1166,6 +1170,10 @@ msgstr "Configurez un catalogue de plugins sur le serveur pour connecter des app
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Configured by deployment"
 msgstr "Configuré par le déploiement"
+
+#: src/lib/model-catalog.ts
+msgid "Configured model: {provider}"
+msgstr "Modèle configuré : {provider}"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
@@ -3189,6 +3197,10 @@ msgstr "Aucun message avec {peerBotName} pour le moment."
 msgid "No model catalog is available."
 msgstr "Aucun catalogue de modèles disponible."
 
+#: src/lib/model-catalog.ts
+msgid "No model charges. Deterministic fixture for tests."
+msgstr "Aucun coût de modèle. Simulation déterministe pour les tests."
+
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
 msgstr "Aucun modèle listé."
@@ -3954,6 +3966,14 @@ msgstr "En cours · Arrêter"
 msgid "Running…"
 msgstr "Exécution en cours…"
 
+#: src/lib/model-catalog.ts
+msgid "Runs on a URL you control. Rakazo does not pay for model usage."
+msgstr "Fonctionne sur une URL que vous contrôlez. Rakazo ne paie pas l’utilisation du modèle."
+
+#: src/lib/model-catalog.ts
+msgid "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo."
+msgstr "Fonctionne sur l’infrastructure configurée par le propriétaire du déploiement. Aucun coût de modèle facturé par Rakazo."
+
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "S'exécute lorsque ce bot reçoit un message vérifié de ce fournisseur."
@@ -4252,6 +4272,14 @@ msgstr "Connectez-vous à votre compte existant pour associer SSO"
 #: src/lib/localized-provider-hint.ts
 msgid "Sign in with {provider}"
 msgstr "Se connecter avec {provider}"
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with {provider}. Uses your subscription. Rakazo does not pay."
+msgstr "Connectez-vous avec {provider} pour utiliser votre abonnement. Rakazo ne paie pas."
+
+#: src/lib/model-catalog.ts
+msgid "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay."
+msgstr "Connectez-vous avec SuperGrok ou X Premium, ou collez une clé API xAI. Rakazo ne paie pas."
 
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
@@ -4864,6 +4892,10 @@ msgstr "Nom d’utilisateur"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "Utilise les identifiants {hostCredentialSource} propres à ce serveur pour accéder à {selectedProviderName}."
+
+#: src/lib/model-catalog.ts
+msgid "Uses your {provider} API key. Rakazo does not pay for model usage."
+msgstr "Utilise votre clé API {provider}. Rakazo ne paie pas l’utilisation du modèle."
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"

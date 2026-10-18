@@ -8,19 +8,32 @@ import { getLogger } from "@rakazo/logging";
 type WakeInput = { spaceId: string; ticketId: string; botId: string };
 
 /** Creates the queued task and run for a ticket's current owner; null if nothing to wake. */
-async function createTicketWakeRun(tx: Prisma.TransactionClient, input: WakeInput) {
+async function createTicketWakeRun(
+  tx: Prisma.TransactionClient,
+  input: WakeInput,
+  noRun?: (reason: string) => void,
+) {
   const ticket = await tx.ticket.findFirst({
     where: { id: input.ticketId, spaceId: input.spaceId, assigneeBotId: input.botId },
     include: { board: { select: { ticketPrefix: true } } },
   });
-  if (!ticket) return null;
+  if (!ticket) {
+    noRun?.("ticket_missing_or_reassigned");
+    return null;
+  }
   const status = TicketStatusSchema.safeParse(ticket.status);
-  if (!status.success || isTicketCompletedStatus(status.data)) return null;
+  if (!status.success || isTicketCompletedStatus(status.data)) {
+    noRun?.("ticket_not_actionable");
+    return null;
+  }
   const bot = await tx.bot.findFirst({
     where: { id: input.botId, spaceId: input.spaceId, archivedAt: null },
     select: { id: true, userId: true, thread: { select: { id: true } } },
   });
-  if (!bot?.thread) return null;
+  if (!bot?.thread) {
+    noRun?.(bot ? "assignee_thread_missing" : "assignee_unavailable");
+    return null;
+  }
   const task = await tx.task.create({
     data: {
       spaceId: input.spaceId,
@@ -69,7 +82,7 @@ export async function wakeTicketAssignee(
  */
 export async function reconcileTicketWakes(
   deps: { prisma: PrismaClient; jobs: JobPublisher; ticketBoardEnabled?: boolean },
-  options: { claimer: string; limit?: number; leaseMs?: number; now?: Date },
+  options: { claimer: string; limit?: number; leaseMs?: number; now?: Date; maxAttempts?: number },
 ): Promise<number> {
   if (!deps.ticketBoardEnabled) return 0;
   const wakes = await claimTicketWakes(deps.prisma, options.claimer, options);
@@ -83,16 +96,31 @@ export async function reconcileTicketWakes(
           where: { id: wake.ticketId, spaceId: wake.spaceId },
           select: { assigneeBotId: true },
         });
-        if (!ticket?.assigneeBotId) return null;
-        return createTicketWakeRun(tx, {
-          spaceId: wake.spaceId,
-          ticketId: wake.ticketId,
-          botId: ticket.assigneeBotId,
-        });
+        let reason = ticket ? "unassigned" : "ticket_missing";
+        const created = ticket?.assigneeBotId
+          ? await createTicketWakeRun(
+              tx,
+              {
+                spaceId: wake.spaceId,
+                ticketId: wake.ticketId,
+                botId: ticket.assigneeBotId,
+              },
+              (value) => {
+                reason = value;
+              },
+            )
+          : null;
+        if (!created) {
+          await tx.ticketWake.update({
+            where: { id: wake.id },
+            data: { status: "skipped", wokenAt: null, outcomeReason: reason },
+          });
+        }
+        return created;
       });
-      if (run === undefined) continue;
+      if (!run) continue;
       delivered += 1;
-      if (run) await enqueueTicketWakeRun(deps.jobs, run.id);
+      await enqueueTicketWakeRun(deps.jobs, run.id);
     } catch (error) {
       getLogger().error("ticket wake delivery", error);
     }

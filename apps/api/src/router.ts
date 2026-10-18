@@ -4026,7 +4026,7 @@ export function createRouter(deps: RouterDeps) {
           where: { id: input.projectId, spaceId },
           select: { id: true },
         });
-        if (!project) throw new ORPCError("NOT_FOUND");
+        if (!project) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
         const budget = await deps.prisma.projectBudget.findUnique({
           where: { spaceId_projectId: { spaceId, projectId: input.projectId } },
         });
@@ -4046,7 +4046,7 @@ export function createRouter(deps: RouterDeps) {
           where: { id: input.projectId, spaceId },
           select: { id: true },
         });
-        if (!project) throw new ORPCError("NOT_FOUND");
+        if (!project) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
         const budget = await setProjectBudget(deps.prisma, {
           spaceId,
           projectId: input.projectId,

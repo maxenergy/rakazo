@@ -182,8 +182,8 @@ import {
 } from "./bot-messages.js";
 import {
   listConnectedBotModels,
-  recommendModelFromTool,
   parseBotModelSelection,
+  recommendModelFromTool,
   setBotModelFromTool,
   validateBotModelSelection,
 } from "./bot-model-tools.js";

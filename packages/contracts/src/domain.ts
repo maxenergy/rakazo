@@ -1,4 +1,3 @@
-import { ModelCapabilitiesSchema } from "./model-capabilities.js";
 import * as z from "zod";
 import { AGENT_SECRET_NAME_PATTERN } from "./agent-secret-name.js";
 import { BotAvatarValueSchema } from "./bot-avatar.js";
@@ -11,6 +10,7 @@ import {
 import { ThreadMessageSchema } from "./events.js";
 import { Id, MemoryScope, RunStatus, SandboxKind } from "./ids.js";
 import { McpHeadersSchema, McpRemoteEndpointSchema, McpTransportSchema } from "./mcp.js";
+import { ModelCapabilitiesSchema } from "./model-capabilities.js";
 import { BOT_TEAM_MAX_LENGTH, BotOrgRoleSchema } from "./org.js";
 import { RunTriggerSchema } from "./runs.js";
 

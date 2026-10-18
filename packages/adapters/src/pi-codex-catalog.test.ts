@@ -979,23 +979,25 @@ describe("applyCodexLiveCatalog", () => {
     expect(staticEntry).not.toHaveProperty("reasoning");
   });
 
-  it.each([
-    { reasoningEfforts: ["low", "high"] },
-    { reasoningEfforts: ["mystery-effort"] },
-  ])("records live reasoning capability for $reasoningEfforts", ({ reasoningEfforts }) => {
-    const id = "gpt-6.1-sol";
-    const merged = applyCodexLiveCatalog(
-      base,
-      oauthAuth,
-      liveFor({ "secret-a": [liveModel(id, { reasoningEfforts })] }),
-    );
-    const entry = merged.find((item) => item.provider === CHATGPT_OAUTH_PROVIDER && item.id === id);
-    expect(entry?.reasoning).toBe(true);
-    expect(entry?.capabilities?.reasoning).toEqual({
-      value: true,
-      source: "codex-live-catalog",
-    });
-  });
+  it.each([{ reasoningEfforts: ["low", "high"] }, { reasoningEfforts: ["mystery-effort"] }])(
+    "records live reasoning capability for $reasoningEfforts",
+    ({ reasoningEfforts }) => {
+      const id = "gpt-6.1-sol";
+      const merged = applyCodexLiveCatalog(
+        base,
+        oauthAuth,
+        liveFor({ "secret-a": [liveModel(id, { reasoningEfforts })] }),
+      );
+      const entry = merged.find(
+        (item) => item.provider === CHATGPT_OAUTH_PROVIDER && item.id === id,
+      );
+      expect(entry?.reasoning).toBe(true);
+      expect(entry?.capabilities?.reasoning).toEqual({
+        value: true,
+        source: "codex-live-catalog",
+      });
+    },
+  );
 
   it.each([true, false])(
     "preserves image capability evidence when capabilities are present: %s",

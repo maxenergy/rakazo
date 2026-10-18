@@ -1,9 +1,9 @@
-import { recommendModels } from "@rakazo/core";
-import { z } from "zod";
 import type { Actor } from "@rakazo/contracts";
 import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@rakazo/contracts";
+import { recommendModels } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { findModelCredential } from "@rakazo/db";
+import { z } from "zod";
 import {
   isCatalogModelChoice,
   modelCredentialAuthKindsForSpace,
@@ -122,20 +122,36 @@ async function connectedModelCandidates(deps: BotModelDeps, scope: BotModelScope
 
 export async function listConnectedBotModels(deps: BotModelDeps, scope: BotModelScope) {
   const { models } = await connectedModelCandidates(deps, scope);
-  return { models: models.map(({ provider, providerName, id, label }) => ({ provider, providerName, id, label })) };
+  return {
+    models: models.map(({ provider, providerName, id, label }) => ({
+      provider,
+      providerName,
+      id,
+      label,
+    })),
+  };
 }
 
-const requirementsSchema = z.object({
-  capabilities: z.array(z.enum(["imageInput", "reasoning"])).optional(),
-  contextWindow: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
-  maxTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
-  workload: z.object({
-    inputTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-    outputTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  }).strict().optional(),
-}).strict();
+const requirementsSchema = z
+  .object({
+    capabilities: z.array(z.enum(["imageInput", "reasoning"])).optional(),
+    contextWindow: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    maxTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    workload: z
+      .object({
+        inputTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        outputTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
-export async function recommendModelFromTool(deps: BotModelDeps, scope: BotModelScope, args: Record<string, unknown>) {
+export async function recommendModelFromTool(
+  deps: BotModelDeps,
+  scope: BotModelScope,
+  args: Record<string, unknown>,
+) {
   const parsed = requirementsSchema.safeParse(args);
   if (!parsed.success) return { error: "Invalid model requirements or token workload" };
   const { models } = await connectedModelCandidates(deps, scope);

@@ -3,7 +3,11 @@ import { catalogMetadata } from "./pi-catalog-metadata.js";
 
 describe("catalog metadata normalization", () => {
   it("leaves missing metadata unknown", () => {
-    expect(catalogMetadata({})).toMatchObject({ pricing: null, contextWindow: null, maxTokens: null });
+    expect(catalogMetadata({})).toMatchObject({
+      pricing: null,
+      contextWindow: null,
+      maxTokens: null,
+    });
   });
 
   it.each([NaN, Infinity, -1, "10", undefined])("rejects malformed price %s", (value) => {
@@ -66,7 +70,10 @@ describe("capability evidence", () => {
       imageInput: { value: null, source: null },
       reasoning: { value: null, source: null },
     });
-    expect(catalogMetadata({ input: ["text"], reasoning: false }, false, "catalog-supplement").capabilities).toEqual({
+    expect(
+      catalogMetadata({ input: ["text"], reasoning: false }, false, "catalog-supplement")
+        .capabilities,
+    ).toEqual({
       imageInput: { value: false, source: "catalog-supplement" },
       reasoning: { value: false, source: "catalog-supplement" },
     });

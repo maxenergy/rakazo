@@ -48,7 +48,9 @@ export function catalogMetadata(
   const values = Object.values(pricing);
   return {
     capabilities: {
-      imageInput: evidence(Array.isArray(fields.input) ? fields.input.includes("image") : undefined),
+      imageInput: evidence(
+        Array.isArray(fields.input) ? fields.input.includes("image") : undefined,
+      ),
       reasoning: evidence(fields.reasoning),
     },
     pricing:

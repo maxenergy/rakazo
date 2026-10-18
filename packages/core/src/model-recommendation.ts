@@ -40,26 +40,39 @@ export function recommendModels<T extends ModelCatalogEntry>(
     const output = entry.pricing?.outputPerMTok;
     const validPrice = (value: unknown): value is number =>
       typeof value === "number" && Number.isFinite(value) && value >= 0;
-    const estimate = billingMode === "api-key" && workload && validPrice(input) && validPrice(output)
-      ? (input * workload.inputTokens + output * workload.outputTokens) / 1_000_000
-      : null;
+    const estimate =
+      billingMode === "api-key" && workload && validPrice(input) && validPrice(output)
+        ? (input * workload.inputTokens + output * workload.outputTokens) / 1_000_000
+        : null;
     const estimatedCostUsd = estimate !== null && Number.isFinite(estimate) ? estimate : null;
-    return [{
-      provider: entry.provider, id: entry.id, label: entry.label,
-      capabilities: entry.capabilities ?? null, billingMode, estimatedCostUsd,
-      comparisonGroup: estimatedCostUsd === null ? null : "api-key-usd-token-workload",
-      explanation: estimatedCostUsd !== null
-        ? "USD estimate for the supplied uncached input/output workload; excludes other charges."
-        : billingMode === "subscription"
-          ? "Subscription billing is not comparable to API token prices."
-          : "Comparable cost is unknown; supply a workload and complete API token prices.",
-    }];
+    return [
+      {
+        provider: entry.provider,
+        id: entry.id,
+        label: entry.label,
+        capabilities: entry.capabilities ?? null,
+        billingMode,
+        estimatedCostUsd,
+        comparisonGroup: estimatedCostUsd === null ? null : "api-key-usd-token-workload",
+        explanation:
+          estimatedCostUsd !== null
+            ? "USD estimate for the supplied uncached input/output workload; excludes other charges."
+            : billingMode === "subscription"
+              ? "Subscription billing is not comparable to API token prices."
+              : "Comparable cost is unknown; supply a workload and complete API token prices.",
+      },
+    ];
   });
-  const comparable = recommendations.filter((entry) => entry.estimatedCostUsd !== null)
+  const comparable = recommendations
+    .filter((entry) => entry.estimatedCostUsd !== null)
     .sort((a, b) => a.estimatedCostUsd! - b.estimatedCostUsd!);
   return {
-    recommendations: [...comparable, ...recommendations.filter((entry) => entry.estimatedCostUsd === null)],
-    excluded, workload: requirements.workload ?? null,
+    recommendations: [
+      ...comparable,
+      ...recommendations.filter((entry) => entry.estimatedCostUsd === null),
+    ],
+    excluded,
+    workload: requirements.workload ?? null,
     modelChanged: false as const,
   };
 }

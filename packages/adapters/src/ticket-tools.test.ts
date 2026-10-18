@@ -170,6 +170,7 @@ function mutationDeps(ticketBoardEnabled = true) {
       })),
     },
     $queryRaw: vi.fn(async () => []),
+    $executeRaw: vi.fn(async () => 1),
   };
   const prisma = {
     ...boardSpace(),

@@ -37,6 +37,11 @@ import {
   messagingEnvFromProcess,
   messagingPlatformsFromEnv,
   PiAgentRuntime,
+  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+  catalogBudgetRates,
+  createBudgetObserver,
+  createUpperBound,
+  currentBudgetScope,
   PipedreamConnector,
   PostgresRealtimeFanout,
   pipedreamConfigFromEnv,
@@ -59,6 +64,7 @@ import {
   createThreadEvents,
   isTooManyDatabaseConnections,
   parsePositiveInteger,
+  createDbBudgetPort,
   pushSessionExpiresAt,
 } from "@rakazo/db";
 import { SERVICE_NAMES } from "@rakazo/logging";
@@ -98,7 +104,17 @@ async function main() {
   const runtime =
     process.env.AGENT_RUNTIME === "scripted"
       ? new ScriptedAgentRuntime()
-      : new PiAgentRuntime({ sessionRoot: resolvePiSessionRoot(dataDir) });
+      : new PiAgentRuntime({
+          sessionRoot: resolvePiSessionRoot(dataDir),
+          modelCallObserver: createBudgetObserver({
+          port: createDbBudgetPort(prisma),
+          scope: currentBudgetScope,
+          upperBoundMicroUsd: createUpperBound({
+            lookup: catalogBudgetRates,
+            fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+          }),
+        }),
+        });
   // Same resolver the API uses, so both processes agree on provider, model and key.
   const { key: deploymentModelKey, configured: deploymentModelConfigured } =
     resolveDeploymentModel();

@@ -54,6 +54,11 @@ import {
   McpOAuthBroker,
   messagingPlatformsFromEnv,
   PiAgentRuntime,
+  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+  catalogBudgetRates,
+  createBudgetObserver,
+  createUpperBound,
+  currentBudgetScope,
   PiOAuthLogins,
   PipedreamConnector,
   PostgresRealtimeFanout,
@@ -81,6 +86,7 @@ import type { Pool, PrismaClient } from "@rakazo/db";
 import {
   createBoardEvents,
   createDb,
+  createDbBudgetPort,
   createPool,
   createThreadEvents,
   IsolationError,
@@ -389,6 +395,14 @@ export async function createApp(
       ? new ScriptedAgentRuntime()
       : new PiAgentRuntime({
           sessionRoot: env.piSessionRecording ? piSessionsRoot(env.dataDir) : undefined,
+          modelCallObserver: createBudgetObserver({
+          port: createDbBudgetPort(prisma),
+          scope: currentBudgetScope,
+          upperBoundMicroUsd: createUpperBound({
+            lookup: catalogBudgetRates,
+            fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+          }),
+        }),
         }));
   const notifications = new ExpoPushProvider(env.dataDir, (sessionId) =>
     pushSessionExpiresAt(prisma, sessionId),

@@ -9,6 +9,7 @@ export * from "./billing-emulator.js";
 export * from "./bot-avatar.js";
 export * from "./bot-messages.js";
 export * from "./bot-model-tools.js";
+export * from "./budget-catalog.js";
 export * from "./budget-observer.js";
 export * from "./budget-price.js";
 export * from "./budget-scope.js";

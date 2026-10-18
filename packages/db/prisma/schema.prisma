@@ -1504,7 +1504,6 @@ model Ticket {
   dependencies    TicketDependency[] @relation("TicketDependencies")
   dependents      TicketDependency[] @relation("TicketDependents")
 
-  @@unique([spaceId, id])
   @@unique([boardId, number])
   @@unique([spaceId, id])
   @@index([spaceId, projectId, status])

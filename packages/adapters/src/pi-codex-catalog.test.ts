@@ -979,6 +979,60 @@ describe("applyCodexLiveCatalog", () => {
     expect(staticEntry).not.toHaveProperty("reasoning");
   });
 
+  it.each([
+    { reasoningEfforts: ["low", "high"] },
+    { reasoningEfforts: ["mystery-effort"] },
+  ])("records live reasoning capability for $reasoningEfforts", ({ reasoningEfforts }) => {
+    const id = "gpt-6.1-sol";
+    const merged = applyCodexLiveCatalog(
+      base,
+      oauthAuth,
+      liveFor({ "secret-a": [liveModel(id, { reasoningEfforts })] }),
+    );
+    const entry = merged.find((item) => item.provider === CHATGPT_OAUTH_PROVIDER && item.id === id);
+    expect(entry?.reasoning).toBe(true);
+    expect(entry?.capabilities?.reasoning).toEqual({
+      value: true,
+      source: "codex-live-catalog",
+    });
+  });
+
+  it.each([true, false])(
+    "preserves image capability evidence when capabilities are present: %s",
+    (hasCapabilities) => {
+      const staticEntry = listPiCatalog().find(
+        (entry) => entry.provider === CHATGPT_OAUTH_PROVIDER && entry.id === LUNA,
+      )!;
+      const original = staticEntry.capabilities;
+      const imageInput = { value: true, source: "test-catalog" };
+      try {
+        if (hasCapabilities) {
+          staticEntry.capabilities = { imageInput, reasoning: { value: null, source: null } };
+        } else {
+          delete staticEntry.capabilities;
+        }
+        const merged = applyCodexLiveCatalog(
+          base,
+          oauthAuth,
+          liveFor({ "secret-a": [liveModel(LUNA, { reasoningEfforts: ["high"] })] }),
+        );
+        const entry = merged.find(
+          (candidate) => candidate.provider === CHATGPT_OAUTH_PROVIDER && candidate.id === LUNA,
+        );
+        expect(entry?.capabilities?.reasoning).toEqual({
+          value: true,
+          source: "codex-live-catalog",
+        });
+        expect(entry?.capabilities?.imageInput).toEqual(
+          hasCapabilities ? imageInput : { value: null, source: null },
+        );
+      } finally {
+        if (original === undefined) delete staticEntry.capabilities;
+        else staticEntry.capabilities = original;
+      }
+    },
+  );
+
   it("overrides thinking levels only when the endpoint supplies known efforts", () => {
     const staticEntry = listPiCatalog().find(
       (entry) => entry.provider === CHATGPT_OAUTH_PROVIDER && entry.id === LUNA,

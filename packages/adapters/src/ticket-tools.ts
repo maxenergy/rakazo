@@ -9,6 +9,7 @@ import {
 import type { PrismaClient } from "@rakazo/db";
 import {
   allocateTicketNumber,
+  enqueueDependentWakes,
   ensureBoard,
   findTicket,
   listTicketComments,
@@ -247,6 +248,9 @@ export async function updateTicket(
             : {}),
         },
       });
+      if (data.status !== undefined && row.completedAt && !current.completedAt) {
+        await enqueueDependentWakes(tx, input.spaceId, row.id, row.completedAt);
+      }
       return {
         row,
         reassigned:

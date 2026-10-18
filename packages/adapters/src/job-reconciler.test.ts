@@ -65,6 +65,23 @@ describe("createJobReconciler", () => {
     expect(prisma.messagingOutbound.findFirst).toHaveBeenCalled();
   });
 
+  it("runs the ticket wake reconciler and survives its failure", async () => {
+    const prisma = fakePrisma();
+    const { jobs } = publisher();
+    const reconcileTicketWakes = vi.fn(async () => {
+      throw new Error("wake store unavailable");
+    });
+    const reconcileOrgCheckIns = vi.fn(async () => undefined);
+    await createJobReconciler({
+      prisma,
+      jobs,
+      reconcileTicketWakes,
+      reconcileOrgCheckIns,
+    }).reconcileOnce();
+    expect(reconcileTicketWakes).toHaveBeenCalledOnce();
+    expect(reconcileOrgCheckIns).toHaveBeenCalledOnce();
+  });
+
   it("restores a due pending messaging outbox drain", async () => {
     const prisma = fakePrisma();
     vi.mocked(prisma.messagingOutbound.findFirst).mockResolvedValue({ id: "outbound-1" } as never);

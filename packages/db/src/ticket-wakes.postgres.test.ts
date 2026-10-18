@@ -159,8 +159,8 @@ describePostgres("durable ticket wakes", () => {
     });
     expect(later.find((wake) => wake.id === wakeId)?.attempts).toBe(2);
 
-    expect(await completeTicketWake(prisma, wakeId, "before-restart")).toBe(false);
-    expect(await completeTicketWake(prisma, wakeId, "after-restart")).toBe(true);
+    expect(await completeTicketWake(prisma, wakeId, mine!.spaceId, "before-restart")).toBe(false);
+    expect(await completeTicketWake(prisma, wakeId, mine!.spaceId, "after-restart")).toBe(true);
     const rest = await claimTicketWakes(prisma, "after-restart", {
       now: new Date(t0.getTime() + 10_000),
     });

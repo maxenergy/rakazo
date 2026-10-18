@@ -3,6 +3,21 @@ import type { Prisma, PrismaClient } from "./client.js";
 /** All amounts are integer micro-USD (1 USD = 1_000_000) held as bigint. */
 export const DEFAULT_RESERVATION_TTL_MS = 15 * 60 * 1000;
 
+/** Thrown when a callId is replayed for another budget or with a different amount. */
+export class BudgetCallIdConflictError extends Error {
+  constructor(
+    readonly callId: string,
+    readonly kind: "other_budget" | "amount_mismatch",
+  ) {
+    super(
+      kind === "other_budget"
+        ? "callId already used for another budget"
+        : "callId already used with a different amount",
+    );
+    this.name = "BudgetCallIdConflictError";
+  }
+}
+
 export type BudgetReservationResult =
   | {
       ok: true;
@@ -14,7 +29,7 @@ export type BudgetReservationResult =
     }
   | {
       ok: false;
-      reason: "no_budget" | "insufficient" | "reservation_closed" | "conflict";
+      reason: "no_budget" | "insufficient" | "reservation_closed";
       availableMicroUsd: bigint;
       /** Stored status of the closed reservation, set with reason reservation_closed. */
       status?: "settled" | "released" | "expired";
@@ -102,7 +117,9 @@ async function setProjectBudgetOnce(
 /**
  * Atomically reserve `amountMicroUsd` (a controllable upper bound for one call). The budget row
  * is locked FOR UPDATE, so concurrent reservations serialize and can never oversubscribe
- * limit - reserved - settled. Replaying the same callId returns the original reservation.
+ * limit - reserved - settled. Replaying the same callId with the same amount returns the original
+ * reservation. Replaying it with a different amount, or for another budget, throws
+ * BudgetCallIdConflictError and leaves the existing reservation unchanged.
  */
 export async function reserveBudget(
   db: PrismaClient,
@@ -130,9 +147,11 @@ export async function reserveBudget(
       where: { spaceId_callId: { spaceId: input.spaceId, callId: input.callId } },
     });
     if (prior) {
-      if (prior.budgetId !== budget.id) throw new Error("callId already used for another budget");
+      if (prior.budgetId !== budget.id) {
+        throw new BudgetCallIdConflictError(input.callId, "other_budget");
+      }
       if (prior.amountMicroUsd !== input.amountMicroUsd) {
-        return { ok: false, reason: "conflict", availableMicroUsd: 0n };
+        throw new BudgetCallIdConflictError(input.callId, "amount_mismatch");
       }
       // A closed reservation no longer holds funds; a retry must not look like a live hold.
       if (prior.status !== "reserved") {
@@ -182,7 +201,7 @@ export async function reserveBudget(
         // Same-budget callers serialize on the budget lock, so a unique violation here means
         // another budget won the race for this callId.
         if ((error as { code?: string }).code === "P2002") {
-          throw new Error("callId already used for another budget");
+          throw new BudgetCallIdConflictError(input.callId, "other_budget");
         }
         throw error;
       });

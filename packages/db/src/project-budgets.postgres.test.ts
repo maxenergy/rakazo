@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
 import {
+  BudgetCallIdConflictError,
   expireBudgetReservations,
   releaseBudgetReservation,
   reserveBudget,
@@ -218,14 +219,34 @@ describePostgres("project budget reservations", () => {
     expect(after.settledMicroUsd).toBe(40_000n);
   });
 
-  it("rejects a replayed callId with a different amount", async () => {
+  it("throws on a replayed callId with a different amount and keeps the reservation", async () => {
     const projectId = await budgetFor(1_000_000n);
     const callId = `amount-${projectId}`;
     await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
     await expect(
       reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 200_000n }),
-    ).resolves.toMatchObject({ ok: false, reason: "conflict" });
+    ).rejects.toBeInstanceOf(BudgetCallIdConflictError);
     expect((await state(projectId)).reservedMicroUsd).toBe(100_000n);
+    const stored = await prisma.budgetReservation.findUnique({
+      where: { spaceId_callId: { spaceId, callId } },
+    });
+    expect(stored).toMatchObject({ amountMicroUsd: 100_000n, status: "reserved" });
+  });
+
+  it("throws on a replayed callId for another project and keeps both budgets unchanged", async () => {
+    const a = await budgetFor(1_000_000n);
+    const b = await budgetFor(1_000_000n);
+    const callId = `scope-${a}`;
+    await reserveBudget(prisma, { spaceId, projectId: a, callId, amountMicroUsd: 100_000n });
+    await expect(
+      reserveBudget(prisma, { spaceId, projectId: b, callId, amountMicroUsd: 100_000n }),
+    ).rejects.toBeInstanceOf(BudgetCallIdConflictError);
+    expect((await state(a)).reservedMicroUsd).toBe(100_000n);
+    expect((await state(b)).reservedMicroUsd).toBe(0n);
+    const stored = await prisma.budgetReservation.findUnique({
+      where: { spaceId_callId: { spaceId, callId } },
+    });
+    expect(stored).toMatchObject({ amountMicroUsd: 100_000n, status: "reserved" });
   });
 
   it("lets only one budget win a concurrent callId collision", async () => {

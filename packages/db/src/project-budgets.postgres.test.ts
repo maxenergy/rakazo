@@ -657,6 +657,66 @@ describePostgres("project budget reservations", () => {
     expect(summaries.some((row) => row.projectId === null)).toBe(true);
   });
 
+  it("keeps mixed billing totals incomplete and charges separate API calls", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const attribution = { spaceId, projectId, userId: `mixed-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    const summary = async () => {
+      const rows = await prisma.$transaction((tx) => getProjectCostSummaries(tx, spaceId));
+      return rows.find((row) => row.projectId === projectId);
+    };
+    await recordUsage(
+      prisma,
+      {
+        ...event,
+        callId: `mixed-known-${projectId}`,
+        costUsdDecimal: "0.000007",
+        costSource: "provider_reported",
+      },
+      attribution,
+    );
+    await recordUsage(prisma, { ...event, callId: `mixed-unknown-${projectId}` }, attribution);
+    expect(await summary()).toMatchObject({
+      knownMarginalMicroUsd: "7",
+      unknownCostCalls: 1,
+      complete: false,
+    });
+    const subscription = {
+      ...event,
+      callId: `mixed-subscription-${projectId}`,
+      billingKind: "subscription_included" as const,
+      costUsdDecimal: "0",
+      costSource: "provider_reported",
+    };
+    await recordUsage(prisma, subscription, attribution);
+    await recordUsage(prisma, subscription, attribution);
+    expect(await summary()).toMatchObject({
+      knownMarginalMicroUsd: "7",
+      unknownCostCalls: 1,
+      subscriptionIncludedCalls: 1,
+      complete: false,
+    });
+    const callId = `mixed-api-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100n });
+    const api = { ...event, callId, costUsdDecimal: "0.000011", costSource: "provider_reported" };
+    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, api, attribution)));
+    expect(await summary()).toMatchObject({
+      knownMarginalMicroUsd: "18",
+      unknownCostCalls: 1,
+      subscriptionIncludedCalls: 1,
+      complete: false,
+    });
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 11n });
+    expect(await prisma.usageRecord.count({ where: { spaceId, projectId } })).toBe(4);
+  });
+
   it("converges first delivery, reserve and replay without duplicate settlement", async () => {
     for (const order of ["usage-first", "reserve-first", "concurrent"]) {
       const projectId = await budgetFor(1_000_000n);

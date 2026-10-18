@@ -251,6 +251,10 @@ msgstr "账户名称"
 msgid "Accounts"
 msgstr "账户"
 
+#: src/components/GoalEditor.tsx
+msgid "Achieved"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Action confirmations"
 msgstr "操作确认"
@@ -267,6 +271,7 @@ msgstr "{0} 的操作"
 msgid "Actions for space"
 msgstr "工作区操作"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
@@ -335,6 +340,10 @@ msgstr "添加凭据"
 msgid "Add Executor"
 msgstr "添加 Executor"
 
+#: src/components/ProjectGoals.tsx
+msgid "Add goal"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
 msgstr "添加 GraphQL"
@@ -346,6 +355,10 @@ msgstr "添加 GraphQL 端点"
 #: src/pages/ScratchpadSection.tsx
 msgid "Add item"
 msgstr "添加项目"
+
+#: src/components/ProjectGoals.tsx
+msgid "Add key result"
+msgstr ""
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -573,6 +586,10 @@ msgstr "已批准"
 msgid "Archive"
 msgstr "归档"
 
+#: src/components/ProjectGoals.tsx
+msgid "Archive key result"
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "archived"
 msgstr "已归档"
@@ -581,6 +598,19 @@ msgstr "已归档"
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "已归档"
+
+#: src/components/ProjectGoals.tsx
+msgid "Archived goals"
+msgstr ""
+
+#: src/components/ProjectGoals.tsx
+msgid "Archived key results"
+msgstr ""
+
+#: src/components/GoalEditor.tsx
+#: src/components/ProjectGoals.tsx
+msgid "Archived milestone"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Archived. Chat, memory, and files kept."
@@ -852,6 +882,11 @@ msgstr "缓存读取：{price}"
 msgid "Cache write: {price}"
 msgstr "缓存写入：{price}"
 
+#: src/components/GoalEditor.tsx
+#: src/components/ProjectGoals.tsx
+msgid "Calculation rule"
+msgstr ""
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "无法连接服务器。"
@@ -892,6 +927,7 @@ msgid "cancelled"
 msgstr "已取消"
 
 #: src/components/AskCard.tsx
+#: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
 msgid "Cancelled"
 msgstr "已取消"
@@ -1010,6 +1046,10 @@ msgstr "清空对话"
 #: src/pages/ActivityList.tsx
 msgid "Clear filter {label}"
 msgstr "清除筛选条件 {label}"
+
+#: src/components/GoalEditor.tsx
+msgid "Clear or replace the archived milestone before saving."
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -1899,6 +1939,10 @@ msgstr "Cron 表达式"
 msgid "Current password"
 msgstr "当前密码"
 
+#: src/components/GoalEditor.tsx
+msgid "Current value"
+msgstr ""
+
 #: src/pages/shell/bot-credentials.tsx
 msgid "Custom header"
 msgstr "自定义请求头"
@@ -1997,9 +2041,17 @@ msgstr "删除 {0}？"
 msgid "Delete account"
 msgstr "删除账户"
 
+#: src/components/ProjectGoals.tsx
+msgid "Delete goal"
+msgstr ""
+
 #: src/pages/GroupPanel.tsx
 msgid "Delete group"
 msgstr "删除群组"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete key result"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
@@ -2008,6 +2060,14 @@ msgstr "同时删除记忆"
 #: src/pages/Shell.tsx
 msgid "Delete space"
 msgstr "删除工作区"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete this goal and all its key results?"
+msgstr ""
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete this key result?"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "deleted"
@@ -2046,6 +2106,7 @@ msgstr "部署默认"
 msgid "Describe what this bot does"
 msgstr "描述这个 Bot 做什么"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/Board.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Description"
@@ -2171,6 +2232,10 @@ msgstr "技能草稿"
 msgid "Drag, drop, or paste an image"
 msgstr "拖放或粘贴图片"
 
+#: src/components/GoalEditor.tsx
+msgid "Due date"
+msgstr ""
+
 #: src/pages/BotContextMenu.tsx
 msgid "Duplicate"
 msgstr "复制"
@@ -2186,6 +2251,14 @@ msgstr "例如 Mobbin"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "先编辑"
+
+#: src/components/ProjectGoals.tsx
+msgid "Edit goal"
+msgstr ""
+
+#: src/components/ProjectGoals.tsx
+msgid "Edit key result"
+msgstr ""
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2455,6 +2528,14 @@ msgstr "准备中"
 msgid "Git event"
 msgstr "Git 事件"
 
+#: src/components/ProjectGoals.tsx
+msgid "Goal name"
+msgstr ""
+
+#: src/components/ProjectGoals.tsx
+msgid "Goals"
+msgstr ""
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2662,6 +2743,10 @@ msgstr "保留记忆"
 #: src/pages/RoutineEditor.tsx
 msgid "key"
 msgstr "密钥"
+
+#: src/components/ProjectGoals.tsx
+msgid "Key result progress"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Knowledge"
@@ -2892,6 +2977,10 @@ msgstr "MCP 地址"
 msgid "MCP servers"
 msgstr "MCP 服务器"
 
+#: src/components/GoalEditor.tsx
+msgid "Measure"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
@@ -2970,6 +3059,7 @@ msgstr "消息"
 msgid "Microphone failed"
 msgstr "麦克风失败"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/Board.tsx
 msgid "Milestone"
 msgstr "里程碑"
@@ -3087,6 +3177,7 @@ msgstr "移动到"
 msgid "Mute"
 msgstr "静音"
 
+#: src/components/GoalEditor.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
@@ -3205,6 +3296,14 @@ msgstr "还没有关联聊天应用。"
 msgid "No credentials saved for this bot."
 msgstr "此机器人尚未保存凭据。"
 
+#: src/components/ProjectGoals.tsx
+msgid "No data"
+msgstr ""
+
+#: src/components/ProjectGoals.tsx
+msgid "No goals"
+msgstr ""
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "还没有群聊。"
@@ -3298,6 +3397,10 @@ msgstr "暂无可用工具。"
 #: src/pages/RoutineEditor.tsx
 msgid "No trigger"
 msgstr "无触发器"
+
+#: src/components/GoalEditor.tsx
+msgid "None"
+msgstr ""
 
 #: src/pages/ScratchpadSection.tsx
 msgid "None yet"
@@ -3490,6 +3593,10 @@ msgstr "其他模型…"
 msgid "Output: {price}"
 msgstr "输出：{price}"
 
+#: src/components/ProjectGoals.tsx
+msgid "Overdue"
+msgstr ""
+
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "负责人"
@@ -3572,6 +3679,10 @@ msgstr "置顶"
 #: src/pages/Approvals.tsx
 msgid "Plan"
 msgstr "方案"
+
+#: src/components/GoalEditor.tsx
+msgid "Planned"
+msgstr ""
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -4053,6 +4164,7 @@ msgid "Runs when this bot receives a verified message from this provider."
 msgstr "此机器人收到来自该提供商的已验证消息时运行。"
 
 #: src/components/AskCard.tsx
+#: src/components/GoalEditor.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
@@ -4487,6 +4599,10 @@ msgstr "正在开始"
 msgid "Starting…"
 msgstr "正在开始…"
 
+#: src/components/GoalEditor.tsx
+msgid "State"
+msgstr ""
+
 #: src/pages/ActivityList.tsx
 #: src/pages/Board.tsx
 msgid "Status"
@@ -4577,6 +4693,10 @@ msgstr "系统"
 #: src/pages/Shell.tsx
 msgid "Take control"
 msgstr "接管控制权"
+
+#: src/components/GoalEditor.tsx
+msgid "Target value"
+msgstr ""
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

@@ -12,7 +12,11 @@ export type BudgetReservationResult =
       amountMicroUsd: bigint;
       replayed: boolean;
     }
-  | { ok: false; reason: "no_budget" | "insufficient"; availableMicroUsd: bigint };
+  | {
+      ok: false;
+      reason: "no_budget" | "insufficient" | "reservation_closed";
+      availableMicroUsd: bigint;
+    };
 
 export interface BudgetSettlement {
   reservationId: string;
@@ -118,6 +122,13 @@ export async function reserveBudget(
     const prior = await tx.budgetReservation.findUnique({ where: { callId: input.callId } });
     if (prior) {
       if (prior.budgetId !== budget.id) throw new Error("callId already used for another budget");
+      if (prior.amountMicroUsd !== input.amountMicroUsd) {
+        throw new Error("callId already reserved with a different amount");
+      }
+      // A closed reservation no longer holds funds; a retry must not look like a live hold.
+      if (prior.status !== "reserved") {
+        return { ok: false, reason: "reservation_closed", availableMicroUsd: 0n };
+      }
       return {
         ok: true,
         reservationId: prior.id,
@@ -141,17 +152,26 @@ export async function reserveBudget(
       where: { id: budget.id },
       data: { reservedMicroUsd: { increment: input.amountMicroUsd } },
     });
-    const created = await tx.budgetReservation.create({
-      data: {
-        budgetId: budget.id,
-        spaceId: input.spaceId,
-        projectId: input.projectId,
-        budgetVersion: budget.version,
-        callId: input.callId,
-        amountMicroUsd: input.amountMicroUsd,
-        expiresAt,
-      },
-    });
+    const created = await tx.budgetReservation
+      .create({
+        data: {
+          budgetId: budget.id,
+          spaceId: input.spaceId,
+          projectId: input.projectId,
+          budgetVersion: budget.version,
+          callId: input.callId,
+          amountMicroUsd: input.amountMicroUsd,
+          expiresAt,
+        },
+      })
+      .catch((error: unknown) => {
+        // Same-budget callers serialize on the budget lock, so a unique violation here means
+        // another budget won the race for this callId.
+        if ((error as { code?: string }).code === "P2002") {
+          throw new Error("callId already used for another budget");
+        }
+        throw error;
+      });
     return {
       ok: true,
       reservationId: created.id,

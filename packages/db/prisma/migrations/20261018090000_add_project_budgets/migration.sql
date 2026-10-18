@@ -19,7 +19,7 @@ CREATE TABLE "project_budgets" (
 CREATE UNIQUE INDEX "project_budgets_spaceId_projectId_key" ON "project_budgets"("spaceId", "projectId");
 
 ALTER TABLE "project_budgets"
-  ADD CONSTRAINT "project_budgets_project_fkey"
+  ADD CONSTRAINT "project_budgets_spaceId_projectId_fkey"
   FOREIGN KEY ("spaceId", "projectId") REFERENCES "projects"("spaceId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE "project_budget_versions" (
@@ -33,7 +33,7 @@ CREATE TABLE "project_budget_versions" (
 );
 
 ALTER TABLE "project_budget_versions"
-  ADD CONSTRAINT "project_budget_versions_budget_fkey"
+  ADD CONSTRAINT "project_budget_versions_budgetId_fkey"
   FOREIGN KEY ("budgetId") REFERENCES "project_budgets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE "budget_reservations" (
@@ -60,7 +60,7 @@ CREATE UNIQUE INDEX "budget_reservations_callId_key" ON "budget_reservations"("c
 CREATE INDEX "budget_reservations_budgetId_status_expiresAt_idx" ON "budget_reservations"("budgetId", "status", "expiresAt");
 
 ALTER TABLE "budget_reservations"
-  ADD CONSTRAINT "budget_reservations_budget_fkey"
+  ADD CONSTRAINT "budget_reservations_budgetId_fkey"
   FOREIGN KEY ("budgetId") REFERENCES "project_budgets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 COMMIT;

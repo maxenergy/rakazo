@@ -161,13 +161,81 @@ describePostgres("project budget reservations", () => {
       expireBudgetReservations(prisma, { now: later }),
       expireBudgetReservations(prisma, { now: later }),
     ]);
-    expect(counts[0] + counts[1]).toBeGreaterThanOrEqual(1);
+    expect(counts[0] + counts[1]).toBe(1);
     expect((await state(projectId)).reservedMicroUsd).toBe(0n);
     const settled = await settleBudget(prisma, { callId, actualMicroUsd: 250_000n, now: later });
     expect(settled).toMatchObject({ settledLate: true, settledMicroUsd: 250_000n });
     const after = await state(projectId);
     expect(after.reservedMicroUsd).toBe(0n);
     expect(after.settledMicroUsd).toBe(250_000n);
+  });
+
+  it("does not revive a closed reservation when its callId is retried", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const retry = (callId: string) =>
+      reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    const start = new Date("2026-01-01T00:00:00Z");
+
+    const settledId = `retry-settled-${projectId}`;
+    await retry(settledId);
+    await settleBudget(prisma, { callId: settledId, actualMicroUsd: 40_000n });
+
+    const releasedId = `retry-released-${projectId}`;
+    await retry(releasedId);
+    await releaseBudgetReservation(prisma, { callId: releasedId });
+
+    const expiredId = `retry-expired-${projectId}`;
+    await reserveBudget(prisma, {
+      spaceId,
+      projectId,
+      callId: expiredId,
+      amountMicroUsd: 100_000n,
+      ttlMs: 1000,
+      now: start,
+    });
+    await expireBudgetReservations(prisma, { now: new Date(start.getTime() + 5000) });
+
+    for (const callId of [settledId, releasedId, expiredId]) {
+      expect(await retry(callId)).toMatchObject({ ok: false, reason: "reservation_closed" });
+    }
+    const after = await state(projectId);
+    expect(after.reservedMicroUsd).toBe(0n);
+    expect(after.settledMicroUsd).toBe(40_000n);
+  });
+
+  it("rejects a replayed callId with a different amount", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `amount-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    await expect(
+      reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 200_000n }),
+    ).rejects.toThrow(/different amount/);
+    expect((await state(projectId)).reservedMicroUsd).toBe(100_000n);
+  });
+
+  it("lets only one budget win a concurrent callId collision", async () => {
+    const a = await budgetFor(1_000_000n);
+    const b = await budgetFor(1_000_000n);
+    const callId = `collide-${a}`;
+    const results = await Promise.allSettled(
+      [a, b, a, b].map((projectId) =>
+        reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n }),
+      ),
+    );
+    const budgetIds = new Set<string>();
+    let rejected = 0;
+    for (const r of results) {
+      if (r.status === "rejected") {
+        rejected += 1;
+        expect(String(r.reason)).toMatch(/another budget/);
+      } else if (r.value.ok) {
+        budgetIds.add(r.value.budgetId);
+      }
+    }
+    expect(budgetIds.size).toBe(1);
+    expect(rejected).toBeGreaterThanOrEqual(1);
+    const reserved = (await state(a)).reservedMicroUsd + (await state(b)).reservedMicroUsd;
+    expect(reserved).toBe(100_000n);
   });
 
   it("keeps a version history when the limit changes", async () => {

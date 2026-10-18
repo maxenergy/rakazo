@@ -1,3 +1,4 @@
+import { recordUsage } from "./usage.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
@@ -423,5 +424,22 @@ describePostgres("project budget reservations", () => {
     const rows = await prisma.projectBudget.findMany({ where: { spaceId, projectId: project.id } });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.version).toBe(2);
+  });
+
+  it("restores a released holding once and settles concurrent known usage once", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `usage-recovery-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    await releaseBudgetReservation(prisma, { spaceId, callId });
+    const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
+    const event = { type: "usage" as const, provider: "fixture", model: "fixture", callId, inputTokens: 10, outputTokens: 2, billingKind: "api" as const };
+    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, event, attribution)));
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 600_000n, settledMicroUsd: 0n });
+    expect(await prisma.budgetReservation.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toMatchObject({ status: "unreconciled", chargedAfterRelease: true });
+    const known = { ...event, costUsdDecimal: "0.25", costSource: "provider_reported" };
+    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, known, attribution)));
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 250_000n });
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+    expect(await prisma.budgetReservation.findUniqueOrThrow({ where: { spaceId_callId: { spaceId, callId } } })).toMatchObject({ status: "settled", chargedAfterRelease: true, settledMicroUsd: 250_000n });
   });
 });

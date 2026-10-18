@@ -521,6 +521,9 @@ export interface AgentUsage {
   reasoningTokens?: number | null;
   totalTokens?: number | null;
   costUsd?: number | null;
+  /** Exact USD decimal; accounting must not derive this from a rounded number. */
+  costUsdDecimal?: string | null;
+  billingKind?: "api" | "subscription_included" | "unknown";
   costSource?: string | null;
   pricingVersion?: string | null;
   usageSource?: string | null;

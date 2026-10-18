@@ -4449,6 +4449,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                           userId: run.userId,
                           botId: bot.id,
                           parentRunId: runId,
+                          projectId: run.projectId,
+                          rootRunId: run.rootRunId ?? runId,
                           runId,
                           operationId: `auto-review:${runId}`,
                           operationKind: "setup",
@@ -6707,6 +6709,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   userId: run.userId,
                   runId,
                   parentRunId: runId,
+                  projectId: run.projectId,
+                  rootRunId: run.rootRunId ?? runId,
                   operationId: runId,
                 });
               },
@@ -7215,6 +7219,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 userId: run.userId,
                 runId,
                 parentRunId: runId,
+                projectId: run.projectId,
+                rootRunId: run.rootRunId ?? runId,
                 operationId: runId,
               });
             } else if (event.type === "done") {

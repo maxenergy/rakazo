@@ -51,6 +51,7 @@ async function createTicketWakeRun(
       threadId: bot.thread.id,
       userId: bot.userId,
       taskId: task.id,
+      projectId: ticket.projectId,
       trigger: "tickets",
       status: "queued",
     },

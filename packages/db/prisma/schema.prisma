@@ -634,6 +634,10 @@ model Run {
   task                 Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
   userId               String
   status               String
+  /// Immutable financial snapshots; null means unassigned.
+  projectId            String?
+  parentRunId          String?
+  rootRunId            String?
   trigger              String
   modelProvider        String?
   modelId              String?
@@ -1097,11 +1101,18 @@ model UsageRecord {
   cacheWrite1hTokens Int?
   reasoningTokens    Int?
   totalTokens        Int?
+  /// Historical values only; new accounting uses integer micro-USD.
   costUsd            Float?
+  costMicroUsd       BigInt?
+  billingKind        String   @default("unknown")
+  projectId          String?
+  attributedRunId    String?
+  rootRunId          String?
+  costAnomalies      Json?
   costSource         String?
   pricingVersion     String?
   usageSource        String?
-  callId             String?  @unique
+  callId             String?
   operationId        String?
   operationKind      String   @default("answer")
   /// Durable attribution, deliberately without lifecycle foreign keys.
@@ -1109,6 +1120,8 @@ model UsageRecord {
   agentId            String?
   createdAt          DateTime @default(now())
 
+  @@unique([spaceId, callId])
+  @@index([spaceId, projectId, createdAt])
   @@index([spaceId, userId, createdAt])
   @@map("usage_records")
 }
@@ -1692,6 +1705,13 @@ model BudgetReservation {
   overrunMicroUsd BigInt        @default(0)
   status          String        @default("reserved")
   settledLate     Boolean       @default(false)
+  recoveredAt           DateTime?
+  unreconciledAt        DateTime?
+  chargedAfterRelease   Boolean @default(false)
+  chargedAfterWriteOff  Boolean @default(false)
+  writtenOffAt          DateTime?
+  writtenOffBy          String?
+  writeOffReason        String?
   expiresAt       DateTime
   createdAt       DateTime      @default(now())
   closedAt        DateTime?

@@ -439,44 +439,77 @@ describePostgres("project budget reservations", () => {
     expect(rows[0]?.version).toBe(2);
   });
 
-  it("restores a released holding once and settles concurrent known usage once", async () => {
-    const projectId = await budgetFor(1_000_000n);
-    const callId = `usage-recovery-${projectId}`;
-    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
-    await releaseBudgetReservation(prisma, { spaceId, callId });
-    const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
-    const event = {
-      type: "usage" as const,
-      provider: "fixture",
-      model: "fixture",
-      callId,
-      inputTokens: 10,
-      outputTokens: 2,
-      billingKind: "api" as const,
-    };
-    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, event, attribution)));
-    expect(await state(projectId)).toMatchObject({
-      reservedMicroUsd: 600_000n,
-      settledMicroUsd: 0n,
-    });
-    expect(
-      await prisma.budgetReservation.findUniqueOrThrow({
+  it.each(["released", "expired"] as const)(
+    "restores a %s holding once and preserves settlement on unknown replay",
+    async (origin) => {
+      const projectId = await budgetFor(1_000_000n);
+      const callId = `usage-recovery-${projectId}`;
+      await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+      if (origin === "released") {
+        await releaseBudgetReservation(prisma, { spaceId, callId });
+      } else {
+        await prisma.budgetReservation.update({
+          where: { spaceId_callId: { spaceId, callId } },
+          data: { expiresAt: new Date(0) },
+        });
+        await expireBudgetReservations(prisma, { now: new Date() });
+      }
+      const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
+      const event = {
+        type: "usage" as const,
+        provider: "fixture",
+        model: "fixture",
+        callId,
+        inputTokens: 10,
+        outputTokens: 2,
+        billingKind: "api" as const,
+      };
+      await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, event, attribution)));
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 600_000n,
+        settledMicroUsd: 0n,
+      });
+      expect(
+        await prisma.budgetReservation.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toMatchObject({ status: "unreconciled", chargedAfterRelease: origin === "released" });
+      const known = { ...event, costUsdDecimal: "0.25", costSource: "provider_reported" };
+      await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, known, attribution)));
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 0n,
+        settledMicroUsd: 250_000n,
+      });
+      expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+      expect(
+        await prisma.budgetReservation.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toMatchObject({
+        status: "settled",
+        chargedAfterRelease: origin === "released",
+        settledMicroUsd: 250_000n,
+      });
+      const beforeReplay = await prisma.usageRecord.findUniqueOrThrow({
         where: { spaceId_callId: { spaceId, callId } },
-      }),
-    ).toMatchObject({ status: "unreconciled", chargedAfterRelease: true });
-    const known = { ...event, costUsdDecimal: "0.25", costSource: "provider_reported" };
-    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, known, attribution)));
-    expect(await state(projectId)).toMatchObject({
-      reservedMicroUsd: 0n,
-      settledMicroUsd: 250_000n,
-    });
-    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
-    expect(
-      await prisma.budgetReservation.findUniqueOrThrow({
-        where: { spaceId_callId: { spaceId, callId } },
-      }),
-    ).toMatchObject({ status: "settled", chargedAfterRelease: true, settledMicroUsd: 250_000n });
-  });
+      });
+      const summariesBefore = await getProjectCostSummaries(prisma, spaceId);
+      await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, event, attribution)));
+      expect(
+        await prisma.usageRecord.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toEqual(beforeReplay);
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 0n,
+        settledMicroUsd: 250_000n,
+      });
+      const summariesAfter = await getProjectCostSummaries(prisma, spaceId);
+      expect(summariesAfter.find((row) => row.projectId === projectId)).toEqual(
+        summariesBefore.find((row) => row.projectId === projectId),
+      );
+    },
+  );
 
   it("preserves write-off audit and settles concurrent late usage once", async () => {
     const projectId = await budgetFor(1_000_000n);

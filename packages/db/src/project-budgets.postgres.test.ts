@@ -320,6 +320,49 @@ describePostgres("project budget reservations", () => {
     expect((await state(projectA)).settledMicroUsd).toBe(70_000n);
   });
 
+  it("treats a never-reserved callId like a wrong-space callId", async () => {
+    const otherSpaceId = (
+      await prisma.space.create({
+        data: { id: `budget-space-${crypto.randomUUID()}`, organizationId, name: "Other space" },
+      })
+    ).id;
+    const projectA = await budgetFor(1_000_000n);
+    const projectB = (
+      await prisma.project.create({ data: { spaceId: otherSpaceId, name: "Other" } })
+    ).id;
+    await setProjectBudget(prisma, {
+      spaceId: otherSpaceId,
+      projectId: projectB,
+      limitMicroUsd: 1_000_000n,
+    });
+    const stateB = () =>
+      prisma.projectBudget.findUniqueOrThrow({
+        where: { spaceId_projectId: { spaceId: otherSpaceId, projectId: projectB } },
+      });
+    const reserved = await reserveBudget(prisma, {
+      spaceId,
+      projectId: projectA,
+      callId: `reserved-${projectA}`,
+      amountMicroUsd: 100_000n,
+    });
+    expect(reserved).toMatchObject({ ok: true, replayed: false });
+    const beforeA = await state(projectA);
+    const beforeB = await stateB();
+    const callId = `never-reserved-${projectA}`;
+
+    for (const id of [spaceId, otherSpaceId]) {
+      expect(await settleBudget(prisma, { spaceId: id, callId, actualMicroUsd: 1n })).toBeNull();
+      expect(await releaseBudgetReservation(prisma, { spaceId: id, callId })).toBe(false);
+    }
+
+    const afterA = await state(projectA);
+    const afterB = await stateB();
+    expect(afterA.reservedMicroUsd).toBe(beforeA.reservedMicroUsd);
+    expect(afterA.settledMicroUsd).toBe(beforeA.settledMicroUsd);
+    expect(afterB.reservedMicroUsd).toBe(beforeB.reservedMicroUsd);
+    expect(afterB.settledMicroUsd).toBe(beforeB.settledMicroUsd);
+  });
+
   it("replays an active reservation with the same amount without changing state", async () => {
     const projectId = await budgetFor(1_000_000n);
     const callId = `active-${projectId}`;

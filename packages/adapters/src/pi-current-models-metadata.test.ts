@@ -14,6 +14,10 @@ describe("supplement metadata provenance", () => {
     expect(fields).toEqual({});
     expect(catalogMetadata(fields!)).toEqual({
       pricing: null,
+      capabilities: {
+        imageInput: { value: null, source: null },
+        reasoning: { value: null, source: null },
+      },
       contextWindow: null,
       maxTokens: null,
     });
@@ -30,6 +34,10 @@ describe("supplement metadata provenance", () => {
         outputPerMTok: 10,
         cacheReadPerMTok: 0.1,
         cacheWritePerMTok: 2.5,
+      },
+      capabilities: {
+        imageInput: { value: null, source: null },
+        reasoning: { value: null, source: null },
       },
       contextWindow: null,
       maxTokens: null,

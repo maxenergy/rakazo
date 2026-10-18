@@ -68,13 +68,14 @@ export async function claimTicketWakes(
 export async function completeTicketWake(
   prisma: Pick<PrismaClient, "$executeRaw">,
   id: string,
+  spaceId: string,
   claimer: string,
   now: Date = new Date(),
 ): Promise<boolean> {
   const updated = await prisma.$executeRaw`
     UPDATE ticket_wakes
     SET status = 'woken', "wokenAt" = ${now}, "leaseExpiresAt" = NULL
-    WHERE id = ${id} AND status = 'claimed' AND "claimedBy" = ${claimer}
+    WHERE id = ${id} AND "spaceId" = ${spaceId} AND status = 'claimed' AND "claimedBy" = ${claimer}
   `;
   return updated === 1;
 }

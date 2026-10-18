@@ -110,9 +110,32 @@ describeCluster("ticket wake runtime wiring", () => {
       expect(await reconcileTicketWakes(deps(), { claimer: "runtime-2", now: t0 })).toBe(0);
       expect(await prisma().run.count({ where: { botId: bot.id } })).toBe(0);
 
-      // After the lease expires, runtime-2 reclaims and delivers exactly one run.
+      // runtime-2 reclaims the expired wake and holds a live claim; stale runtime-1 cannot complete it.
       const late = new Date(t0.getTime() + 5_000);
-      expect(await reconcileTicketWakes(deps(), { claimer: "runtime-2", now: late })).toBe(1);
+      const reclaimed = await claimTicketWakes(prisma(), "runtime-2", {
+        leaseMs: 1_000,
+        now: late,
+      });
+      expect(reclaimed).toHaveLength(1);
+      expect(
+        await completeTicketWake(
+          prisma(),
+          claimed[0]?.id ?? "",
+          claimed[0]?.spaceId ?? "",
+          "runtime-1",
+          late,
+        ),
+      ).toBe(false);
+      const liveRow = await prisma().ticketWake.findUniqueOrThrow({
+        where: { id: claimed[0]?.id ?? "" },
+      });
+      expect(liveRow.status).toBe("claimed");
+      expect(liveRow.claimedBy).toBe("runtime-2");
+      expect(await prisma().run.count({ where: { botId: bot.id } })).toBe(0);
+
+      // After runtime-2's lease expires it delivers exactly one run.
+      const delivered = new Date(late.getTime() + 5_000);
+      expect(await reconcileTicketWakes(deps(), { claimer: "runtime-2", now: delivered })).toBe(1);
       expect(await prisma().run.count({ where: { botId: bot.id, trigger: "tickets" } })).toBe(1);
       expect(await prisma().task.count({ where: { botId: bot.id } })).toBe(1);
       expect(enqueued).toHaveLength(1);
@@ -120,9 +143,27 @@ describeCluster("ticket wake runtime wiring", () => {
       expect(wakes).toHaveLength(1);
       expect(wakes[0]?.status).toBe("woken");
 
-      // The stale owner cannot complete, and further reconciliation adds nothing.
-      expect(await completeTicketWake(prisma(), claimed[0]?.id ?? "", "runtime-1")).toBe(false);
-      const afterDone = new Date(late.getTime() + 60_000);
+      // The stale owner cannot complete, leaves the row untouched, and further reconciliation adds nothing.
+      const before = await prisma().ticketWake.findUniqueOrThrow({
+        where: { id: claimed[0]?.id ?? "" },
+      });
+      expect(
+        await completeTicketWake(
+          prisma(),
+          claimed[0]?.id ?? "",
+          claimed[0]?.spaceId ?? "",
+          "runtime-1",
+        ),
+      ).toBe(false);
+      const after = await prisma().ticketWake.findUniqueOrThrow({
+        where: { id: claimed[0]?.id ?? "" },
+      });
+      expect(after.status).toBe(before.status);
+      expect(after.claimedBy).toBe(before.claimedBy);
+      expect(after.wokenAt).toEqual(before.wokenAt);
+      expect(after.leaseExpiresAt).toEqual(before.leaseExpiresAt);
+      expect(after.attempts).toBe(before.attempts);
+      const afterDone = new Date(delivered.getTime() + 60_000);
       expect(await reconcileTicketWakes(deps(), { claimer: "runtime-3", now: afterDone })).toBe(0);
       expect(await prisma().run.count({ where: { botId: bot.id } })).toBe(1);
       expect(enqueued).toHaveLength(1);

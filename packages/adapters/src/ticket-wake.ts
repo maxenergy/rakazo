@@ -77,7 +77,7 @@ export async function reconcileTicketWakes(
   for (const wake of wakes) {
     try {
       const run = await deps.prisma.$transaction(async (tx) => {
-        const owned = await completeTicketWake(tx, wake.id, options.claimer);
+        const owned = await completeTicketWake(tx, wake.id, wake.spaceId, options.claimer);
         if (!owned) return undefined;
         const ticket = await tx.ticket.findFirst({
           where: { id: wake.ticketId, spaceId: wake.spaceId },

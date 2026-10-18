@@ -98,8 +98,12 @@ describeCluster("durable ticket wakes survive a runtime restart", () => {
       expect(second[0]?.id).toBe(first[0]?.id);
       expect(second[0]?.attempts).toBe(2);
 
-      expect(await completeTicketWake(prisma(), first[0]!.id, "runtime-1", late)).toBe(false);
-      expect(await completeTicketWake(prisma(), second[0]!.id, "runtime-2", late)).toBe(true);
+      expect(
+        await completeTicketWake(prisma(), first[0]!.id, first[0]!.spaceId, "runtime-1", late),
+      ).toBe(false);
+      expect(
+        await completeTicketWake(prisma(), second[0]!.id, second[0]!.spaceId, "runtime-2", late),
+      ).toBe(true);
 
       const wakes = await prisma().ticketWake.findMany({ where: { ticketId: dependent.id } });
       expect(wakes).toHaveLength(1);

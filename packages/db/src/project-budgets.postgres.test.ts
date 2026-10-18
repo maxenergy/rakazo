@@ -69,6 +69,9 @@ describePostgres("project budget reservations", () => {
       where: { spaceId_projectId: { spaceId, projectId } },
     });
 
+  const ledger = (callId: string) =>
+    prisma.budgetSpendLedger.findMany({ where: { spaceId, callId }, orderBy: { kind: "asc" } });
+
   it("never oversubscribes under concurrent reservations", async () => {
     const projectId = await budgetFor(1_000_000n);
     const results = await Promise.all(
@@ -126,6 +129,14 @@ describePostgres("project budget reservations", () => {
     expect(after.settledMicroUsd).toBe(300_000n);
     await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 900_000n });
     expect((await state(projectId)).settledMicroUsd).toBe(300_000n);
+    const rows = await ledger(callId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      projectId,
+      kind: "settled",
+      amountMicroUsd: 300_000n,
+      overrunMicroUsd: 0n,
+    });
   });
 
   it("records actual spend above the reservation as overrun", async () => {
@@ -162,6 +173,10 @@ describePostgres("project budget reservations", () => {
         where: { spaceId_callId: { spaceId, callId } },
       }),
     ).toMatchObject({ chargedAfterRelease: true, status: "settled" });
+    const rows = await ledger(callId);
+    expect(rows.map((r) => r.kind)).toEqual(["released", "settled"]);
+    expect(rows.find((r) => r.kind === "released")!.amountMicroUsd).toBe(600_000n);
+    expect(rows.find((r) => r.kind === "settled")!.amountMicroUsd).toBe(1n);
   });
 
   it("expires stale reservations and still records a late settlement", async () => {
@@ -193,6 +208,10 @@ describePostgres("project budget reservations", () => {
     const after = await state(projectId);
     expect(after.reservedMicroUsd).toBe(0n);
     expect(after.settledMicroUsd).toBe(250_000n);
+    const rows = await ledger(callId);
+    expect(rows.map((r) => r.kind)).toEqual(["expired", "settled"]);
+    expect(rows[0]!.amountMicroUsd).toBe(700_000n);
+    expect(rows[1]!.amountMicroUsd).toBe(250_000n);
   });
 
   it("does not revive a closed reservation when its callId is retried", async () => {

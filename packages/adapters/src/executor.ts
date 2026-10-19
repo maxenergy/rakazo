@@ -114,6 +114,7 @@ import {
   findDefaultModelCredential,
   findModelCredential,
   InvalidSpaceNameError,
+  IsolationError,
   isTooManyDatabaseConnections,
   listEffectiveBotBackupModels,
   loadRunHistoryMessages,
@@ -6691,14 +6692,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
 
         let fallbackModels: { provider: string; modelId: string }[] = [];
         if (!scripted) {
-          try {
-            fallbackModels = await listEffectiveBotBackupModels(deps.prisma, {
-              userId: run.userId,
-              spaceId: run.spaceId,
-              botId: run.botId,
-            });
-          } catch (error) {
-            getLogger().warn("Backup models could not be loaded", { runId, error });
+          if (run.userId !== bot.userId) {
+            getLogger().info("backups_disabled_owner_mismatch", { botId: run.botId });
+          } else {
+            try {
+              fallbackModels = await listEffectiveBotBackupModels(deps.prisma, {
+                userId: run.userId,
+                spaceId: run.spaceId,
+                botId: run.botId,
+              });
+            } catch (error) {
+              if (error instanceof IsolationError) {
+                getLogger().warn("backups_disabled_isolation_guard", { botId: run.botId });
+              } else {
+                getLogger().warn("Backup models could not be loaded", { runId, error });
+              }
+            }
           }
         }
         const fallbackModelKeys = new Set(

@@ -1,3 +1,4 @@
+import { AI_DISCLOSURE_VERSION } from "@rakazo/contracts";
 import type {
   AgentRunRequest,
   AutoReviewProvider,
@@ -7,6 +8,7 @@ import type {
 import { MEMORY_REVISION_CONFLICT_ERROR } from "@rakazo/adapter-kit";
 import type { ActionApprovalRule } from "@rakazo/core";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
+import { getLogger } from "@rakazo/logging";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isApprovalPausedResult } from "./approval-effect.js";
 import { MAX_SHARED_MEMORY_CHARS } from "./builtin-tools.js";
@@ -57,6 +59,8 @@ function fixture({
     description: "Test assistant",
   },
   shutdownSignal,
+  ownerId = "user-1",
+  runtimeProbe,
   builtin = false,
   disabledBuiltinTools = [],
   existingSharedMemory,
@@ -76,6 +80,8 @@ function fixture({
   secrets?: string[];
   prompt?: string;
   bot?: { name: string; title: string; description: string };
+  ownerId?: string;
+  runtimeProbe?: (request: AgentRunRequest) => Promise<void>;
   shutdownSignal?: AbortSignal;
 } = {}) {
   const tool: ConnectorTool = {
@@ -177,6 +183,7 @@ function fixture({
     bot: {
       findUniqueOrThrow: vi.fn(async () => ({
         id: run.botId,
+        userId: ownerId,
         name: bot.name,
         title: bot.title,
         description: bot.description,
@@ -184,8 +191,12 @@ function fixture({
         computerId: "computer-1",
         computer: { id: "computer-1", scope: "dedicated" },
       })),
+      findFirst: vi.fn(async () => ({ id: run.botId })),
       findMany: vi.fn(async () => []),
     },
+    botBackupModel: { findMany: vi.fn(async () => [{ provider: "test-provider", modelId: "backup-model" }]) },
+    spaceBackupModel: { findMany: vi.fn(async () => []) },
+    aiDataConsent: { findUnique: vi.fn(async () => null) },
     attempt: {
       create: vi.fn(async () => ({ id: "attempt-1" })),
       update: vi.fn(),
@@ -224,6 +235,10 @@ function fixture({
     { args: { id: "item-1" }, executionId: "call-1" },
   ];
   const runtimeRun = vi.fn(async function* (request: AgentRunRequest) {
+    if (runtimeProbe) {
+      await runtimeProbe(request);
+      return;
+    }
     for (const call of calls) {
       const result = await request.executeTool!(
         catalog ? "demo_execute_tool" : name,
@@ -237,6 +252,7 @@ function fixture({
   });
   const executor = createRunExecutor({
     prisma,
+    secretStore: { load: vi.fn(async () => "fake-backup-key") },
     runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
     connector: {
       discoverTools: async () =>
@@ -289,6 +305,10 @@ function fixture({
     shutdownSignal,
   } as unknown as Parameters<typeof createRunExecutor>[0]);
   return {
+    prisma,
+    runtimeRun,
+    finalizeRun,
+    continueRun: () => executor.continueRun(run.id, "worker-1"),
     effects,
     results,
     execute,
@@ -695,4 +715,97 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect(f.pauseRunForInput).not.toHaveBeenCalled();
     });
   });
+});
+
+
+describe("backup model ownership", () => {
+  it("skips backup reads and resolution for a different owner and reports the primary failure", async () => {
+    const info = vi.spyOn(getLogger(), "info");
+    try {
+      const f = fixture({
+        ownerId: "other-owner",
+        runtimeProbe: async (request) => {
+          expect(request.fallbackModels).toEqual([]);
+          expect(request.resolveFallbackModel).toBeUndefined();
+          throw new Error("primary model unavailable");
+        },
+      });
+      await f.continueRun();
+      expect(f.runtimeRun).toHaveBeenCalledOnce();
+      expect(f.prisma.bot.findFirst).not.toHaveBeenCalled();
+      expect(f.prisma.botBackupModel.findMany).not.toHaveBeenCalled();
+      expect(f.prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
+      expect(f.prisma.userModelCredential.findFirst).not.toHaveBeenCalled();
+      expect(f.prisma.aiDataConsent.findUnique).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith("backups_disabled_owner_mismatch", { botId: "bot-1" });
+      expect(f.finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  it.each([false, true])(
+    "resolves same-owner backup credentials and enforces consent (accepted=%s)",
+    async (accepted) => {
+      const probe = vi.fn(async (request: AgentRunRequest) => {
+        expect(request.fallbackModels).toEqual([{ provider: "openai", id: "gpt-4o" }]);
+        const resolved = request.resolveFallbackModel!("openai", "gpt-4o");
+        if (!accepted) {
+          await expect(resolved).rejects.toThrow("Backup model requires current AI data-sharing consent");
+          return;
+        }
+        await expect(resolved).resolves.toMatchObject({ provider: "openai", id: "gpt-4o", apiKey: "fake-backup-key" });
+        await request.onModelChange!("openai", "gpt-4o");
+      });
+      const f = fixture({ runtimeProbe: probe });
+      f.prisma.botBackupModel.findMany.mockResolvedValue([{ provider: "openai", modelId: "gpt-4o" }]);
+      f.prisma.userModelCredential.findFirst.mockResolvedValue({
+        id: "fake-credential", userId: "user-1", provider: "openai",
+        label: "Test", secretId: "fake-secret",
+        createdAt: new Date(0), updatedAt: new Date(0),
+      } as never);
+      const secret = { findFirst: vi.fn(async () => ({ id: "fake-secret", ciphertext: "fake-ciphertext" })) };
+      Object.assign(f.prisma, { secret });
+      f.prisma.aiDataConsent.findUnique.mockResolvedValue(accepted ? { version: AI_DISCLOSURE_VERSION } as never : null);
+      await f.continueRun();
+      expect(probe).toHaveBeenCalledOnce();
+      expect(secret.findFirst).toHaveBeenCalledWith({ where: { id: "fake-secret", userId: "user-1", spaceId: null } });
+      expect(f.prisma.aiDataConsent.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+        where: { userId_spaceId_recipientKey: expect.objectContaining({ userId: "user-1", spaceId: "space-1" }) },
+      }));
+      const persisted = expect.objectContaining({ data: { modelProvider: "openai", modelId: "gpt-4o" } });
+      if (accepted) expect(f.prisma.run.updateMany).toHaveBeenCalledWith(persisted);
+      else expect(f.prisma.run.updateMany).not.toHaveBeenCalledWith(persisted);
+    },
+  );
+
+  it("rejects a disconnected same-owner backup through the real resolver", async () => {
+    const probe = vi.fn(async (request: AgentRunRequest) => {
+      await expect(request.resolveFallbackModel!("test-provider", "backup-model"))
+        .rejects.toThrow("Connect that model provider first");
+    });
+    const f = fixture({ runtimeProbe: probe });
+    await f.continueRun();
+    expect(probe).toHaveBeenCalledOnce();
+    expect(f.prisma.aiDataConsent.findUnique).not.toHaveBeenCalled();
+    expect(f.prisma.run.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: { modelProvider: "test-provider", modelId: "backup-model" },
+    }));
+  });
+
+  it("disables backups when the scoped bot read fails isolation", async () => {
+    const probe = vi.fn(async (request: AgentRunRequest) => {
+      expect(request.fallbackModels).toEqual([]);
+      expect(request.resolveFallbackModel).toBeUndefined();
+    });
+    const f = fixture({ runtimeProbe: probe });
+    const { IsolationError } = await import("@rakazo/db");
+    f.prisma.bot.findFirst.mockImplementation(async () => { throw new IsolationError(); });
+    await f.continueRun();
+    expect(probe).toHaveBeenCalledOnce();
+    expect(f.prisma.botBackupModel.findMany).not.toHaveBeenCalled();
+    expect(f.prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
+    expect(f.prisma.aiDataConsent.findUnique).not.toHaveBeenCalled();
+  });
+
 });

@@ -20,7 +20,10 @@ it("registers every PostgreSQL suite in the harness or explicit self-contained a
   const registered = new Set(
     [...body.matchAll(/"([^"]+\.postgres\.test\.ts)"/g)].map((match) => match[1]!),
   );
-  expect(registered.size, "integration suites must contain literal PostgreSQL paths").toBeGreaterThan(0);
+  expect(
+    registered.size,
+    "integration suites must contain literal PostgreSQL paths",
+  ).toBeGreaterThan(0);
 
   const discovered = new Set(
     globSync("**/*.postgres.test.ts", {

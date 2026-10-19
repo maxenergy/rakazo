@@ -1771,3 +1771,22 @@ model BudgetOverrunApproval {
   @@index([spaceId, projectId, status])
   @@map("budget_overrun_approvals")
 }
+
+/// FK-free approval evidence retained after project deletion.
+model BudgetApprovalDeletionAudit {
+  id String @id @default(cuid())
+  spaceId String
+  projectId String
+  budgetId String
+  budgetVersion Int
+  approvalId String
+  amountMicroUsd BigInt
+  state String
+  scope String
+  decision String?
+  auditData Json
+  createdAt DateTime @default(now())
+
+  @@unique([spaceId, approvalId])
+  @@map("budget_approval_deletion_audit")
+}

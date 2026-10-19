@@ -263,22 +263,23 @@ async function settleDeletedBudget(
     where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "open_at_deletion" } },
   });
   if (!open) return null;
-  const prior = await tx.budgetSpendLedger.findUnique({
-    where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "settled" } },
-  });
   const overrun = input.actualMicroUsd > open.amountMicroUsd ? input.actualMicroUsd - open.amountMicroUsd : 0n;
-  if (!prior) await tx.budgetSpendLedger.create({
-    data: {
+  const inserted = await tx.budgetSpendLedger.createMany({
+    skipDuplicates: true,
+    data: [{
       spaceId: open.spaceId, projectId: open.projectId, budgetId: open.budgetId,
-      budgetVersion: open.budgetVersion, callId: open.callId, kind: "settled",
+      budgetVersion: open.budgetVersion, callId: open.callId, kind: "settled_after_deletion",
       amountMicroUsd: input.actualMicroUsd, overrunMicroUsd: overrun,
-    },
+    }],
+  });
+  const prior = await tx.budgetSpendLedger.findUniqueOrThrow({
+    where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "settled_after_deletion" } },
   });
   const audit = open.auditData as { reservationId?: string } | null;
   return {
     reservationId: audit?.reservationId ?? open.id, status: "settled",
     settledMicroUsd: prior?.amountMicroUsd ?? input.actualMicroUsd,
-    overrunMicroUsd: prior?.overrunMicroUsd ?? overrun, settledLate: true, replayed: !!prior,
+    overrunMicroUsd: prior?.overrunMicroUsd ?? overrun, settledLate: true, replayed: inserted.count === 0,
   };
 }
 
@@ -475,20 +476,20 @@ export async function writeOffBudgetHolding(
       });
       if (!open) return null;
       const closed = await tx.budgetSpendLedger.findMany({
-        where: { spaceId: input.spaceId, callId: input.callId, kind: { in: ["settled", "written_off"] } },
+        where: { spaceId: input.spaceId, callId: input.callId, kind: { in: ["settled_after_deletion", "written_off"] } },
       });
       const audit = open.auditData as { reservationId?: string } | null;
       const reservationId = audit?.reservationId ?? open.id;
       if (closed.length) return { reservationId, replayed: true };
-      await tx.budgetSpendLedger.create({
-        data: {
+      const inserted = await tx.budgetSpendLedger.createMany({ skipDuplicates: true,
+        data: [{
           spaceId: open.spaceId, projectId: open.projectId, budgetId: open.budgetId,
           budgetVersion: open.budgetVersion, callId: open.callId, kind: "written_off",
           amountMicroUsd: open.amountMicroUsd,
           auditData: { actorUserId: input.actorUserId, reason: input.reason.trim(), writtenOffAt: (input.now ?? new Date()).toISOString() },
-        },
+        }],
       });
-      return { reservationId, replayed: false };
+      return { reservationId, replayed: inserted.count === 0 };
     }
     if (reservation.status === "written_off")
       return { reservationId: reservation.id, replayed: true };

@@ -3,7 +3,7 @@ import { lockTicketSpace } from "./ticket-space-lock.js";
 
 export class ProjectLinkError extends Error {
   constructor(
-    public readonly code: "NOT_FOUND" | "BAD_REQUEST" | "CONFLICT",
+    public readonly code: "NOT_FOUND" | "BAD_REQUEST",
     message: string,
   ) {
     super(message);
@@ -151,11 +151,12 @@ export async function deleteProject(
   }
   const approvals = await tx.budgetOverrunApproval.findMany({ where: { spaceId, projectId } });
   for (const approval of approvals) {
-    await tx.budgetSpendLedger.create({
+    await tx.budgetApprovalDeletionAudit.create({
       data: {
         spaceId, projectId, budgetId: approval.budgetId,
-        budgetVersion: approval.budgetVersion, callId: approval.id,
-        kind: "approval_at_deletion", amountMicroUsd: approval.amountMicroUsd,
+        budgetVersion: approval.budgetVersion, approvalId: approval.id,
+        amountMicroUsd: approval.amountMicroUsd, state: approval.status, scope: approval.scope,
+        decision: approval.status === "pending" ? "project_deleted" : approval.decisionReason,
         auditData: {
           approvalId: approval.id, state: approval.status, scope: approval.scope,
           decision: approval.status === "pending" ? "project_deleted" : approval.decisionReason,

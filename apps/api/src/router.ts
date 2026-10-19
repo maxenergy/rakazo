@@ -1,4 +1,3 @@
-import { addTicketDependency, removeTicketDependency, readTicketDependencies, withTransactionRetry } from "@rakazo/db";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { implement, ORPCError } from "@orpc/server";
 import type {
@@ -171,6 +170,10 @@ import {
 } from "@rakazo/core";
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
+  addTicketDependency,
+  removeTicketDependency,
+  readTicketDependencies,
+  withTransactionRetry,
   appendEventInTransaction,
   archiveKeyResult,
   archiveMilestone,
@@ -4248,6 +4251,10 @@ export function createRouter(deps: RouterDeps) {
       list: boardEnabled.tickets.list.handler(async ({ context, input }) => {
         const board = await resolveSpaceBoard(deps.prisma, context.actor.spaceId, input.boardId);
         const q = input.q?.trim();
+        const refMatch = q?.match(/^(.+)-(\d+)$/);
+        const referenceNumber = refMatch && refMatch[1]?.toLowerCase() === board.ticketPrefix.toLowerCase()
+          ? Number(refMatch[2])
+          : undefined;
         const where: Prisma.TicketWhereInput = {
           spaceId: context.actor.spaceId,
           boardId: board.id,
@@ -4258,6 +4265,9 @@ export function createRouter(deps: RouterDeps) {
                 OR: [
                   { title: { contains: q, mode: "insensitive" } },
                   { description: { contains: q, mode: "insensitive" } },
+                  ...(referenceNumber !== undefined && Number.isSafeInteger(referenceNumber)
+                    ? [{ number: referenceNumber }]
+                    : []),
                 ],
               }
             : {}),

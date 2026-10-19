@@ -167,8 +167,8 @@ export const BoardEventSchema = z.object({
 export type BoardEvent = z.infer<typeof BoardEventSchema>;
 
 /** Dependency state is derived; it never changes the stored ticket status. */
-export const TicketDependenciesInput = z.object({ ticketId: Id });
-export const EditTicketDependencyInput = z.object({ ticketId: Id, prerequisiteId: Id });
+export const TicketDependenciesInput = z.object({ ticketId: Id }).strict();
+export const EditTicketDependencyInput = z.object({ ticketId: Id, prerequisiteId: Id }).strict();
 export const TicketDependenciesSchema = z.object({
   prerequisites: z.array(TicketSchema),
   dependents: z.array(TicketSchema),

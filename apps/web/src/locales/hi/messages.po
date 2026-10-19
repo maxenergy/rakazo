@@ -356,6 +356,10 @@ msgstr "MCP सर्वर जोड़ें"
 msgid "Add OpenAPI"
 msgstr "OpenAPI जोड़ें"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Add prerequisite"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
 msgstr "रिमोट MCP सर्वर जोड़ें"
@@ -744,6 +748,10 @@ msgstr "बिलिंग"
 #: src/lib/ticket-status.ts
 msgid "Blocked"
 msgstr "अवरुद्ध"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Blocked by dependency"
+msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2006,6 +2014,14 @@ msgstr "अस्वीकृत"
 msgid "Deny"
 msgstr "अस्वीकार करें"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Dependencies"
+msgstr ""
+
+#: src/pages/TicketDependencies.tsx
+msgid "Dependents"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "डिप्लॉयमेंट डिफ़ॉल्ट"
@@ -3165,6 +3181,10 @@ msgstr "इस बॉट के लिए कोई क्रेडेंशि�
 msgid "No group chats yet."
 msgstr "अभी कोई समूह चैट नहीं है।"
 
+#: src/pages/TicketDependencies.tsx
+msgid "No incomplete prerequisites"
+msgstr ""
+
 #: src/components/AskCard.tsx
 msgid "No longer active"
 msgstr "अब सक्रिय नहीं"
@@ -3533,6 +3553,14 @@ msgstr "प्लगइन"
 msgid "POST to"
 msgstr "POST भेजें"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisite ticket"
+msgstr ""
+
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisites"
+msgstr ""
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -3730,6 +3758,7 @@ msgstr "बाधित कंप्यूटर मुक्त करें?"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/TicketDependencies.tsx
 msgid "Remove"
 msgstr "हटाएं"
 
@@ -3758,6 +3787,11 @@ msgstr "उल्लेख {0} हटाएं"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove message trigger"
 msgstr "संदेश ट्रिगर हटाएँ"
+
+#. placeholder {0}: item.ref
+#: src/pages/TicketDependencies.tsx
+msgid "Remove prerequisite {0}"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4097,6 +4131,10 @@ msgstr "प्रोवाइडर्स खोजें"
 msgid "Search runs"
 msgstr "रन खोजें"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Search tickets by reference or title"
+msgstr ""
+
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
 msgid "Search: {0}"
@@ -4114,6 +4152,10 @@ msgstr "एक बॉट चुनें"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Select a connected model"
 msgstr "जुड़ा मॉडल चुनें"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Select a ticket"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Send"

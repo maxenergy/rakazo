@@ -25,6 +25,8 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
 ]);
 
 const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
+  "ticket_dependency_add",
+  "ticket_dependency_remove",
   "destination.write",
   "delete_bot",
   "archive_bot",

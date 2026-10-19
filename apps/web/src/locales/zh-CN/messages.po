@@ -356,6 +356,10 @@ msgstr "添加 MCP 服务器"
 msgid "Add OpenAPI"
 msgstr "添加 OpenAPI"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Add prerequisite"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
 msgstr "添加远程 MCP 服务器"
@@ -744,6 +748,10 @@ msgstr "账单"
 #: src/lib/ticket-status.ts
 msgid "Blocked"
 msgstr "受阻"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Blocked by dependency"
+msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2006,6 +2014,14 @@ msgstr "已拒绝"
 msgid "Deny"
 msgstr "拒绝"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Dependencies"
+msgstr ""
+
+#: src/pages/TicketDependencies.tsx
+msgid "Dependents"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "部署默认"
@@ -3165,6 +3181,10 @@ msgstr "此机器人尚未保存凭据。"
 msgid "No group chats yet."
 msgstr "还没有群聊。"
 
+#: src/pages/TicketDependencies.tsx
+msgid "No incomplete prerequisites"
+msgstr ""
+
 #: src/components/AskCard.tsx
 msgid "No longer active"
 msgstr "已停用"
@@ -3533,6 +3553,14 @@ msgstr "插件"
 msgid "POST to"
 msgstr "POST 到"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisite ticket"
+msgstr ""
+
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisites"
+msgstr ""
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -3730,6 +3758,7 @@ msgstr "释放已中断的电脑？"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/TicketDependencies.tsx
 msgid "Remove"
 msgstr "移除"
 
@@ -3758,6 +3787,11 @@ msgstr "移除提及 {0}"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove message trigger"
 msgstr "移除消息触发器"
+
+#. placeholder {0}: item.ref
+#: src/pages/TicketDependencies.tsx
+msgid "Remove prerequisite {0}"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4097,6 +4131,10 @@ msgstr "搜索提供方"
 msgid "Search runs"
 msgstr "搜索运行记录"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Search tickets by reference or title"
+msgstr ""
+
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
 msgid "Search: {0}"
@@ -4114,6 +4152,10 @@ msgstr "选择 Bot"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Select a connected model"
 msgstr "选择已连接的模型"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Select a ticket"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Send"

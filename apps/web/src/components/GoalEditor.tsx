@@ -95,11 +95,12 @@ export function GoalEditor({ initial, kind, pending, milestones = [], onSave }: 
           />
         </label>
         <label htmlFor={`${formId}-state`} className="block space-y-1 text-sm">
-          <span>
+          <span id={`${formId}-state-label`}>
             <Trans>State</Trans>
           </span>
           <NativeSelect
             id={`${formId}-state`}
+            aria-labelledby={`${formId}-state-label`}
             value={state}
             onChange={(event) => setState(event.target.value as Goal["state"])}
           >
@@ -175,11 +176,12 @@ export function GoalEditor({ initial, kind, pending, milestones = [], onSave }: 
               />
             </label>
             <label htmlFor={`${formId}-milestone`} className="block space-y-1 text-sm">
-              <span>
+              <span id={`${formId}-milestone-label`}>
                 <Trans>Milestone</Trans>
               </span>
               <NativeSelect
                 id={`${formId}-milestone`}
+                aria-labelledby={`${formId}-milestone-label`}
                 value={milestoneId}
                 onChange={(event) => setMilestoneId(event.target.value)}
               >

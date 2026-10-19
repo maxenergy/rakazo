@@ -47,7 +47,28 @@ test("Electron displays a persisted ticket in its real board column", async ({
   app.process().stderr?.on("data", (chunk) => logs.push(`[stderr] ${chunk}`));
   await app.context().tracing.start({ screenshots: true, snapshots: true, sources: true });
   tracing = true;
-  page = await app.firstWindow();
+  const runningApp = app;
+  await expect
+    .poll(
+      async () => {
+        for (const candidate of runningApp.windows()) {
+          if (candidate.isClosed()) continue;
+          const hasBridge = await candidate
+            .evaluate(() =>
+              Boolean((window as unknown as { rakazoDesktop?: unknown }).rakazoDesktop),
+            )
+            .catch(() => false);
+          if (hasBridge) {
+            page = candidate;
+            return true;
+          }
+        }
+        return false;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+  if (!page) throw new Error("Electron application window was not found");
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page).toHaveURL(new RegExp(`^${baseURL}/`));
   await page.goto(new URL("/sign-up", baseURL!).href);
@@ -168,7 +189,8 @@ test.afterEach(async ({ baseURL }, testInfo) => {
           logs.join("") || "No main-process stdout or stderr captured.\n",
         );
       } finally {
-        if (profile) await rm(profile, { recursive: true, force: true });
+        if (profile)
+          await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
       }
     }
   }

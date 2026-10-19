@@ -519,6 +519,44 @@ describe("Pi runtime ordered model fallback", () => {
     expect(afterCall).not.toHaveBeenCalled();
   });
 
+  it("does not start a backup provider when its budget start gate denies", async () => {
+    const beforeCall = vi
+      .fn<ModelCallObserver["beforeCall"]>()
+      .mockResolvedValueOnce("primary-reservation")
+      .mockResolvedValueOnce("backup-reservation");
+    const startCall = vi
+      .fn<NonNullable<ModelCallObserver["startCall"]>>()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        new BudgetExceededError("insufficient", 2n, {
+          spaceId: "space",
+          projectId: "project",
+          callId: "backup-call",
+          amountMicroUsd: 5n,
+        }),
+      );
+    const afterCall = vi.fn<ModelCallObserver["afterCall"]>(async () => {});
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [], "error", "503 provider unavailable")),
+    );
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "backup-key" },
+      { provider: backupB.provider, id: backupB.id, apiKey: "other-backup-key" },
+    ]);
+    const events = await run(
+      input,
+      [],
+      new PiAgentRuntime({
+        modelCallObserver: { beforeCall, startCall, afterCall },
+      }),
+    );
+    expect(beforeCall).toHaveBeenCalledTimes(2);
+    expect(startCall.mock.calls).toEqual([["primary-reservation"], ["backup-reservation"]]);
+    expect(providerState.stream).toHaveBeenCalledTimes(1);
+    expect(afterCall).toHaveBeenCalledWith("backup-reservation", null, { started: false });
+    expect(events.some((event) => event.type === "budget_pause")).toBe(true);
+  });
+
   it("advances after a provider stream throws before output", async () => {
     providerState.stream.mockImplementation((target: Model<"openai-completions">) => {
       if (target.provider === primary.provider) throw new Error("503 provider unavailable");

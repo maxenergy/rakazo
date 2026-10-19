@@ -774,7 +774,12 @@ function streamCliModel(
         : "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.";
       stream.push({ type: "error", reason: message.stopReason, error: message });
     } finally {
-      if (directory) await rm(directory, { recursive: true, force: true });
+      // On Windows a CLI child can still hold the directory (EBUSY); a leftover temp
+      // directory must not become an unhandled rejection that stops the worker.
+      if (directory)
+        await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }).catch(
+          (error) => getLogger().warn("cli.request_dir_cleanup_failed", error),
+        );
       stream.end();
     }
   })();

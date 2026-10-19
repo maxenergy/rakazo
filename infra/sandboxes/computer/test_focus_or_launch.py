@@ -2,6 +2,7 @@
 import importlib.machinery
 import importlib.util
 import os
+import select
 from pathlib import Path
 import stat
 import subprocess
@@ -267,20 +268,24 @@ class ControlArgvTest(unittest.TestCase):
 class ScriptTest(unittest.TestCase):
     @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux /proc process arguments")
     def test_window_profile_reads_the_user_data_dir_flag(self):
-        # The flag has to stay on this process. A shell would exec the sleep away.
+        # Keep the flag on this process and signal that interpreter startup finished.
+        child = "import time; print('ready', flush=True); time.sleep(30)"
         equals = subprocess.Popen(
-            ["python3", "-c", "import time; time.sleep(30)", "--user-data-dir=/profiles/mine"]
+            ["python3", "-c", child, "--user-data-dir=/profiles/mine"],
+            stdout=subprocess.PIPE,
+            text=True,
         )
         separate = subprocess.Popen(
-            [
-                "python3",
-                "-c",
-                "import time; time.sleep(30)",
-                "--user-data-dir",
-                "/profiles/other",
-            ]
+            ["python3", "-c", child, "--user-data-dir", "/profiles/other"],
+            stdout=subprocess.PIPE,
+            text=True,
         )
         try:
+            # /proc cmdline can be empty during exec even after Popen returns.
+            for proc in (equals, separate):
+                ready, _, _ = select.select([proc.stdout], [], [], 5)
+                self.assertTrue(ready, "test child did not become ready")
+                self.assertEqual(proc.stdout.readline(), "ready\n")
             self.assertEqual(helper.window_profile(str(equals.pid)), "/profiles/mine")
             self.assertEqual(helper.window_profile(str(separate.pid)), "/profiles/other")
             self.assertIsNone(helper.window_profile("99999999"))
@@ -288,6 +293,7 @@ class ScriptTest(unittest.TestCase):
             for proc in (equals, separate):
                 proc.kill()
                 proc.wait()
+                proc.stdout.close()
 
     @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux /proc process arguments")
     def test_script_raises_the_requested_browser_profile_only(self):

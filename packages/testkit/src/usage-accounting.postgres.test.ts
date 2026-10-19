@@ -247,6 +247,9 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         provider: delivered.provider,
         model: delivered.model,
         callId: delivered.callId!,
+        billingKind: delivered.billingKind,
+        costUsdDecimal: "0.00012",
+        costSource: delivered.costSource,
         inputTokens: delivered.inputTokens,
         outputTokens: delivered.outputTokens,
       };
@@ -275,7 +278,9 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
           reasoningTokens: 10,
           totalTokens: 130,
           costUsd: 0.00012,
-          costSource: "provider-reported",
+          costMicroUsd: 120n,
+          billingKind: "api",
+          costSource: "provider_reported",
         });
       expect(rows.filter((row) => row.operationKind === "answer")).toHaveLength(4);
       expect(rows.find((row) => row.operationKind === "subagent")).toMatchObject({
@@ -311,6 +316,8 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         cacheReadTokens: 40,
         outputTokens: 30,
         costUsd: 0.00012,
+        costMicroUsd: 120n,
+        billingKind: "api",
         runId: null,
       });
       expect(retained.filter((row) => row.parentRunId === first.runId)).toHaveLength(4);

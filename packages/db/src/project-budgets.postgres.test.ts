@@ -8,7 +8,10 @@ import {
   reserveBudget,
   setProjectBudget,
   settleBudget,
+  writeOffBudgetHolding,
 } from "./project-budgets.js";
+import { getProjectCostSummaries } from "./project-costs.js";
+import { recordUsage, UsageReplayConflictError } from "./usage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 const describePostgres =
@@ -134,7 +137,7 @@ describePostgres("project budget reservations", () => {
     expect((await state(projectId)).settledMicroUsd).toBe(350_000n);
   });
 
-  it("releases once and refuses to settle a released reservation", async () => {
+  it("releases once and settles a late charge exactly once", async () => {
     const projectId = await budgetFor(1_000_000n);
     const callId = `release-${projectId}`;
     await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
@@ -144,7 +147,21 @@ describePostgres("project budget reservations", () => {
     ]);
     expect(released.filter(Boolean)).toHaveLength(1);
     expect((await state(projectId)).reservedMicroUsd).toBe(0n);
-    expect(await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 1n })).toBeNull();
+    expect(await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 1n })).toMatchObject({
+      settledMicroUsd: 1n,
+      settledLate: true,
+      replayed: false,
+    });
+    expect(await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 1n })).toMatchObject({
+      settledMicroUsd: 1n,
+      replayed: true,
+    });
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 1n });
+    expect(
+      await prisma.budgetReservation.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toMatchObject({ chargedAfterRelease: true, status: "settled" });
   });
 
   it("expires stale reservations and still records a late settlement", async () => {
@@ -420,5 +437,631 @@ describePostgres("project budget reservations", () => {
     const rows = await prisma.projectBudget.findMany({ where: { spaceId, projectId: project.id } });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.version).toBe(2);
+  });
+
+  it.each(["released", "expired"] as const)(
+    "restores a %s holding once and preserves settlement on unknown replay",
+    async (origin) => {
+      const projectId = await budgetFor(1_000_000n);
+      const callId = `usage-recovery-${projectId}`;
+      await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+      if (origin === "released") {
+        await releaseBudgetReservation(prisma, { spaceId, callId });
+      } else {
+        await prisma.budgetReservation.update({
+          where: { spaceId_callId: { spaceId, callId } },
+          data: { expiresAt: new Date(0) },
+        });
+        await expireBudgetReservations(prisma, { now: new Date() });
+      }
+      const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
+      const event = {
+        type: "usage" as const,
+        provider: "fixture",
+        model: "fixture",
+        callId,
+        inputTokens: 10,
+        outputTokens: 2,
+        billingKind: "api" as const,
+      };
+      await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, event, attribution)));
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 600_000n,
+        settledMicroUsd: 0n,
+      });
+      expect(
+        await prisma.budgetReservation.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toMatchObject({ status: "unreconciled", chargedAfterRelease: origin === "released" });
+      const known = { ...event, costUsdDecimal: "0.25", costSource: "provider_reported" };
+      await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, known, attribution)));
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 0n,
+        settledMicroUsd: 250_000n,
+      });
+      expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+      expect(
+        await prisma.budgetReservation.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toMatchObject({
+        status: "settled",
+        chargedAfterRelease: origin === "released",
+        settledMicroUsd: 250_000n,
+      });
+      const beforeReplay = await prisma.usageRecord.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      });
+      const summariesBefore = await getProjectCostSummaries(prisma, spaceId);
+      await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, event, attribution)));
+      expect(
+        await prisma.usageRecord.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toEqual(beforeReplay);
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 0n,
+        settledMicroUsd: 250_000n,
+      });
+      const summariesAfter = await getProjectCostSummaries(prisma, spaceId);
+      expect(summariesAfter.find((row) => row.projectId === projectId)).toEqual(
+        summariesBefore.find((row) => row.projectId === projectId),
+      );
+    },
+  );
+
+  it("preserves write-off audit and settles concurrent late usage once", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-usage-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      callId,
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    await recordUsage(prisma, event, attribution);
+    const writeOff = {
+      spaceId,
+      callId,
+      actorUserId: "fixture-auditor",
+      reason: " unresolved provider charge ",
+    };
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () => writeOffBudgetHolding(prisma, writeOff)),
+    );
+    expect(results.filter((result) => result && !result.replayed)).toHaveLength(1);
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 0n });
+    await recordUsage(prisma, event, attribution);
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 0n });
+    const known = { ...event, costUsdDecimal: "0.125", costSource: "provider_reported" };
+    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, known, attribution)));
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 125_000n,
+    });
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+    expect(
+      await prisma.budgetReservation.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toMatchObject({
+      status: "settled",
+      writtenOffBy: "fixture-auditor",
+      writeOffReason: "unresolved provider charge",
+      writtenOffAt: expect.any(Date),
+      chargedAfterWriteOff: true,
+      settledMicroUsd: 125_000n,
+      overrunMicroUsd: 25_000n,
+    });
+  });
+
+  it("rolls back caller transactions and rejects conflicting usage without balance changes", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `usage-rollback-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    const attribution = { spaceId, projectId, userId: `fixture-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      callId,
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+      costUsdDecimal: "0.25",
+      costSource: "provider_reported",
+    };
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await recordUsage(prisma, event, attribution, { tx });
+        throw new Error("rollback-fixture");
+      }),
+    ).rejects.toThrow("rollback-fixture");
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(0);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 600_000n,
+      settledMicroUsd: 0n,
+    });
+    await recordUsage(prisma, event, attribution);
+    const original = await prisma.usageRecord.findUniqueOrThrow({
+      where: { spaceId_callId: { spaceId, callId } },
+    });
+    await expect(
+      recordUsage(prisma, { ...event, costUsdDecimal: "0.30" }, attribution),
+    ).rejects.toBeInstanceOf(UsageReplayConflictError);
+    await expect(
+      recordUsage(prisma, event, { ...attribution, projectId: null }),
+    ).rejects.toBeInstanceOf(UsageReplayConflictError);
+    expect(
+      await prisma.usageRecord.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toEqual(original);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+  });
+
+  it("preserves one winning charge across concurrent conflicting deliveries", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `concurrent-conflict-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    const attribution = { spaceId, projectId, userId: `conflict-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      callId,
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+      costSource: "provider_reported",
+    };
+    const amounts = ["0.25", "0.30"];
+    const deliveries = await Promise.allSettled(
+      amounts.map((costUsdDecimal) =>
+        recordUsage(prisma, { ...event, costUsdDecimal }, attribution),
+      ),
+    );
+    expect(deliveries.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const rejected = deliveries.filter((result) => result.status === "rejected");
+    expect(rejected).toHaveLength(1);
+    for (const result of rejected) {
+      if (result.status === "rejected")
+        expect(result.reason).toBeInstanceOf(UsageReplayConflictError);
+    }
+    const original = await prisma.usageRecord.findUniqueOrThrow({
+      where: { spaceId_callId: { spaceId, callId } },
+    });
+    expect([250_000n, 300_000n]).toContain(original.costMicroUsd);
+    const winningAmount = original.costMicroUsd === 250_000n ? "0.25" : "0.30";
+    const conflicts = [
+      { provider: "other-provider" },
+      { model: "other-model" },
+      { billingKind: "unknown" as const },
+      { costUsdDecimal: winningAmount === "0.25" ? "0.30" : "0.25" },
+    ];
+    const replays = await Promise.allSettled([
+      ...conflicts.map((change) =>
+        recordUsage(prisma, { ...event, costUsdDecimal: winningAmount, ...change }, attribution),
+      ),
+      recordUsage(
+        prisma,
+        { ...event, costUsdDecimal: winningAmount },
+        { ...attribution, projectId: null },
+      ),
+    ]);
+    for (const result of replays) {
+      expect(result.status).toBe("rejected");
+      if (result.status === "rejected")
+        expect(result.reason).toBeInstanceOf(UsageReplayConflictError);
+    }
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+    expect(
+      await prisma.usageRecord.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toEqual(original);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: original.costMicroUsd,
+    });
+    expect(
+      await prisma.budgetReservation.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toMatchObject({ status: "settled", settledMicroUsd: original.costMicroUsd });
+  });
+
+  it("reports deduplicated totals, unknown calls and holding age", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const attribution = { spaceId, projectId, userId: `summary-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    const callId = `summary-unknown-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    await recordUsage(prisma, { ...event, callId }, attribution);
+    const since = new Date("2026-10-01T00:00:00Z");
+    await prisma.budgetReservation.update({
+      where: { spaceId_callId: { spaceId, callId } },
+      data: { unreconciledAt: since },
+    });
+    const known = {
+      ...event,
+      callId: `summary-known-${projectId}`,
+      costUsdDecimal: "0.25",
+      costSource: "provider_reported",
+    };
+    await recordUsage(prisma, known, attribution);
+    await recordUsage(prisma, known, attribution);
+    await recordUsage(
+      prisma,
+      {
+        ...event,
+        callId: `summary-subscription-${projectId}`,
+        billingKind: "subscription_included" as const,
+      },
+      attribution,
+    );
+    const summaries = await prisma.$transaction((tx) => getProjectCostSummaries(tx, spaceId));
+    expect(summaries.find((row) => row.projectId === projectId)).toMatchObject({
+      knownMarginalMicroUsd: "250000",
+      unknownCostCalls: 1,
+      subscriptionIncludedCalls: 1,
+      unreconciledMicroUsd: "600000",
+      oldestHoldingAt: since,
+      complete: false,
+    });
+    expect(summaries.some((row) => row.projectId === null)).toBe(true);
+  });
+
+  it("conserves covered balances while keeping uncovered usage separate", async () => {
+    const projectId = await budgetFor(2_000_000n);
+    const attribution = { spaceId, projectId, userId: `conservation-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    const active = `active-${projectId}`;
+    const unknown = `unknown-${projectId}`;
+    const settled = `settled-${projectId}`;
+    for (const [callId, amountMicroUsd] of [
+      [active, 100_000n],
+      [unknown, 200_000n],
+      [settled, 300_000n],
+    ] as const) {
+      await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd });
+    }
+    await recordUsage(prisma, { ...event, callId: unknown }, attribution);
+    const known = {
+      ...event,
+      callId: settled,
+      costUsdDecimal: "0.25",
+      costSource: "provider_reported",
+    };
+    await Promise.all(Array.from({ length: 4 }, () => recordUsage(prisma, known, attribution)));
+    await recordUsage(
+      prisma,
+      { ...event, callId: `uncovered-known-${projectId}`, costUsdDecimal: "0.05" },
+      attribution,
+    );
+    await recordUsage(prisma, { ...event, callId: `uncovered-unknown-${projectId}` }, attribution);
+    const reservations = await prisma.budgetReservation.findMany({
+      where: { spaceId, budget: { projectId } },
+    });
+    const held = reservations
+      .filter((row) => ["reserved", "unreconciled"].includes(row.status))
+      .reduce((sum, row) => sum + row.amountMicroUsd, 0n);
+    const charged = reservations
+      .filter((row) => row.status === "settled")
+      .reduce((sum, row) => sum + (row.settledMicroUsd ?? 0n), 0n);
+    expect(held).toBe(300_000n);
+    expect(charged).toBe(250_000n);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: held,
+      settledMicroUsd: charged,
+    });
+    expect(reservations).toHaveLength(3);
+    expect(await prisma.usageRecord.count({ where: { spaceId, projectId } })).toBe(4);
+    const summaries = await prisma.$transaction((tx) => getProjectCostSummaries(tx, spaceId));
+    expect(summaries.find((row) => row.projectId === projectId)).toMatchObject({
+      knownMarginalMicroUsd: "300000",
+      unknownCostCalls: 2,
+      unreconciledMicroUsd: "200000",
+      complete: false,
+    });
+  });
+
+  it("keeps mixed billing totals incomplete and charges separate API calls", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const attribution = { spaceId, projectId, userId: `mixed-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    const summary = async () => {
+      const rows = await prisma.$transaction((tx) => getProjectCostSummaries(tx, spaceId));
+      return rows.find((row) => row.projectId === projectId);
+    };
+    await recordUsage(
+      prisma,
+      {
+        ...event,
+        callId: `mixed-known-${projectId}`,
+        costUsdDecimal: "0.000007",
+        costSource: "provider_reported",
+      },
+      attribution,
+    );
+    await recordUsage(prisma, { ...event, callId: `mixed-unknown-${projectId}` }, attribution);
+    expect(await summary()).toMatchObject({
+      knownMarginalMicroUsd: "7",
+      unknownCostCalls: 1,
+      complete: false,
+    });
+    const subscription = {
+      ...event,
+      callId: `mixed-subscription-${projectId}`,
+      billingKind: "subscription_included" as const,
+      costUsdDecimal: "0",
+      costSource: "provider_reported",
+    };
+    await recordUsage(prisma, subscription, attribution);
+    await recordUsage(prisma, subscription, attribution);
+    expect(await summary()).toMatchObject({
+      knownMarginalMicroUsd: "7",
+      unknownCostCalls: 1,
+      subscriptionIncludedCalls: 1,
+      complete: false,
+    });
+    const callId = `mixed-api-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100n });
+    const api = { ...event, callId, costUsdDecimal: "0.000011", costSource: "provider_reported" };
+    await Promise.all(Array.from({ length: 6 }, () => recordUsage(prisma, api, attribution)));
+    expect(await summary()).toMatchObject({
+      knownMarginalMicroUsd: "18",
+      unknownCostCalls: 1,
+      subscriptionIncludedCalls: 1,
+      complete: false,
+    });
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 11n });
+    expect(await prisma.usageRecord.count({ where: { spaceId, projectId } })).toBe(4);
+  });
+
+  it("converges first delivery, reserve and replay without duplicate settlement", async () => {
+    for (const order of ["usage-first", "reserve-first", "concurrent"]) {
+      const projectId = await budgetFor(1_000_000n);
+      const callId = `first-delivery-${order}-${projectId}`;
+      const attribution = { spaceId, projectId, userId: `first-${projectId}` };
+      const event = {
+        type: "usage" as const,
+        provider: "fixture",
+        model: "fixture",
+        inputTokens: 10,
+        outputTokens: 2,
+        billingKind: "api" as const,
+        callId,
+        costUsdDecimal: "0.25",
+        costSource: "provider_reported",
+      };
+      const reserve = () =>
+        reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+      const deliver = () => recordUsage(prisma, event, attribution);
+      if (order === "usage-first") {
+        await deliver();
+        await reserve();
+      } else if (order === "reserve-first") {
+        await reserve();
+        await deliver();
+      } else await Promise.all([reserve(), deliver(), deliver()]);
+      await Promise.all([deliver(), deliver(), reserve()]);
+      expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 0n,
+        settledMicroUsd: 250_000n,
+      });
+      expect(
+        await prisma.budgetReservation.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toMatchObject({ status: "settled", settledMicroUsd: 250_000n });
+    }
+  });
+
+  it("settles known usage once when delivery races expiry", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `known-expiry-race-${projectId}`;
+    const now = new Date();
+    await reserveBudget(prisma, {
+      spaceId,
+      projectId,
+      callId,
+      amountMicroUsd: 600_000n,
+      ttlMs: 1,
+      now: new Date(now.getTime() - 1000),
+    });
+    const attribution = { spaceId, projectId, userId: `known-expiry-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      callId,
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+      costUsdDecimal: "0.25",
+      costSource: "provider_reported",
+    };
+    await Promise.all([
+      expireBudgetReservations(prisma, { now }),
+      ...Array.from({ length: 6 }, () => recordUsage(prisma, event, attribution)),
+    ]);
+    await expireBudgetReservations(prisma, { now: new Date(now.getTime() + 1000) });
+    await recordUsage(prisma, event, attribution);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+    expect(
+      await prisma.budgetReservation.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toMatchObject({ status: "settled", settledMicroUsd: 250_000n });
+  });
+
+  it("retains one unknown holding when delivery races expiry", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `expiry-race-${projectId}`;
+    const now = new Date();
+    await reserveBudget(prisma, {
+      spaceId,
+      projectId,
+      callId,
+      amountMicroUsd: 600_000n,
+      ttlMs: 1,
+      now: new Date(now.getTime() - 1000),
+    });
+    const attribution = { spaceId, projectId, userId: `expiry-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      callId,
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    await Promise.all([
+      expireBudgetReservations(prisma, { now }),
+      recordUsage(prisma, event, attribution),
+    ]);
+    await recordUsage(prisma, event, attribution);
+    await expireBudgetReservations(prisma, { now: new Date(now.getTime() + 1000) });
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 600_000n,
+      settledMicroUsd: 0n,
+    });
+    expect(
+      await prisma.budgetReservation.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toMatchObject({ status: "unreconciled", amountMicroUsd: 600_000n });
+    expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+  });
+
+  it("restores exposure above limit and blocks ordinary reservations", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `overlimit-recovery-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+    await releaseBudgetReservation(prisma, { spaceId, callId });
+    await setProjectBudget(prisma, { spaceId, projectId, limitMicroUsd: 100_000n });
+    const attribution = { spaceId, projectId, userId: `overlimit-${projectId}` };
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      callId,
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+    };
+    await Promise.all(Array.from({ length: 4 }, () => recordUsage(prisma, event, attribution)));
+    expect(await state(projectId)).toMatchObject({
+      limitMicroUsd: 100_000n,
+      reservedMicroUsd: 600_000n,
+      settledMicroUsd: 0n,
+    });
+    expect(
+      await reserveBudget(prisma, {
+        spaceId,
+        projectId,
+        callId: `blocked-${projectId}`,
+        amountMicroUsd: 1n,
+      }),
+    ).toMatchObject({ ok: false, reason: "insufficient" });
+    expect(
+      await prisma.budgetReservation.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      }),
+    ).toMatchObject({ status: "unreconciled", chargedAfterRelease: true });
+    await recordUsage(
+      prisma,
+      { ...event, costUsdDecimal: "0.7", costSource: "provider_reported" },
+      attribution,
+    );
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 700_000n,
+    });
+  });
+
+  it("preserves settled cost and provenance across both source arrival orders", async () => {
+    for (const [firstSource, laterSource] of [
+      ["pricing_estimate", "provider_reported"],
+      ["provider_reported", "pricing_estimate"],
+    ]) {
+      const projectId = await budgetFor(1_000_000n);
+      const callId = `source-order-${firstSource}-${projectId}`;
+      const attribution = { spaceId, projectId, userId: `source-${projectId}` };
+      const event = {
+        type: "usage" as const,
+        provider: "fixture",
+        model: "fixture",
+        inputTokens: 10,
+        outputTokens: 2,
+        billingKind: "api" as const,
+        callId,
+        costUsdDecimal: "0.1",
+        costSource: firstSource,
+      };
+      await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 600_000n });
+      await recordUsage(prisma, event, attribution);
+      const deliver = () =>
+        recordUsage(
+          prisma,
+          { ...event, costUsdDecimal: "0.125", costSource: laterSource },
+          attribution,
+        );
+      await Promise.all(Array.from({ length: 6 }, deliver));
+      const row = await prisma.usageRecord.findUniqueOrThrow({
+        where: { spaceId_callId: { spaceId, callId } },
+      });
+      expect(row).toMatchObject({ costMicroUsd: 100_000n, costSource: firstSource });
+      expect(row.costAnomalies).toEqual([
+        { kind: "amount_source_conflict", costMicroUsd: "125000", costSource: laterSource },
+      ]);
+      expect(await prisma.usageRecord.count({ where: { spaceId, callId } })).toBe(1);
+      expect(await state(projectId)).toMatchObject({
+        reservedMicroUsd: 0n,
+        settledMicroUsd: 100_000n,
+      });
+      expect(
+        await prisma.budgetReservation.findUniqueOrThrow({
+          where: { spaceId_callId: { spaceId, callId } },
+        }),
+      ).toMatchObject({ status: "settled", settledMicroUsd: 100_000n });
+    }
   });
 });

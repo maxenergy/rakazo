@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { normalizePiUsage } from "../../../adapters/src/pi-usage.js";
 import { gradeHistory, historyFixture } from "./history-fixtures.js";
 import {
   measureCalls,
@@ -57,7 +58,7 @@ it("generates reproducible 10k originals and rejects obsolete decisions and writ
   expect(gradeHistory(fixture, "Tuesday graphite", 1).every((c) => c.pass)).toBe(false);
 });
 
-it("uses provider-reported charge when cache buckets are unavailable", () => {
+it("uses provider_reported charge when cache buckets are unavailable", () => {
   expect(
     measureCalls(
       [
@@ -66,7 +67,7 @@ it("uses provider-reported charge when cache buckets are unavailable", () => {
           inputTokens: 10,
           outputTokens: 4,
           costUsd: 0.002,
-          costSource: "provider-reported",
+          costSource: "provider_reported",
         },
       ],
       pricing,
@@ -227,4 +228,19 @@ it("retains spend and blocks further calls when observed one-hour writes lack th
   unknown.settleUsage(unknownId, { cacheWrite1hTokens: 100 });
   expect(unknown.usedUsd).toBe(unknownReserved);
   expect(() => unknown.reserve(100, 10)).toThrow("no configured pricing");
+});
+
+it("measures real Pi catalog usage without explicit pricing", () => {
+  const usage = normalizePiUsage(
+    {
+      input: 10,
+      output: 5,
+      cost: { input: 0.00001, output: 0.00001, cacheRead: 0, cacheWrite: 0, total: 0.00002 },
+    },
+    { cost: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0 } },
+  );
+  expect(usage.costSource).toBe("pi_catalog_estimate");
+  const measured = measureCalls([{ id: "real-pi", ...usage }]);
+  expect(measured.costUsd).toBe(0.00002);
+  expect(measured.costSources).toEqual(["pi_catalog_estimate"]);
 });

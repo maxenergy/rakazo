@@ -30,6 +30,8 @@ function harness(
     run: {
       findFirst: vi.fn(async () => ({
         id: run.id,
+        projectId: null,
+        rootRunId: "root-run",
         sourceMessage: { blocks: sourceBlocks },
       })),
       findUnique: vi.fn(async () => ({ status: "running" })),
@@ -90,7 +92,14 @@ describe("group handoff ownership", () => {
       }),
     );
     expect(runCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ trigger: "follow_up" }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          trigger: "follow_up",
+          projectId: null,
+          parentRunId: run.id,
+          rootRunId: "root-run",
+        }),
+      }),
     );
   });
 

@@ -1,4 +1,6 @@
+import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
 
 /** All amounts are integer micro-USD (1 USD = 1_000_000) held as bigint. */
 export const DEFAULT_RESERVATION_TTL_MS = 15 * 60 * 1000;
@@ -121,8 +123,15 @@ async function setProjectBudgetOnce(
  * reservation. Replaying it with a different amount, or for another budget, throws
  * BudgetCallIdConflictError and leaves the existing reservation unchanged.
  */
-export async function reserveBudget(
+export function reserveBudget(
   db: PrismaClient,
+  input: Parameters<typeof reserveBudgetInTransaction>[1],
+): Promise<BudgetReservationResult> {
+  return db.$transaction((tx) => reserveBudgetInTransaction(tx, input));
+}
+
+export async function reserveBudgetInTransaction(
+  tx: Prisma.TransactionClient,
   input: {
     spaceId: string;
     projectId: string;
@@ -135,89 +144,97 @@ export async function reserveBudget(
   assertPositiveMicroUsd(input.amountMicroUsd, "amountMicroUsd");
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + (input.ttlMs ?? DEFAULT_RESERVATION_TTL_MS));
-  return db.$transaction(async (tx): Promise<BudgetReservationResult> => {
-    const rows = await tx.$queryRaw<BudgetRow[]>`
+  await lockReservation(tx, input.spaceId, input.callId);
+  const usage = await tx.usageRecord.findUnique({
+    where: { spaceId_callId: { spaceId: input.spaceId, callId: input.callId } },
+  });
+  if (usage && usage.projectId !== input.projectId) {
+    throw new BudgetCallIdConflictError(input.callId, "other_budget");
+  }
+  const rows = await tx.$queryRaw<BudgetRow[]>`
       SELECT * FROM "project_budgets"
       WHERE "spaceId" = ${input.spaceId} AND "projectId" = ${input.projectId}
       FOR UPDATE`;
-    const budget = rows[0];
-    if (!budget) return { ok: false, reason: "no_budget", availableMicroUsd: 0n };
+  const budget = rows[0];
+  if (!budget) return { ok: false, reason: "no_budget", availableMicroUsd: 0n };
 
-    const prior = await tx.budgetReservation.findUnique({
-      where: { spaceId_callId: { spaceId: input.spaceId, callId: input.callId } },
-    });
-    if (prior) {
-      if (prior.budgetId !== budget.id) {
-        throw new BudgetCallIdConflictError(input.callId, "other_budget");
-      }
-      if (prior.amountMicroUsd !== input.amountMicroUsd) {
-        throw new BudgetCallIdConflictError(input.callId, "amount_mismatch");
-      }
-      // A closed reservation no longer holds funds; a retry must not look like a live hold.
-      if (prior.status !== "reserved") {
-        return {
-          ok: false,
-          reason: "reservation_closed",
-          availableMicroUsd: 0n,
-          status: prior.status as "settled" | "released" | "expired",
-        };
-      }
-      return {
-        ok: true,
-        reservationId: prior.id,
-        budgetId: prior.budgetId,
-        budgetVersion: prior.budgetVersion,
-        amountMicroUsd: prior.amountMicroUsd,
-        replayed: true,
-      };
+  const prior = await tx.budgetReservation.findUnique({
+    where: { spaceId_callId: { spaceId: input.spaceId, callId: input.callId } },
+  });
+  if (prior) {
+    if (prior.budgetId !== budget.id) {
+      throw new BudgetCallIdConflictError(input.callId, "other_budget");
     }
-
-    const available = budget.limitMicroUsd - budget.reservedMicroUsd - budget.settledMicroUsd;
-    if (available < input.amountMicroUsd) {
+    if (prior.amountMicroUsd !== input.amountMicroUsd) {
+      throw new BudgetCallIdConflictError(input.callId, "amount_mismatch");
+    }
+    // A closed reservation no longer holds funds; a retry must not look like a live hold.
+    if (prior.status !== "reserved") {
       return {
         ok: false,
-        reason: "insufficient",
-        availableMicroUsd: available > 0n ? available : 0n,
+        reason: "reservation_closed",
+        availableMicroUsd: 0n,
+        status: prior.status as "settled" | "released" | "expired",
       };
     }
-
-    await tx.projectBudget.update({
-      where: { id: budget.id },
-      data: { reservedMicroUsd: { increment: input.amountMicroUsd } },
-    });
-    const created = await tx.budgetReservation
-      .create({
-        data: {
-          budgetId: budget.id,
-          spaceId: input.spaceId,
-          projectId: input.projectId,
-          budgetVersion: budget.version,
-          callId: input.callId,
-          amountMicroUsd: input.amountMicroUsd,
-          expiresAt,
-        },
-      })
-      .catch((error: unknown) => {
-        // Same-budget callers serialize on the budget lock, so a unique violation here means
-        // another budget won the race for this callId.
-        if ((error as { code?: string }).code === "P2002") {
-          throw new BudgetCallIdConflictError(input.callId, "other_budget");
-        }
-        throw error;
-      });
     return {
       ok: true,
-      reservationId: created.id,
-      budgetId: budget.id,
-      budgetVersion: budget.version,
-      amountMicroUsd: input.amountMicroUsd,
-      replayed: false,
+      reservationId: prior.id,
+      budgetId: prior.budgetId,
+      budgetVersion: prior.budgetVersion,
+      amountMicroUsd: prior.amountMicroUsd,
+      replayed: true,
     };
+  }
+
+  const available = budget.limitMicroUsd - budget.reservedMicroUsd - budget.settledMicroUsd;
+  if (available < input.amountMicroUsd) {
+    return {
+      ok: false,
+      reason: "insufficient",
+      availableMicroUsd: available > 0n ? available : 0n,
+    };
+  }
+
+  await tx.projectBudget.update({
+    where: { id: budget.id },
+    data: { reservedMicroUsd: { increment: input.amountMicroUsd } },
   });
+  const created = await tx.budgetReservation
+    .create({
+      data: {
+        budgetId: budget.id,
+        spaceId: input.spaceId,
+        projectId: input.projectId,
+        budgetVersion: budget.version,
+        callId: input.callId,
+        amountMicroUsd: input.amountMicroUsd,
+        expiresAt,
+      },
+    })
+    .catch((error: unknown) => {
+      // Same-budget callers serialize on the budget lock, so a unique violation here means
+      // another budget won the race for this callId.
+      if ((error as { code?: string }).code === "P2002") {
+        throw new BudgetCallIdConflictError(input.callId, "other_budget");
+      }
+      throw error;
+    });
+  if (usage) await reconcileUsageInTransaction(tx, usage);
+  return {
+    ok: true,
+    reservationId: created.id,
+    budgetId: budget.id,
+    budgetVersion: budget.version,
+    amountMicroUsd: input.amountMicroUsd,
+    replayed: false,
+  };
 }
 
-/** Lock order is reservation, then budget, everywhere both are taken. */
+/** Lock order: call advisory lock, usage, reservation, then budget. */
 async function lockReservation(tx: Prisma.TransactionClient, spaceId: string, callId: string) {
+  await lockBudgetCall(tx, spaceId, callId);
+  await tx.$queryRaw`SELECT 1 FROM "usage_records" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId} FOR UPDATE`;
   const rows = await tx.$queryRaw<ReservationRow[]>`
     SELECT * FROM "budget_reservations" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId} FOR UPDATE`;
   const reservation = rows[0];
@@ -229,59 +246,67 @@ async function lockReservation(tx: Prisma.TransactionClient, spaceId: string, ca
 /**
  * Settle actual spend, idempotent by callId. Actual cost is always recorded, even above the
  * reservation (the excess is `overrunMicroUsd`) or after the reservation expired (`settledLate`).
- * A released reservation cannot be settled: the call never ran, so return null.
+ * Late actual charges settle once even after release or write-off.
  */
-export async function settleBudget(
+export function settleBudget(
   db: PrismaClient,
+  input: Parameters<typeof settleBudgetInTransaction>[1],
+): Promise<BudgetSettlement | null> {
+  return db.$transaction((tx) => settleBudgetInTransaction(tx, input));
+}
+
+export async function settleBudgetInTransaction(
+  tx: Prisma.TransactionClient,
   input: { spaceId: string; callId: string; actualMicroUsd: bigint; now?: Date },
 ): Promise<BudgetSettlement | null> {
   assertMicroUsd(input.actualMicroUsd, "actualMicroUsd");
   const now = input.now ?? new Date();
-  return db.$transaction(async (tx): Promise<BudgetSettlement | null> => {
-    const reservation = await lockReservation(tx, input.spaceId, input.callId);
-    if (!reservation || reservation.status === "released") return null;
-    if (reservation.status === "settled") {
-      return {
-        reservationId: reservation.id,
-        status: "settled",
-        settledMicroUsd: reservation.settledMicroUsd ?? 0n,
-        overrunMicroUsd: reservation.overrunMicroUsd,
-        settledLate: reservation.settledLate,
-        replayed: true,
-      };
-    }
-    const late = reservation.status === "expired";
-    const overrun =
-      input.actualMicroUsd > reservation.amountMicroUsd
-        ? input.actualMicroUsd - reservation.amountMicroUsd
-        : 0n;
-    // An expired reservation was already subtracted from reservedMicroUsd.
-    await tx.projectBudget.update({
-      where: { id: reservation.budgetId },
-      data: {
-        reservedMicroUsd: late ? undefined : { decrement: reservation.amountMicroUsd },
-        settledMicroUsd: { increment: input.actualMicroUsd },
-      },
-    });
-    await tx.budgetReservation.update({
-      where: { id: reservation.id },
-      data: {
-        status: "settled",
-        settledMicroUsd: input.actualMicroUsd,
-        overrunMicroUsd: overrun,
-        settledLate: late,
-        closedAt: now,
-      },
-    });
+  const reservation = await lockReservation(tx, input.spaceId, input.callId);
+  if (!reservation) return null;
+  if (reservation.status === "settled") {
     return {
       reservationId: reservation.id,
+      status: "settled",
+      settledMicroUsd: reservation.settledMicroUsd ?? 0n,
+      overrunMicroUsd: reservation.overrunMicroUsd,
+      settledLate: reservation.settledLate,
+      replayed: true,
+    };
+  }
+  const hasHolding = reservation.status === "reserved" || reservation.status === "unreconciled";
+  const late = reservation.status !== "reserved";
+  const overrun =
+    input.actualMicroUsd > reservation.amountMicroUsd
+      ? input.actualMicroUsd - reservation.amountMicroUsd
+      : 0n;
+  // Only reserved and unreconciled reservations still hold funds.
+  await tx.projectBudget.update({
+    where: { id: reservation.budgetId },
+    data: {
+      reservedMicroUsd: hasHolding ? { decrement: reservation.amountMicroUsd } : undefined,
+      settledMicroUsd: { increment: input.actualMicroUsd },
+    },
+  });
+  await tx.budgetReservation.update({
+    where: { id: reservation.id },
+    data: {
       status: "settled",
       settledMicroUsd: input.actualMicroUsd,
       overrunMicroUsd: overrun,
       settledLate: late,
-      replayed: false,
-    };
+      chargedAfterRelease: reservation.status === "released" ? true : undefined,
+      chargedAfterWriteOff: reservation.status === "written_off" ? true : undefined,
+      closedAt: now,
+    },
   });
+  return {
+    reservationId: reservation.id,
+    status: "settled",
+    settledMicroUsd: input.actualMicroUsd,
+    overrunMicroUsd: overrun,
+    settledLate: late,
+    replayed: false,
+  };
 }
 
 async function closeReserved(
@@ -347,4 +372,38 @@ export async function setProjectBudget(
     if ((error as { code?: string }).code !== "P2002") throw error;
     return setProjectBudgetOnce(db, input);
   }
+}
+
+/** Close an unknown-cost holding through an audited write-off. */
+export async function writeOffBudgetHolding(
+  db: PrismaClient,
+  input: { spaceId: string; callId: string; actorUserId: string; reason: string; now?: Date },
+) {
+  if (!input.actorUserId.trim() || !input.reason.trim()) {
+    throw new Error("Write-off requires an actor and reason");
+  }
+  return db.$transaction(async (tx) => {
+    const reservation = await lockReservation(tx, input.spaceId, input.callId);
+    if (!reservation) return null;
+    if (reservation.status === "written_off")
+      return { reservationId: reservation.id, replayed: true };
+    if (reservation.status !== "unreconciled")
+      throw new Error("Only unreconciled holdings may be written off");
+    const now = input.now ?? new Date();
+    await tx.projectBudget.update({
+      where: { id: reservation.budgetId },
+      data: { reservedMicroUsd: { decrement: reservation.amountMicroUsd } },
+    });
+    await tx.budgetReservation.update({
+      where: { id: reservation.id },
+      data: {
+        status: "written_off",
+        writtenOffAt: now,
+        writtenOffBy: input.actorUserId,
+        writeOffReason: input.reason.trim(),
+        closedAt: now,
+      },
+    });
+    return { reservationId: reservation.id, replayed: false };
+  });
 }

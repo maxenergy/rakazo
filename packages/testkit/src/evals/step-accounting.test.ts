@@ -12,7 +12,7 @@ const call = (id: string, fields: Partial<LedgerCall> = {}): LedgerCall => ({
   reasoningTokens: 0,
   totalTokens: 16,
   costUsd: 0.01,
-  costSource: "provider-reported",
+  costSource: "provider_reported",
   operation: "answer",
   ...fields,
 });

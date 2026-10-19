@@ -59,6 +59,14 @@ export function normalizePiUsage(
     (model.cost.cacheRead === 0 || cacheReadTokens !== null) &&
     (model.cost.cacheWrite === 0 || cacheWriteTokens !== null);
   const providerCost = reportedCosts.get(reported);
+  const costUsd =
+    providerCost ??
+    (costKnown &&
+    typeof usage?.cost?.total === "number" &&
+    Number.isFinite(usage.cost.total) &&
+    usage.cost.total >= 0
+      ? usage.cost.total
+      : null);
   return {
     inputTokens,
     outputTokens,
@@ -67,13 +75,12 @@ export function normalizePiUsage(
     cacheWrite1hTokens: token(usage?.cacheWrite1h, "cacheWrite1hTokens"),
     reasoningTokens: token(usage?.reasoning, "reasoningTokens"),
     totalTokens,
-    costUsd:
-      providerCost ??
-      (costKnown && typeof usage?.cost?.total === "number" && Number.isFinite(usage.cost.total)
-        ? usage.cost.total
-        : null),
+    costUsd,
+    // Preserve the numeric value at the adapter boundary without additional arithmetic.
+    costUsdDecimal: costUsd === null ? null : String(costUsd),
+    billingKind: costUsd === null ? "unknown" : "api",
     costSource:
-      providerCost !== undefined ? "provider-reported" : costKnown ? "pi-catalog-estimate" : null,
+      providerCost !== undefined ? "provider_reported" : costKnown ? "pi_catalog_estimate" : null,
     pricingVersion: providerCost !== undefined ? null : costKnown ? "pi-ai-0.87.1" : null,
     usageSource: reported.size ? "provider-reported-via-pi" : "pi-normalized",
   };

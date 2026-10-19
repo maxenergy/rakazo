@@ -10,6 +10,7 @@ loadRootEnv();
 
 const integration = process.argv.includes("--integration");
 const e2e = process.argv.includes("--e2e");
+const desktopBoard = process.argv.includes("--desktop-board");
 const sandboxArg = process.argv.find((arg) => arg.startsWith("--sandbox="));
 const specArg = process.argv.find((arg) => arg.startsWith("--spec="));
 const grepArg = process.argv.find((arg) => arg.startsWith("--grep="));
@@ -229,10 +230,11 @@ async function main() {
           "pnpm",
           [
             "--filter",
-            "@rakazo/web",
+            desktopBoard ? "@rakazo/desktop" : "@rakazo/web",
             "exec",
             "playwright",
             "test",
+            ...(desktopBoard ? ["--config=e2e/board.config.ts"] : []),
             ...(e2eSpec ? [e2eSpec] : []),
             ...(e2eGrep ? ["--grep", e2eGrep] : []),
           ],

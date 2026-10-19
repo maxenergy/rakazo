@@ -99,6 +99,12 @@ jobs:
           DAYTONA_API_KEY: ${{ inputs.sandbox_provider == 'daytona' && secrets.DAYTONA_API_KEY || '' }}
           BOX_API_KEY: ${{ inputs.sandbox_provider == 'box' && secrets.BOX_API_KEY || '' }}
         run: pnpm test:e2e -- --sandbox="$SANDBOX_TEST_PROVIDER"
+      - name: Build desktop for real-server board test
+        id: desktop_board_build
+        run: pnpm --filter @rakazo/desktop build
+      - name: Electron board against disposable server
+        id: desktop_board_tests
+        run: xvfb-run -a pnpm test:e2e -- --sandbox=fake --desktop-board
       # Homepage screenshots only: no copy or layout assertions.
       # Runs after product e2e so shared apps/web/test-results is not wiped by the product run.
       - name: Capture marketing homepage screenshots
@@ -108,11 +114,14 @@ jobs:
       - name: Record Playwright result
         if: always() && inputs.upload_artifacts
         env:
+          DESKTOP_BOARD_RESULT: ${{ steps.desktop_board_tests.outcome }}
           PLAYWRIGHT_RESULT: ${{ steps.playwright_tests.outcome }}
           WWW_PLAYWRIGHT_RESULT: ${{ steps.www_playwright_tests.outcome }}
         run: |
           mkdir -p test-report/e2e
-          if [[ "$PLAYWRIGHT_RESULT" == "success" && "$WWW_PLAYWRIGHT_RESULT" == "success" ]]; then
+          if [[ "$DESKTOP_BOARD_RESULT" != "success" ]]; then
+            printf 'failure\n' > test-report/e2e/outcome.txt
+          elif [[ "$PLAYWRIGHT_RESULT" == "success" && "$WWW_PLAYWRIGHT_RESULT" == "success" ]]; then
             printf 'success\n' > test-report/e2e/outcome.txt
           elif [[ "$PLAYWRIGHT_RESULT" == "success" && ( "$WWW_PLAYWRIGHT_RESULT" == "skipped" || -z "$WWW_PLAYWRIGHT_RESULT" ) ]]; then
             printf 'success\n' > test-report/e2e/outcome.txt
@@ -128,6 +137,7 @@ jobs:
             playwright-report
             playwright-report-www
             apps/web/test-results
+            apps/desktop/test-results
             test-report/e2e
           retention-days: 7
           if-no-files-found: warn

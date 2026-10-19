@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createUpperBound } from "./budget-price.js";
 
 const call = (inputTokensEstimate: number, maxOutputTokens: number) => ({
+  callId: "price-test-call",
   provider: "p",
   modelId: "m",
   inputTokensEstimate,

@@ -268,6 +268,7 @@ export function observedPiStream(
         ? await Promise.resolve()
             .then(() =>
               observer.beforeCall({
+                callId,
                 provider: model.provider,
                 modelId: model.id,
                 inputTokensEstimate: estimateModelContextTokens(

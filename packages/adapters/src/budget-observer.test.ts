@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { BudgetExceededError, type BudgetPort, createBudgetObserver } from "./budget-observer.js";
 
-const call = { provider: "p", modelId: "m", inputTokensEstimate: 10, maxOutputTokens: 10 };
+const call = {
+  callId: "physical-call",
+  provider: "p",
+  modelId: "m",
+  inputTokensEstimate: 10,
+  maxOutputTokens: 10,
+};
 
 function port(ok = true): BudgetPort {
   return {
@@ -10,7 +16,6 @@ function port(ok = true): BudgetPort {
         ? { ok: true as const }
         : { ok: false as const, reason: "insufficient" as const, availableMicroUsd: 0n },
     ),
-    settle: vi.fn(async () => undefined),
     release: vi.fn(async () => undefined),
   };
 }
@@ -22,23 +27,20 @@ describe("createBudgetObserver", () => {
     const p = port(false);
     const o = createBudgetObserver({ port: p, scope, upperBoundMicroUsd: () => 5n });
     await expect(o.beforeCall(call)).rejects.toBeInstanceOf(BudgetExceededError);
-    expect(p.settle).not.toHaveBeenCalled();
   });
 
-  it("settles actual cost in micro-USD after a call", async () => {
-    const p = port();
-    const o = createBudgetObserver({ port: p, scope, upperBoundMicroUsd: () => 5_000_000n });
-    const id = await o.beforeCall(call);
-    await o.afterCall(id, { costUsd: 0.0123 } as never);
-    expect(p.settle).toHaveBeenCalledWith(expect.objectContaining({ actualMicroUsd: 12_300n }));
-  });
-
-  it("settles at the reserved bound when the price is unknown, never zero", async () => {
+  it.each([0.0123, null])("leaves accounting to D1 for cost %s", async (costUsd) => {
     const p = port();
     const o = createBudgetObserver({ port: p, scope, upperBoundMicroUsd: () => 777n });
     const id = await o.beforeCall(call);
-    await o.afterCall(id, { costUsd: null } as never);
-    expect(p.settle).toHaveBeenCalledWith(expect.objectContaining({ actualMicroUsd: 777n }));
+    expect(id).toBe(call.callId);
+    expect(p.reserve).toHaveBeenCalledWith({
+      ...scope(),
+      callId: call.callId,
+      amountMicroUsd: 777n,
+    });
+    await o.afterCall(id, { costUsd } as never, { started: true });
+    expect(p.release).not.toHaveBeenCalled();
   });
 
   it("releases when the call never started", async () => {
@@ -47,7 +49,6 @@ describe("createBudgetObserver", () => {
     const id = await o.beforeCall(call);
     await o.afterCall(id, null, { started: false });
     expect(p.release).toHaveBeenCalledTimes(1);
-    expect(p.settle).not.toHaveBeenCalled();
   });
 
   it.each([true, undefined])(
@@ -58,16 +59,15 @@ describe("createBudgetObserver", () => {
       const id = await o.beforeCall(call);
       await o.afterCall(id, null, started === undefined ? undefined : { started });
       expect(p.release).not.toHaveBeenCalled();
-      expect(p.settle).not.toHaveBeenCalled();
     },
   );
 
-  it("uses a fresh callId for each call, so backup-model calls reserve separately", async () => {
+  it("preserves distinct producer callIds for primary and backup calls", async () => {
     const p = port();
     const o = createBudgetObserver({ port: p, scope, upperBoundMicroUsd: () => 5n });
     await o.beforeCall(call);
-    await o.beforeCall(call);
+    await o.beforeCall({ ...call, callId: "backup-call" });
     const ids = (p.reserve as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0].callId);
-    expect(new Set(ids).size).toBe(2);
+    expect(ids).toEqual([call.callId, "backup-call"]);
   });
 });

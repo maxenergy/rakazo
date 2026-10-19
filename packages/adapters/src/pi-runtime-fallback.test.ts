@@ -359,6 +359,7 @@ describe("Pi runtime ordered model fallback", () => {
         ),
       );
       const physicalCalls = onUsage.mock.calls.map(([event]) => event.callId);
+      expect(beforeCall.mock.calls.map(([call]) => call.callId)).toEqual(physicalCalls);
       expect(physicalCalls.every((callId) => typeof callId === "string" && callId.length > 0)).toBe(
         true,
       );

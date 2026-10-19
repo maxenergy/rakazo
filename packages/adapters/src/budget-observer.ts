@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { AgentUsage, ModelCallObserver } from "@rakazo/adapter-kit";
 
 /** Subset of the D2a project-budgets service that the runtime needs. Amounts are micro-USD bigint. */
@@ -16,7 +15,6 @@ export interface BudgetPort {
         availableMicroUsd: bigint;
       }
   >;
-  settle(input: { spaceId: string; callId: string; actualMicroUsd: bigint }): Promise<unknown>;
   release(input: { spaceId: string; callId: string }): Promise<unknown>;
 }
 
@@ -46,24 +44,16 @@ export class BudgetExceededError extends Error {
   }
 }
 
-export function usdToMicroUsd(costUsd: number): bigint {
-  return BigInt(Math.ceil(costUsd * 1_000_000));
-}
-
-/**
- * Reserves an upper bound before every model call and settles or releases afterwards. Because
- * observedPiStream wraps the primary, backup-model and nested-agent streams, one observer covers
- * all of them. A missing price settles at the reserved bound, never at zero.
- */
+/** Reserve per physical call; D1 accounting exclusively owns settlement. */
 export function createBudgetObserver(options: BudgetObserverOptions): ModelCallObserver {
-  const open = new Map<string, { spaceId: string; amountMicroUsd: bigint; inner?: string }>();
+  const open = new Map<string, { spaceId: string; callId: string; inner?: string }>();
   return {
     async beforeCall(call) {
       const scope = options.scope();
       if (!scope) {
-        return options.inner ? await options.inner.beforeCall(call) : randomUUID();
+        return options.inner ? await options.inner.beforeCall(call) : call.callId;
       }
-      const callId = randomUUID();
+      const callId = call.callId;
       const amountMicroUsd = options.upperBoundMicroUsd(call);
       const result = await options.port.reserve({ ...scope, callId, amountMicroUsd });
       if (!result.ok) {
@@ -80,38 +70,31 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
         await options.port.release({ spaceId: scope.spaceId, callId });
         throw error;
       }
-      open.set(callId, { spaceId: scope.spaceId, amountMicroUsd, inner });
-      return inner === undefined ? callId : `${callId}:${inner}`;
+      open.set(callId, { spaceId: scope.spaceId, callId, inner });
+      return callId;
     },
     async afterCall(
       reservationId: string,
       usage: AgentUsage | null,
       lifecycle?: { started: boolean },
     ) {
-      const callId = reservationId.split(":", 1)[0]!;
+      const callId = reservationId;
       const entry = open.get(callId);
       if (!entry) {
         if (options.inner) await options.inner.afterCall(reservationId, usage, lifecycle);
         return;
       }
       open.delete(callId);
-      const innerId = reservationId.slice(callId.length + 1);
       try {
         if (usage === null) {
           // Missing accounting is not evidence that no provider call started.
           if (lifecycle?.started === false) {
             await options.port.release({ spaceId: entry.spaceId, callId });
           }
-        } else {
-          const actual =
-            typeof usage.costUsd === "number" && Number.isFinite(usage.costUsd)
-              ? usdToMicroUsd(usage.costUsd)
-              : entry.amountMicroUsd;
-          await options.port.settle({ spaceId: entry.spaceId, callId, actualMicroUsd: actual });
         }
       } finally {
         if (options.inner && entry.inner !== undefined) {
-          await options.inner.afterCall(innerId, usage, lifecycle);
+          await options.inner.afterCall(entry.inner, usage, lifecycle);
         }
       }
     },

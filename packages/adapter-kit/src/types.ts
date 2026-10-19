@@ -533,6 +533,8 @@ export type UsageOperationKind = "answer" | "setup" | "retrieval" | "subagent" |
 
 export interface ModelCallObserver {
   beforeCall(call: {
+    /** Durable identity generated once per physical provider call. */
+    callId: string;
     provider: string;
     modelId: string;
     inputTokensEstimate: number;

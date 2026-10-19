@@ -3163,5 +3163,14 @@ describe("ticket board tool capability", () => {
     }).map((tool) => tool.name);
     for (const name of ["message_bot", "handoff_to_bot", "message_agent"])
       expect(backgroundNames).not.toContain(name);
+    const orgTicketNames = selectBuiltinToolsForRun({
+      ...options,
+      trigger: "tickets",
+      ticketBoardEnabled: true,
+      orgMessaging: true,
+    }).map((tool) => tool.name);
+    expect(orgTicketNames).toContain("message_bot");
+    for (const name of ["message_user", "handoff_to_bot", "message_agent"])
+      expect(orgTicketNames).not.toContain(name);
   });
 });

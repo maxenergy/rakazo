@@ -3324,6 +3324,34 @@ export function createRunExecutor(deps: ExecutorDeps) {
         data: { status: "running", startedAt: current.startedAt ?? new Date() },
       });
       if (started.count !== 1) return;
+      // An org bot's later turn already had this message in its history. Settle it
+      // before waiting for the bot's computer: while the bot works one long turn, its
+      // colleagues' messages queue up, and each would otherwise wait for its own turn.
+      if (run.trigger === "bot_message" && (await peerMessageAlreadySeen(deps.prisma, run))) {
+        const attempt = await deps.prisma.attempt.create({
+          data: { runId, fence, status: "running" },
+        });
+        const skipped = await deps.events.finalizeRun({
+          spaceId: run.spaceId,
+          threadId: run.threadId,
+          botId: run.botId,
+          runId,
+          taskId: run.taskId,
+          attemptId: attempt.id,
+          leaseOwner: workerId,
+          leaseFence: fence,
+          outcome: "completed",
+          blocks: [],
+        });
+        if (!skipped) return;
+        await markPeerMessageSeen(deps.prisma, runId);
+        if (skipped.continuationRunId) {
+          await deps.jobs
+            .enqueue(runContinueJob(skipped.continuationRunId))
+            .catch((error) => getLogger().error("steering continuation enqueue", error));
+        }
+        return;
+      }
       const leaseTarget = await deps.prisma.bot.findUniqueOrThrow({
         where: { id: run.botId },
         select: { computerId: true, computerSwitching: true },
@@ -3381,29 +3409,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
 
       const runSecrets = [...deps.secrets];
       try {
-        if (run.trigger === "bot_message" && (await peerMessageAlreadySeen(deps.prisma, run))) {
-          // An org bot's later turn already had this message in its history.
-          const skipped = await deps.events.finalizeRun({
-            spaceId: run.spaceId,
-            threadId: run.threadId,
-            botId: run.botId,
-            runId,
-            taskId: run.taskId,
-            attemptId: attempt.id,
-            leaseOwner: workerId,
-            leaseFence: fence,
-            outcome: "completed",
-            blocks: [],
-          });
-          if (!skipped) return;
-          await markPeerMessageSeen(deps.prisma, runId);
-          if (skipped.continuationRunId) {
-            await deps.jobs
-              .enqueue(runContinueJob(skipped.continuationRunId))
-              .catch((error) => getLogger().error("steering continuation enqueue", error));
-          }
-          return;
-        }
         const sourceBlocks =
           run.trigger === "messaging" && run.sourceMessageId
             ? ((
@@ -7718,6 +7723,8 @@ export function selectBuiltinToolsForRun(options: {
           !tool.name.startsWith("ticket_") &&
           !isGoalToolName(tool.name))) &&
       (!isBackgroundRunTrigger(options.trigger) ||
+        // An org member working a ticket still has to hand results to colleagues.
+        (options.orgMessaging && tool.name === "message_bot") ||
         !["message_user", "message_bot", "handoff_to_bot", "message_agent"].includes(tool.name)) &&
       (options.voiceCall || tool.name !== "end_call") &&
       (options.historyRetrievalEnabled ||

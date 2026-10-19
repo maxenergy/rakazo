@@ -87,10 +87,10 @@ export function ProjectsPage() {
           </section>
         ) : null}
         {projectId && !milestoneId && data?.project?.id === projectId && !error ? (
-          <ProjectBudget key={projectId} projectId={projectId} />
+          <ProjectBudget key={"budget:" + projectId} projectId={projectId} />
         ) : null}
         {projectId && data?.project && !milestoneId ? (
-          <ProjectGoals key={projectId} projectId={projectId} readOnly={data.project.archived} />
+          <ProjectGoals key={"goals:" + projectId} projectId={projectId} readOnly={data.project.archived} />
         ) : null}
         {!milestoneId ? (
           <>

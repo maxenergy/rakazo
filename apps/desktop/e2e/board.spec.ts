@@ -111,7 +111,12 @@ test("Electron displays a persisted ticket in its real board column", async ({
   await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Board", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/board$/);
-  const column = page.getByTestId("board-column-doing");
+  const column = page
+    .getByTestId("board-columns")
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", { name: "In progress", exact: true }),
+    });
   const card = column.getByTestId(`board-card-${ticket.id}`);
   await expect(card).toContainText("Electron persisted board ticket");
   await expect(card).toContainText(ticket.ref);

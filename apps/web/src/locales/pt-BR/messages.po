@@ -493,7 +493,7 @@ msgstr "Sempre permitido"
 
 #: src/components/ProjectBudget.tsx
 msgid "Amount exceeds the supported range."
-msgstr ""
+msgstr "O valor excede o intervalo permitido."
 
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
@@ -688,7 +688,7 @@ msgstr "Os remetentes automáticos aparecerão depois de publicar aqui."
 
 #: src/components/ProjectBudget.tsx
 msgid "Available"
-msgstr ""
+msgstr "Disponível"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
@@ -832,11 +832,11 @@ msgstr "Navegador"
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
-msgstr ""
+msgstr "O controle de orçamento abrange chamadas observáveis a modelos. Assinaturas fixas e gastos arbitrários com ferramentas são excluídos."
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget limit (USD)"
-msgstr ""
+msgstr "Limite do orçamento (USD)"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2217,7 +2217,7 @@ msgstr "Participar quando... Ignorar..."
 
 #: src/components/ProjectBudget.tsx
 msgid "Enter a non-negative USD amount with at most six decimal places."
-msgstr ""
+msgstr "Insira um valor em USD não negativo com no máximo seis casas decimais."
 
 #: src/lib/user-error.ts
 msgid "Enter a password"
@@ -2304,7 +2304,7 @@ msgstr "Expandir {0}"
 
 #: src/pages/Approvals.tsx
 msgid "Expired"
-msgstr ""
+msgstr "Expirado"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2689,7 +2689,7 @@ msgstr "Claro"
 
 #: src/components/ProjectBudget.tsx
 msgid "Limit"
-msgstr ""
+msgstr "Limite"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3255,7 +3255,7 @@ msgstr "Nenhum modelo listado."
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
-msgstr ""
+msgstr "Nenhum orçamento de projeto está configurado."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3620,7 +3620,7 @@ msgstr "Projeto"
 
 #: src/components/ProjectBudget.tsx
 msgid "Project budget"
-msgstr ""
+msgstr "Orçamento do projeto"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3900,7 +3900,7 @@ msgstr "Respondendo a {0}"
 
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
-msgstr ""
+msgstr "Reservado"
 
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -4071,7 +4071,7 @@ msgstr "Salvar backups"
 
 #: src/components/ProjectBudget.tsx
 msgid "Save budget"
-msgstr ""
+msgstr "Salvar orçamento"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4271,7 +4271,7 @@ msgstr "Configurações: Uso"
 
 #: src/components/ProjectBudget.tsx
 msgid "Settled"
-msgstr ""
+msgstr "Liquidado"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4466,7 +4466,7 @@ msgstr "SSO está temporariamente indisponível. Tente novamente."
 
 #: src/pages/Approvals.tsx
 msgid "Stale"
-msgstr ""
+msgstr "Desatualizado"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

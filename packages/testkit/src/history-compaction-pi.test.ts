@@ -60,6 +60,7 @@ describe("history compaction with real Pi", () => {
         ]),
       },
       usageRecord: { createMany, create, findUnique: vi.fn(async () => null) },
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn(async () => []),
       budgetReservation: { findUnique: vi.fn(async () => null) },
       $transaction: vi.fn(async (execute) => execute(prisma)),

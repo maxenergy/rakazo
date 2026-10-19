@@ -493,7 +493,7 @@ msgstr "始终允许"
 
 #: src/components/ProjectBudget.tsx
 msgid "Amount exceeds the supported range."
-msgstr ""
+msgstr "金额超出支持的范围。"
 
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
@@ -688,7 +688,7 @@ msgstr "自动化发送者发帖后会显示在这里。"
 
 #: src/components/ProjectBudget.tsx
 msgid "Available"
-msgstr ""
+msgstr "可用"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
@@ -832,11 +832,11 @@ msgstr "浏览器"
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
-msgstr ""
+msgstr "预算限制涵盖可观测的模型调用，不包括固定订阅费用和任意工具支出。"
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget limit (USD)"
-msgstr ""
+msgstr "预算上限（USD）"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2217,7 +2217,7 @@ msgstr "何时参与…何时忽略…"
 
 #: src/components/ProjectBudget.tsx
 msgid "Enter a non-negative USD amount with at most six decimal places."
-msgstr ""
+msgstr "请输入非负的美元金额，最多保留六位小数。"
 
 #: src/lib/user-error.ts
 msgid "Enter a password"
@@ -2304,7 +2304,7 @@ msgstr "展开 {0}"
 
 #: src/pages/Approvals.tsx
 msgid "Expired"
-msgstr ""
+msgstr "已过期"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2689,7 +2689,7 @@ msgstr "浅色"
 
 #: src/components/ProjectBudget.tsx
 msgid "Limit"
-msgstr ""
+msgstr "上限"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3255,7 +3255,7 @@ msgstr "未列出模型。"
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
-msgstr ""
+msgstr "尚未配置项目预算。"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3620,7 +3620,7 @@ msgstr "项目"
 
 #: src/components/ProjectBudget.tsx
 msgid "Project budget"
-msgstr ""
+msgstr "项目预算"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3900,7 +3900,7 @@ msgstr "正在回复 {0}"
 
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
-msgstr ""
+msgstr "已预留"
 
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -4071,7 +4071,7 @@ msgstr "保存备用模型"
 
 #: src/components/ProjectBudget.tsx
 msgid "Save budget"
-msgstr ""
+msgstr "保存预算"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4271,7 +4271,7 @@ msgstr "设置：用量"
 
 #: src/components/ProjectBudget.tsx
 msgid "Settled"
-msgstr ""
+msgstr "已结算"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4466,7 +4466,7 @@ msgstr "SSO 暂时不可用，请重试。"
 
 #: src/pages/Approvals.tsx
 msgid "Stale"
-msgstr ""
+msgstr "已失效"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

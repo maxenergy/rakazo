@@ -62,6 +62,7 @@ const context = {
 
 function noGroupMemberships() {
   return {
+    $executeRaw: vi.fn().mockResolvedValue(1),
     $queryRaw: vi.fn().mockResolvedValue([]),
     chatGroup: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -581,7 +582,7 @@ describe("destroyBot", () => {
       },
     });
     expect(cancelAttempts).toHaveBeenCalledWith({
-      where: { runId: { in: ["group-run"] }, status: "running" },
+      where: { runId: { in: ["group-run"] }, status: { in: ["running", "waiting_budget"] } },
       data: { status: "cancelled", finishedAt: expect.any(Date) },
     });
     expect(cancelTasks).toHaveBeenCalledWith({
@@ -2000,6 +2001,7 @@ function runInWorkspace(cwd: string, argv: readonly string[]) {
 function deletionPrisma(team: { id: string }) {
   const transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
     callback({
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn().mockResolvedValue([]),
       chatGroup: {
         findMany: vi.fn().mockResolvedValue([]),

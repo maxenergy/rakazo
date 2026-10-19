@@ -493,7 +493,7 @@ msgstr "हमेशा अनुमत"
 
 #: src/components/ProjectBudget.tsx
 msgid "Amount exceeds the supported range."
-msgstr ""
+msgstr "राशि समर्थित सीमा से अधिक है।"
 
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
@@ -688,7 +688,7 @@ msgstr "स्वचालित प्रेषक यहाँ संदेश
 
 #: src/components/ProjectBudget.tsx
 msgid "Available"
-msgstr ""
+msgstr "उपलब्ध"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
@@ -832,11 +832,11 @@ msgstr "ब्राउज़र"
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
-msgstr ""
+msgstr "बजट नियंत्रण में देखी जा सकने वाली मॉडल कॉल शामिल हैं। निश्चित सदस्यताएँ और टूल के मनमाने खर्च शामिल नहीं हैं।"
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget limit (USD)"
-msgstr ""
+msgstr "बजट सीमा (USD)"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2217,7 +2217,7 @@ msgstr "कब शामिल हों… कब अनदेखा करे�
 
 #: src/components/ProjectBudget.tsx
 msgid "Enter a non-negative USD amount with at most six decimal places."
-msgstr ""
+msgstr "अधिकतम छह दशमलव स्थानों वाली गैर-ऋणात्मक USD राशि दर्ज करें।"
 
 #: src/lib/user-error.ts
 msgid "Enter a password"
@@ -2304,7 +2304,7 @@ msgstr "{0} फैलाएँ"
 
 #: src/pages/Approvals.tsx
 msgid "Expired"
-msgstr ""
+msgstr "समय समाप्त"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2689,7 +2689,7 @@ msgstr "लाइट"
 
 #: src/components/ProjectBudget.tsx
 msgid "Limit"
-msgstr ""
+msgstr "सीमा"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3255,7 +3255,7 @@ msgstr "कोई मॉडल सूचीबद्ध नहीं।"
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
-msgstr ""
+msgstr "कोई प्रोजेक्ट बजट कॉन्फ़िगर नहीं है।"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3620,7 +3620,7 @@ msgstr "परियोजना"
 
 #: src/components/ProjectBudget.tsx
 msgid "Project budget"
-msgstr ""
+msgstr "प्रोजेक्ट बजट"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3900,7 +3900,7 @@ msgstr "{0} को जवाब"
 
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
-msgstr ""
+msgstr "आरक्षित"
 
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -4071,7 +4071,7 @@ msgstr "बैकअप सहेजें"
 
 #: src/components/ProjectBudget.tsx
 msgid "Save budget"
-msgstr ""
+msgstr "बजट सहेजें"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4271,7 +4271,7 @@ msgstr "सेटिंग्स: उपयोग"
 
 #: src/components/ProjectBudget.tsx
 msgid "Settled"
-msgstr ""
+msgstr "निपटान किया गया"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4466,7 +4466,7 @@ msgstr "SSO अस्थायी रूप से उपलब्ध नही�
 
 #: src/pages/Approvals.tsx
 msgid "Stale"
-msgstr ""
+msgstr "पुराना"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

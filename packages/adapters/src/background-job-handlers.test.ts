@@ -100,6 +100,7 @@ describe("createBackgroundJobHandlers", () => {
         resolveModel,
       },
       "thread-1",
+      undefined,
     );
   });
 

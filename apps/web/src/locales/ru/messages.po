@@ -493,7 +493,7 @@ msgstr "Всегда разрешено"
 
 #: src/components/ProjectBudget.tsx
 msgid "Amount exceeds the supported range."
-msgstr ""
+msgstr "Сумма превышает допустимый диапазон."
 
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
@@ -688,7 +688,7 @@ msgstr "Автоматические отправители появятся п�
 
 #: src/components/ProjectBudget.tsx
 msgid "Available"
-msgstr ""
+msgstr "Доступно"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
@@ -832,11 +832,11 @@ msgstr "Браузер"
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
-msgstr ""
+msgstr "Контроль бюджета охватывает наблюдаемые вызовы моделей. Фиксированные подписки и произвольные расходы инструментов исключены."
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget limit (USD)"
-msgstr ""
+msgstr "Лимит бюджета (USD)"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2217,7 +2217,7 @@ msgstr "Включайтесь, когда... Игнорируйте..."
 
 #: src/components/ProjectBudget.tsx
 msgid "Enter a non-negative USD amount with at most six decimal places."
-msgstr ""
+msgstr "Введите неотрицательную сумму в USD, содержащую не более шести знаков после запятой."
 
 #: src/lib/user-error.ts
 msgid "Enter a password"
@@ -2304,7 +2304,7 @@ msgstr "Развернуть {0}"
 
 #: src/pages/Approvals.tsx
 msgid "Expired"
-msgstr ""
+msgstr "Срок истёк"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2689,7 +2689,7 @@ msgstr "Светлая"
 
 #: src/components/ProjectBudget.tsx
 msgid "Limit"
-msgstr ""
+msgstr "Лимит"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3255,7 +3255,7 @@ msgstr "Модели не перечислены."
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
-msgstr ""
+msgstr "Бюджет проекта не настроен."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3620,7 +3620,7 @@ msgstr "Проект"
 
 #: src/components/ProjectBudget.tsx
 msgid "Project budget"
-msgstr ""
+msgstr "Бюджет проекта"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3900,7 +3900,7 @@ msgstr "Ответ на {0}"
 
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
-msgstr ""
+msgstr "Зарезервировано"
 
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -4071,7 +4071,7 @@ msgstr "Сохранить резервные модели"
 
 #: src/components/ProjectBudget.tsx
 msgid "Save budget"
-msgstr ""
+msgstr "Сохранить бюджет"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4271,7 +4271,7 @@ msgstr "Настройки: Использование"
 
 #: src/components/ProjectBudget.tsx
 msgid "Settled"
-msgstr ""
+msgstr "Учтено"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4466,7 +4466,7 @@ msgstr "SSO временно недоступен. Попробуйте снов
 
 #: src/pages/Approvals.tsx
 msgid "Stale"
-msgstr ""
+msgstr "Устарело"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

@@ -493,7 +493,7 @@ msgstr "항상 허용됨"
 
 #: src/components/ProjectBudget.tsx
 msgid "Amount exceeds the supported range."
-msgstr ""
+msgstr "금액이 지원 범위를 초과합니다."
 
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
@@ -688,7 +688,7 @@ msgstr "자동 발신자가 여기에 게시하면 목록에 나타납니다."
 
 #: src/components/ProjectBudget.tsx
 msgid "Available"
-msgstr ""
+msgstr "사용 가능"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
@@ -832,11 +832,11 @@ msgstr "브라우저"
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
-msgstr ""
+msgstr "예산 제한은 관측 가능한 모델 호출에 적용됩니다. 고정 구독료와 임의의 도구 지출은 제외됩니다."
 
 #: src/components/ProjectBudget.tsx
 msgid "Budget limit (USD)"
-msgstr ""
+msgstr "예산 한도 (USD)"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2217,7 +2217,7 @@ msgstr "참여할 상황… 무시할 상황…"
 
 #: src/components/ProjectBudget.tsx
 msgid "Enter a non-negative USD amount with at most six decimal places."
-msgstr ""
+msgstr "소수점 이하 최대 여섯 자리의 음수가 아닌 USD 금액을 입력하세요."
 
 #: src/lib/user-error.ts
 msgid "Enter a password"
@@ -2304,7 +2304,7 @@ msgstr "{0} 펼치기"
 
 #: src/pages/Approvals.tsx
 msgid "Expired"
-msgstr ""
+msgstr "만료됨"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2689,7 +2689,7 @@ msgstr "라이트"
 
 #: src/components/ProjectBudget.tsx
 msgid "Limit"
-msgstr ""
+msgstr "한도"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3255,7 +3255,7 @@ msgstr "나열된 모델이 없습니다."
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
-msgstr ""
+msgstr "프로젝트 예산이 설정되지 않았습니다."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3620,7 +3620,7 @@ msgstr "프로젝트"
 
 #: src/components/ProjectBudget.tsx
 msgid "Project budget"
-msgstr ""
+msgstr "프로젝트 예산"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -3900,7 +3900,7 @@ msgstr "{0}에게 답장 중"
 
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
-msgstr ""
+msgstr "예약됨"
 
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -4071,7 +4071,7 @@ msgstr "백업 모델 저장"
 
 #: src/components/ProjectBudget.tsx
 msgid "Save budget"
-msgstr ""
+msgstr "예산 저장"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4271,7 +4271,7 @@ msgstr "설정: 사용량"
 
 #: src/components/ProjectBudget.tsx
 msgid "Settled"
-msgstr ""
+msgstr "정산됨"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4466,7 +4466,7 @@ msgstr "SSO를 일시적으로 사용할 수 없습니다. 다시 시도하세�
 
 #: src/pages/Approvals.tsx
 msgid "Stale"
-msgstr ""
+msgstr "오래됨"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

@@ -23,6 +23,7 @@ describe("write-off and late settlement", () => {
       settled += data.settledMicroUsd?.increment ?? 0n;
     });
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn(async (strings: TemplateStringsArray) =>
         strings.join("").includes("budget_reservations") ? [reservation] : [],
       ),

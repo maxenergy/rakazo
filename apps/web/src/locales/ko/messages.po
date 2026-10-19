@@ -491,6 +491,10 @@ msgstr "이 도구 항상 허용"
 msgid "Always allowed"
 msgstr "항상 허용됨"
 
+#: src/components/ProjectBudget.tsx
+msgid "Amount exceeds the supported range."
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "이 서비스에는 구독 로그인이 아니라 API 키가 저장되어 있습니다."
@@ -682,6 +686,10 @@ msgstr "자동 발신자"
 msgid "Automated senders will appear after they post here."
 msgstr "자동 발신자가 여기에 게시하면 목록에 나타납니다."
 
+#: src/components/ProjectBudget.tsx
+msgid "Available"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
 msgstr "루틴을 저장한 후 사용할 수 있습니다"
@@ -821,6 +829,14 @@ msgstr "MCP 서버 찾아보기"
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Browser"
 msgstr "브라우저"
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
+msgstr ""
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget limit (USD)"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2199,6 +2215,10 @@ msgstr "{day} 종료"
 msgid "Engage when... Ignore..."
 msgstr "참여할 상황… 무시할 상황…"
 
+#: src/components/ProjectBudget.tsx
+msgid "Enter a non-negative USD amount with at most six decimal places."
+msgstr ""
+
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "비밀번호를 입력하세요"
@@ -2281,6 +2301,10 @@ msgstr "펼치기"
 #: src/pages/Shell.tsx
 msgid "Expand {0}"
 msgstr "{0} 펼치기"
+
+#: src/pages/Approvals.tsx
+msgid "Expired"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2662,6 +2686,10 @@ msgstr "나가기"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "라이트"
+
+#: src/components/ProjectBudget.tsx
+msgid "Limit"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3225,6 +3253,10 @@ msgstr "모델 요금이 없습니다. 테스트용 결정론적 시뮬레이션
 msgid "No models listed."
 msgstr "나열된 모델이 없습니다."
 
+#: src/components/ProjectBudget.tsx
+msgid "No project budget is configured."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "검색된 AI 서비스가 없습니다."
@@ -3586,6 +3618,10 @@ msgstr "자체 봇과 그룹이 있는 비공개 작업 공간입니다."
 msgid "Project"
 msgstr "프로젝트"
 
+#: src/components/ProjectBudget.tsx
+msgid "Project budget"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "프로젝트 ID"
@@ -3862,6 +3898,10 @@ msgstr "답장 취소됨"
 msgid "Replying to {0}"
 msgstr "{0}에게 답장 중"
 
+#: src/components/ProjectBudget.tsx
+msgid "Reserved"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Reset"
@@ -4028,6 +4068,10 @@ msgstr "저장"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Save backups"
 msgstr "백업 모델 저장"
+
+#: src/components/ProjectBudget.tsx
+msgid "Save budget"
+msgstr ""
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4225,6 +4269,10 @@ msgstr "설정: 일반"
 msgid "Settings: Usage"
 msgstr "설정: 사용량"
 
+#: src/components/ProjectBudget.tsx
+msgid "Settled"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Setup help"
@@ -4415,6 +4463,10 @@ msgstr "음성 모델"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO를 일시적으로 사용할 수 없습니다. 다시 시도하세요."
+
+#: src/pages/Approvals.tsx
+msgid "Stale"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

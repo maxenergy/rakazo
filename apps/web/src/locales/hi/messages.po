@@ -491,6 +491,10 @@ msgstr "इस टूल को हमेशा अनुमति दें"
 msgid "Always allowed"
 msgstr "हमेशा अनुमत"
 
+#: src/components/ProjectBudget.tsx
+msgid "Amount exceeds the supported range."
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "इस प्रोवाइडर के लिए API कुंजी संग्रहीत है, सब्सक्रिप्शन साइन-इन नहीं।"
@@ -682,6 +686,10 @@ msgstr "स्वचालित प्रेषक"
 msgid "Automated senders will appear after they post here."
 msgstr "स्वचालित प्रेषक यहाँ संदेश भेजने के बाद दिखेंगे।"
 
+#: src/components/ProjectBudget.tsx
+msgid "Available"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
 msgstr "रूटीन सहेजने के बाद उपलब्ध"
@@ -821,6 +829,14 @@ msgstr "MCP सर्वर खोजें"
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Browser"
 msgstr "ब्राउज़र"
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
+msgstr ""
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget limit (USD)"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2199,6 +2215,10 @@ msgstr "{day} को समाप्त होगा"
 msgid "Engage when... Ignore..."
 msgstr "कब शामिल हों… कब अनदेखा करें…"
 
+#: src/components/ProjectBudget.tsx
+msgid "Enter a non-negative USD amount with at most six decimal places."
+msgstr ""
+
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "पासवर्ड दर्ज करें"
@@ -2281,6 +2301,10 @@ msgstr "विस्तृत करें"
 #: src/pages/Shell.tsx
 msgid "Expand {0}"
 msgstr "{0} फैलाएँ"
+
+#: src/pages/Approvals.tsx
+msgid "Expired"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2662,6 +2686,10 @@ msgstr "छोड़ें"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "लाइट"
+
+#: src/components/ProjectBudget.tsx
+msgid "Limit"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3225,6 +3253,10 @@ msgstr "मॉडल का कोई शुल्क नहीं। टेस�
 msgid "No models listed."
 msgstr "कोई मॉडल सूचीबद्ध नहीं।"
 
+#: src/components/ProjectBudget.tsx
+msgid "No project budget is configured."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "कोई प्रोवाइडर नहीं मिला।"
@@ -3586,6 +3618,10 @@ msgstr "अपने बॉट और समूह वाला निजी क
 msgid "Project"
 msgstr "परियोजना"
 
+#: src/components/ProjectBudget.tsx
+msgid "Project budget"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "प्रोजेक्ट ID"
@@ -3862,6 +3898,10 @@ msgstr "जवाब रद्द किया गया"
 msgid "Replying to {0}"
 msgstr "{0} को जवाब"
 
+#: src/components/ProjectBudget.tsx
+msgid "Reserved"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Reset"
@@ -4028,6 +4068,10 @@ msgstr "सहेजें"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Save backups"
 msgstr "बैकअप सहेजें"
+
+#: src/components/ProjectBudget.tsx
+msgid "Save budget"
+msgstr ""
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4225,6 +4269,10 @@ msgstr "सेटिंग्स: सामान्य"
 msgid "Settings: Usage"
 msgstr "सेटिंग्स: उपयोग"
 
+#: src/components/ProjectBudget.tsx
+msgid "Settled"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Setup help"
@@ -4415,6 +4463,10 @@ msgstr "वाक् मॉडल"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO अस्थायी रूप से उपलब्ध नहीं है। फिर कोशिश करें।"
+
+#: src/pages/Approvals.tsx
+msgid "Stale"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

@@ -491,6 +491,10 @@ msgstr "Permitir siempre esta herramienta"
 msgid "Always allowed"
 msgstr "Siempre permitido"
 
+#: src/components/ProjectBudget.tsx
+msgid "Amount exceeds the supported range."
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "Hay una clave de API guardada para este proveedor, no un inicio de sesión por suscripción."
@@ -682,6 +686,10 @@ msgstr "Remitentes automáticos"
 msgid "Automated senders will appear after they post here."
 msgstr "Los remitentes automáticos aparecerán después de publicar aquí."
 
+#: src/components/ProjectBudget.tsx
+msgid "Available"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
 msgstr "Disponible después de guardar la rutina"
@@ -821,6 +829,14 @@ msgstr "Explorar servidores MCP"
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Browser"
 msgstr "Navegador"
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
+msgstr ""
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget limit (USD)"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2199,6 +2215,10 @@ msgstr "Finaliza el {day}"
 msgid "Engage when... Ignore..."
 msgstr "Participar cuando... Ignorar..."
 
+#: src/components/ProjectBudget.tsx
+msgid "Enter a non-negative USD amount with at most six decimal places."
+msgstr ""
+
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "Introduce una contraseña"
@@ -2281,6 +2301,10 @@ msgstr "Expandir"
 #: src/pages/Shell.tsx
 msgid "Expand {0}"
 msgstr "Expandir {0}"
+
+#: src/pages/Approvals.tsx
+msgid "Expired"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2662,6 +2686,10 @@ msgstr "Salir"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Claro"
+
+#: src/components/ProjectBudget.tsx
+msgid "Limit"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3225,6 +3253,10 @@ msgstr "Sin costes de modelo. Simulación determinista para pruebas."
 msgid "No models listed."
 msgstr "No hay modelos en la lista."
 
+#: src/components/ProjectBudget.tsx
+msgid "No project budget is configured."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "No se encontraron proveedores."
@@ -3586,6 +3618,10 @@ msgstr "Espacio de trabajo privado con sus propios bots y grupos."
 msgid "Project"
 msgstr "Proyecto"
 
+#: src/components/ProjectBudget.tsx
+msgid "Project budget"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "ID del proyecto"
@@ -3862,6 +3898,10 @@ msgstr "Respuesta cancelada"
 msgid "Replying to {0}"
 msgstr "Respondiendo a {0}"
 
+#: src/components/ProjectBudget.tsx
+msgid "Reserved"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Reset"
@@ -4028,6 +4068,10 @@ msgstr "Guardar"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Save backups"
 msgstr "Guardar respaldos"
+
+#: src/components/ProjectBudget.tsx
+msgid "Save budget"
+msgstr ""
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4225,6 +4269,10 @@ msgstr "Configuración: General"
 msgid "Settings: Usage"
 msgstr "Configuración: Uso"
 
+#: src/components/ProjectBudget.tsx
+msgid "Settled"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Setup help"
@@ -4415,6 +4463,10 @@ msgstr "Modelo de habla"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO no está disponible temporalmente. Inténtalo de nuevo."
+
+#: src/pages/Approvals.tsx
+msgid "Stale"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

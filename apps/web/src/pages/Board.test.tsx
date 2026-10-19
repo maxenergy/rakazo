@@ -17,6 +17,9 @@ const api = vi.hoisted(() => ({
     create: vi.fn(),
     comment: vi.fn(),
     comments: vi.fn(),
+    dependencies: vi.fn().mockResolvedValue({ prerequisites: [], dependents: [], blockedByDependency: false }),
+    addDependency: vi.fn(),
+    removeDependency: vi.fn(),
   },
 }));
 vi.mock("../lib/rpc", () => ({ rpc: api, selectedSpaceId: () => "space-1" }));

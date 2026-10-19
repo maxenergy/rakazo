@@ -8,6 +8,9 @@ import {
   ATTACHMENT_MAX_COUNT,
 } from "./attachments.js";
 import {
+  TicketDependenciesInput,
+  EditTicketDependencyInput,
+  TicketDependenciesSchema,
   BoardEventSchema,
   BoardSchema,
   CommentTicketInput,
@@ -655,6 +658,9 @@ export const appContract = {
     delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
   },
   tickets: {
+    dependencies: oc.input(TicketDependenciesInput).output(TicketDependenciesSchema),
+    addDependency: oc.input(EditTicketDependencyInput).output(TicketDependenciesSchema),
+    removeDependency: oc.input(EditTicketDependencyInput).output(TicketDependenciesSchema),
     list: oc.input(ListTicketsInput).output(ListTicketsOutput),
     get: oc.input(GetTicketInput).output(TicketSchema),
     create: oc.input(CreateTicketInput).output(TicketSchema),

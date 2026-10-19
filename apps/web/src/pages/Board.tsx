@@ -36,6 +36,7 @@ import { useTicketPriorityLabels } from "../lib/ticket-priority";
 import { useTicketStatusLabels } from "../lib/ticket-status";
 import { useBoardRefresh } from "../lib/use-board-refresh";
 import { errorText } from "../lib/user-error";
+import { TicketDependencies } from "./TicketDependencies";
 import { WindowChrome } from "./WindowChrome";
 
 export function BoardPage() {
@@ -526,6 +527,7 @@ function TicketDialog({
             </Button>
           </div>
         </form>
+        {ticket ? <TicketDependencies ticketId={ticket.id} revision={commentRevision} onSaved={onSaved} /> : null}
         {ticket ? (
           <div data-testid="ticket-comments" className="space-y-3 border-t pt-3">
             {comments.map((row) => (

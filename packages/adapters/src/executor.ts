@@ -256,6 +256,7 @@ import { checkpointRunComputerWorkspace } from "./computer-workspace.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
+import { executeDependencyTool, isDependencyToolName } from "./dependency-tools.js";
 import { executeGoalTool, isGoalToolName } from "./goal-tools.js";
 import { handoffToGroupBot, loadGroupContext } from "./group-handoff.js";
 import {
@@ -5369,6 +5370,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 cursor: args.cursor !== undefined ? String(args.cursor) : undefined,
               }),
             );
+          }
+          if (isDependencyToolName(name)) {
+            return finish(await executeDependencyTool(deps, run.spaceId, name, args));
           }
           if (isGoalToolName(name)) {
             return finish(await executeGoalTool(deps, run.spaceId, name, args));

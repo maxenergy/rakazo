@@ -21,7 +21,7 @@ import {
 } from "@rakazo/db";
 import type { TicketChangeNotifier } from "./ticket-changes.js";
 
-type TicketToolDeps = {
+export type TicketToolDeps = {
   prisma: PrismaClient;
   ticketBoardEnabled?: boolean;
   onTicketChange?: TicketChangeNotifier;

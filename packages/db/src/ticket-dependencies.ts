@@ -1,4 +1,5 @@
 import { isTicketCompletedStatus, TicketStatusSchema } from "@rakazo/contracts";
+import { toTicketDto } from "./board.js";
 import type { Prisma } from "./client.js";
 import { isProjectItemArchived, ProjectLinkError } from "./project-links.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
@@ -68,4 +69,30 @@ export async function removeTicketDependency(
       AND "ticketId" = ${ticketId}
       AND "prerequisiteId" = ${prerequisiteId}
   `;
+}
+
+/** Read both directions in the caller's transaction and space snapshot. */
+export async function readTicketDependencies(
+  tx: Prisma.TransactionClient,
+  spaceId: string,
+  ticketId: string,
+) {
+  const ticket = await tx.ticket.findFirst({ where: { spaceId, id: ticketId } });
+  if (!ticket) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  const edges = await tx.ticketDependency.findMany({
+    where: { spaceId, OR: [{ ticketId }, { prerequisiteId: ticketId }] },
+  });
+  const prerequisiteIds = edges.filter((edge) => edge.ticketId === ticketId).map((edge) => edge.prerequisiteId);
+  const dependentIds = edges.filter((edge) => edge.prerequisiteId === ticketId).map((edge) => edge.ticketId);
+  const rows = await tx.ticket.findMany({
+    where: { spaceId, id: { in: [...prerequisiteIds, ...dependentIds] } },
+    include: { board: { select: { ticketPrefix: true } } },
+    orderBy: [{ number: "asc" }, { id: "asc" }],
+  });
+  const prerequisites = rows.filter((row) => prerequisiteIds.includes(row.id));
+  return {
+    prerequisites: prerequisites.map((row) => toTicketDto(row, row.board.ticketPrefix)),
+    dependents: rows.filter((row) => dependentIds.includes(row.id)).map((row) => toTicketDto(row, row.board.ticketPrefix)),
+    blockedByDependency: prerequisites.some((row) => !isTicketComplete(row.status)),
+  };
 }

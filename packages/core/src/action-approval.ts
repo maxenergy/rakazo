@@ -52,6 +52,7 @@ const UNATTENDED_SAFE_BUILTIN_TOOLS = new Set([
   "task_catalog",
   "schedule_list",
   "scratchpad_list",
+  "ticket_dependency_list",
   "skill_read",
   "web_fetch",
   "web_search",

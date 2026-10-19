@@ -43,7 +43,9 @@ export function createDb(
 ): { prisma: PrismaClient; pool: Pool } {
   const pool = createPool(connectionString, options);
   const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter });
+  // Prisma's default 2 s wait to start an interactive transaction fails runs
+  // during short pool bursts or event-loop stalls; wait as long as a checkout does.
+  const prisma = new PrismaClient({ adapter, transactionOptions: { maxWait: 10_000 } });
   return { prisma, pool };
 }
 

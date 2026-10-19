@@ -95,6 +95,7 @@ async function runWithModel(
       findFirst: vi.fn(async () => ({ id: run.botId })),
       findUniqueOrThrow: vi.fn(async () => ({
         id: run.botId,
+        userId: run.userId,
         name: "Assistant",
         title: "Assistant",
         description: "Test assistant",
@@ -138,7 +139,14 @@ async function runWithModel(
     },
     secret: { findFirst: vi.fn(async () => null) },
     userModelCredential: { findFirst: vi.fn(async () => null) },
-    botBackupModel: { findMany: vi.fn(async () => []) },
+    botBackupModel: {
+      findMany: vi.fn(async () => {
+        if (backupReadFails) throw new Error("Backup list unavailable");
+        return switchModel
+          ? [{ provider: switchModel.provider, modelId: switchModel.modelId }]
+          : [];
+      }),
+    },
     spaceBackupModel: {
       findMany: vi.fn(async () => {
         if (backupReadFails) throw new Error("Backup list unavailable");
@@ -224,15 +232,21 @@ describe("recent turn images follow model vision", () => {
     const { prisma, request } = await runWithModel(TEXT_ONLY_MODEL, undefined, true);
     expect(request.fallbackModels).toEqual([]);
     expect(request.resolveFallbackModel).toBeUndefined();
-    expect(prisma.spaceBackupModel.findMany).toHaveBeenCalledExactlyOnceWith({
-      where: { userId: "user-1", spaceId: "space-1" },
+    expect(prisma.bot.findFirst).toHaveBeenCalledWith({
+      where: { id: "bot-1", userId: "user-1", spaceId: "space-1" },
+      select: { id: true },
+    });
+    expect(prisma.botBackupModel.findMany).toHaveBeenCalledExactlyOnceWith({
+      where: { botId: "bot-1" },
       orderBy: { position: "asc" },
       select: { provider: true, modelId: true },
     });
+    expect(prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
   });
 
   it("does not read or configure backups for scripted runs", async () => {
     const { prisma, request } = await runWithModel(TEXT_ONLY_MODEL, undefined, false, true);
+    expect(prisma.botBackupModel.findMany).not.toHaveBeenCalled();
     expect(prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
     expect(request.fallbackModels).toEqual([]);
     expect(request.resolveFallbackModel).toBeUndefined();

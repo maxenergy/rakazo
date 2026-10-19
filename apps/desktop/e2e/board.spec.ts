@@ -80,13 +80,22 @@ test("Electron displays a persisted ticket in its real board column", async ({
   await page.getByPlaceholder("Password").fill("password12");
   await page.getByRole("button", { name: "Create account" }).click();
   const rpc = async <T>(procedure: string, body: unknown): Promise<T> => {
-    const response = await page!.request.post(new URL(`/rpc/${procedure}`, baseURL!).href, {
-      data: { json: body },
-      timeout: 15_000,
-    });
-    const parsed = (await response.json()) as { json?: T; error?: { message?: string } };
-    if (!response.ok() || parsed.error) {
-      throw new Error(`${procedure} ${response.status()}: ${parsed.error?.message ?? "failed"}`);
+    const response = await page!.evaluate(
+      async ({ procedure, body }) => {
+        const result = await fetch(`/rpc/${procedure}`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ json: body }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        return { ok: result.ok, status: result.status, body: await result.json() };
+      },
+      { procedure, body },
+    );
+    const parsed = response.body as { json?: T; error?: { message?: string } };
+    if (!response.ok || parsed.error) {
+      throw new Error(`${procedure} ${response.status}: ${parsed.error?.message ?? "failed"}`);
     }
     return parsed.json as T;
   };

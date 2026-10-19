@@ -254,6 +254,34 @@ async function lockReservation(tx: Prisma.TransactionClient, spaceId: string, ca
   return reservation;
 }
 
+/** Deleted projects retain call identity and holdings exclusively in the ledger. */
+async function settleDeletedBudget(
+  tx: Prisma.TransactionClient,
+  input: { spaceId: string; callId: string; actualMicroUsd: bigint },
+): Promise<BudgetSettlement | null> {
+  const open = await tx.budgetSpendLedger.findUnique({
+    where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "open_at_deletion" } },
+  });
+  if (!open) return null;
+  const prior = await tx.budgetSpendLedger.findUnique({
+    where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "settled" } },
+  });
+  const overrun = input.actualMicroUsd > open.amountMicroUsd ? input.actualMicroUsd - open.amountMicroUsd : 0n;
+  if (!prior) await tx.budgetSpendLedger.create({
+    data: {
+      spaceId: open.spaceId, projectId: open.projectId, budgetId: open.budgetId,
+      budgetVersion: open.budgetVersion, callId: open.callId, kind: "settled",
+      amountMicroUsd: input.actualMicroUsd, overrunMicroUsd: overrun,
+    },
+  });
+  const audit = open.auditData as { reservationId?: string } | null;
+  return {
+    reservationId: audit?.reservationId ?? open.id, status: "settled",
+    settledMicroUsd: prior?.amountMicroUsd ?? input.actualMicroUsd,
+    overrunMicroUsd: prior?.overrunMicroUsd ?? overrun, settledLate: true, replayed: !!prior,
+  };
+}
+
 /**
  * Settle actual spend, idempotent by callId. Actual cost is always recorded, even above the
  * reservation (the excess is `overrunMicroUsd`) or after the reservation expired (`settledLate`).
@@ -272,8 +300,9 @@ export async function settleBudgetInTransaction(
 ): Promise<BudgetSettlement | null> {
   assertMicroUsd(input.actualMicroUsd, "actualMicroUsd");
   const now = input.now ?? new Date();
+  await lockTicketSpace(tx, input.spaceId);
   const reservation = await lockReservation(tx, input.spaceId, input.callId);
-  if (!reservation) return null;
+  if (!reservation) return settleDeletedBudget(tx, input);
   if (reservation.status === "settled") {
     return {
       reservationId: reservation.id,
@@ -438,8 +467,29 @@ export async function writeOffBudgetHolding(
     throw new Error("Write-off requires an actor and reason");
   }
   return db.$transaction(async (tx) => {
+    await lockTicketSpace(tx, input.spaceId);
     const reservation = await lockReservation(tx, input.spaceId, input.callId);
-    if (!reservation) return null;
+    if (!reservation) {
+      const open = await tx.budgetSpendLedger.findUnique({
+        where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "open_at_deletion" } },
+      });
+      if (!open) return null;
+      const closed = await tx.budgetSpendLedger.findMany({
+        where: { spaceId: input.spaceId, callId: input.callId, kind: { in: ["settled", "written_off"] } },
+      });
+      const audit = open.auditData as { reservationId?: string } | null;
+      const reservationId = audit?.reservationId ?? open.id;
+      if (closed.length) return { reservationId, replayed: true };
+      await tx.budgetSpendLedger.create({
+        data: {
+          spaceId: open.spaceId, projectId: open.projectId, budgetId: open.budgetId,
+          budgetVersion: open.budgetVersion, callId: open.callId, kind: "written_off",
+          amountMicroUsd: open.amountMicroUsd,
+          auditData: { actorUserId: input.actorUserId, reason: input.reason.trim(), writtenOffAt: (input.now ?? new Date()).toISOString() },
+        },
+      });
+      return { reservationId, replayed: false };
+    }
     if (reservation.status === "written_off")
       return { reservationId: reservation.id, replayed: true };
     if (reservation.status !== "unreconciled")

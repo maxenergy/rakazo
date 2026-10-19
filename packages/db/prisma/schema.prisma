@@ -1665,7 +1665,7 @@ model ProjectBudget {
   id               String                 @id @default(cuid())
   spaceId          String
   projectId        String
-  project          Project                @relation(fields: [spaceId, projectId], references: [spaceId, id], onDelete: Restrict)
+  project          Project                @relation(fields: [spaceId, projectId], references: [spaceId, id], onDelete: Cascade)
   version          Int                    @default(1)
   limitMicroUsd    BigInt
   reservedMicroUsd BigInt                 @default(0)
@@ -1742,6 +1742,7 @@ model BudgetSpendLedger {
   @@unique([spaceId, callId, kind])
   @@index([spaceId, projectId, createdAt])
   @@map("budget_spend_ledger")
+  auditData       Json?
 }
 
 /// Request to raise a project budget limit after spend would exceed it. Bound to the project,

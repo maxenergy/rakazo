@@ -123,12 +123,48 @@ export async function deleteProject(
     { id: string }[]
   >`SELECT id FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
   if (!rows.length) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
-  const budget = await tx.projectBudget.findUnique({
-    where: { spaceId_projectId: { spaceId, projectId } },
-    select: { id: true },
+  await tx.$queryRaw`SELECT id FROM project_budgets WHERE "spaceId" = ${spaceId} AND "projectId" = ${projectId} ORDER BY id FOR UPDATE`;
+  const reservations = await tx.budgetReservation.findMany({
+    where: { spaceId, projectId, status: { in: ["reserved", "unreconciled"] } },
+    orderBy: { callId: "asc" },
   });
-  if (budget) {
-    throw new ProjectLinkError("CONFLICT", "Projects with a budget cannot be deleted. Archive the project instead.");
+  for (const reservation of reservations) {
+    const unstarted = reservation.status === "reserved" && reservation.executionState === "not_started";
+    await tx.budgetSpendLedger.create({
+      data: {
+        spaceId, projectId, budgetId: reservation.budgetId,
+        budgetVersion: reservation.budgetVersion, callId: reservation.callId,
+        kind: unstarted ? "released" : "open_at_deletion",
+        amountMicroUsd: reservation.amountMicroUsd,
+        auditData: { reservationId: reservation.id, executionState: reservation.executionState },
+      },
+    });
+    if (unstarted) {
+      await tx.budgetReservation.update({
+        where: { id: reservation.id }, data: { status: "released", closedAt: new Date() },
+      });
+      await tx.projectBudget.update({
+        where: { id: reservation.budgetId },
+        data: { reservedMicroUsd: { decrement: reservation.amountMicroUsd } },
+      });
+    }
+  }
+  const approvals = await tx.budgetOverrunApproval.findMany({ where: { spaceId, projectId } });
+  for (const approval of approvals) {
+    await tx.budgetSpendLedger.create({
+      data: {
+        spaceId, projectId, budgetId: approval.budgetId,
+        budgetVersion: approval.budgetVersion, callId: approval.id,
+        kind: "approval_at_deletion", amountMicroUsd: approval.amountMicroUsd,
+        auditData: {
+          approvalId: approval.id, state: approval.status, scope: approval.scope,
+          decision: approval.status === "pending" ? "project_deleted" : approval.decisionReason,
+          decidedByUserId: approval.decidedByUserId,
+          decidedAt: approval.decidedAt?.toISOString() ?? null,
+          appliedVersion: approval.appliedVersion,
+        },
+      },
+    });
   }
   await tx.$queryRaw`SELECT id FROM milestones WHERE "projectId" = ${projectId} AND "spaceId" = ${spaceId} ORDER BY id FOR UPDATE`;
   await tx.ticket.updateMany({

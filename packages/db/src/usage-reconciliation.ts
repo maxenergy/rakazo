@@ -1,3 +1,4 @@
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma } from "./client.js";
 import { settleBudgetInTransaction } from "./project-budgets.js";
@@ -16,6 +17,7 @@ export async function reconcileUsageInTransaction(
   usage: UsageSettlement,
 ): Promise<void> {
   if (!usage.callId || usage.billingKind === "subscription_included") return;
+  await lockTicketSpace(tx, usage.spaceId);
   await lockBudgetCall(tx, usage.spaceId, usage.callId);
   await tx.$queryRaw`SELECT 1 FROM "usage_records" WHERE "spaceId" = ${usage.spaceId} AND "callId" = ${usage.callId} FOR UPDATE`;
   const rows = await tx.$queryRaw<
@@ -28,7 +30,16 @@ export async function reconcileUsageInTransaction(
     }[]
   >`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${usage.spaceId} AND "callId" = ${usage.callId} FOR UPDATE`;
   const reservation = rows[0];
-  if (!reservation) return;
+  if (!reservation) {
+    if (usage.costMicroUsd !== null) {
+      await settleBudgetInTransaction(tx, {
+        spaceId: usage.spaceId,
+        callId: usage.callId,
+        actualMicroUsd: usage.costMicroUsd,
+      });
+    }
+    return;
+  }
   const budgets = await tx.$queryRaw<
     { projectId: string }[]
   >`SELECT * FROM "project_budgets" WHERE "id" = ${reservation.budgetId} FOR UPDATE`;

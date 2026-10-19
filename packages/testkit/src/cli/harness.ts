@@ -89,6 +89,13 @@ async function main() {
 
     if (integration) {
       const suites = [
+        "apps/api/src/artifacts.postgres.test.ts",
+        "apps/api/src/board-app.postgres.test.ts",
+        "packages/adapters/src/goal-tools.postgres.test.ts",
+        "packages/db/src/board.postgres.test.ts",
+        "packages/db/src/budget-approval-expiry.postgres.test.ts",
+        "packages/db/src/budget-overrun-approvals.postgres.test.ts",
+        "packages/db/src/goals.postgres.test.ts",
         "packages/db/src/ticket-dependencies.postgres.test.ts",
         "packages/db/src/project-links.postgres.test.ts",
         "packages/db/src/project-archive.postgres.test.ts",

@@ -27,6 +27,8 @@ describe("proposals", () => {
   it("returns the existing proposal for a replayed submit key", async () => {
     const create = vi.fn();
     const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $transaction: async (callback: (tx: PrismaClient) => Promise<unknown>) => callback(prisma),
       proposal: { findUnique: vi.fn().mockResolvedValue(row()), create },
     } as unknown as PrismaClient;
@@ -49,6 +51,8 @@ describe("proposals", () => {
       .mockResolvedValueOnce({ count: 1 })
       .mockResolvedValueOnce({ count: 0 });
     const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $transaction: async (callback: (tx: PrismaClient) => Promise<unknown>) => callback(prisma),
       budgetOverrunApproval: { findFirst: vi.fn().mockResolvedValue(null) },
       proposal: {
@@ -78,6 +82,8 @@ describe("proposals", () => {
 
   it("rejects an option the proposal did not offer and a proposal from another space", async () => {
     const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $transaction: async (callback: (tx: PrismaClient) => Promise<unknown>) => callback(prisma),
       proposal: {
         findFirst: vi
@@ -99,6 +105,8 @@ describe("proposals", () => {
       row({ ...args.data, id: "p-2" }),
     );
     const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $transaction: async (callback: (tx: PrismaClient) => Promise<unknown>) => callback(prisma),
       proposal: { findUnique: vi.fn().mockResolvedValue(null), create },
     } as unknown as PrismaClient;
@@ -160,10 +168,13 @@ describe("budget approval recovery", () => {
       ...checkpointChanges,
     };
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi
         .fn()
         .mockImplementation(async (strings: TemplateStringsArray) =>
-          strings.join("").includes("project_budgets")
+          strings.join("").includes("clock_timestamp")
+            ? [{ now: new Date() }]
+            : strings.join("").includes("project_budgets")
             ? [{ id: "budget-1", version: budgetVersion, limitMicroUsd: 100n }]
             : [{ id: "locked" }],
         ),
@@ -188,10 +199,26 @@ describe("budget approval recovery", () => {
       },
     };
     const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
     } as unknown as PrismaClient;
     return { tx, prisma };
   }
+
+  it("persists expired proposal status without increasing budget or resuming", async () => {
+    const { tx, prisma } = fixture();
+    const approval = await tx.budgetOverrunApproval.findUniqueOrThrow();
+    tx.budgetOverrunApproval.findUniqueOrThrow.mockResolvedValue({
+      ...approval, expiresAt: new Date(0),
+    } as never);
+    await decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" });
+    expect(tx.proposal.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { status: "expired", chosenOption: null } }),
+    );
+    expect(tx.projectBudget.update).not.toHaveBeenCalled();
+    expect(tx.run.updateMany).not.toHaveBeenCalled();
+  });
 
   it("raises the bound budget and queues its paused run", async () => {
     const { tx, prisma } = fixture();
@@ -255,6 +282,9 @@ describe("budget approval recovery", () => {
     await decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" });
     expect(tx.budgetOverrunApproval.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "stale" }) }),
+    );
+    expect(tx.proposal.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { status: "stale", chosenOption: null } }),
     );
     expect(tx.projectBudget.update).not.toHaveBeenCalled();
     expect(tx.run.updateMany).not.toHaveBeenCalled();

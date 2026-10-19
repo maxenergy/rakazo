@@ -1,3 +1,4 @@
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import type {
   Actor,
   DecideProposalInput,
@@ -148,6 +149,7 @@ export async function decideProposalInTransaction(
   scope: Pick<Actor, "userId" | "spaceId">,
   input: DecideProposalInput,
 ): Promise<Proposal> {
+  await lockTicketSpace(tx, scope.spaceId);
   const found = await tx.proposal.findFirst({
     where: { id: input.proposalId, spaceId: scope.spaceId, userId: scope.userId },
     select: { options: true },
@@ -222,6 +224,12 @@ export async function decideProposalInTransaction(
       decision: input.decision === "approve" ? "approved" : "rejected",
       decidedByUserId: scope.userId,
     });
+    if (result.status === "expired" || result.status === "stale") {
+      await tx.proposal.updateMany({
+        where: { id: input.proposalId, spaceId: scope.spaceId, userId: scope.userId },
+        data: { status: result.status, chosenOption: null },
+      });
+    }
     if (result.resume && valid) {
       const resumed = await tx.run.updateMany({
         where: {

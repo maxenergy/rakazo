@@ -544,6 +544,8 @@ export interface ModelCallObserver {
     /** Explicit adapter-known write bucket required by this request, not a billing prediction. */
     cacheWriteRetention?: "1h";
   }): string | Promise<string>;
+  /** Persist provider-start intent before making the physical call. */
+  startCall?(reservationId: string): void | Promise<void>;
   afterCall(
     reservationId: string,
     usage: AgentUsage | null,

@@ -285,6 +285,9 @@ export function observedPiStream(
             })
         : undefined;
       options?.signal?.throwIfAborted();
+      if (observer && reservation !== undefined) {
+        await observer.startCall?.(reservation);
+      }
       started = true;
       // Some Pi adapters reject custom fetch outright. Only audited SSE families opt in.
       const collectRawUsage =

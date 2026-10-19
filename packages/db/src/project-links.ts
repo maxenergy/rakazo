@@ -3,7 +3,7 @@ import { lockTicketSpace } from "./ticket-space-lock.js";
 
 export class ProjectLinkError extends Error {
   constructor(
-    public readonly code: "NOT_FOUND" | "BAD_REQUEST",
+    public readonly code: "NOT_FOUND" | "BAD_REQUEST" | "CONFLICT",
     message: string,
   ) {
     super(message);
@@ -81,8 +81,13 @@ export async function archiveProject(
   >`SELECT id, "archivedAt" FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
   const project = rows[0];
   if (!project) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  const now = new Date();
+  const pending = await tx.budgetOverrunApproval.findMany({ where: { spaceId, projectId, status: "pending" }, select: { proposalId: true } });
+  await tx.budgetOverrunApproval.updateMany({ where: { spaceId, projectId, status: "pending" }, data: { status: "stale", decisionReason: "project_archived", decidedAt: now } });
+  const proposalIds = pending.flatMap((row) => row.proposalId ? [row.proposalId] : []);
+  await tx.proposal.updateMany({ where: { id: { in: proposalIds }, spaceId, status: "pending" }, data: { status: "expired", chosenOption: null, decidedAt: now } });
   if (isProjectItemArchived(project)) return;
-  await tx.project.update({ where: { id: projectId }, data: { archivedAt: new Date() } });
+  await tx.project.update({ where: { id: projectId }, data: { archivedAt: now } });
 }
 
 export async function archiveMilestone(
@@ -118,6 +123,13 @@ export async function deleteProject(
     { id: string }[]
   >`SELECT id FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
   if (!rows.length) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  const budget = await tx.projectBudget.findUnique({
+    where: { spaceId_projectId: { spaceId, projectId } },
+    select: { id: true },
+  });
+  if (budget) {
+    throw new ProjectLinkError("CONFLICT", "Projects with a budget cannot be deleted. Archive the project instead.");
+  }
   await tx.$queryRaw`SELECT id FROM milestones WHERE "projectId" = ${projectId} AND "spaceId" = ${spaceId} ORDER BY id FOR UPDATE`;
   await tx.ticket.updateMany({
     where: { spaceId, projectId },

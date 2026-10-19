@@ -488,3 +488,25 @@ describe("createGroup", () => {
     expect(group.members.map((member) => member.botId)).toEqual(["lead", "build"]);
   });
 });
+
+
+describe("updateGroup budget cancellation", () => {
+  it("cancels a removed member paused on budget approval", async () => {
+    const actor = { spaceId: "workspace-1", userId: "user-1", email: "user@example.com", isDeploymentOwner: false };
+    const bots = ["lead", "build"].map((id) => ({ id, name: id, color: "blue" }));
+    const group = { id: "group-1", spaceId: actor.spaceId, userId: actor.userId, name: "Crew", pinned: false, sectionId: null, archivedAt: null, createdAt: new Date(), updatedAt: new Date(), thread: { id: "thread-1", unread: false, messages: [] }, members: [...bots, { id: "removed", name: "Removed", color: "blue" }].map((bot) => ({ botId: bot.id, bot: { ...bot, archivedAt: null, runs: [] } })) };
+    const updateRuns = vi.fn(async () => ({ count: 1 }));
+    const findRuns = vi.fn(async (args: { where: { status: { in: string[] } } }) => args.where.status.in.includes("waiting_budget") ? [{ id: "paused-run", taskId: "paused-task" }] : []);
+    const tx = {
+      $queryRaw: vi.fn(async () => [{ id: group.id }]),
+      chatGroup: { findFirst: vi.fn(async () => group), findFirstOrThrow: vi.fn(async () => group), update: vi.fn() },
+      chatGroupMember: { deleteMany: vi.fn(), createMany: vi.fn() },
+      run: { findMany: findRuns, updateMany: updateRuns },
+      attempt: { updateMany: vi.fn() }, task: { updateMany: vi.fn() },
+    };
+    const prisma = { bot: { findMany: vi.fn(async () => bots) }, $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)) } as unknown as PrismaClient;
+    const result = await createGroupRepos(prisma).updateGroup(actor, { groupId: group.id, botIds: bots.map((bot) => bot.id) });
+    expect(result.cancelledRunIds).toEqual(["paused-run"]);
+    expect(updateRuns).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "cancelled" }) }));
+  });
+});

@@ -62,6 +62,7 @@ import {
   createBoardEvents,
   createDb,
   createDbBudgetPort,
+  expireOverrunApprovals,
   createThreadEvents,
   isTooManyDatabaseConnections,
   parsePositiveInteger,
@@ -293,6 +294,7 @@ async function main() {
     reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
     reconcileOrgCheckIns: () => reconcileOrgCheckIns({ prisma, jobs }),
+    reconcileBudgetApprovals: async () => { await expireOverrunApprovals(prisma); },
     reconcileTicketWakes: async () => {
       await reconcileTicketWakes(
         { prisma, jobs, ticketBoardEnabled },

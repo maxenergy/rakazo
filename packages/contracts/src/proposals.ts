@@ -6,7 +6,7 @@ export const PROPOSAL_KINDS = ["plan", "decision"] as const;
 export const ProposalKindSchema = z.enum(PROPOSAL_KINDS);
 export type ProposalKind = z.infer<typeof ProposalKindSchema>;
 
-export const PROPOSAL_STATUSES = ["pending", "approved", "rejected"] as const;
+export const PROPOSAL_STATUSES = ["pending", "approved", "rejected", "expired", "stale"] as const;
 export const ProposalStatusSchema = z.enum(PROPOSAL_STATUSES);
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
 

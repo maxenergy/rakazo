@@ -1665,7 +1665,7 @@ model ProjectBudget {
   id               String                 @id @default(cuid())
   spaceId          String
   projectId        String
-  project          Project                @relation(fields: [spaceId, projectId], references: [spaceId, id], onDelete: Cascade)
+  project          Project                @relation(fields: [spaceId, projectId], references: [spaceId, id], onDelete: Restrict)
   version          Int                    @default(1)
   limitMicroUsd    BigInt
   reservedMicroUsd BigInt                 @default(0)
@@ -1710,6 +1710,8 @@ model BudgetReservation {
   unreconciledAt        DateTime?
   chargedAfterRelease   Boolean @default(false)
   chargedAfterWriteOff  Boolean @default(false)
+  executionState        String @default("unknown")
+  providerStartedAt     DateTime?
   writtenOffAt          DateTime?
   writtenOffBy          String?
   writeOffReason        String?
@@ -1760,6 +1762,8 @@ model BudgetOverrunApproval {
   decidedByUserId String?
   decidedAt       DateTime?
   appliedVersion  Int?
+  decisionReason  String?
+  expiresAt       DateTime      @default(dbgenerated("(CURRENT_TIMESTAMP + interval '24 hours')"))
   createdAt       DateTime      @default(now())
 
   @@unique([spaceId, requestKey])

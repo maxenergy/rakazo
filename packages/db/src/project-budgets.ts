@@ -1,3 +1,4 @@
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
@@ -66,6 +67,8 @@ interface ReservationRow {
   overrunMicroUsd: bigint;
   status: string;
   settledLate: boolean;
+  executionState: string;
+  expiresAt: Date;
 }
 
 function assertPositiveMicroUsd(value: bigint, label: string) {
@@ -148,6 +151,9 @@ export async function reserveBudgetInTransaction(
   assertPositiveMicroUsd(input.amountMicroUsd, "amountMicroUsd");
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + (input.ttlMs ?? DEFAULT_RESERVATION_TTL_MS));
+  await lockTicketSpace(tx, input.spaceId);
+  const project = await tx.project.findFirst({ where: { id: input.projectId, spaceId: input.spaceId }, select: { archivedAt: true } });
+  if (project?.archivedAt) throw new Error("Project is archived");
   await lockReservation(tx, input.spaceId, input.callId);
   const usage = await tx.usageRecord.findUnique({
     where: { spaceId_callId: { spaceId: input.spaceId, callId: input.callId } },
@@ -213,6 +219,7 @@ export async function reserveBudgetInTransaction(
         budgetVersion: budget.version,
         callId: input.callId,
         amountMicroUsd: input.amountMicroUsd,
+        executionState: "not_started",
         expiresAt,
       },
     })
@@ -325,6 +332,26 @@ export async function settleBudgetInTransaction(
   };
 }
 
+/** Persist intent before touching the provider; uncertain calls retain holding. */
+export function startBudgetReservation(
+  db: PrismaClient,
+  input: { spaceId: string; callId: string },
+): Promise<boolean> {
+  return db.$transaction(async (tx) => {
+    const reservation = await lockReservation(tx, input.spaceId, input.callId);
+    const [clock] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
+    if (!clock) throw new Error("Database clock query returned no rows");
+    if (reservation?.status !== "reserved" ||
+        reservation.executionState !== "not_started" ||
+        reservation.expiresAt <= clock.now) return false;
+    await tx.budgetReservation.update({
+      where: { id: reservation.id },
+      data: { executionState: "started", providerStartedAt: clock.now },
+    });
+    return true;
+  });
+}
+
 async function closeReserved(
   db: PrismaClient,
   spaceId: string,
@@ -334,7 +361,8 @@ async function closeReserved(
 ) {
   return db.$transaction(async (tx) => {
     const reservation = await lockReservation(tx, spaceId, callId);
-    if (reservation?.status !== "reserved") return false;
+    if (reservation?.status !== "reserved" || reservation.executionState !== "not_started") return false;
+    if (status === "expired" && reservation.expiresAt > now) return false;
     await tx.projectBudget.update({
       where: { id: reservation.budgetId },
       data: { reservedMicroUsd: { decrement: reservation.amountMicroUsd } },
@@ -376,7 +404,7 @@ export async function expireBudgetReservations(
 ): Promise<number> {
   const now = input.now ?? new Date();
   const due = await db.budgetReservation.findMany({
-    where: { status: "reserved", expiresAt: { lte: now } },
+    where: { status: "reserved", executionState: "not_started", expiresAt: { lte: now } },
     select: { spaceId: true, callId: true },
     orderBy: { expiresAt: "asc" },
     take: input.limit ?? 100,

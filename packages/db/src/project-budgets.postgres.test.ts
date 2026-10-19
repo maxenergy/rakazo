@@ -1,3 +1,4 @@
+import { archiveProject, deleteProject } from "./project-links.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
@@ -8,6 +9,7 @@ import {
   reserveBudget,
   setProjectBudget,
   settleBudget,
+  startBudgetReservation,
   writeOffBudgetHolding,
 } from "./project-budgets.js";
 import { getProjectCostSummaries } from "./project-costs.js";
@@ -52,6 +54,11 @@ describePostgres("project budget reservations", () => {
   afterAll(async () => {
     if (!prisma) return;
     try {
+      // Explicit cleanup of synthetic accounting fixtures in the disposable test database.
+      const fixtureSpaces = await prisma.space.findMany({ where: { organizationId }, select: { id: true } });
+      const fixtureSpaceIds = fixtureSpaces.map((space) => space.id);
+      await prisma.projectBudget.deleteMany({ where: { spaceId: { in: fixtureSpaceIds } } });
+      await prisma.budgetSpendLedger.deleteMany({ where: { spaceId: { in: fixtureSpaceIds } } });
       await prisma.organization.deleteMany({ where: { id: organizationId } });
     } finally {
       await close();
@@ -1214,5 +1221,58 @@ describePostgres("project budget reservations", () => {
       reservedMicroUsd: 0n,
       settledMicroUsd: 250_000n,
     });
+  });
+
+  it("serializes provider start against release", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `start-release-${crypto.randomUUID()}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    const [started, released] = await Promise.all([
+      startBudgetReservation(prisma, { spaceId, callId }),
+      releaseBudgetReservation(prisma, { spaceId, callId }),
+    ]);
+    expect(Number(started) + Number(released)).toBe(1);
+    const reservation = await prisma.budgetReservation.findFirstOrThrow({ where: { spaceId, callId } });
+    expect(reservation.status).toBe(started ? "reserved" : "released");
+    expect((await state(projectId)).reservedMicroUsd).toBe(started ? 400_000n : 0n);
+    expect(await startBudgetReservation(prisma, { spaceId, callId })).toBe(false);
+    if (started) {
+      expect(reservation.providerStartedAt).not.toBeNull();
+      expect(await releaseBudgetReservation(prisma, { spaceId, callId })).toBe(false);
+    }
+  });
+
+  it("retains unknown execution holding until settlement", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `unknown-execution-${crypto.randomUUID()}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.budgetReservation.updateMany({
+      where: { spaceId, callId },
+      data: { executionState: "unknown", expiresAt: new Date(0) },
+    });
+    expect(await releaseBudgetReservation(prisma, { spaceId, callId })).toBe(false);
+    await expireBudgetReservations(prisma);
+    expect(await prisma.budgetReservation.findFirstOrThrow({ where: { spaceId, callId } })).toMatchObject({ status: "reserved", executionState: "unknown" });
+    expect((await state(projectId)).reservedMicroUsd).toBe(400_000n);
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 250_000n });
+    expect(await ledger(callId)).toHaveLength(1);
+  });
+
+  it("protects accounting evidence from project deletion and settles after archival", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `archive-late-${crypto.randomUUID()}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    expect(await startBudgetReservation(prisma, { spaceId, callId })).toBe(true);
+    await expect(prisma.$transaction((tx) => deleteProject(tx, spaceId, projectId))).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await prisma.project.findUnique({ where: { id: projectId } })).not.toBeNull();
+    expect((await state(projectId)).reservedMicroUsd).toBe(400_000n);
+    await prisma.$transaction((tx) => archiveProject(tx, spaceId, projectId));
+    await expect(reserveBudget(prisma, { spaceId, projectId, callId: crypto.randomUUID(), amountMicroUsd: 1n })).rejects.toThrow("Project is archived");
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    expect(await state(projectId)).toMatchObject({ reservedMicroUsd: 0n, settledMicroUsd: 250_000n });
+    expect(await ledger(callId)).toHaveLength(1);
+    expect(await prisma.budgetReservation.findFirstOrThrow({ where: { spaceId, callId } })).toMatchObject({ status: "settled" });
   });
 });

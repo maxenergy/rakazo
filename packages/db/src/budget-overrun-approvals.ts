@@ -1,3 +1,4 @@
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
 
 /** Thrown when a requestKey is replayed with a different project, amount or scope. */
@@ -15,6 +16,7 @@ export interface OverrunRequestInput {
   scope: string;
   requestKey: string;
   proposalId?: string | null;
+  expiresAt?: Date;
 }
 
 export interface OverrunDecisionInput {
@@ -42,6 +44,9 @@ export async function requestOverrunApprovalInTransaction(
   tx: Prisma.TransactionClient,
   input: OverrunRequestInput,
 ) {
+  await lockTicketSpace(tx, input.spaceId);
+  const project = await tx.project.findFirst({ where: { id: input.projectId, spaceId: input.spaceId }, select: { archivedAt: true } });
+  if (project?.archivedAt) throw new Error("Project is archived");
   if (input.amountMicroUsd <= 0n) throw new RangeError("amountMicroUsd must be positive");
   const existing = await tx.budgetOverrunApproval.findUnique({
     where: { spaceId_requestKey: { spaceId: input.spaceId, requestKey: input.requestKey } },
@@ -70,6 +75,7 @@ export async function requestOverrunApprovalInTransaction(
       scope: input.scope,
       requestKey: input.requestKey,
       proposalId: input.proposalId ?? null,
+      ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
     },
   });
 }
@@ -91,6 +97,7 @@ export async function decideOverrunApprovalInTransaction(
   tx: Prisma.TransactionClient,
   input: OverrunDecisionInput,
 ): Promise<OverrunDecisionResult> {
+  await lockTicketSpace(tx, input.spaceId);
   const rows = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "budget_overrun_approvals"
       WHERE "id" = ${input.approvalId} AND "spaceId" = ${input.spaceId}
@@ -107,8 +114,17 @@ export async function decideOverrunApprovalInTransaction(
       appliedVersion: approval.appliedVersion,
     };
   }
-  const decidedAt = new Date();
+  const [clock] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
+  if (!clock) throw new Error("Database clock query returned no rows");
+  let decidedAt = clock.now;
   const decidedByUserId = input.decidedByUserId ?? null;
+  if (approval.expiresAt <= decidedAt) {
+    await tx.budgetOverrunApproval.update({
+      where: { id: approval.id },
+      data: { status: "expired", decidedAt },
+    });
+    return { status: "expired", resume: false, replayed: false, appliedVersion: null };
+  }
   if (input.decision === "rejected") {
     await tx.budgetOverrunApproval.update({
       where: { id: approval.id },
@@ -119,6 +135,16 @@ export async function decideOverrunApprovalInTransaction(
   const locked = await tx.$queryRaw<{ id: string; version: number; limitMicroUsd: bigint }[]>`
       SELECT "id", "version", "limitMicroUsd" FROM "project_budgets"
       WHERE "id" = ${approval.budgetId} FOR UPDATE`;
+  const [lockedClock] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
+  if (!lockedClock) throw new Error("Database clock query returned no rows");
+  decidedAt = lockedClock.now;
+  if (approval.expiresAt <= decidedAt) {
+    await tx.budgetOverrunApproval.update({
+      where: { id: approval.id },
+      data: { status: "expired", decidedAt },
+    });
+    return { status: "expired", resume: false, replayed: false, appliedVersion: null };
+  }
   const current = locked[0];
   if (!current || current.version !== approval.budgetVersion) {
     await tx.budgetOverrunApproval.update({
@@ -141,4 +167,39 @@ export async function decideOverrunApprovalInTransaction(
     data: { status: "approved", appliedVersion: version, decidedByUserId, decidedAt },
   });
   return { status: "approved", resume: true, replayed: false, appliedVersion: version };
+}
+
+/** Expire persisted deadlines after restart; never queues or resumes a run. */
+export async function expireOverrunApprovals(db: PrismaClient): Promise<number> {
+  const [clock] = await db.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
+  if (!clock) throw new Error("Database clock query returned no rows");
+  const now = clock.now;
+  const candidates = await db.budgetOverrunApproval.findMany({
+    where: { status: "pending", expiresAt: { lte: now } },
+    orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+    take: 100,
+    select: { id: true, spaceId: true, proposalId: true },
+  });
+  let expired = 0;
+  for (const candidate of candidates) {
+    expired += await db.$transaction(async (tx) => {
+      await lockTicketSpace(tx, candidate.spaceId);
+      // User decisions lock the space, then proposal, then approval. Keep that order.
+      if (candidate.proposalId) {
+        await tx.$queryRaw`SELECT id FROM proposals WHERE id = ${candidate.proposalId} AND "spaceId" = ${candidate.spaceId} FOR UPDATE`;
+      }
+      const changed = await tx.budgetOverrunApproval.updateMany({
+        where: { id: candidate.id, spaceId: candidate.spaceId, status: "pending", expiresAt: { lte: now } },
+        data: { status: "expired", decidedAt: now },
+      });
+      if (changed.count === 1 && candidate.proposalId) {
+        await tx.proposal.updateMany({
+          where: { id: candidate.proposalId, spaceId: candidate.spaceId, status: "pending" },
+          data: { status: "expired", chosenOption: null, decidedAt: now },
+        });
+      }
+      return changed.count;
+    });
+  }
+  return expired;
 }

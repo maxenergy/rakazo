@@ -208,7 +208,14 @@ describe("Pi usage accounting", () => {
     const settlement = new Promise<void>((resolve) => {
       finishSettlement = resolve;
     });
-    const afterCall = vi.fn(async () => settlement);
+    let signalSettlementStarted = () => {};
+    const settlementStarted = new Promise<void>((resolve) => {
+      signalSettlementStarted = resolve;
+    });
+    const afterCall = vi.fn(async () => {
+      signalSettlementStarted();
+      return settlement;
+    });
     const models = {
       streamSimple: () => {
         throw new Error("Synthetic provider exception");
@@ -225,7 +232,7 @@ describe("Pi usage accounting", () => {
         terminalSeen = true;
         return event;
       });
-    for (let index = 0; index < 4; index++) await Promise.resolve();
+    await settlementStarted;
     expect(afterCall).toHaveBeenCalledOnce();
     expect(terminalSeen).toBe(false);
     finishSettlement();
@@ -252,6 +259,27 @@ describe("Pi usage accounting", () => {
       normalizePiUsage({ input: 1.5, output: Number.MAX_SAFE_INTEGER + 1 }, model),
     ).toMatchObject({ inputTokens: null, outputTokens: null });
   });
+  it("does not start the provider when cancelled during reservation", async () => {
+    const controller = new AbortController();
+    const fetcher = vi.fn();
+    const afterCall = vi.fn();
+    const beforeCall = vi.fn(async () => {
+      controller.abort();
+      return "cancelled-reservation";
+    });
+    const stream = await observedPiStream(
+      builtinModels(), model, { messages: [] },
+      { signal: controller.signal, fetch: fetcher }, vi.fn(),
+      { beforeCall, afterCall },
+    );
+    for await (const _event of stream) { /* drain terminal event */ }
+    expect(beforeCall).toHaveBeenCalledOnce();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(afterCall).toHaveBeenCalledExactlyOnceWith(
+      "cancelled-reservation", null, { started: false },
+    );
+  });
+
   it("disables hidden SDK retries for a guarded model call", async () => {
     const fetcher = vi.fn(
       async () =>

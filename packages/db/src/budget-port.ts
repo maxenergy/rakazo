@@ -1,5 +1,5 @@
 import type { PrismaClient } from "./client.js";
-import { releaseBudgetReservation, reserveBudget } from "./project-budgets.js";
+import { releaseBudgetReservation, reserveBudget, startBudgetReservation } from "./project-budgets.js";
 
 /**
  * Prisma-backed implementation of the runtime's BudgetPort (see adapters/budget-observer).
@@ -13,6 +13,7 @@ export function createDbBudgetPort(db: PrismaClient) {
       callId: string;
       amountMicroUsd: bigint;
     }) => reserveBudget(db, input),
+    start: (input: { spaceId: string; callId: string }) => startBudgetReservation(db, input),
     release: (input: { spaceId: string; callId: string }) => releaseBudgetReservation(db, input),
   };
 }

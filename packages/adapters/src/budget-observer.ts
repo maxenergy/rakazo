@@ -15,6 +15,7 @@ export interface BudgetPort {
         availableMicroUsd: bigint;
       }
   >;
+  start(input: { spaceId: string; callId: string }): Promise<boolean>;
   release(input: { spaceId: string; callId: string }): Promise<unknown>;
 }
 
@@ -72,6 +73,16 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
       }
       open.set(callId, { spaceId: scope.spaceId, callId, inner });
       return callId;
+    },
+    async startCall(reservationId) {
+      const entry = open.get(reservationId);
+      if (!entry) {
+        await options.inner?.startCall?.(reservationId);
+        return;
+      }
+      await options.inner?.startCall?.(entry.inner ?? reservationId);
+      const started = await options.port.start({ spaceId: entry.spaceId, callId: entry.callId });
+      if (!started) throw new BudgetExceededError("reservation_closed", 0n);
     },
     async afterCall(
       reservationId: string,

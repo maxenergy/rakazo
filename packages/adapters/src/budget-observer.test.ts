@@ -16,6 +16,7 @@ function port(ok = true): BudgetPort {
         ? { ok: true as const }
         : { ok: false as const, reason: "insufficient" as const, availableMicroUsd: 0n },
     ),
+    start: vi.fn(async () => true),
     release: vi.fn(async () => undefined),
   };
 }
@@ -41,6 +42,15 @@ describe("createBudgetObserver", () => {
     });
     await o.afterCall(id, { costUsd } as never, { started: true });
     expect(p.release).not.toHaveBeenCalled();
+  });
+
+  it("rejects provider start when the reservation closed", async () => {
+    const p = port();
+    vi.mocked(p.start).mockResolvedValue(false);
+    const o = createBudgetObserver({ port: p, scope, upperBoundMicroUsd: () => 5n });
+    const id = await o.beforeCall(call);
+    await expect(o.startCall!(id)).rejects.toBeInstanceOf(BudgetExceededError);
+    expect(p.start).toHaveBeenCalledWith({ spaceId: "s", callId: call.callId });
   });
 
   it("releases when the call never started", async () => {

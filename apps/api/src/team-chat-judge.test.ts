@@ -47,6 +47,8 @@ describe("team chat engagement judge", () => {
     const prisma = {
       deploymentSettings: { findUnique: vi.fn(async () => null) },
       spaceModelPreference: { findFirst: vi.fn(async () => null) },
+      $queryRaw: vi.fn(async () => []),
+      $executeRaw: vi.fn(async () => 1),
       usageRecord: { create },
       $transaction: vi.fn(async (execute) => execute(prisma)),
     };

@@ -33,6 +33,8 @@ import { responseLanguageInstruction, usableModelId } from "@rakazo/contracts";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
 import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
+import { BudgetExceededError } from "./budget-observer.js";
+import { runWithBudgetScope } from "./budget-scope.js";
 import { DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
 import { registerCliModelProviders } from "./cli-model-provider.js";
 import { withCloudflareGatewayAuth } from "./cloudflare-ai-gateway.js";
@@ -189,21 +191,22 @@ export class PiAgentRuntime implements AgentRuntime {
     context?: Partial<AdapterContext>,
   ): AsyncIterableIterator<AgentRuntimeEvent> {
     const controller = new AbortController();
+    const scope = request.budgetScope ? Object.freeze({ ...request.budgetScope }) : null;
     const events = this.runEvents(request, controller, context);
     return {
       [Symbol.asyncIterator]() {
         return this;
       },
-      next: () => events.next(),
+      next: () => runWithBudgetScope(scope, () => events.next()),
       return: () => {
         // An async generator queues return() behind a pending next(). Abort
         // immediately so a quiet model request can settle that pending read.
         controller.abort();
-        return events.return();
+        return runWithBudgetScope(scope, () => events.return());
       },
       throw: (error) => {
         controller.abort();
-        return events.throw(error);
+        return runWithBudgetScope(scope, () => events.throw(error));
       },
     };
   }
@@ -313,7 +316,11 @@ export class PiAgentRuntime implements AgentRuntime {
           credentialScope: apiKey,
           imageTokens: estimatePiImageTokens,
         });
+        let budgetDenial: BudgetExceededError | undefined;
         const usageHooks = {
+          onBeforeCallError: (error: unknown) => {
+            if (error instanceof BudgetExceededError) budgetDenial = error;
+          },
           prepareContext: contextPolicy.prepareContext,
           imageTokens: estimatePiImageTokens,
           recordUsage: request.onUsage,
@@ -602,6 +609,23 @@ export class PiAgentRuntime implements AgentRuntime {
           } finally {
             signal.removeEventListener("abort", onAbort);
           }
+        }
+
+        if (budgetDenial) {
+          queue.push({
+            type: "budget_pause",
+            reason: budgetDenial.reason,
+            availableMicroUsd: budgetDenial.availableMicroUsd.toString(),
+            ...(budgetDenial.call
+              ? {
+                  call: {
+                    ...budgetDenial.call,
+                    amountMicroUsd: budgetDenial.call.amountMicroUsd.toString(),
+                  },
+                }
+              : {}),
+          });
+          return;
         }
 
         // Budget abort stops the agent underneath the model, which leaves

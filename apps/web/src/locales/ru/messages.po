@@ -491,6 +491,10 @@ msgstr "Всегда разрешать этот инструмент"
 msgid "Always allowed"
 msgstr "Всегда разрешено"
 
+#: src/components/ProjectBudget.tsx
+msgid "Amount exceeds the supported range."
+msgstr "Сумма превышает допустимый диапазон."
+
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "Для этого поставщика сохранен API-ключ, а не вход по подписке."
@@ -682,6 +686,10 @@ msgstr "Автоматические отправители"
 msgid "Automated senders will appear after they post here."
 msgstr "Автоматические отправители появятся после публикации здесь."
 
+#: src/components/ProjectBudget.tsx
+msgid "Available"
+msgstr "Доступно"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
 msgstr "Доступно после сохранения задачи"
@@ -821,6 +829,14 @@ msgstr "Просмотреть MCP-серверы"
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Browser"
 msgstr "Браузер"
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
+msgstr "Контроль бюджета охватывает наблюдаемые вызовы моделей. Фиксированные подписки и произвольные расходы инструментов исключены."
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget limit (USD)"
+msgstr "Лимит бюджета (USD)"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2199,6 +2215,10 @@ msgstr "Заканчивается {day}"
 msgid "Engage when... Ignore..."
 msgstr "Включайтесь, когда... Игнорируйте..."
 
+#: src/components/ProjectBudget.tsx
+msgid "Enter a non-negative USD amount with at most six decimal places."
+msgstr "Введите неотрицательную сумму в USD, содержащую не более шести знаков после запятой."
+
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "Введите пароль"
@@ -2281,6 +2301,10 @@ msgstr "Развернуть"
 #: src/pages/Shell.tsx
 msgid "Expand {0}"
 msgstr "Развернуть {0}"
+
+#: src/pages/Approvals.tsx
+msgid "Expired"
+msgstr "Срок истёк"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2662,6 +2686,10 @@ msgstr "Выйти"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Светлая"
+
+#: src/components/ProjectBudget.tsx
+msgid "Limit"
+msgstr "Лимит"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3225,6 +3253,10 @@ msgstr "Без платы за модель. Детерминированная 
 msgid "No models listed."
 msgstr "Модели не перечислены."
 
+#: src/components/ProjectBudget.tsx
+msgid "No project budget is configured."
+msgstr "Бюджет проекта не настроен."
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "Поставщики не найдены."
@@ -3586,6 +3618,10 @@ msgstr "Приватное пространство со своими ботам
 msgid "Project"
 msgstr "Проект"
 
+#: src/components/ProjectBudget.tsx
+msgid "Project budget"
+msgstr "Бюджет проекта"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "ID проекта"
@@ -3862,6 +3898,10 @@ msgstr "Ответ отменён"
 msgid "Replying to {0}"
 msgstr "Ответ на {0}"
 
+#: src/components/ProjectBudget.tsx
+msgid "Reserved"
+msgstr "Зарезервировано"
+
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Reset"
@@ -4028,6 +4068,10 @@ msgstr "Сохранить"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Save backups"
 msgstr "Сохранить резервные модели"
+
+#: src/components/ProjectBudget.tsx
+msgid "Save budget"
+msgstr "Сохранить бюджет"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4225,6 +4269,10 @@ msgstr "Настройки: Общие"
 msgid "Settings: Usage"
 msgstr "Настройки: Использование"
 
+#: src/components/ProjectBudget.tsx
+msgid "Settled"
+msgstr "Учтено"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Setup help"
@@ -4415,6 +4463,10 @@ msgstr "Речевая модель"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO временно недоступен. Попробуйте снова."
+
+#: src/pages/Approvals.tsx
+msgid "Stale"
+msgstr "Устарело"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

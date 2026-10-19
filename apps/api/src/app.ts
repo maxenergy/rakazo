@@ -23,7 +23,9 @@ import {
   ChatSdkMessagingSurface,
   CodexCatalogCache,
   ComposioConnector,
+  catalogBudgetRates,
   createBackgroundJobHandlers,
+  createBudgetObserver,
   createCloudAgentConnection,
   createConnectorStack,
   createJobReconciler,
@@ -34,7 +36,10 @@ import {
   createRunSecretWriter,
   createSecretStore,
   createTicketChangeNotifier,
+  createUpperBound,
   createWebProvider,
+  currentBudgetScope,
+  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
   deletePushToken,
   destroyBot,
   EmailEmulator,
@@ -81,6 +86,7 @@ import type { Pool, PrismaClient } from "@rakazo/db";
 import {
   createBoardEvents,
   createDb,
+  createDbBudgetPort,
   createPool,
   createThreadEvents,
   IsolationError,
@@ -389,6 +395,14 @@ export async function createApp(
       ? new ScriptedAgentRuntime()
       : new PiAgentRuntime({
           sessionRoot: env.piSessionRecording ? piSessionsRoot(env.dataDir) : undefined,
+          modelCallObserver: createBudgetObserver({
+            port: createDbBudgetPort(prisma),
+            scope: currentBudgetScope,
+            upperBoundMicroUsd: createUpperBound({
+              lookup: catalogBudgetRates,
+              fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+            }),
+          }),
         }));
   const notifications = new ExpoPushProvider(env.dataDir, (sessionId) =>
     pushSessionExpiresAt(prisma, sessionId),

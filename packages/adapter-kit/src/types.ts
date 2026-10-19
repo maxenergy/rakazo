@@ -443,6 +443,8 @@ export type AgentContextStrategy = "current" | "retrieval" | "snapshots" | "cach
 export const DEFAULT_CONTEXT_STRATEGY: AgentContextStrategy = "retrieval";
 
 export interface AgentRunRequest {
+  /** Immutable project attribution shared by reservation and accounting. */
+  budgetScope?: Readonly<{ spaceId: string; projectId: string }> | null;
   /** Selected product locale, inherited by helpers within this turn. */
   uiLocale?: UiLocale;
   /** Awaited producer-side accounting, independent of event-consumer cancellation. */
@@ -533,6 +535,8 @@ export type UsageOperationKind = "answer" | "setup" | "retrieval" | "subagent" |
 
 export interface ModelCallObserver {
   beforeCall(call: {
+    /** Durable identity generated once per physical provider call. */
+    callId: string;
     provider: string;
     modelId: string;
     inputTokensEstimate: number;
@@ -540,10 +544,22 @@ export interface ModelCallObserver {
     /** Explicit adapter-known write bucket required by this request, not a billing prediction. */
     cacheWriteRetention?: "1h";
   }): string | Promise<string>;
-  afterCall(reservationId: string, usage: AgentUsage | null): void | Promise<void>;
+  /** Persist provider-start intent before making the physical call. */
+  startCall?(reservationId: string): void | Promise<void>;
+  afterCall(
+    reservationId: string,
+    usage: AgentUsage | null,
+    lifecycle?: { started: boolean },
+  ): void | Promise<void>;
 }
 
 export type AgentRuntimeEvent =
+  | {
+      type: "budget_pause";
+      reason: "no_budget" | "insufficient" | "reservation_closed";
+      availableMicroUsd: string;
+      call?: { spaceId: string; projectId: string; callId: string; amountMicroUsd: string };
+    }
   | { type: "text"; text: string }
   | {
       type: "progress";
@@ -633,7 +649,7 @@ export interface BackgroundJobPayloads {
   "computer.update": { updateId: string };
   "computer.control-expire": { computerId: string; leaseId: string };
   "skill.teaching-expire": { skillId: string };
-  "history.compact": { threadId: string };
+  "history.compact": { threadId: string; sourceRunId?: string };
   "messaging.deliver": { runId?: string };
   /** Reconcile durable remote-agent intent; scope is loaded from the database. */
   "cloud_agent.poll": { agentId: string };

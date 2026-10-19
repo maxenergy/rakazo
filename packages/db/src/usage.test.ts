@@ -14,7 +14,9 @@ const event = {
 function fixture() {
   let row: any = null;
   const tx = {
+    $executeRaw: vi.fn().mockResolvedValue(1),
     $queryRaw: vi.fn(async () => []),
+    budgetSpendLedger: { findUnique: vi.fn(async () => null) },
     usageRecord: {
       findUnique: vi.fn(async () => row),
       create: vi.fn(async ({ data }: any) => (row = { id: "usage-fixture", ...data })),

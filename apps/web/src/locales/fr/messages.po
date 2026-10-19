@@ -491,6 +491,10 @@ msgstr "Toujours autoriser cet outil"
 msgid "Always allowed"
 msgstr "Toujours autorisé"
 
+#: src/components/ProjectBudget.tsx
+msgid "Amount exceeds the supported range."
+msgstr "Le montant dépasse la plage prise en charge."
+
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "Une clé API est enregistrée pour ce fournisseur, et non une connexion par abonnement."
@@ -682,6 +686,10 @@ msgstr "Expéditeurs automatisés"
 msgid "Automated senders will appear after they post here."
 msgstr "Les expéditeurs automatisés apparaîtront après avoir publié ici."
 
+#: src/components/ProjectBudget.tsx
+msgid "Available"
+msgstr "Disponible"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
 msgstr "Disponible après l'enregistrement de la routine"
@@ -821,6 +829,14 @@ msgstr "Parcourir les serveurs MCP"
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Browser"
 msgstr "Navigateur"
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
+msgstr "Le contrôle du budget couvre les appels observables aux modèles. Les abonnements fixes et les dépenses arbitraires des outils sont exclus."
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget limit (USD)"
+msgstr "Plafond du budget (USD)"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2199,6 +2215,10 @@ msgstr "Se termine le {day}"
 msgid "Engage when... Ignore..."
 msgstr "Répondre quand... Ignorer..."
 
+#: src/components/ProjectBudget.tsx
+msgid "Enter a non-negative USD amount with at most six decimal places."
+msgstr "Saisissez un montant en USD positif ou nul avec au maximum six décimales."
+
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "Saisissez un mot de passe"
@@ -2281,6 +2301,10 @@ msgstr "Développer"
 #: src/pages/Shell.tsx
 msgid "Expand {0}"
 msgstr "Développer {0}"
+
+#: src/pages/Approvals.tsx
+msgid "Expired"
+msgstr "Expiré"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2662,6 +2686,10 @@ msgstr "Quitter"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Clair"
+
+#: src/components/ProjectBudget.tsx
+msgid "Limit"
+msgstr "Plafond"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3225,6 +3253,10 @@ msgstr "Aucun coût de modèle. Simulation déterministe pour les tests."
 msgid "No models listed."
 msgstr "Aucun modèle listé."
 
+#: src/components/ProjectBudget.tsx
+msgid "No project budget is configured."
+msgstr "Aucun budget de projet n’est configuré."
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "Aucun fournisseur trouvé."
@@ -3586,6 +3618,10 @@ msgstr "Espace de travail privé avec ses propres bots et groupes."
 msgid "Project"
 msgstr "Projet"
 
+#: src/components/ProjectBudget.tsx
+msgid "Project budget"
+msgstr "Budget du projet"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "ID du projet"
@@ -3862,6 +3898,10 @@ msgstr "Réponse annulée"
 msgid "Replying to {0}"
 msgstr "Réponse à {0}"
 
+#: src/components/ProjectBudget.tsx
+msgid "Reserved"
+msgstr "Réservé"
+
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Reset"
@@ -4028,6 +4068,10 @@ msgstr "Enregistrer"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Save backups"
 msgstr "Enregistrer les modèles de secours"
+
+#: src/components/ProjectBudget.tsx
+msgid "Save budget"
+msgstr "Enregistrer le budget"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4225,6 +4269,10 @@ msgstr "Paramètres : Général"
 msgid "Settings: Usage"
 msgstr "Paramètres : Utilisation"
 
+#: src/components/ProjectBudget.tsx
+msgid "Settled"
+msgstr "Réglé"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Setup help"
@@ -4415,6 +4463,10 @@ msgstr "Modèle de parole"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO est temporairement indisponible. Réessayez."
+
+#: src/pages/Approvals.tsx
+msgid "Stale"
+msgstr "Obsolète"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

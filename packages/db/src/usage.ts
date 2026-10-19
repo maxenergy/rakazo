@@ -2,6 +2,7 @@ import type { AgentRuntimeEvent, UsageOperationKind } from "@rakazo/adapter-kit"
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { decimalUsdToMicroUsd } from "./money.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
 
 type UsageEvent = Extract<AgentRuntimeEvent, { type: "usage" }>;
@@ -44,6 +45,7 @@ async function recordUsageInTransaction(
   event: UsageEvent,
   attribution: UsageAttribution,
 ) {
+  await lockTicketSpace(tx, attribution.spaceId);
   const callId = event.callId ?? null;
   if (callId) await lockBudgetCall(tx, attribution.spaceId, callId);
   const billingKind = event.billingKind ?? "unknown";

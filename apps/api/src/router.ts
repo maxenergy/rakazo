@@ -240,6 +240,7 @@ import {
   SpaceNotFoundError,
   selectSpaceModelPreference,
   selectSpaceVoicePreference,
+  setProjectBudget,
   toBoardDto,
   toTicketCommentDto,
   toTicketDto,
@@ -4019,6 +4020,48 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     projects: {
+      budget: boardEnabled.projects.budget.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const project = await deps.prisma.project.findFirst({
+          where: { id: input.projectId, spaceId },
+          select: { id: true },
+        });
+        if (!project) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        const budget = await deps.prisma.projectBudget.findUnique({
+          where: { spaceId_projectId: { spaceId, projectId: input.projectId } },
+        });
+        return budget
+          ? {
+              projectId: budget.projectId,
+              version: budget.version,
+              limitMicroUsd: budget.limitMicroUsd.toString(),
+              reservedMicroUsd: budget.reservedMicroUsd.toString(),
+              settledMicroUsd: budget.settledMicroUsd.toString(),
+            }
+          : null;
+      }),
+      setBudget: boardEnabled.projects.setBudget.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const project = await deps.prisma.project.findFirst({
+          where: { id: input.projectId, spaceId },
+          select: { id: true },
+        });
+        if (!project) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        const budget = await setProjectBudget(deps.prisma, {
+          spaceId,
+          projectId: input.projectId,
+          limitMicroUsd: BigInt(input.limitMicroUsd),
+          createdByUserId: context.actor.userId,
+        });
+        await deps.boardEvents.notify(spaceId);
+        return {
+          projectId: budget.projectId,
+          version: budget.version,
+          limitMicroUsd: budget.limitMicroUsd.toString(),
+          reservedMicroUsd: budget.reservedMicroUsd.toString(),
+          settledMicroUsd: budget.settledMicroUsd.toString(),
+        };
+      }),
       list: boardEnabled.projects.list.handler(async ({ context, input }) => {
         const spaceId = context.actor.spaceId;
         const result = await withSerializableRetry(() =>
@@ -4201,6 +4244,32 @@ export function createRouter(deps: RouterDeps) {
           throw error;
         }
         if (proposal.status === "pending") return proposal;
+        const budgetApproval = await deps.prisma.budgetOverrunApproval.findFirst({
+          where: { spaceId: context.actor.spaceId, proposalId: proposal.id },
+        });
+        if (budgetApproval) {
+          // Budget decisions resume their original run; a new user message would
+          // create a second execution. Queued runs also have reconciler recovery.
+          if (budgetApproval.status === "approved") {
+            const binding = JSON.parse(budgetApproval.scope);
+            const resumed = await deps.prisma.run.findFirst({
+              where: {
+                id: binding.runId,
+                spaceId: context.actor.spaceId,
+                threadId: binding.threadId,
+                botId: proposal.botId,
+                status: "queued",
+              },
+              select: { id: true },
+            });
+            if (resumed) {
+              await deps.jobs.enqueue(runContinueJob(resumed.id)).catch((error) => {
+                getLogger().error("budget approval resume enqueue", error);
+              });
+            }
+          }
+          return proposal;
+        }
         // The decision is saved either way; an archived bot just is not woken.
         try {
           const target = await resolveThreadTarget(deps.prisma, context.actor, {

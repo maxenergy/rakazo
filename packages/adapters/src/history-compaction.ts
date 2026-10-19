@@ -219,9 +219,22 @@ export interface CompactHistoryDeps {
   }) => Promise<AgentRunRequest["model"]>;
 }
 
-export async function compactHistory(deps: CompactHistoryDeps, threadId: string): Promise<void> {
+export async function compactHistory(
+  deps: CompactHistoryDeps,
+  threadId: string,
+  sourceRunId?: string,
+): Promise<void> {
   const thread = await deps.prisma.thread.findUniqueOrThrow({ where: { id: threadId } });
   if (!thread.botId) return;
+  const sourceRun = sourceRunId
+    ? await deps.prisma.run.findFirst({
+        where: { id: sourceRunId, spaceId: thread.spaceId, threadId },
+      })
+    : null;
+  if (sourceRunId && !sourceRun) throw new Error("Compaction source run is unavailable");
+  const budgetScope = sourceRun?.projectId
+    ? { spaceId: thread.spaceId, projectId: sourceRun.projectId }
+    : null;
   const previousCursor = thread.historyCompactedUpToSeq;
   const previousGeneration = thread.historyCompactionGeneration;
   const previousSummary = thread.historyCompactionSummary?.trim() || null;
@@ -365,6 +378,7 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
       botId: thread.botId,
       threadId,
       runId: `compact:${threadId}:${fromSeqExclusive}`,
+      budgetScope,
       usageOperationKind: "compaction",
       onUsage: async (event) => {
         await recordUsage(deps.prisma, event, {
@@ -372,6 +386,9 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
           userId: thread.userId,
           botId: thread.botId!,
           operationId: `compact:${threadId}:${fromSeqExclusive}`,
+          projectId: sourceRun?.projectId ?? null,
+          parentRunId: sourceRun?.id ?? undefined,
+          rootRunId: sourceRun?.rootRunId ?? sourceRun?.id ?? undefined,
           operationKind: "compaction",
         });
       },
@@ -401,6 +418,9 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
         userId: thread.userId,
         botId: thread.botId,
         operationId: `compact:${threadId}:${fromSeqExclusive}`,
+        projectId: sourceRun?.projectId ?? null,
+        parentRunId: sourceRun?.id ?? undefined,
+        rootRunId: sourceRun?.rootRunId ?? sourceRun?.id ?? undefined,
         operationKind: "compaction",
       });
     }
@@ -517,6 +537,6 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
       COMPACTION_BATCH_SIZE,
     )
   ) {
-    await deps.jobs.enqueue(historyCompactJob(threadId));
+    await deps.jobs.enqueue(historyCompactJob(threadId, sourceRunId));
   }
 }

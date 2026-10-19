@@ -41,3 +41,26 @@ export const ListMilestonesInput = ListProjectsInput.extend({ projectId: Id });
 export type Project = z.infer<typeof ProjectSchema>;
 export type Milestone = z.infer<typeof MilestoneSchema>;
 export type ProjectProgress = z.infer<typeof ProjectProgressSchema>;
+
+// Decimal strings preserve exact PostgreSQL bigint amounts across JSON.
+const microUsd = z
+  .string()
+  .regex(/^(0|[1-9][0-9]*)$/)
+  .refine(
+    (value) =>
+      /^(0|[1-9][0-9]*)$/.test(value) &&
+      value.length <= 19 &&
+      BigInt(value) <= 9223372036854775807n,
+    "Amount exceeds the supported range",
+  );
+export const ProjectBudgetSchema = z.object({
+  projectId: Id,
+  version: z.number().int().positive(),
+  limitMicroUsd: microUsd,
+  reservedMicroUsd: microUsd,
+  settledMicroUsd: microUsd,
+});
+export const SetProjectBudgetInput = z.object({
+  projectId: Id,
+  limitMicroUsd: microUsd,
+});

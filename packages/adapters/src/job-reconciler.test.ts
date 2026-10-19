@@ -82,6 +82,17 @@ describe("createJobReconciler", () => {
     expect(reconcileOrgCheckIns).toHaveBeenCalledOnce();
   });
 
+  it("continues recovery scans when budget approval expiry fails", async () => {
+    const prisma = fakePrisma();
+    const { jobs } = publisher();
+    const reconcileBudgetApprovals = vi.fn(async () => {
+      throw new Error("expiry unavailable");
+    });
+    await createJobReconciler({ prisma, jobs, reconcileBudgetApprovals }).reconcileOnce();
+    expect(reconcileBudgetApprovals).toHaveBeenCalledOnce();
+    expect(prisma.run.findMany).toHaveBeenCalled();
+  });
+
   it("restores a due pending messaging outbox drain", async () => {
     const prisma = fakePrisma();
     vi.mocked(prisma.messagingOutbound.findFirst).mockResolvedValue({ id: "outbound-1" } as never);

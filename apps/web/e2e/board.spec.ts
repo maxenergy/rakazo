@@ -131,3 +131,23 @@ for (const width of [360, 390]) {
     );
   });
 }
+
+test("project budget preserves exact USD input after reload", async ({ page }, testInfo) => {
+  await signup(page, `budget-${Date.now()}@rakazo.test`, "password12", "Budget QA");
+  await completeOnboarding(page);
+  await createNamedBot(page, "Planner");
+  const project = await rpc<{ id: string }>(page, "projects/create", { name: "Budget project" });
+  await page.goto(`/app/projects/${project.id}`);
+  const panel = page.getByRole("region", { name: "Project budget", exact: true });
+  await expect(panel.getByText("No project budget is configured.", { exact: true })).toBeVisible();
+  await panel.getByLabel("Budget limit (USD)").fill("12.345678");
+  await panel.getByRole("button", { name: "Save budget", exact: true }).click();
+  await expect(panel).toContainText("$12.345678");
+  const budget = await rpc<{ limitMicroUsd: string }>(page, "projects/budget", {
+    projectId: project.id,
+  });
+  expect(budget.limitMicroUsd).toBe("12345678");
+  await page.reload();
+  await expect(panel).toContainText("$12.345678");
+  await captureScreenshot(page, testInfo, "project-budget");
+});

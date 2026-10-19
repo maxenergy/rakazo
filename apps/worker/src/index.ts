@@ -10,7 +10,9 @@ loadRootEnv();
 import {
   ChatSdkMessagingSurface,
   CodexCatalogCache,
+  catalogBudgetRates,
   createBackgroundJobHandlers,
+  createBudgetObserver,
   createCloudAgentConnection,
   createConnectorStack,
   createJobReconciler,
@@ -20,7 +22,10 @@ import {
   createRunSandbox,
   createRunSecretWriter,
   createTicketChangeNotifier,
+  createUpperBound,
   createWebProvider,
+  currentBudgetScope,
+  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
   databaseCapacityBackoffMs,
   ExpoPushProvider,
   GraphileJobPublisher,
@@ -56,7 +61,9 @@ import { resolveEncryptionKey, resolveSupervisorToken } from "@rakazo/core";
 import {
   createBoardEvents,
   createDb,
+  createDbBudgetPort,
   createThreadEvents,
+  expireOverrunApprovals,
   isTooManyDatabaseConnections,
   parsePositiveInteger,
   pushSessionExpiresAt,
@@ -98,7 +105,17 @@ async function main() {
   const runtime =
     process.env.AGENT_RUNTIME === "scripted"
       ? new ScriptedAgentRuntime()
-      : new PiAgentRuntime({ sessionRoot: resolvePiSessionRoot(dataDir) });
+      : new PiAgentRuntime({
+          sessionRoot: resolvePiSessionRoot(dataDir),
+          modelCallObserver: createBudgetObserver({
+            port: createDbBudgetPort(prisma),
+            scope: currentBudgetScope,
+            upperBoundMicroUsd: createUpperBound({
+              lookup: catalogBudgetRates,
+              fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+            }),
+          }),
+        });
   // Same resolver the API uses, so both processes agree on provider, model and key.
   const { key: deploymentModelKey, configured: deploymentModelConfigured } =
     resolveDeploymentModel();
@@ -277,6 +294,9 @@ async function main() {
     reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
     reconcileOrgCheckIns: () => reconcileOrgCheckIns({ prisma, jobs }),
+    reconcileBudgetApprovals: async () => {
+      await expireOverrunApprovals(prisma);
+    },
     reconcileTicketWakes: async () => {
       await reconcileTicketWakes(
         { prisma, jobs, ticketBoardEnabled },

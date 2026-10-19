@@ -218,6 +218,8 @@ export function observedPiStream(
     operationKind: "answer",
   },
   hooks?: {
+    /** Receives the original reservation failure before conversion to a Pi error message. */
+    onBeforeCallError?: (error: unknown) => void;
     prepareContext?: (context: Context, model: Model<Api>) => Context;
     imageTokens?: ContextBudget["imageTokens"];
     onUsage?: (usage: AgentUsage) => void;
@@ -263,15 +265,29 @@ export function observedPiStream(
       const cacheRetention = resolvePiCacheRetention(model, options?.cacheRetention);
       const preparedContext = hooks?.prepareContext?.(context, model) ?? context;
       reservation = observer
-        ? await observer.beforeCall({
-            provider: model.provider,
-            modelId: model.id,
-            inputTokensEstimate: estimateModelContextTokens(preparedContext, hooks?.imageTokens),
-            maxOutputTokens: options?.maxTokens ?? model.maxTokens,
-            cacheWriteRetention: requestedPiCacheWriteRetention(model, cacheRetention),
-          })
+        ? await Promise.resolve()
+            .then(() =>
+              observer.beforeCall({
+                callId,
+                provider: model.provider,
+                modelId: model.id,
+                inputTokensEstimate: estimateModelContextTokens(
+                  preparedContext,
+                  hooks?.imageTokens,
+                ),
+                maxOutputTokens: options?.maxTokens ?? model.maxTokens,
+                cacheWriteRetention: requestedPiCacheWriteRetention(model, cacheRetention),
+              }),
+            )
+            .catch((error: unknown) => {
+              hooks?.onBeforeCallError?.(error);
+              throw error;
+            })
         : undefined;
       options?.signal?.throwIfAborted();
+      if (observer && reservation !== undefined) {
+        await observer.startCall?.(reservation);
+      }
       started = true;
       // Some Pi adapters reject custom fetch outright. Only audited SSE families opt in.
       const collectRawUsage =
@@ -333,7 +349,7 @@ export function observedPiStream(
           }
           if (observer && reservation !== undefined) {
             settled = true;
-            await observer.afterCall(reservation, normalized);
+            await observer.afterCall(reservation, normalized, { started });
           }
         }
         if (event.type === "error") hooks?.onProviderError?.(event.error);
@@ -353,7 +369,8 @@ export function observedPiStream(
         // Keep the reservation alive until settlement finishes, before exposing termination.
         settled = true;
         try {
-          await observer.afterCall(reservation, normalized);
+          // Accounting did not complete: preserve exposure even when usage was observed.
+          await observer.afterCall(reservation, null, { started });
         } catch {
           /* Already failing. */
         }

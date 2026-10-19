@@ -8,9 +8,11 @@ import {
   reserveBudget,
   setProjectBudget,
   settleBudget,
+  startBudgetReservation,
   writeOffBudgetHolding,
 } from "./project-budgets.js";
 import { getProjectCostSummaries } from "./project-costs.js";
+import { archiveProject, deleteProject } from "./project-links.js";
 import { recordUsage, UsageReplayConflictError } from "./usage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -52,6 +54,17 @@ describePostgres("project budget reservations", () => {
   afterAll(async () => {
     if (!prisma) return;
     try {
+      // Explicit cleanup of synthetic accounting fixtures in the disposable test database.
+      const fixtureSpaces = await prisma.space.findMany({
+        where: { organizationId },
+        select: { id: true },
+      });
+      const fixtureSpaceIds = fixtureSpaces.map((space) => space.id);
+      await prisma.projectBudget.deleteMany({ where: { spaceId: { in: fixtureSpaceIds } } });
+      await prisma.budgetSpendLedger.deleteMany({ where: { spaceId: { in: fixtureSpaceIds } } });
+      await prisma.budgetApprovalDeletionAudit.deleteMany({
+        where: { spaceId: { in: fixtureSpaceIds } },
+      });
       await prisma.organization.deleteMany({ where: { id: organizationId } });
     } finally {
       await close();
@@ -68,6 +81,9 @@ describePostgres("project budget reservations", () => {
     prisma.projectBudget.findUniqueOrThrow({
       where: { spaceId_projectId: { spaceId, projectId } },
     });
+
+  const ledger = (callId: string) =>
+    prisma.budgetSpendLedger.findMany({ where: { spaceId, callId }, orderBy: { kind: "asc" } });
 
   it("never oversubscribes under concurrent reservations", async () => {
     const projectId = await budgetFor(1_000_000n);
@@ -126,6 +142,14 @@ describePostgres("project budget reservations", () => {
     expect(after.settledMicroUsd).toBe(300_000n);
     await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 900_000n });
     expect((await state(projectId)).settledMicroUsd).toBe(300_000n);
+    const rows = await ledger(callId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      projectId,
+      kind: "settled",
+      amountMicroUsd: 300_000n,
+      overrunMicroUsd: 0n,
+    });
   });
 
   it("records actual spend above the reservation as overrun", async () => {
@@ -162,6 +186,10 @@ describePostgres("project budget reservations", () => {
         where: { spaceId_callId: { spaceId, callId } },
       }),
     ).toMatchObject({ chargedAfterRelease: true, status: "settled" });
+    const rows = await ledger(callId);
+    expect(rows.map((r) => r.kind)).toEqual(["released", "settled"]);
+    expect(rows.find((r) => r.kind === "released")!.amountMicroUsd).toBe(600_000n);
+    expect(rows.find((r) => r.kind === "settled")!.amountMicroUsd).toBe(1n);
   });
 
   it("expires stale reservations and still records a late settlement", async () => {
@@ -193,6 +221,10 @@ describePostgres("project budget reservations", () => {
     const after = await state(projectId);
     expect(after.reservedMicroUsd).toBe(0n);
     expect(after.settledMicroUsd).toBe(250_000n);
+    const rows = await ledger(callId);
+    expect(rows.map((r) => r.kind)).toEqual(["expired", "settled"]);
+    expect(rows[0]!.amountMicroUsd).toBe(700_000n);
+    expect(rows[1]!.amountMicroUsd).toBe(250_000n);
   });
 
   it("does not revive a closed reservation when its callId is retried", async () => {
@@ -649,6 +681,17 @@ describePostgres("project budget reservations", () => {
       { costUsdDecimal: winningAmount === "0.25" ? "0.30" : "0.25" },
     ];
     const replays = await Promise.allSettled([
+      ...[
+        { runId: `conflicting-run-${projectId}` },
+        { parentRunId: `conflicting-parent-${projectId}` },
+        { rootRunId: `conflicting-root-${projectId}` },
+      ].map((change) =>
+        recordUsage(
+          prisma,
+          { ...event, costUsdDecimal: winningAmount },
+          { ...attribution, ...change },
+        ),
+      ),
       ...conflicts.map((change) =>
         recordUsage(prisma, { ...event, costUsdDecimal: winningAmount, ...change }, attribution),
       ),
@@ -1063,5 +1106,342 @@ describePostgres("project budget reservations", () => {
         }),
       ).toMatchObject({ status: "settled", settledMicroUsd: 100_000n });
     }
+  });
+
+  it("releases an unreconciled holding once under concurrent audited write-offs", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.$executeRaw`UPDATE "budget_reservations" SET "status" = 'unreconciled' WHERE "spaceId" = ${spaceId} AND "callId" = ${callId}`;
+    const input = {
+      spaceId,
+      callId,
+      actorUserId: "test-operator",
+      reason: "Provider charge cannot be reconciled",
+    };
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => writeOffBudgetHolding(prisma, input)),
+    );
+    expect(results.filter((result) => result && !result.replayed)).toHaveLength(1);
+    expect((await state(projectId)).reservedMicroUsd).toBe(0n);
+    expect((await state(projectId)).settledMicroUsd).toBe(0n);
+    const rows = await prisma.$queryRaw<
+      Array<{
+        status: string;
+        writtenOffBy: string;
+        writeOffReason: string;
+        writtenOffAt: Date;
+        settledMicroUsd: bigint | null;
+      }>
+    >`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId}`;
+    expect(rows[0]).toMatchObject({
+      status: "written_off",
+      writtenOffBy: input.actorUserId,
+      writeOffReason: input.reason,
+      settledMicroUsd: null,
+    });
+    expect(rows[0]?.writtenOffAt).toBeInstanceOf(Date);
+    expect(
+      await writeOffBudgetHolding(prisma, {
+        ...input,
+        actorUserId: "another-operator",
+        reason: "Replay",
+      }),
+    ).toMatchObject({ replayed: true });
+    await expect(writeOffBudgetHolding(prisma, { ...input, reason: " " })).rejects.toThrow(
+      "actor and reason",
+    );
+  });
+
+  it("settles a late charge after write-off once", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-late-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.budgetReservation.updateMany({
+      where: { spaceId, callId },
+      data: { status: "unreconciled" },
+    });
+    const audit = {
+      spaceId,
+      callId,
+      actorUserId: "test-operator",
+      reason: "Unknown charge reviewed",
+    };
+    expect(await writeOffBudgetHolding(prisma, audit)).toMatchObject({ replayed: false });
+    await Promise.all(
+      Array.from({ length: 6 }, () =>
+        settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n }),
+      ),
+    );
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+    const rows = await prisma.$queryRaw<
+      Array<{
+        status: string;
+        writtenOffBy: string;
+        writeOffReason: string;
+        chargedAfterWriteOff: boolean;
+      }>
+    >`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId}`;
+    expect(rows[0]).toMatchObject({
+      status: "settled",
+      writtenOffBy: audit.actorUserId,
+      writeOffReason: audit.reason,
+      chargedAfterWriteOff: true,
+    });
+    await expect(writeOffBudgetHolding(prisma, audit)).rejects.toThrow(
+      "Only unreconciled holdings",
+    );
+  });
+
+  it("releases the holding once when write-off races settlement", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `writeoff-race-${projectId}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.budgetReservation.updateMany({
+      where: { spaceId, callId },
+      data: { status: "unreconciled" },
+    });
+    const race = await Promise.allSettled([
+      writeOffBudgetHolding(prisma, {
+        spaceId,
+        callId,
+        actorUserId: "test-operator",
+        reason: "Race review",
+      }),
+      settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n }),
+    ]);
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+    for (const result of race) {
+      if (result.status === "rejected")
+        expect(String(result.reason)).toContain("Only unreconciled holdings");
+    }
+    const replay = await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    expect(replay).toMatchObject({ replayed: true });
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+  });
+
+  it("serializes provider start against release", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `start-release-${crypto.randomUUID()}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    const [started, released] = await Promise.all([
+      startBudgetReservation(prisma, { spaceId, callId }),
+      releaseBudgetReservation(prisma, { spaceId, callId }),
+    ]);
+    expect(Number(started) + Number(released)).toBe(1);
+    const reservation = await prisma.budgetReservation.findFirstOrThrow({
+      where: { spaceId, callId },
+    });
+    expect(reservation.status).toBe(started ? "reserved" : "released");
+    expect((await state(projectId)).reservedMicroUsd).toBe(started ? 400_000n : 0n);
+    expect(await startBudgetReservation(prisma, { spaceId, callId })).toBe(false);
+    if (started) {
+      expect(reservation.providerStartedAt).not.toBeNull();
+      expect(await releaseBudgetReservation(prisma, { spaceId, callId })).toBe(false);
+    }
+  });
+
+  it("retains unknown execution holding until settlement", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `unknown-execution-${crypto.randomUUID()}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await prisma.budgetReservation.updateMany({
+      where: { spaceId, callId },
+      data: { executionState: "unknown", expiresAt: new Date(0) },
+    });
+    expect(await releaseBudgetReservation(prisma, { spaceId, callId })).toBe(false);
+    await expireBudgetReservations(prisma);
+    expect(
+      await prisma.budgetReservation.findFirstOrThrow({ where: { spaceId, callId } }),
+    ).toMatchObject({ status: "reserved", executionState: "unknown" });
+    expect((await state(projectId)).reservedMicroUsd).toBe(400_000n);
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+    expect(await ledger(callId)).toHaveLength(1);
+  });
+
+  it("preserves accounting evidence and settles after archival", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `archive-late-${crypto.randomUUID()}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    expect(await startBudgetReservation(prisma, { spaceId, callId })).toBe(true);
+    expect(await prisma.project.findUnique({ where: { id: projectId } })).not.toBeNull();
+    expect((await state(projectId)).reservedMicroUsd).toBe(400_000n);
+    await prisma.$transaction((tx) => archiveProject(tx, spaceId, projectId));
+    await expect(
+      reserveBudget(prisma, {
+        spaceId,
+        projectId,
+        callId: crypto.randomUUID(),
+        amountMicroUsd: 1n,
+      }),
+    ).rejects.toThrow("Project is archived");
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    expect(await state(projectId)).toMatchObject({
+      reservedMicroUsd: 0n,
+      settledMicroUsd: 250_000n,
+    });
+    expect(await ledger(callId)).toHaveLength(1);
+    expect(
+      await prisma.budgetReservation.findFirstOrThrow({ where: { spaceId, callId } }),
+    ).toMatchObject({ status: "settled" });
+  });
+  it("retains deleted holdings and approval audits and settles concurrent replays once", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = crypto.randomUUID();
+    const unused = crypto.randomUUID();
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await startBudgetReservation(prisma, { spaceId, callId });
+    await reserveBudget(prisma, { spaceId, projectId, callId: unused, amountMicroUsd: 100_000n });
+    const budget = await state(projectId);
+    const approval = await prisma.budgetOverrunApproval.create({
+      data: {
+        spaceId,
+        projectId,
+        budgetId: budget.id,
+        budgetVersion: budget.version,
+        amountMicroUsd: 100_000n,
+        scope: "project",
+        requestKey: crypto.randomUUID(),
+      },
+    });
+    await prisma.$transaction((tx) => deleteProject(tx, spaceId, projectId));
+    expect(await prisma.project.findUnique({ where: { id: projectId } })).toBeNull();
+    expect(await prisma.budgetReservation.count({ where: { spaceId, projectId } })).toBe(0);
+    expect(await ledger(callId)).toEqual([
+      expect.objectContaining({ kind: "open_at_deletion", amountMicroUsd: 400_000n }),
+    ]);
+    expect(await ledger(unused)).toEqual([expect.objectContaining({ kind: "released" })]);
+    expect(
+      await prisma.budgetApprovalDeletionAudit.findMany({
+        where: { spaceId, approvalId: approval.id },
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        state: "pending",
+        decision: "project_deleted",
+        amountMicroUsd: 100_000n,
+        scope: "project",
+      }),
+    ]);
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        settleBudget(prisma, { spaceId, callId, actualMicroUsd: 500_000n }),
+      ),
+    );
+    expect(results.filter((result) => result && !result.replayed)).toHaveLength(1);
+    expect(await ledger(callId)).toHaveLength(2);
+    expect(
+      (await ledger(callId)).find((row) => row.kind === "settled_after_deletion"),
+    ).toMatchObject({ amountMicroUsd: 500_000n, overrunMicroUsd: 100_000n });
+  });
+
+  it("writes off deleted holdings once and still records a later actual charge", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = crypto.randomUUID();
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    await startBudgetReservation(prisma, { spaceId, callId });
+    await prisma.$transaction((tx) => deleteProject(tx, spaceId, projectId));
+    const input = {
+      spaceId,
+      callId,
+      actorUserId: "synthetic-reviewer",
+      reason: "Unknown provider outcome",
+    };
+    expect(await writeOffBudgetHolding(prisma, input)).toMatchObject({ replayed: false });
+    expect(await writeOffBudgetHolding(prisma, input)).toMatchObject({ replayed: true });
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
+    expect((await ledger(callId)).map((row) => row.kind)).toEqual([
+      "open_at_deletion",
+      "settled_after_deletion",
+      "written_off",
+    ]);
+  });
+
+  it("rolls back deletion snapshots and reservation changes when deletion fails", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = crypto.randomUUID();
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 400_000n });
+    const budget = await state(projectId);
+    const approval = await prisma.budgetOverrunApproval.create({
+      data: {
+        spaceId,
+        projectId,
+        budgetId: budget.id,
+        budgetVersion: budget.version,
+        amountMicroUsd: 100_000n,
+        scope: "project",
+        requestKey: crypto.randomUUID(),
+      },
+    });
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await deleteProject(tx, spaceId, projectId);
+        throw new Error("synthetic rollback");
+      }),
+    ).rejects.toThrow("synthetic rollback");
+    expect(await prisma.project.findUnique({ where: { id: projectId } })).not.toBeNull();
+    expect((await state(projectId)).reservedMicroUsd).toBe(400_000n);
+    expect(await ledger(callId)).toHaveLength(0);
+    expect(await prisma.budgetApprovalDeletionAudit.count({ where: { spaceId, projectId } })).toBe(
+      0,
+    );
+    expect(
+      await prisma.budgetOverrunApproval.findUnique({ where: { id: approval.id } }),
+    ).toMatchObject({ status: "pending" });
+    expect(
+      await prisma.budgetReservation.findFirstOrThrow({ where: { spaceId, callId } }),
+    ).toMatchObject({ status: "reserved" });
+  });
+
+  it("deletes projects without budgets without creating ledger entries", async () => {
+    const project = await prisma.project.create({ data: { spaceId, name: "No budget fixture" } });
+    await prisma.$transaction((tx) => deleteProject(tx, spaceId, project.id));
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).toBeNull();
+    expect(
+      await prisma.budgetSpendLedger.count({ where: { spaceId, projectId: project.id } }),
+    ).toBe(0);
+  });
+
+  it("settles late usage delivery through the ledger after project deletion", async () => {
+    const projectId = await budgetFor(1_000_000n);
+    const callId = `deleted-usage-${crypto.randomUUID()}`;
+    await reserveBudget(prisma, { spaceId, projectId, callId, amountMicroUsd: 100_000n });
+    await startBudgetReservation(prisma, { spaceId, callId });
+    await prisma.$transaction((tx) => deleteProject(tx, spaceId, projectId));
+    const event = {
+      type: "usage" as const,
+      provider: "fixture",
+      model: "fixture",
+      inputTokens: 10,
+      outputTokens: 2,
+      billingKind: "api" as const,
+      callId,
+      costUsdDecimal: "0.25",
+      costSource: "provider_reported",
+    };
+    const attribution = { spaceId, projectId: null, userId: `late-${projectId}` };
+    await Promise.all(Array.from({ length: 4 }, () => recordUsage(prisma, event, attribution)));
+    const rows = await ledger(callId);
+    expect(rows.filter((row) => row.kind === "settled_after_deletion")).toHaveLength(1);
+    expect(rows.find((row) => row.kind === "settled_after_deletion")).toMatchObject({
+      projectId,
+      amountMicroUsd: 250_000n,
+      overrunMicroUsd: 150_000n,
+    });
   });
 });

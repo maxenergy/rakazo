@@ -83,3 +83,10 @@ describe("escalation routing", () => {
     ).toEqual({ ok: false, error: "This org has no CTO to escalate to." });
   });
 });
+
+it.each(["expired", "stale"] as const)("reports %s proposals accurately", (status) => {
+  expect(
+    proposalDecisionText({ title: "Budget request", status, chosenOption: null, comment: null }),
+  ).toBe(`${status === "expired" ? "Expired" : "Stale"}: Budget request
+Do not act on it. Revise it with the comment in mind, or ask me what to change.`);
+});

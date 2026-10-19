@@ -23,10 +23,12 @@ describe("write-off and late settlement", () => {
       settled += data.settledMicroUsd?.increment ?? 0n;
     });
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn(async (strings: TemplateStringsArray) =>
         strings.join("").includes("budget_reservations") ? [reservation] : [],
       ),
       projectBudget: { update: updateBudget },
+      budgetSpendLedger: { create: vi.fn(async () => ({})) },
       budgetReservation: {
         update: vi.fn(async ({ data }) => {
           for (const [key, value] of Object.entries(data))
@@ -61,6 +63,7 @@ describe("write-off and late settlement", () => {
     expect(reserved).toBe(0n);
     expect(settled).toBe(125n);
     expect(updateBudget).toHaveBeenCalledTimes(2);
+    expect(tx.budgetSpendLedger.create).toHaveBeenCalledTimes(1);
     expect(reservation).toMatchObject({
       writtenOffBy: "auditor",
       writeOffReason: "unresolved provider charge",

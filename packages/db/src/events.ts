@@ -18,6 +18,7 @@ import {
   sanitizeJsonValue,
 } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
+import { requestOverrunApprovalInTransaction } from "./budget-overrun-approvals.js";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { expireComputerExecutionLeases } from "./computers.js";
@@ -27,6 +28,7 @@ import {
   createThreadMessageInTransaction,
   RunHistoryWriteError,
 } from "./messages.js";
+import { createProposalInTransaction } from "./proposals.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 const EVENT_BATCH_SIZE = 200;
@@ -287,7 +289,16 @@ export async function clearThread(
         spaceId: input.spaceId,
         threadId: input.threadId,
         ...(input.groupId ? {} : { botId: input.botId }),
-        status: { in: ["queued", "leased", "running", "waiting_input", "waiting_takeover"] },
+        status: {
+          in: [
+            "queued",
+            "leased",
+            "running",
+            "waiting_input",
+            "waiting_takeover",
+            "waiting_budget",
+          ],
+        },
       },
       select: { id: true, taskId: true },
     });
@@ -409,7 +420,14 @@ export async function sendUserMessage(
                 threadId: input.threadId,
                 botId: input.botId,
                 status: {
-                  in: ["running", "queued", "leased", "waiting_input", "waiting_takeover"],
+                  in: [
+                    "running",
+                    "queued",
+                    "leased",
+                    "waiting_input",
+                    "waiting_takeover",
+                    "waiting_budget",
+                  ],
                 },
               },
               select: { id: true, taskId: true, trigger: true },
@@ -902,6 +920,136 @@ export async function pauseRunForInput(
   return true;
 }
 
+export async function pauseRunForBudget(
+  prisma: PrismaClient,
+  input: Omit<PauseRunForInput, "offeredActions"> & { checkpoint: string },
+  realtime?: RealtimeFanout,
+): Promise<boolean> {
+  const committed = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Thread row first, then run rows — the same order as clearThread and finalizeRun, so a
+    // concurrent clear cannot deadlock against this transaction.
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
+    const paused = await tx.run.updateMany({
+      where: {
+        id: input.runId,
+        spaceId: input.spaceId,
+        threadId: input.threadId,
+        botId: input.botId,
+        status: "running",
+        leaseOwner: input.leaseOwner,
+        leaseFence: input.leaseFence,
+      },
+      data: {
+        status: "waiting_budget",
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        checkpoint: input.checkpoint,
+      },
+    });
+    if (paused.count !== 1) return null;
+
+    const attempt = await tx.attempt.updateMany({
+      where: {
+        id: input.attemptId,
+        runId: input.runId,
+        fence: input.leaseFence,
+        status: "running",
+      },
+      data: { status: "waiting_budget", finishedAt: new Date() },
+    });
+    if (attempt.count !== 1) throw new Error("Active run attempt was not available to pause");
+
+    const checkpoint = JSON.parse(input.checkpoint);
+    if (checkpoint.kind !== "budget_pause_v1") throw new Error("Invalid budget checkpoint");
+    const call = checkpoint.call;
+    if (checkpoint.reason === "insufficient" && call) {
+      if (
+        call.spaceId !== input.spaceId ||
+        typeof call.projectId !== "string" ||
+        typeof call.callId !== "string"
+      )
+        throw new Error("Invalid budget call scope");
+      const amountMicroUsd = BigInt(call.amountMicroUsd);
+      if (amountMicroUsd <= 0n) throw new Error("Invalid budget approval amount");
+      const bot = await tx.bot.findFirstOrThrow({
+        where: { id: input.botId, spaceId: input.spaceId },
+        select: { userId: true },
+      });
+      const requestKey = `budget:${input.runId}:${input.attemptId}:${call.callId}`;
+      const scope = JSON.stringify({
+        runId: input.runId,
+        threadId: input.threadId,
+        botId: input.botId,
+        attemptId: input.attemptId,
+        leaseFence: input.leaseFence,
+        callId: call.callId,
+      });
+      const { proposal, replayed } = await createProposalInTransaction(
+        tx,
+        { spaceId: input.spaceId, userId: bot.userId },
+        {
+          botId: input.botId,
+          submitKey: requestKey,
+          kind: "decision",
+          title: "Increase project budget",
+          summary: `Increase project ${call.projectId} budget by ${amountMicroUsd} micro-USD to resume run ${input.runId}.`,
+          options: [],
+          recommendation: "Approve the bound budget increase to resume this run.",
+        },
+      );
+      if (replayed) throw new Error("Budget pause proposal already exists");
+      const approval = await requestOverrunApprovalInTransaction(tx, {
+        spaceId: input.spaceId,
+        projectId: call.projectId,
+        amountMicroUsd,
+        scope,
+        requestKey,
+        proposalId: proposal.id,
+      });
+      await tx.run.update({
+        where: { id: input.runId },
+        data: {
+          checkpoint: JSON.stringify({
+            ...checkpoint,
+            approvalId: approval.id,
+            proposalId: proposal.id,
+          }),
+        },
+      });
+    }
+
+    const message = await createThreadMessageInTransaction(tx, {
+      threadId: input.threadId,
+      role: "bot",
+      blocks: input.blocks,
+      botId: input.botId,
+      runId: input.runId,
+    });
+    await appendEventInTransaction(tx, {
+      spaceId: input.spaceId,
+      threadId: input.threadId,
+      botId: input.botId,
+      type: "thread.message.created",
+      runId: input.runId,
+      payload: { messageId: message.id, role: "bot", blocks: input.blocks },
+    });
+    const waitingEvent = await appendEventInTransaction(tx, {
+      spaceId: input.spaceId,
+      threadId: input.threadId,
+      botId: input.botId,
+      type: "run.waiting_budget",
+      runId: input.runId,
+      payload: {},
+    });
+    await tx.event.deleteMany({ where: { runId: input.runId, type: "thread.progress" } });
+    return { threadId: waitingEvent.threadId, seq: waitingEvent.seq };
+  });
+
+  if (!committed) return false;
+  await notifyRealtime(realtime, committed.threadId, committed.seq);
+  return true;
+}
+
 export async function pauseRunForTakeover(
   prisma: PrismaClient,
   input: PauseRunForTakeover,
@@ -1260,7 +1408,9 @@ export async function createPendingSteeringRun(
     where: {
       threadId: input.threadId,
       botId: input.botId,
-      status: { in: ["queued", "leased", "running", "waiting_input", "waiting_takeover"] },
+      status: {
+        in: ["queued", "leased", "running", "waiting_input", "waiting_takeover", "waiting_budget"],
+      },
     },
     select: { id: true },
   });

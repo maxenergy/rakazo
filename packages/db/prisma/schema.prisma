@@ -1674,6 +1674,7 @@ model ProjectBudget {
   updatedAt        DateTime               @updatedAt
   versions         ProjectBudgetVersion[]
   reservations     BudgetReservation[]
+  overrunApprovals BudgetOverrunApproval[]
 
   @@unique([spaceId, projectId])
   @@map("project_budgets")
@@ -1709,6 +1710,8 @@ model BudgetReservation {
   unreconciledAt        DateTime?
   chargedAfterRelease   Boolean @default(false)
   chargedAfterWriteOff  Boolean @default(false)
+  executionState        String @default("unknown")
+  providerStartedAt     DateTime?
   writtenOffAt          DateTime?
   writtenOffBy          String?
   writeOffReason        String?
@@ -1720,4 +1723,70 @@ model BudgetReservation {
   @@index([budgetId, status, expiresAt])
   @@index([status, expiresAt])
   @@map("budget_reservations")
+}
+
+/// Append-only spend/audit ledger for project budgets. projectId and budgetId are denormalized and
+/// deliberately have no relation, so history survives project deletion. Unique by (spaceId, callId, kind).
+model BudgetSpendLedger {
+  id              String   @id @default(cuid())
+  spaceId         String
+  projectId       String
+  budgetId        String
+  budgetVersion   Int
+  callId          String
+  kind            String
+  amountMicroUsd  BigInt
+  overrunMicroUsd BigInt   @default(0)
+  createdAt       DateTime @default(now())
+
+  @@unique([spaceId, callId, kind])
+  @@index([spaceId, projectId, createdAt])
+  @@map("budget_spend_ledger")
+  auditData       Json?
+}
+
+/// Request to raise a project budget limit after spend would exceed it. Bound to the project,
+/// the budget version it was requested against, the extra amount and a scope. Approving applies
+/// exactly that amount once; rejecting applies nothing.
+model BudgetOverrunApproval {
+  id              String        @id @default(cuid())
+  spaceId         String
+  projectId       String
+  budgetId        String
+  budget          ProjectBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budgetVersion   Int
+  amountMicroUsd  BigInt
+  scope           String
+  requestKey      String
+  status          String        @default("pending")
+  proposalId      String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+  appliedVersion  Int?
+  decisionReason  String?
+  expiresAt       DateTime      @default(dbgenerated("(CURRENT_TIMESTAMP + interval '24 hours')"))
+  createdAt       DateTime      @default(now())
+
+  @@unique([spaceId, requestKey])
+  @@index([spaceId, projectId, status])
+  @@map("budget_overrun_approvals")
+}
+
+/// FK-free approval evidence retained after project deletion.
+model BudgetApprovalDeletionAudit {
+  id String @id @default(cuid())
+  spaceId String
+  projectId String
+  budgetId String
+  budgetVersion Int
+  approvalId String
+  amountMicroUsd BigInt
+  state String
+  scope String
+  decision String?
+  auditData Json
+  createdAt DateTime @default(now())
+
+  @@unique([spaceId, approvalId])
+  @@map("budget_approval_deletion_audit")
 }

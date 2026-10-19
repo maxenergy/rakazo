@@ -491,6 +491,10 @@ msgstr "Bu araca her zaman izin ver"
 msgid "Always allowed"
 msgstr "Her zaman izinli"
 
+#: src/components/ProjectBudget.tsx
+msgid "Amount exceeds the supported range."
+msgstr "Tutar desteklenen aralığı aşıyor."
+
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "Bu sağlayıcı için abonelik girişi değil, bir API anahtarı saklanıyor."
@@ -682,6 +686,10 @@ msgstr "Otomatik gönderenler"
 msgid "Automated senders will appear after they post here."
 msgstr "Otomatik gönderenler buraya mesaj gönderdikten sonra görünecek."
 
+#: src/components/ProjectBudget.tsx
+msgid "Available"
+msgstr "Kullanılabilir"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Available after the routine is saved"
 msgstr "Rutin kaydedildikten sonra kullanılabilir"
@@ -821,6 +829,14 @@ msgstr "MCP sunucularına göz at"
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Browser"
 msgstr "Tarayıcı"
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget enforcement covers observable model calls. Fixed subscriptions and arbitrary tool spending are excluded."
+msgstr "Bütçe denetimi gözlemlenebilir model çağrılarını kapsar. Sabit abonelikler ve araçların diğer harcamaları kapsam dışındadır."
+
+#: src/components/ProjectBudget.tsx
+msgid "Budget limit (USD)"
+msgstr "Bütçe sınırı (USD)"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -2199,6 +2215,10 @@ msgstr "{day} tarihinde sona erer"
 msgid "Engage when... Ignore..."
 msgstr "Şu durumda katıl... Şunu yoksay..."
 
+#: src/components/ProjectBudget.tsx
+msgid "Enter a non-negative USD amount with at most six decimal places."
+msgstr "En fazla altı ondalık basamaklı, negatif olmayan bir USD tutarı girin."
+
 #: src/lib/user-error.ts
 msgid "Enter a password"
 msgstr "Bir parola girin"
@@ -2281,6 +2301,10 @@ msgstr "Genişlet"
 #: src/pages/Shell.tsx
 msgid "Expand {0}"
 msgstr "{0} genişlet"
+
+#: src/pages/Approvals.tsx
+msgid "Expired"
+msgstr "Süresi doldu"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
@@ -2662,6 +2686,10 @@ msgstr "Ayrıl"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Açık"
+
+#: src/components/ProjectBudget.tsx
+msgid "Limit"
+msgstr "Sınır"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
@@ -3225,6 +3253,10 @@ msgstr "Model ücreti yok. Testler için deterministik simülasyon."
 msgid "No models listed."
 msgstr "Listelenen model yok."
 
+#: src/components/ProjectBudget.tsx
+msgid "No project budget is configured."
+msgstr "Proje bütçesi yapılandırılmamış."
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "Sağlayıcı bulunamadı."
@@ -3586,6 +3618,10 @@ msgstr "Kendi botları ve grupları olan özel çalışma alanı."
 msgid "Project"
 msgstr "Proje"
 
+#: src/components/ProjectBudget.tsx
+msgid "Project budget"
+msgstr "Proje bütçesi"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "Proje kimliği"
@@ -3862,6 +3898,10 @@ msgstr "Yanıt iptal edildi"
 msgid "Replying to {0}"
 msgstr "{0} yanıtlanıyor"
 
+#: src/components/ProjectBudget.tsx
+msgid "Reserved"
+msgstr "Ayrılmış"
+
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Reset"
@@ -4028,6 +4068,10 @@ msgstr "Kaydet"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Save backups"
 msgstr "Yedekleri kaydet"
+
+#: src/components/ProjectBudget.tsx
+msgid "Save budget"
+msgstr "Bütçeyi kaydet"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
@@ -4225,6 +4269,10 @@ msgstr "Ayarlar: Genel"
 msgid "Settings: Usage"
 msgstr "Ayarlar: Kullanım"
 
+#: src/components/ProjectBudget.tsx
+msgid "Settled"
+msgstr "Hesaplaşılmış"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Setup help"
@@ -4415,6 +4463,10 @@ msgstr "Konuşma modeli"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO geçici olarak kullanılamıyor. Yeniden deneyin."
+
+#: src/pages/Approvals.tsx
+msgid "Stale"
+msgstr "Güncel değil"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"

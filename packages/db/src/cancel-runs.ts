@@ -18,7 +18,7 @@ export async function cancelRunsInTransaction(
     },
   });
   await tx.attempt.updateMany({
-    where: { runId: { in: runIds }, status: "running" },
+    where: { runId: { in: runIds }, status: { in: ["running", "waiting_budget"] } },
     data: { status: "cancelled", finishedAt: cancelledAt },
   });
   await tx.task.updateMany({

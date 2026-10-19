@@ -81,8 +81,22 @@ export async function archiveProject(
   >`SELECT id, "archivedAt" FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
   const project = rows[0];
   if (!project) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  const now = new Date();
+  const pending = await tx.budgetOverrunApproval.findMany({
+    where: { spaceId, projectId, status: "pending" },
+    select: { proposalId: true },
+  });
+  await tx.budgetOverrunApproval.updateMany({
+    where: { spaceId, projectId, status: "pending" },
+    data: { status: "stale", decisionReason: "project_archived", decidedAt: now },
+  });
+  const proposalIds = pending.flatMap((row) => (row.proposalId ? [row.proposalId] : []));
+  await tx.proposal.updateMany({
+    where: { id: { in: proposalIds }, spaceId, status: "pending" },
+    data: { status: "expired", chosenOption: null, decidedAt: now },
+  });
   if (isProjectItemArchived(project)) return;
-  await tx.project.update({ where: { id: projectId }, data: { archivedAt: new Date() } });
+  await tx.project.update({ where: { id: projectId }, data: { archivedAt: now } });
 }
 
 export async function archiveMilestone(
@@ -118,6 +132,62 @@ export async function deleteProject(
     { id: string }[]
   >`SELECT id FROM projects WHERE id = ${projectId} AND "spaceId" = ${spaceId} FOR UPDATE`;
   if (!rows.length) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+  await tx.$queryRaw`SELECT id FROM project_budgets WHERE "spaceId" = ${spaceId} AND "projectId" = ${projectId} ORDER BY id FOR UPDATE`;
+  const reservations = await tx.budgetReservation.findMany({
+    where: { spaceId, projectId, status: { in: ["reserved", "unreconciled"] } },
+    orderBy: { callId: "asc" },
+  });
+  for (const reservation of reservations) {
+    const unstarted =
+      reservation.status === "reserved" && reservation.executionState === "not_started";
+    await tx.budgetSpendLedger.create({
+      data: {
+        spaceId,
+        projectId,
+        budgetId: reservation.budgetId,
+        budgetVersion: reservation.budgetVersion,
+        callId: reservation.callId,
+        kind: unstarted ? "released" : "open_at_deletion",
+        amountMicroUsd: reservation.amountMicroUsd,
+        auditData: { reservationId: reservation.id, executionState: reservation.executionState },
+      },
+    });
+    if (unstarted) {
+      await tx.budgetReservation.update({
+        where: { id: reservation.id },
+        data: { status: "released", closedAt: new Date() },
+      });
+      await tx.projectBudget.update({
+        where: { id: reservation.budgetId },
+        data: { reservedMicroUsd: { decrement: reservation.amountMicroUsd } },
+      });
+    }
+  }
+  const approvals = await tx.budgetOverrunApproval.findMany({ where: { spaceId, projectId } });
+  for (const approval of approvals) {
+    await tx.budgetApprovalDeletionAudit.create({
+      data: {
+        spaceId,
+        projectId,
+        budgetId: approval.budgetId,
+        budgetVersion: approval.budgetVersion,
+        approvalId: approval.id,
+        amountMicroUsd: approval.amountMicroUsd,
+        state: approval.status,
+        scope: approval.scope,
+        decision: approval.status === "pending" ? "project_deleted" : approval.decisionReason,
+        auditData: {
+          approvalId: approval.id,
+          state: approval.status,
+          scope: approval.scope,
+          decision: approval.status === "pending" ? "project_deleted" : approval.decisionReason,
+          decidedByUserId: approval.decidedByUserId,
+          decidedAt: approval.decidedAt?.toISOString() ?? null,
+          appliedVersion: approval.appliedVersion,
+        },
+      },
+    });
+  }
   await tx.$queryRaw`SELECT id FROM milestones WHERE "projectId" = ${projectId} AND "spaceId" = ${spaceId} ORDER BY id FOR UPDATE`;
   await tx.ticket.updateMany({
     where: { spaceId, projectId },

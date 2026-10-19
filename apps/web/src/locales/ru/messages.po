@@ -356,6 +356,10 @@ msgstr "Добавить MCP-сервер"
 msgid "Add OpenAPI"
 msgstr "Добавить OpenAPI"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Add prerequisite"
+msgstr "Добавить предварительное условие"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
 msgstr "Добавить удалённый MCP-сервер"
@@ -744,6 +748,10 @@ msgstr "Оплата"
 #: src/lib/ticket-status.ts
 msgid "Blocked"
 msgstr "Заблокировано"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Blocked by dependency"
+msgstr "Заблокировано зависимостью"
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2006,6 +2014,14 @@ msgstr "Отклонено"
 msgid "Deny"
 msgstr "Запретить"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Dependencies"
+msgstr "Зависимости"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Dependents"
+msgstr "Зависимые задачи"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Развертывание по умолчанию"
@@ -3165,6 +3181,10 @@ msgstr "Для этого бота нет сохранённых учётных 
 msgid "No group chats yet."
 msgstr "Групповых чатов пока нет."
 
+#: src/pages/TicketDependencies.tsx
+msgid "No incomplete prerequisites"
+msgstr "Нет незавершённых предварительных условий"
+
 #: src/components/AskCard.tsx
 msgid "No longer active"
 msgstr "Больше не активен"
@@ -3533,6 +3553,14 @@ msgstr "Плагин"
 msgid "POST to"
 msgstr "ОТПРАВИТЬ в"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisite ticket"
+msgstr "Предшествующая задача"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisites"
+msgstr "Предварительные условия"
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -3730,6 +3758,7 @@ msgstr "Освободить прерванный компьютер?"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/TicketDependencies.tsx
 msgid "Remove"
 msgstr "Удалить"
 
@@ -3758,6 +3787,11 @@ msgstr "Удалить упоминание {0}"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove message trigger"
 msgstr "Удалить триггер сообщения"
+
+#. placeholder {0}: item.ref
+#: src/pages/TicketDependencies.tsx
+msgid "Remove prerequisite {0}"
+msgstr "Удалить предварительное условие {0}"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4097,6 +4131,10 @@ msgstr "Поиск поставщиков"
 msgid "Search runs"
 msgstr "Поиск запусков"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Search tickets by reference or title"
+msgstr "Поиск задач по номеру или названию"
+
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
 msgid "Search: {0}"
@@ -4114,6 +4152,10 @@ msgstr "Выберите бота"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Select a connected model"
 msgstr "Выберите подключённую модель"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Select a ticket"
+msgstr "Выберите задачу"
 
 #: src/pages/Shell.tsx
 msgid "Send"

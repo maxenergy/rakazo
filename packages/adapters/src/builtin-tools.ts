@@ -827,6 +827,50 @@ export const builtinAgentTools: ConnectorTool[] = [
     readOnly: true,
   },
   {
+    name: "ticket_dependency_list",
+    description:
+      "List prerequisites and dependents, including derived blocking without changing ticket status.",
+    inputSchema: {
+      type: "object",
+      required: ["ticketId"],
+      properties: { ticketId: { type: "string", description: "Ticket id." } },
+    },
+    readOnly: true,
+  },
+  {
+    name: "ticket_dependency_add",
+    description:
+      "Add a prerequisite dependency to a ticket. Rejects cycles, archived resources and cross-space links.",
+    inputSchema: {
+      type: "object",
+      required: ["ticketId", "prerequisiteId"],
+      properties: {
+        ticketId: { type: "string", description: "Ticket id." },
+        prerequisiteId: {
+          type: "string",
+          description: "Prerequisite ticket id in the same space.",
+        },
+      },
+    },
+    readOnly: false,
+  },
+  {
+    name: "ticket_dependency_remove",
+    description: "Remove a prerequisite dependency from a ticket.",
+    inputSchema: {
+      type: "object",
+      required: ["ticketId", "prerequisiteId"],
+      properties: {
+        ticketId: { type: "string", description: "Ticket id." },
+        prerequisiteId: {
+          type: "string",
+          description: "Prerequisite ticket id in the same space.",
+        },
+      },
+    },
+    readOnly: false,
+  },
+  {
     name: "ticket_get",
     description: "Read a ticket by reference or id, with comments.",
     inputSchema: {

@@ -17,6 +17,11 @@ const api = vi.hoisted(() => ({
     create: vi.fn(),
     comment: vi.fn(),
     comments: vi.fn(),
+    dependencies: vi
+      .fn()
+      .mockResolvedValue({ prerequisites: [], dependents: [], blockedByDependency: false }),
+    addDependency: vi.fn(),
+    removeDependency: vi.fn(),
   },
 }));
 vi.mock("../lib/rpc", () => ({ rpc: api, selectedSpaceId: () => "space-1" }));
@@ -157,8 +162,8 @@ it("renders status columns and opens a ticket with comments", async () => {
       "5m ago",
     ]);
     expect(
-      Array.from(page.container.querySelectorAll("select")).every(
-        (node) => node.className === "w-full",
+      Array.from(page.container.querySelectorAll("select")).every((node) =>
+        node.classList.contains("w-full"),
       ),
     ).toBe(true);
     const submitButtons = page.container.querySelectorAll('button[type="submit"]');

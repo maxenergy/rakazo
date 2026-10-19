@@ -380,3 +380,20 @@ describe("applyJudgeDecision", () => {
     expect(applyJudgeDecision({ decision: "error", consequential: false })).toBe("allow");
   });
 });
+
+describe("ticket dependency approval boundaries", () => {
+  it.each(["ticket_dependency_add", "ticket_dependency_remove"])(
+    "requires approval for %s and blocks unattended execution",
+    (name) => {
+      expect(toolRequiresApproval(name, false)).toBe(true);
+      expect(unattendedTriggerToolRequiresApproval("webhook", name, false)).toBe(true);
+    },
+  );
+
+  it("allows dependency reads without approval, including unattended execution", () => {
+    expect(toolRequiresApproval("ticket_dependency_list", false)).toBe(false);
+    expect(unattendedTriggerToolRequiresApproval("webhook", "ticket_dependency_list", false)).toBe(
+      false,
+    );
+  });
+});

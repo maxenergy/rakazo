@@ -170,6 +170,7 @@ import {
 } from "@rakazo/core";
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
+  addTicketDependency,
   appendEventInTransaction,
   archiveKeyResult,
   archiveMilestone,
@@ -224,7 +225,9 @@ import {
   readKeyResults,
   readMilestones,
   readProjects,
+  readTicketDependencies,
   releaseSpaceDeletionClaim,
+  removeTicketDependency,
   renameSpaceForMember,
   renewSpaceDeletionClaim,
   replaceSpaceBackupModels,
@@ -246,6 +249,7 @@ import {
   updateMilestone,
   updateProject,
   validateProjectFilter,
+  withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
@@ -4213,9 +4217,80 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     tickets: {
+      dependencies: boardEnabled.tickets.dependencies.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withTransactionRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const dependencies = await readTicketDependencies(tx, spaceId, input.ticketId);
+              const ticket = await tx.ticket.findFirstOrThrow({
+                where: { spaceId, id: input.ticketId },
+              });
+              return { dependencies, ticket };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result.dependencies;
+      }),
+      addDependency: boardEnabled.tickets.addDependency.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withTransactionRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await addTicketDependency(tx, spaceId, input.ticketId, input.prerequisiteId);
+              const dependencies = await readTicketDependencies(tx, spaceId, input.ticketId);
+              const ticket = await tx.ticket.findFirstOrThrow({
+                where: { spaceId, id: input.ticketId },
+              });
+              return { dependencies, ticket };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.ticketChanges?.({
+          spaceId,
+          boardId: result.ticket.boardId,
+          ticketId: result.ticket.id,
+          assigneeBotId: result.ticket.assigneeBotId,
+          wakeAssignee: false,
+        });
+        return result.dependencies;
+      }),
+      removeDependency: boardEnabled.tickets.removeDependency.handler(
+        async ({ context, input }) => {
+          const spaceId = context.actor.spaceId;
+          const result = await withTransactionRetry(() =>
+            deps.prisma.$transaction(
+              async (tx) => {
+                await removeTicketDependency(tx, spaceId, input.ticketId, input.prerequisiteId);
+                const dependencies = await readTicketDependencies(tx, spaceId, input.ticketId);
+                const ticket = await tx.ticket.findFirstOrThrow({
+                  where: { spaceId, id: input.ticketId },
+                });
+                return { dependencies, ticket };
+              },
+              { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+            ),
+          );
+          await deps.ticketChanges?.({
+            spaceId,
+            boardId: result.ticket.boardId,
+            ticketId: result.ticket.id,
+            assigneeBotId: result.ticket.assigneeBotId,
+            wakeAssignee: false,
+          });
+          return result.dependencies;
+        },
+      ),
       list: boardEnabled.tickets.list.handler(async ({ context, input }) => {
         const board = await resolveSpaceBoard(deps.prisma, context.actor.spaceId, input.boardId);
         const q = input.q?.trim();
+        const refMatch = q?.match(/^(.+)-(\d+)$/);
+        const referenceNumber =
+          refMatch && refMatch[1]?.toLowerCase() === board.ticketPrefix.toLowerCase()
+            ? Number(refMatch[2])
+            : undefined;
         const where: Prisma.TicketWhereInput = {
           spaceId: context.actor.spaceId,
           boardId: board.id,
@@ -4226,6 +4301,9 @@ export function createRouter(deps: RouterDeps) {
                 OR: [
                   { title: { contains: q, mode: "insensitive" } },
                   { description: { contains: q, mode: "insensitive" } },
+                  ...(referenceNumber !== undefined && Number.isSafeInteger(referenceNumber)
+                    ? [{ number: referenceNumber }]
+                    : []),
                 ],
               }
             : {}),

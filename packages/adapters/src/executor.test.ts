@@ -3126,6 +3126,9 @@ describe("ticket board tool capability", () => {
   };
   const ticketNames = [
     "board_tickets",
+    "ticket_dependency_list",
+    "ticket_dependency_add",
+    "ticket_dependency_remove",
     "ticket_get",
     "ticket_create",
     "ticket_update",

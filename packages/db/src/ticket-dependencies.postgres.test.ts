@@ -3,11 +3,15 @@ import { ensureBoard } from "./board.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
 import { archiveProject, deleteProject, lockTicketForLinkUpdate } from "./project-links.js";
-import { addTicketDependency, removeTicketDependency } from "./ticket-dependencies.js";
+import {
+  addTicketDependency,
+  readTicketDependencies,
+  removeTicketDependency,
+} from "./ticket-dependencies.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 const describePostgres =
-  process.env.VERIFY_DATABASE && databaseUrl ? describe.sequential : describe.skip;
+  process.env.VERIFY_DATABASE === "1" && databaseUrl ? describe.sequential : describe.skip;
 describePostgres("ticket dependency transactions", () => {
   let prisma: PrismaClient;
   let close: () => Promise<void>;
@@ -303,5 +307,31 @@ describePostgres("ticket dependency transactions", () => {
     for (let i = 0; i < 2; i++)
       await prisma.$transaction((tx) => removeTicketDependency(tx, spaceId, a.id, b.id));
     expect(await prisma.ticketDependency.count({ where: { spaceId, ticketId: a.id } })).toBe(0);
+  });
+  it("rejects transitive cycles and derives blocking without changing ticket status", async () => {
+    const a = await ticket();
+    const b = await ticket();
+    const c = await ticket();
+    await prisma.$transaction((tx) => addTicketDependency(tx, spaceId, a.id, b.id));
+    await prisma.$transaction((tx) => addTicketDependency(tx, spaceId, b.id, c.id));
+    await expect(
+      prisma.$transaction((tx) => addTicketDependency(tx, spaceId, c.id, a.id)),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const read = (id: string) =>
+      prisma.$transaction((tx) => readTicketDependencies(tx, spaceId, id));
+    expect(await read(a.id)).toMatchObject({
+      blockedByDependency: true,
+      prerequisites: [{ id: b.id }],
+    });
+    expect(await read(b.id)).toMatchObject({ dependents: [{ id: a.id }] });
+    for (const status of ["done", "closed", "todo"]) {
+      await prisma.ticket.update({ where: { id: b.id }, data: { status } });
+      expect((await read(a.id)).blockedByDependency).toBe(status === "todo");
+      expect((await prisma.ticket.findUniqueOrThrow({ where: { id: a.id } })).status).toBe(
+        a.status,
+      );
+    }
+    await prisma.$transaction((tx) => removeTicketDependency(tx, spaceId, a.id, b.id));
+    expect(await read(a.id)).toMatchObject({ prerequisites: [], blockedByDependency: false });
   });
 });

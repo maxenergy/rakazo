@@ -356,6 +356,10 @@ msgstr "Add MCP server"
 msgid "Add OpenAPI"
 msgstr "Add OpenAPI"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Add prerequisite"
+msgstr "Add prerequisite"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
 msgstr "Add remote MCP server"
@@ -744,6 +748,10 @@ msgstr "Billing"
 #: src/lib/ticket-status.ts
 msgid "Blocked"
 msgstr "Blocked"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Blocked by dependency"
+msgstr "Blocked by dependency"
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2006,6 +2014,14 @@ msgstr "Denied"
 msgid "Deny"
 msgstr "Deny"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Dependencies"
+msgstr "Dependencies"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Dependents"
+msgstr "Dependents"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Deployment default"
@@ -3165,6 +3181,10 @@ msgstr "No credentials saved for this bot."
 msgid "No group chats yet."
 msgstr "No group chats yet."
 
+#: src/pages/TicketDependencies.tsx
+msgid "No incomplete prerequisites"
+msgstr "No incomplete prerequisites"
+
 #: src/components/AskCard.tsx
 msgid "No longer active"
 msgstr "No longer active"
@@ -3533,6 +3553,14 @@ msgstr "Plugin"
 msgid "POST to"
 msgstr "POST to"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisite ticket"
+msgstr "Prerequisite ticket"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Prerequisites"
+msgstr "Prerequisites"
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -3730,6 +3758,7 @@ msgstr "Release interrupted computer?"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/TicketDependencies.tsx
 msgid "Remove"
 msgstr "Remove"
 
@@ -3758,6 +3787,11 @@ msgstr "Remove mention {0}"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove message trigger"
 msgstr "Remove message trigger"
+
+#. placeholder {0}: item.ref
+#: src/pages/TicketDependencies.tsx
+msgid "Remove prerequisite {0}"
+msgstr "Remove prerequisite {0}"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4097,6 +4131,10 @@ msgstr "Search providers"
 msgid "Search runs"
 msgstr "Search runs"
 
+#: src/pages/TicketDependencies.tsx
+msgid "Search tickets by reference or title"
+msgstr "Search tickets by reference or title"
+
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
 msgid "Search: {0}"
@@ -4114,6 +4152,10 @@ msgstr "Select a bot"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Select a connected model"
 msgstr "Select a connected model"
+
+#: src/pages/TicketDependencies.tsx
+msgid "Select a ticket"
+msgstr "Select a ticket"
 
 #: src/pages/Shell.tsx
 msgid "Send"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ModelBackupChoice, ModelCatalogEntry, ModelCredential } from "./domain.js";
+import { ModelBackupListSchema } from "./domain.js";
 import { connectedBackupOptions, moveBackupChoice, sameBackupChoices } from "./model-backups.js";
 
 const catalog: ModelCatalogEntry[] = [
@@ -157,5 +158,29 @@ describe("connected backup model choices", () => {
     expect(sameBackupChoices(choices, [{ ...choices[0]!, modelId: "other" }, choices[1]!])).toBe(
       false,
     );
+  });
+});
+
+describe("backup model input uniqueness", () => {
+  it("rejects repeated provider/model pairs after trimming", () => {
+    const result = ModelBackupListSchema.safeParse([
+      { provider: "anthropic", modelId: "model-a" },
+      { provider: " anthropic ", modelId: " model-a " },
+    ]);
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: [1], message: "Backup models must be unique" }),
+        ]),
+      );
+  });
+
+  it("preserves order and allows the same model ID at different providers", () => {
+    const models = [
+      { provider: "provider-a", modelId: "model" },
+      { provider: "provider-b", modelId: "model" },
+    ];
+    expect(ModelBackupListSchema.parse(models)).toEqual(models);
   });
 });

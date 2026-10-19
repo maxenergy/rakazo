@@ -41,6 +41,7 @@ import { withCloudflareGatewayAuth } from "./cloudflare-ai-gateway.js";
 import { shortenToolResultText } from "./context-selection.js";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import { estimateModelContextTokens } from "./model-context.js";
+import { ModelCooldown } from "./model-cooldown.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import {
   normalizeOpenAiToolParameters,
@@ -154,6 +155,7 @@ export interface PiAgentRuntimeOptions {
 }
 
 export class PiAgentRuntime implements AgentRuntime {
+  private readonly modelCooldown = new ModelCooldown();
   private readonly sessionRecorder?: PiSessionRecorder;
   private readonly modelCallObserver?: ModelCallObserver;
   private readonly onContextDecision?: PiAgentRuntimeOptions["onContextDecision"];
@@ -340,7 +342,22 @@ export class PiAgentRuntime implements AgentRuntime {
         const hasBackups = Boolean(request.fallbackModels?.length);
         let agent: Agent;
         let activeStreamTarget = host.activeModel;
+        const cooldownKey = (target: RuntimeModelTarget) =>
+          this.modelCooldown.key(
+            context?.spaceId,
+            context?.userId,
+            target.config.provider,
+            target.config.id,
+            target.credentials?.accessToken ?? target.apiKey,
+          );
         const fallbackState: FallbackStreamState = {
+          isCooling: (target) => this.modelCooldown.active(cooldownKey(target)),
+          recordCooldown: (target, error) => {
+            const { text, statuses } = errorFacts(error);
+            if (statuses.has(429) || /rate.?limit|too many requests/.test(text)) {
+              this.modelCooldown.record(cooldownKey(target), 30_000);
+            }
+          },
           request,
           getActive: () => activeStreamTarget,
           signal,
@@ -2323,6 +2340,8 @@ interface RuntimeModelTarget {
 }
 
 interface FallbackStreamState {
+  isCooling(target: RuntimeModelTarget): boolean;
+  recordCooldown(target: RuntimeModelTarget, error: unknown): void;
   request: AgentRunRequest;
   getActive(): RuntimeModelTarget;
   signal: AbortSignal;
@@ -2570,6 +2589,7 @@ function fallbackAwareModelStream(
         ) {
           continue;
         }
+        if (state.isCooling(candidate)) continue;
         return candidate;
       } catch {
         // Missing connections and changed credentials are skipped in configured order.
@@ -2581,6 +2601,15 @@ function fallbackAwareModelStream(
     let buffered: AssistantMessageEvent[] = [];
     while (!signalAborted()) {
       const target = state.getActive();
+      if (state.isCooling(target)) {
+        const next = await resolveNext(target);
+        if (failIfAborted(target)) return;
+        if (next) {
+          await state.onSwitch(next);
+          continue;
+        }
+        // Cooldown is only a hint: try the active model when no alternative is available.
+      }
       lastPartial = undefined;
       let sawPartialOutput = false;
       let switched = false;
@@ -2604,6 +2633,7 @@ function fallbackAwareModelStream(
       try {
         for await (const event of stream) {
           if (event.type === "error") {
+            if (state.isProviderFailure(event.error)) state.recordCooldown(target, event.error);
             const hasTerminalPartialOutput = assistantHasPartialOutput(event.error);
             if (
               !sawPartialOutput &&

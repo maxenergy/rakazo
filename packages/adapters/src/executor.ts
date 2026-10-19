@@ -114,7 +114,9 @@ import {
   findDefaultModelCredential,
   findModelCredential,
   InvalidSpaceNameError,
+  IsolationError,
   isTooManyDatabaseConnections,
+  listEffectiveBotBackupModels,
   loadRunHistoryMessages,
   parseComputerMode,
   pauseRunForBudget,
@@ -136,6 +138,7 @@ import {
   formatAgentEnvironmentInstruction,
   redactShellStreams,
 } from "./agent-environment.js";
+import { requireBackupModelConsent } from "./ai-consent.js";
 import { buildApprovalAskBlock } from "./approval-ask.js";
 import {
   approvalPausedToolResult,
@@ -6689,14 +6692,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
 
         let fallbackModels: { provider: string; modelId: string }[] = [];
         if (!scripted) {
-          try {
-            fallbackModels = await deps.prisma.spaceBackupModel.findMany({
-              where: { userId: run.userId, spaceId: run.spaceId },
-              orderBy: { position: "asc" },
-              select: { provider: true, modelId: true },
-            });
-          } catch (error) {
-            getLogger().warn("Backup models could not be loaded", { runId, error });
+          if (run.userId !== bot.userId) {
+            getLogger().info("backups_disabled_owner_mismatch", { botId: run.botId });
+          } else {
+            try {
+              fallbackModels = await listEffectiveBotBackupModels(deps.prisma, {
+                userId: run.userId,
+                spaceId: run.spaceId,
+                botId: run.botId,
+              });
+            } catch (error) {
+              if (error instanceof IsolationError) {
+                getLogger().warn("backups_disabled_isolation_guard", { botId: run.botId });
+              } else {
+                getLogger().warn("Backup models could not be loaded", { runId, error });
+              }
+            }
           }
         }
         const fallbackModelKeys = new Set(
@@ -6798,13 +6809,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
                     const key = JSON.stringify([provider, modelId]);
                     if (!fallbackModelKeys.has(key))
                       throw new Error("Backup model is not selected");
-                    return resolveConnectedModel(
+                    const resolved = await resolveConnectedModel(
                       { userId: run.userId, spaceId: run.spaceId },
                       provider,
                       modelId,
                       (values) => runSecrets.push(...values),
                       true,
                     );
+                    await requireBackupModelConsent(
+                      deps.prisma,
+                      { userId: run.userId, spaceId: run.spaceId },
+                      resolved,
+                    );
+                    return resolved;
                   }
                 : undefined,
               onModelChange: async (provider, modelId) => {

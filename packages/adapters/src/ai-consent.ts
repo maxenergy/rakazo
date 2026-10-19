@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AiDataUse, AiRecipient } from "@rakazo/contracts";
+import { AI_DISCLOSURE_VERSION } from "@rakazo/contracts";
+import type { PrismaClient } from "@rakazo/db";
 import { localBaseUrl } from "./pi-local-provider.js";
 import { listPiCatalog } from "./pi-models.js";
 import { voiceCatalogEntry } from "./voice-factory.js";
@@ -51,4 +53,23 @@ function recipientName(provider: string, use: AiDataUse) {
   if (use === "memory") return provider === "supermemory" ? "Supermemory" : provider;
   if (provider === "cursor") return "Cursor";
   return listPiCatalog().find((entry) => entry.provider === provider)?.providerName ?? provider;
+}
+
+export async function requireBackupModelConsent(
+  prisma: Pick<PrismaClient, "aiDataConsent">,
+  scope: { userId: string; spaceId: string },
+  model: { provider: string; id: string; baseUrl?: string },
+): Promise<void> {
+  const recipient = aiRecipient({
+    provider: model.provider,
+    modelId: model.id,
+    baseUrl: model.baseUrl,
+    use: "model",
+  });
+  if (!recipient) return;
+  const consent = await prisma.aiDataConsent.findUnique({
+    where: { userId_spaceId_recipientKey: { ...scope, recipientKey: recipient.key } },
+  });
+  if (consent?.version !== AI_DISCLOSURE_VERSION)
+    throw new Error("Backup model requires current AI data-sharing consent");
 }

@@ -210,6 +210,7 @@ import {
   IsolationError,
   issueMessagingLinkCode,
   listBoards,
+  listBotBackupModels,
   listProposals,
   listSpaceBackupModels,
   listTicketComments,
@@ -230,6 +231,7 @@ import {
   removeTicketDependency,
   renameSpaceForMember,
   renewSpaceDeletionClaim,
+  replaceBotBackupModels,
   replaceSpaceBackupModels,
   reportsToError,
   restoreBotUnderComputerQuota,
@@ -1642,6 +1644,69 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     bots: {
+      backups: authed.bots.backups.handler(async ({ context, input }) =>
+        listBotBackupModels(deps.prisma, { ...context.actor, botId: input.botId }),
+      ),
+      setBackups: authed.bots.setBackups.handler(async ({ context, input }) => {
+        const owned = await deps.prisma.bot.findFirst({
+          where: { id: input.botId, userId: context.actor.userId, spaceId: context.actor.spaceId },
+          select: { id: true },
+        });
+        if (!owned) throw new IsolationError();
+        const models = input.models;
+        if (models.length > 0) {
+          const auth = await modelCredentialAuthKindsForSpace(
+            deps.prisma,
+            deps.secrets,
+            context.actor,
+          );
+          const available = listAvailablePiCatalog(auth.byProvider, auth.byModel);
+          const live = await codexLiveCatalogsForSpace(
+            deps.prisma,
+            deps.secrets,
+            context.actor,
+            auth,
+            codexCatalog,
+            {
+              onExpiredToken: (secretId) =>
+                refreshExpiredCredential(context.actor, secretId, CHATGPT_OAUTH_PROVIDER),
+            },
+          );
+          const catalog = live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available;
+          for (const choice of models) {
+            const credential = await findModelCredential(
+              deps.prisma,
+              context.actor,
+              choice.provider,
+              choice.modelId,
+            );
+            if (!credential) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "Connect that model provider first",
+              });
+            }
+            if (
+              catalog.some(
+                (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
+              )
+            )
+              continue;
+            const error = await validateConnectedModelChoice(
+              deps.prisma,
+              context.actor,
+              choice.provider,
+              choice.modelId,
+            );
+            if (error || choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: error ?? "That model is not available for this connection",
+              });
+            }
+          }
+        }
+        await replaceBotBackupModels(deps.prisma, { ...context.actor, botId: input.botId }, models);
+        return models;
+      }),
       list: authed.bots.list.handler(async ({ context }) => repos.listBots(context.actor)),
       listArchived: authed.bots.listArchived.handler(async ({ context }) =>
         repos.listBots(context.actor, { archived: true }),

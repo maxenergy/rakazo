@@ -325,6 +325,10 @@ export const appContract = {
       .output(z.object({ ok: z.literal(true) })),
   },
   bots: {
+    backups: oc.input(botId).output(ModelBackupListSchema),
+    setBackups: oc
+      .input(z.object({ botId: Id, models: ModelBackupListSchema }))
+      .output(ModelBackupListSchema),
     list: oc.output(z.array(BotSchema)),
     listArchived: oc.output(z.array(BotSchema)),
     get: oc.input(botId).output(BotSchema),

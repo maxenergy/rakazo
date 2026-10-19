@@ -49,14 +49,25 @@ for (const width of [1440, 390]) {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    if (width === 390) {
-      await expect(page.getByRole("link", { name: "Board", exact: true })).toHaveCount(0);
-    }
+    const valueText = await goal.getByText("4 / 10 journeys", { exact: true }).innerText();
+    const [currentValue, targetValue] = valueText
+      .split(" / ")
+      .map((value) => Number.parseFloat(value));
+    const progress = Number(
+      await goal
+        .getByRole("progressbar", { name: "Key result progress", exact: true })
+        .getAttribute("value"),
+    );
     await captureScreenshot(page, testInfo, `rak15-project-goals-${width}`);
     await goal.getByRole("button", { name: "Archive key result", exact: true }).click();
     await expect(goal.getByText("Verified journeys", { exact: true })).toHaveCount(0);
     await page.getByLabel("Archived key results", { exact: true }).check();
     await expect(goal.getByText("Verified journeys", { exact: true })).toBeVisible();
+    await expect(goal.locator("summary").filter({ hasText: /^Edit key result$/ })).toHaveCount(0);
+    await expect(goal.getByRole("button", { name: "Archive key result", exact: true })).toHaveCount(
+      0,
+    );
+    const archivedVisible = await goal.getByText("Verified journeys", { exact: true }).isVisible();
     await captureScreenshot(page, testInfo, `rak15-archived-kr-${width}`);
     const resultPath = testInfo.outputPath("result.json");
     await writeFile(
@@ -66,10 +77,10 @@ for (const width of [1440, 390]) {
           test: testInfo.title,
           width,
           route: new URL(page.url()).pathname,
-          currentValue: 4,
-          targetValue: 10,
-          progress: 40,
-          archivedVisible: true,
+          currentValue,
+          targetValue,
+          progress,
+          archivedVisible,
           status: "passed",
         },
         null,

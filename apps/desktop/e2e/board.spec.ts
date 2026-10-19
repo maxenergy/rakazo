@@ -130,9 +130,6 @@ test("Electron displays a persisted ticket in its real board column", async ({
     fullPage: true,
     timeout: 5_000,
   });
-  throw new Error(
-    "RAK-31 deliberate failure: verify screenshot, trace and main-process artifact upload",
-  );
 });
 
 async function bounded<T>(operation: Promise<T>, label: string, timeout = 10_000): Promise<T> {
@@ -187,10 +184,11 @@ test.afterEach(async ({ baseURL }, testInfo) => {
     try {
       if (app) {
         const runningApp = app;
+        const child = runningApp.process();
         try {
           await bounded(runningApp.close(), "Electron close");
         } finally {
-          if (runningApp.process().exitCode === null) runningApp.process().kill("SIGKILL");
+          if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
         }
       }
     } catch (error) {

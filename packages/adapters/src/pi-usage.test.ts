@@ -422,7 +422,7 @@ describe("Pi usage accounting", () => {
       cacheWriteTokens: null,
       reasoningTokens: 10,
       totalTokens: 130,
-      costSource: "pi-catalog-estimate",
+      costSource: "pi_catalog_estimate",
     });
     expect(afterCall).toHaveBeenCalledOnce();
   });
@@ -488,7 +488,9 @@ describe("Pi usage accounting", () => {
     });
     expect(events[0]).toMatchObject({
       costUsd: 0.00003,
-      costSource: "provider-reported",
+      costUsdDecimal: "0.00003",
+      billingKind: "api",
+      costSource: "provider_reported",
       pricingVersion: null,
       cacheWriteTokens: null,
     });

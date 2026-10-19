@@ -82,6 +82,7 @@ async function recordUsageInTransaction(
         where: { id: prior.id },
         data: {
           costMicroUsd,
+          costUsd: Number(event.costUsdDecimal),
           costSource: event.costSource ?? null,
           pricingVersion: event.pricingVersion ?? null,
         },
@@ -136,6 +137,9 @@ async function recordUsageInTransaction(
       reasoningTokens: event.reasoningTokens ?? null,
       totalTokens: event.totalTokens ?? null,
       costMicroUsd,
+      ...(costMicroUsd !== null && event.costUsdDecimal != null
+        ? { costUsd: Number(event.costUsdDecimal) }
+        : {}),
       costSource: event.costSource ?? null,
       pricingVersion: event.pricingVersion ?? null,
       usageSource: event.usageSource ?? null,

@@ -92,7 +92,14 @@ describe("group handoff ownership", () => {
       }),
     );
     expect(runCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ trigger: "follow_up", projectId: null, parentRunId: run.id, rootRunId: "root-run" }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          trigger: "follow_up",
+          projectId: null,
+          parentRunId: run.id,
+          rootRunId: "root-run",
+        }),
+      }),
     );
   });
 

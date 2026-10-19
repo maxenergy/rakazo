@@ -465,7 +465,7 @@ describe("eval run controls and reporting", () => {
                   reasoningTokens: null,
                   totalTokens: 3,
                   costUsd: 0.00012,
-                  costSource: "provider-reported",
+                  costSource: "provider_reported",
                 },
               ],
             },

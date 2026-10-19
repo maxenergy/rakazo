@@ -7,8 +7,10 @@ describe("ModelCooldown", () => {
     const key = cooldown.key("space", "user", "provider", "model", "fake-key");
     cooldown.record(key, 30_000, 1_000);
     cooldown.record(key, 100, 2_000);
+    expect(cooldown.active(key, 30_000)).toBe(true);
     expect(cooldown.active(key, 30_999)).toBe(true);
     expect(cooldown.active(key, 31_000)).toBe(false);
+    expect(cooldown.active(key, 32_000)).toBe(false);
   });
 
   it("isolates users, spaces, credentials and models", () => {
@@ -21,7 +23,8 @@ describe("ModelCooldown", () => {
       cooldown.key("space", "other-user", "provider", "model", "fake-key"),
       cooldown.key("space", "user", "provider", "model", "other-fake-key"),
       cooldown.key("space", "user", "provider", "other-model", "fake-key"),
-    ]) expect(cooldown.active(other, 1)).toBe(false);
+    ])
+      expect(cooldown.active(other, 1)).toBe(false);
     expect(key).not.toContain("fake-key");
   });
 });

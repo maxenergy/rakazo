@@ -1,6 +1,7 @@
 import type { ModelBackupChoice } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
+import { IsolationError } from "./scope.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 type BackupModelScope = { userId: string; spaceId: string };
@@ -45,7 +46,6 @@ export async function replaceSpaceBackupModels(
   );
 }
 
-
 type BotBackupModelScope = BackupModelScope & { botId: string };
 
 export async function listBotBackupModels(
@@ -56,7 +56,7 @@ export async function listBotBackupModels(
     where: { id: scope.botId, userId: scope.userId, spaceId: scope.spaceId },
     select: { id: true },
   });
-  if (!bot) throw new Error("Bot not found");
+  if (!bot) throw new IsolationError();
   return prisma.botBackupModel.findMany({
     where: { botId: bot.id },
     orderBy: { position: "asc" },
@@ -70,20 +70,23 @@ export async function replaceBotBackupModels(
   models: ModelBackupChoice[],
 ): Promise<void> {
   await withTransactionRetry(() =>
-    prisma.$transaction(async (tx) => {
-      const bots = await tx.$queryRaw<Array<{ id: string }>>`
+    prisma.$transaction(
+      async (tx) => {
+        const bots = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT "id" FROM "bots"
         WHERE "id" = ${scope.botId}
           AND "userId" = ${scope.userId} AND "spaceId" = ${scope.spaceId}
         FOR UPDATE
       `;
-      if (bots.length !== 1) throw new Error("Bot not found");
-      await tx.botBackupModel.deleteMany({ where: { botId: scope.botId } });
-      if (!models.length) return;
-      await tx.botBackupModel.createMany({
-        data: models.map((model, position) => ({ ...model, botId: scope.botId, position })),
-      });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }),
+        if (bots.length !== 1) throw new IsolationError();
+        await tx.botBackupModel.deleteMany({ where: { botId: scope.botId } });
+        if (!models.length) return;
+        await tx.botBackupModel.createMany({
+          data: models.map((model, position) => ({ ...model, botId: scope.botId, position })),
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    ),
   );
 }
 

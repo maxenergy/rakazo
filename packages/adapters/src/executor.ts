@@ -105,7 +105,6 @@ import {
   toolEffectIdempotencyKey,
 } from "@rakazo/core/node/approval-effect-key";
 import type { McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
-import { listEffectiveBotBackupModels } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createProposal,
@@ -116,6 +115,7 @@ import {
   findModelCredential,
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
+  listEffectiveBotBackupModels,
   loadRunHistoryMessages,
   parseComputerMode,
   pauseRunForBudget,
@@ -137,6 +137,7 @@ import {
   formatAgentEnvironmentInstruction,
   redactShellStreams,
 } from "./agent-environment.js";
+import { requireBackupModelConsent } from "./ai-consent.js";
 import { buildApprovalAskBlock } from "./approval-ask.js";
 import {
   approvalPausedToolResult,
@@ -6799,13 +6800,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
                     const key = JSON.stringify([provider, modelId]);
                     if (!fallbackModelKeys.has(key))
                       throw new Error("Backup model is not selected");
-                    return resolveConnectedModel(
+                    const resolved = await resolveConnectedModel(
                       { userId: run.userId, spaceId: run.spaceId },
                       provider,
                       modelId,
                       (values) => runSecrets.push(...values),
                       true,
                     );
+                    await requireBackupModelConsent(
+                      deps.prisma,
+                      { userId: run.userId, spaceId: run.spaceId },
+                      resolved,
+                    );
+                    return resolved;
                   }
                 : undefined,
               onModelChange: async (provider, modelId) => {

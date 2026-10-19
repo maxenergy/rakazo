@@ -274,10 +274,17 @@ describe("Pi runtime ordered model fallback", () => {
     );
     const input = () => {
       const value = request([{ provider: backupA.provider, id: backupA.id }]);
-      value.resolveFallbackModel = async () => ({ provider: backupA.provider, id: backupA.id, apiKey: "fake-backup-key" });
+      value.resolveFallbackModel = async () => ({
+        provider: backupA.provider,
+        id: backupA.id,
+        apiKey: "fake-backup-key",
+      });
       return value;
     };
-    const called = () => providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).provider);
+    const called = () =>
+      providerState.stream.mock.calls.map(
+        ([target]) => (target as Model<"openai-completions">).provider,
+      );
     try {
       await run(input(), [], runtime);
       expect(called()).toEqual([primary.provider, backupA.provider]);
@@ -285,12 +292,44 @@ describe("Pi runtime ordered model fallback", () => {
       await run(input(), [], runtime);
       expect(called()).toEqual([backupA.provider]);
       providerState.stream.mockClear();
-      now += 86_400_001;
+      now += 29_000;
+      await run(input(), [], runtime);
+      expect(called()).toEqual([backupA.provider]);
+      providerState.stream.mockClear();
+      now += 2_000;
       await run(input(), [], runtime);
       expect(called()).toEqual([primary.provider, backupA.provider]);
     } finally {
       clock.mockRestore();
     }
+  });
+
+  it("retries a cooling primary when its backup credential is unavailable", async () => {
+    const runtime = new PiAgentRuntime();
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", "429 rate limit"))
+        : stream(target, message(target, [{ type: "text", text: "backup" }], "stop")),
+    );
+    await run(
+      request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]),
+      [],
+      runtime,
+    );
+    providerState.stream.mockClear();
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [{ type: "text", text: "primary recovered" }], "stop")),
+    );
+    const input = request([{ provider: backupA.provider, id: backupA.id }]);
+    input.resolveFallbackModel = async () => {
+      throw new Error("Credential disconnected");
+    };
+    await run(input, [], runtime);
+    expect(
+      providerState.stream.mock.calls.map(
+        ([target]) => (target as Model<"openai-completions">).provider,
+      ),
+    ).toEqual([primary.provider]);
   });
 
   it("preserves OAuth getApiKey behavior with no backup list", async () => {

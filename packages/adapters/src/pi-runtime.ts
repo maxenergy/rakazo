@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { ModelCooldown } from "./model-cooldown.js";
 import type { AgentMessage, AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Agent } from "@earendil-works/pi-agent-core";
 import type {
@@ -42,6 +41,7 @@ import { withCloudflareGatewayAuth } from "./cloudflare-ai-gateway.js";
 import { shortenToolResultText } from "./context-selection.js";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import { estimateModelContextTokens } from "./model-context.js";
+import { ModelCooldown } from "./model-cooldown.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import {
   normalizeOpenAiToolParameters,
@@ -342,10 +342,14 @@ export class PiAgentRuntime implements AgentRuntime {
         const hasBackups = Boolean(request.fallbackModels?.length);
         let agent: Agent;
         let activeStreamTarget = host.activeModel;
-        const cooldownKey = (target: RuntimeModelTarget) => this.modelCooldown.key(
-          context?.spaceId, context?.userId, target.config.provider, target.config.id,
-          target.credentials?.accessToken ?? target.apiKey,
-        );
+        const cooldownKey = (target: RuntimeModelTarget) =>
+          this.modelCooldown.key(
+            context?.spaceId,
+            context?.userId,
+            target.config.provider,
+            target.config.id,
+            target.credentials?.accessToken ?? target.apiKey,
+          );
         const fallbackState: FallbackStreamState = {
           isCooling: (target) => this.modelCooldown.active(cooldownKey(target)),
           recordCooldown: (target, error) => {
@@ -2600,12 +2604,11 @@ function fallbackAwareModelStream(
       if (state.isCooling(target)) {
         const next = await resolveNext(target);
         if (failIfAborted(target)) return;
-        if (!next) {
-          finishWithThrownError(target, new Error("Configured models are temporarily cooling down"));
-          return;
+        if (next) {
+          await state.onSwitch(next);
+          continue;
         }
-        await state.onSwitch(next);
-        continue;
+        // Cooldown is only a hint: try the active model when no alternative is available.
       }
       lastPartial = undefined;
       let sawPartialOutput = false;

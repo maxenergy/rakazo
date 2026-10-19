@@ -59,6 +59,7 @@ test("Electron displays a persisted ticket in its real board column", async ({
     await card.click();
     await expect(page.getByRole("dialog")).toContainText("Seeded through the real disposable API.");
     await page.screenshot({ path: testInfo.outputPath("board-success.png"), fullPage: true });
+    throw new Error("RAK-31 deliberate failure: verify screenshot, trace and main-process artifact upload");
   } catch (error) {
     if (page && !page.isClosed()) {
       await page

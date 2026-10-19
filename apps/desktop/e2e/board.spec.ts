@@ -131,6 +131,7 @@ test("Electron displays a persisted ticket in its real board column", async ({
     fullPage: true,
     timeout: 5_000,
   });
+  throw new Error("RAK-31 deliberate failure");
 });
 
 async function bounded<T>(operation: Promise<T>, label: string, timeout = 10_000): Promise<T> {

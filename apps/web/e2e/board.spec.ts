@@ -37,6 +37,7 @@ test("board creates a ticket and opens it", async ({ page }, testInfo) => {
   const owner = dialog.getByLabel("Owner");
   await expect(owner.locator("option", { hasText: "Planner" })).toHaveCount(1);
   await owner.selectOption({ label: "Planner" });
+  const dependencyAssigneeId = await owner.inputValue();
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
 
   await expect(dialog).toBeHidden();
@@ -51,6 +52,24 @@ test("board creates a ticket and opens it", async ({ page }, testInfo) => {
   await expect(detail.getByTestId("ticket-description")).toHaveValue(description);
   await expect(detail.getByTestId("ticket-comments")).toBeVisible();
   await captureScreenshot(page, testInfo, "board-ticket-detail");
+  const prerequisite = await rpc<{ id: string }>(page, "tickets/create", {
+    title: "Dependency acceptance prerequisite",
+    assigneeBotId: dependencyAssigneeId,
+  });
+  const dependencies = detail.getByRole("region", { name: "Dependencies", exact: true });
+  await dependencies
+    .getByLabel("Search tickets by reference or title")
+    .fill("Dependency acceptance prerequisite");
+  const selection = dependencies.getByLabel("Prerequisite ticket", { exact: true });
+  await expect(
+    selection.locator("option", { hasText: "Dependency acceptance prerequisite" }),
+  ).toHaveCount(1);
+  await selection.selectOption(prerequisite.id);
+  await dependencies.getByRole("button", { name: "Add prerequisite", exact: true }).click();
+  await expect(dependencies.getByRole("status")).toHaveText("Blocked by dependency");
+  await captureScreenshot(page, testInfo, "board-ticket-dependency-blocked");
+  await dependencies.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(dependencies.getByRole("status")).toHaveText("No incomplete prerequisites");
 });
 
 for (const width of [360, 390]) {

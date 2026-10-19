@@ -1764,7 +1764,7 @@ model BudgetOverrunApproval {
   decidedAt       DateTime?
   appliedVersion  Int?
   decisionReason  String?
-  expiresAt       DateTime      @default(dbgenerated("(CURRENT_TIMESTAMP + interval '24 hours')"))
+  expiresAt       DateTime      @default(dbgenerated("(CURRENT_TIMESTAMP + '24:00:00'::interval)"))
   createdAt       DateTime      @default(now())
 
   @@unique([spaceId, requestKey])

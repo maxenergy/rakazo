@@ -1,6 +1,11 @@
 import type { Prisma } from "./client.js";
 
-/** Acquire before usage, reservation, or budget row locks, even for absent calls. */
+/**
+ * Acquire before usage, reservation, or budget row locks, even for absent calls.
+ * Each transaction acquires one call key. Any future multi-call transaction must
+ * deduplicate keys, acquire them in ascending signed int64 hashtextextended order,
+ * and add an injected-collision test before introducing that path.
+ */
 export async function lockBudgetCall(
   tx: Prisma.TransactionClient,
   spaceId: string,

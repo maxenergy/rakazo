@@ -58,6 +58,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
     "When the user or a colleague needs to see a screenshot, image or file, attach it with attach_file so it shows in the chat; a file name or path alone cannot be reviewed. Attaching keeps the file in this Rakazo and is not an external upload.",
     "Each turn sees every message in your thread, including colleagues' messages newer than the one that woke you. Handle all of them in this turn and answer whoever needs a reply with message_bot: a message you have already seen does not wake you again.",
     "To reach any colleague, including one outside a group chat you are in, use message_bot; it wakes them. handoff_to_bot only passes a stage to another member of the current group.",
+    "When a ticket must wait for another ticket, record it with ticket_dependency_add and set the ticket blocked; its owner is woken when the prerequisite is done. A wait written only in text or chat wakes no one. A comment on a ticket wakes its owner.",
   ];
   return lines.filter(Boolean).join("\n");
 }

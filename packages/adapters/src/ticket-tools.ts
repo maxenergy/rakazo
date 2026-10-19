@@ -304,7 +304,9 @@ export async function commentTicket(
     boardId: board.id,
     ticketId: ticket.id,
     assigneeBotId: ticket.assigneeBotId,
-    wakeAssignee: false,
+    // A review or answer left on the ticket is work for its owner; without a wake
+    // the owner never sees it and the ticket stalls.
+    wakeAssignee: ticket.assigneeBotId !== null && ticket.assigneeBotId !== input.botId,
   });
   return { comment: toTicketCommentDto(row) };
 }

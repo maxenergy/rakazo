@@ -239,7 +239,13 @@ describe("ticket mutations", () => {
     await updateTicket(s.deps, { spaceId: "ws", id: "t1", ownerBotId: "bot-2", botId: "bot-2" });
     expect(s.changes.mock.calls.map(([value]) => value.wakeAssignee)).toEqual([false, false]);
   });
-  it("comments without waking the owner", async () => {
+  it("wakes the owner when someone else comments", async () => {
+    const s = mutationDeps();
+    await commentTicket(s.deps, { spaceId: "ws", botId: "bot-2", id: "t1", body: "Fix the test" });
+    await commentTicket(s.deps, { spaceId: "ws", userId: "user-1", id: "t1", body: "Go ahead" });
+    expect(s.changes.mock.calls.map(([value]) => value.wakeAssignee)).toEqual([true, true]);
+  });
+  it("comments on its own ticket without waking itself", async () => {
     const s = mutationDeps();
     const result = await commentTicket(s.deps, {
       spaceId: "ws",

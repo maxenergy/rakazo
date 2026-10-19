@@ -115,7 +115,14 @@ describe("consent grants", () => {
   it("includes scoped bot backup models in the provider-sharing disclosure until each is allowed", async () => {
     const { deps, actor } = setup();
     deps.env.agentRuntime = "pi";
-    vi.mocked(deps.prisma.bot.findMany).mockResolvedValue([{ modelProvider: null, modelId: null, thinkingLevel: null, backupModels: [{ provider: "anthropic", modelId: "claude-backup" }] }] as never);
+    vi.mocked(deps.prisma.bot.findMany).mockResolvedValue([
+      {
+        modelProvider: null,
+        modelId: null,
+        thinkingLevel: null,
+        backupModels: [{ provider: "anthropic", modelId: "claude-backup" }],
+      },
+    ] as never);
     vi.mocked(deps.prisma.userModelCredential.findMany).mockResolvedValue([
       {
         id: "backup-credential",

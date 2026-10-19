@@ -499,7 +499,6 @@ describePostgres("budget overrun approvals", () => {
         }),
       },
     });
-    const cancelledAt = new Date();
 
     await prisma.run.update({
       where: { id: run.id },
@@ -608,7 +607,6 @@ describePostgres("budget overrun approvals", () => {
         }),
       },
     });
-    const cancelledAt = new Date();
 
     await prisma.run.update({
       where: { id: run.id },

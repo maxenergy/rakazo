@@ -64,7 +64,9 @@ export async function aiConsentStatus(
             ...(botIds ? { id: { in: botIds } } : {}),
           },
           select: {
-            modelProvider: true, modelId: true, thinkingLevel: true,
+            modelProvider: true,
+            modelId: true,
+            thinkingLevel: true,
             backupModels: {
               orderBy: { position: "asc" },
               select: { provider: true, modelId: true },

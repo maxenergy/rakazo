@@ -443,6 +443,8 @@ export type AgentContextStrategy = "current" | "retrieval" | "snapshots" | "cach
 export const DEFAULT_CONTEXT_STRATEGY: AgentContextStrategy = "retrieval";
 
 export interface AgentRunRequest {
+  /** Immutable project attribution shared by reservation and accounting. */
+  budgetScope?: Readonly<{ spaceId: string; projectId: string }> | null;
   /** Selected product locale, inherited by helpers within this turn. */
   uiLocale?: UiLocale;
   /** Awaited producer-side accounting, independent of event-consumer cancellation. */
@@ -645,7 +647,7 @@ export interface BackgroundJobPayloads {
   "computer.update": { updateId: string };
   "computer.control-expire": { computerId: string; leaseId: string };
   "skill.teaching-expire": { skillId: string };
-  "history.compact": { threadId: string };
+  "history.compact": { threadId: string; sourceRunId?: string };
   "messaging.deliver": { runId?: string };
   /** Reconcile durable remote-agent intent; scope is loaded from the database. */
   "cloud_agent.poll": { agentId: string };

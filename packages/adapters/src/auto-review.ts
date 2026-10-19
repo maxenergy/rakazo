@@ -266,6 +266,7 @@ export function buildAutoReviewPrompt(input: AutoReviewRequest): string {
 }
 
 export async function runAutoReviewJudge(input: {
+  budgetScope?: Readonly<{ spaceId: string; projectId: string }> | null;
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;
@@ -300,6 +301,7 @@ export async function runAutoReviewJudge(input: {
         botId: input.botId,
         threadId: input.threadId,
         runId: `${input.runId}:auto-review`,
+        budgetScope: input.budgetScope,
         usageOperationKind: "setup",
         onUsage: async (event) => {
           await input.onUsage?.(event);
@@ -362,6 +364,7 @@ export async function runAutoReviewJudge(input: {
 }
 
 export type LlmAutoReviewOptions = {
+  budgetScope?: Readonly<{ spaceId: string; projectId: string }> | null;
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;

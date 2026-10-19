@@ -34,6 +34,7 @@ import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
 import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
 import { BudgetExceededError } from "./budget-observer.js";
+import { runWithBudgetScope } from "./budget-scope.js";
 import { DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
 import { registerCliModelProviders } from "./cli-model-provider.js";
 import { withCloudflareGatewayAuth } from "./cloudflare-ai-gateway.js";
@@ -190,21 +191,22 @@ export class PiAgentRuntime implements AgentRuntime {
     context?: Partial<AdapterContext>,
   ): AsyncIterableIterator<AgentRuntimeEvent> {
     const controller = new AbortController();
+    const scope = request.budgetScope ? Object.freeze({ ...request.budgetScope }) : null;
     const events = this.runEvents(request, controller, context);
     return {
       [Symbol.asyncIterator]() {
         return this;
       },
-      next: () => events.next(),
+      next: () => runWithBudgetScope(scope, () => events.next()),
       return: () => {
         // An async generator queues return() behind a pending next(). Abort
         // immediately so a quiet model request can settle that pending read.
         controller.abort();
-        return events.return();
+        return runWithBudgetScope(scope, () => events.return());
       },
       throw: (error) => {
         controller.abort();
-        return events.throw(error);
+        return runWithBudgetScope(scope, () => events.throw(error));
       },
     };
   }

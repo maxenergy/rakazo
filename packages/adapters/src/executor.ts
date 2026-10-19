@@ -4450,6 +4450,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   );
                   provider = createAutoReviewProvider("llm", {
                     llm: {
+                      budgetScope: run.projectId
+                        ? { spaceId: run.spaceId, projectId: run.projectId }
+                        : null,
                       onUsage: (event) =>
                         recordUsage(deps.prisma, event, {
                           spaceId: run.spaceId,
@@ -6708,6 +6711,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         try {
           const runtimeEvents = deps.runtime.run(
             {
+              budgetScope: run.projectId
+                ? { spaceId: run.spaceId, projectId: run.projectId }
+                : null,
               botId: bot.id,
               threadId: thread.id,
               runId,
@@ -7424,7 +7430,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 COMPACTION_BATCH_SIZE,
               )
             ) {
-              await deps.jobs.enqueue(historyCompactJob(thread.id));
+              await deps.jobs.enqueue(historyCompactJob(thread.id, runId));
             }
           } catch (error) {
             getLogger().error("history.compact enqueue failed", error);

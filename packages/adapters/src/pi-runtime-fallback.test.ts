@@ -11,6 +11,7 @@ import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-s
 import type { AgentRunRequest, AgentRuntimeEvent, ModelCallObserver } from "@rakazo/adapter-kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetExceededError } from "./budget-observer.js";
+import { currentBudgetScope } from "./budget-scope.js";
 
 const providerState = vi.hoisted(() => ({
   models: new Map<string, Record<string, unknown>>(),
@@ -317,13 +318,20 @@ describe("Pi runtime ordered model fallback", () => {
   it.each([false, true])(
     "bills configured model ids with switched=%s despite provider response ids",
     async (switched) => {
-      const beforeCall = vi.fn<ModelCallObserver["beforeCall"]>(async () => "reservation");
+      const observedScopes: unknown[] = [];
+      const scope = { spaceId: "scope-space", projectId: "original-project" };
+      const beforeCall = vi.fn<ModelCallObserver["beforeCall"]>(async () => {
+        observedScopes.push(currentBudgetScope());
+        scope.projectId = "mutated-project";
+        return "reservation";
+      });
       const afterCall = vi.fn<ModelCallObserver["afterCall"]>(async () => undefined);
       const onUsage = vi.fn<NonNullable<AgentRunRequest["onUsage"]>>(async () => undefined);
       const input = request(
         switched ? [{ provider: backupA.provider, id: backupA.id, apiKey: "backup-key" }] : [],
       );
       input.onUsage = onUsage;
+      input.budgetScope = scope;
       providerState.stream.mockImplementation((target: Model<"openai-completions">) => {
         const failure = switched && target.provider === primary.provider;
         const result = message(
@@ -343,6 +351,13 @@ describe("Pi runtime ordered model fallback", () => {
         new PiAgentRuntime({ modelCallObserver: { beforeCall, afterCall } }),
       );
       const targets = switched ? [primary, backupA] : [primary];
+      expect(observedScopes).toEqual(
+        targets.map(() => ({
+          spaceId: "scope-space",
+          projectId: "original-project",
+        })),
+      );
+      expect(currentBudgetScope()).toBeNull();
       expect(beforeCall.mock.calls.map(([call]) => call)).toEqual(
         targets.map((target) =>
           expect.objectContaining({ provider: target.provider, modelId: target.id }),

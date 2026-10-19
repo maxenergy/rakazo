@@ -83,6 +83,12 @@ describe("background job contracts", () => {
 });
 
 describe("historyCompactJob", () => {
+  it("preserves the originating run for immutable attribution", () => {
+    expect(historyCompactJob("thread-1", "run-1").payload).toEqual({
+      threadId: "thread-1",
+      sourceRunId: "run-1",
+    });
+  });
   it("builds a job with a replace key scoped to the thread", () => {
     expect(historyCompactJob("thread-1")).toEqual({
       name: "history.compact",

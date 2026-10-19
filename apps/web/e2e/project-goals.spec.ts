@@ -14,6 +14,16 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("heading", { name: "Goal acceptance project", exact: true }),
     ).toBeVisible();
+    if (width === 390) {
+      await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "Close navigation", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Board", exact: true }).filter({ visible: true }),
+      ).toHaveCount(0);
+      await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+    }
     await page.getByLabel("Goal name", { exact: true }).fill("Ship measurable results");
     await page.getByRole("button", { name: "Add goal", exact: true }).click();
     const goal = page

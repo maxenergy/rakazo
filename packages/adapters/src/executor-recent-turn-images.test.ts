@@ -92,6 +92,7 @@ async function runWithModel(
       }),
     },
     bot: {
+      findFirst: vi.fn(async () => ({ id: run.botId })),
       findUniqueOrThrow: vi.fn(async () => ({
         id: run.botId,
         name: "Assistant",
@@ -137,6 +138,7 @@ async function runWithModel(
     },
     secret: { findFirst: vi.fn(async () => null) },
     userModelCredential: { findFirst: vi.fn(async () => null) },
+    botBackupModel: { findMany: vi.fn(async () => []) },
     spaceBackupModel: {
       findMany: vi.fn(async () => {
         if (backupReadFails) throw new Error("Backup list unavailable");

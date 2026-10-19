@@ -263,6 +263,36 @@ describe("Pi runtime ordered model fallback", () => {
     },
   );
 
+  it("skips a cooling primary across runs and retries it after expiry", async () => {
+    const runtime = new PiAgentRuntime();
+    let now = 1_800_000_000_000;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", "429 rate_limit_error"))
+        : stream(target, message(target, [{ type: "text", text: "answer" }], "stop")),
+    );
+    const input = () => {
+      const value = request([{ provider: backupA.provider, id: backupA.id }]);
+      value.resolveFallbackModel = async () => ({ provider: backupA.provider, id: backupA.id, apiKey: "fake-backup-key" });
+      return value;
+    };
+    const called = () => providerState.stream.mock.calls.map(([target]) => (target as Model<"openai-completions">).provider);
+    try {
+      await run(input(), [], runtime);
+      expect(called()).toEqual([primary.provider, backupA.provider]);
+      providerState.stream.mockClear();
+      await run(input(), [], runtime);
+      expect(called()).toEqual([backupA.provider]);
+      providerState.stream.mockClear();
+      now += 86_400_001;
+      await run(input(), [], runtime);
+      expect(called()).toEqual([primary.provider, backupA.provider]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("preserves OAuth getApiKey behavior with no backup list", async () => {
     const input = request();
     delete input.fallbackModels;

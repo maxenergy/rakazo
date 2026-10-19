@@ -105,6 +105,7 @@ import {
   toolEffectIdempotencyKey,
 } from "@rakazo/core/node/approval-effect-key";
 import type { McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+import { listEffectiveBotBackupModels } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createProposal,
@@ -6690,10 +6691,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
         let fallbackModels: { provider: string; modelId: string }[] = [];
         if (!scripted) {
           try {
-            fallbackModels = await deps.prisma.spaceBackupModel.findMany({
-              where: { userId: run.userId, spaceId: run.spaceId },
-              orderBy: { position: "asc" },
-              select: { provider: true, modelId: true },
+            fallbackModels = await listEffectiveBotBackupModels(deps.prisma, {
+              userId: run.userId,
+              spaceId: run.spaceId,
+              botId: run.botId,
             });
           } catch (error) {
             getLogger().warn("Backup models could not be loaded", { runId, error });

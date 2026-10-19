@@ -85,7 +85,9 @@ export function ProjectsPage() {
             </Button>
           </section>
         ) : null}
-        {projectId && !milestoneId ? <ProjectBudget key={projectId} projectId={projectId} /> : null}
+        {projectId && !milestoneId && data?.project?.id === projectId && !error ? (
+          <ProjectBudget key={projectId} projectId={projectId} />
+        ) : null}
         {!milestoneId ? (
           <>
             <label className="flex items-center gap-2 text-sm">

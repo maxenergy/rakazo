@@ -527,7 +527,9 @@ function TicketDialog({
             </Button>
           </div>
         </form>
-        {ticket ? <TicketDependencies ticketId={ticket.id} revision={commentRevision} onSaved={onSaved} /> : null}
+        {ticket ? (
+          <TicketDependencies ticketId={ticket.id} revision={commentRevision} onSaved={onSaved} />
+        ) : null}
         {ticket ? (
           <div data-testid="ticket-comments" className="space-y-3 border-t pt-3">
             {comments.map((row) => (

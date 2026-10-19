@@ -456,15 +456,35 @@ describePostgres("project and milestone API isolation", () => {
     const api = client();
     const a = await api.tickets.create({ title: "Dependency downstream", assigneeBotId: botId });
     const b = await api.tickets.create({ title: "Dependency prerequisite", assigneeBotId: botId });
-    const foreignBoard = await prisma.board.upsert({ where: { spaceId: foreignSpaceId }, update: {}, create: { spaceId: foreignSpaceId, name: "Foreign dependencies" } });
-    const foreign = await prisma.ticket.create({ data: { spaceId: foreignSpaceId, boardId: foreignBoard.id, number: 900001, title: "Foreign prerequisite" } });
-    await expect(api.tickets.addDependency({ ticketId: a.id, prerequisiteId: a.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(api.tickets.addDependency({ ticketId: a.id, prerequisiteId: "" })).rejects.toThrow();
-    await expect(api.tickets.addDependency({ ticketId: a.id, prerequisiteId: foreign.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const foreignBoard = await prisma.board.upsert({
+      where: { spaceId: foreignSpaceId },
+      update: {},
+      create: { spaceId: foreignSpaceId, name: "Foreign dependencies" },
+    });
+    const foreign = await prisma.ticket.create({
+      data: {
+        spaceId: foreignSpaceId,
+        boardId: foreignBoard.id,
+        number: 900001,
+        title: "Foreign prerequisite",
+      },
+    });
+    await expect(
+      api.tickets.addDependency({ ticketId: a.id, prerequisiteId: a.id }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      api.tickets.addDependency({ ticketId: a.id, prerequisiteId: "" }),
+    ).rejects.toThrow();
+    await expect(
+      api.tickets.addDependency({ ticketId: a.id, prerequisiteId: foreign.id }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
     const added = await api.tickets.addDependency({ ticketId: a.id, prerequisiteId: b.id });
     expect(added).toMatchObject({ blockedByDependency: true, prerequisites: [{ id: b.id }] });
-    expect(await api.tickets.dependencies({ ticketId: b.id })).toMatchObject({ dependents: [{ id: a.id }] });
-    expect(await api.tickets.removeDependency({ ticketId: a.id, prerequisiteId: b.id })).toMatchObject({ prerequisites: [], blockedByDependency: false });
+    expect(await api.tickets.dependencies({ ticketId: b.id })).toMatchObject({
+      dependents: [{ id: a.id }],
+    });
+    expect(
+      await api.tickets.removeDependency({ ticketId: a.id, prerequisiteId: b.id }),
+    ).toMatchObject({ prerequisites: [], blockedByDependency: false });
   });
-
 });

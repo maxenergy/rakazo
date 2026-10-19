@@ -255,8 +255,8 @@ import {
 import { checkpointRunComputerWorkspace } from "./computer-workspace.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
-import { resolveDeploymentModel } from "./deployment-model.js";
 import { executeDependencyTool, isDependencyToolName } from "./dependency-tools.js";
+import { resolveDeploymentModel } from "./deployment-model.js";
 import { executeGoalTool, isGoalToolName } from "./goal-tools.js";
 import { handoffToGroupBot, loadGroupContext } from "./group-handoff.js";
 import {

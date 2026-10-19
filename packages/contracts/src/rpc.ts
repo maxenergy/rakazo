@@ -8,19 +8,19 @@ import {
   ATTACHMENT_MAX_COUNT,
 } from "./attachments.js";
 import {
-  TicketDependenciesInput,
-  EditTicketDependencyInput,
-  TicketDependenciesSchema,
   BoardEventSchema,
   BoardSchema,
   CommentTicketInput,
   CreateTicketInput,
+  EditTicketDependencyInput,
   GetTicketInput,
   ListTicketsInput,
   ListTicketsOutput,
   MoveTicketInput,
   RenameBoardInput,
   TicketCommentSchema,
+  TicketDependenciesInput,
+  TicketDependenciesSchema,
   TicketSchema,
   UpdateTicketInput,
 } from "./board.js";

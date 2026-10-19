@@ -82,8 +82,12 @@ export async function readTicketDependencies(
   const edges = await tx.ticketDependency.findMany({
     where: { spaceId, OR: [{ ticketId }, { prerequisiteId: ticketId }] },
   });
-  const prerequisiteIds = edges.filter((edge) => edge.ticketId === ticketId).map((edge) => edge.prerequisiteId);
-  const dependentIds = edges.filter((edge) => edge.prerequisiteId === ticketId).map((edge) => edge.ticketId);
+  const prerequisiteIds = edges
+    .filter((edge) => edge.ticketId === ticketId)
+    .map((edge) => edge.prerequisiteId);
+  const dependentIds = edges
+    .filter((edge) => edge.prerequisiteId === ticketId)
+    .map((edge) => edge.ticketId);
   const rows = await tx.ticket.findMany({
     where: { spaceId, id: { in: [...prerequisiteIds, ...dependentIds] } },
     include: { board: { select: { ticketPrefix: true } } },
@@ -92,7 +96,9 @@ export async function readTicketDependencies(
   const prerequisites = rows.filter((row) => prerequisiteIds.includes(row.id));
   return {
     prerequisites: prerequisites.map((row) => toTicketDto(row, row.board.ticketPrefix)),
-    dependents: rows.filter((row) => dependentIds.includes(row.id)).map((row) => toTicketDto(row, row.board.ticketPrefix)),
+    dependents: rows
+      .filter((row) => dependentIds.includes(row.id))
+      .map((row) => toTicketDto(row, row.board.ticketPrefix)),
     blockedByDependency: prerequisites.some((row) => !isTicketComplete(row.status)),
   };
 }

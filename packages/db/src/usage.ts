@@ -1,8 +1,8 @@
-import { lockTicketSpace } from "./ticket-space-lock.js";
 import type { AgentRuntimeEvent, UsageOperationKind } from "@rakazo/adapter-kit";
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { decimalUsdToMicroUsd } from "./money.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
 
 type UsageEvent = Extract<AgentRuntimeEvent, { type: "usage" }>;

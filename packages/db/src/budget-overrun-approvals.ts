@@ -1,5 +1,5 @@
-import { lockTicketSpace } from "./ticket-space-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 
 /** Thrown when a requestKey is replayed with a different project, amount or scope. */
 export class OverrunRequestConflictError extends Error {
@@ -45,7 +45,10 @@ export async function requestOverrunApprovalInTransaction(
   input: OverrunRequestInput,
 ) {
   await lockTicketSpace(tx, input.spaceId);
-  const project = await tx.project.findFirst({ where: { id: input.projectId, spaceId: input.spaceId }, select: { archivedAt: true } });
+  const project = await tx.project.findFirst({
+    where: { id: input.projectId, spaceId: input.spaceId },
+    select: { archivedAt: true },
+  });
   if (project?.archivedAt) throw new Error("Project is archived");
   if (input.amountMicroUsd <= 0n) throw new RangeError("amountMicroUsd must be positive");
   const existing = await tx.budgetOverrunApproval.findUnique({
@@ -189,7 +192,12 @@ export async function expireOverrunApprovals(db: PrismaClient): Promise<number> 
         await tx.$queryRaw`SELECT id FROM proposals WHERE id = ${candidate.proposalId} AND "spaceId" = ${candidate.spaceId} FOR UPDATE`;
       }
       const changed = await tx.budgetOverrunApproval.updateMany({
-        where: { id: candidate.id, spaceId: candidate.spaceId, status: "pending", expiresAt: { lte: now } },
+        where: {
+          id: candidate.id,
+          spaceId: candidate.spaceId,
+          status: "pending",
+          expiresAt: { lte: now },
+        },
         data: { status: "expired", decidedAt: now },
       });
       if (changed.count === 1 && candidate.proposalId) {

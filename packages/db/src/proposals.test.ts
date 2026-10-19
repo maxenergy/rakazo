@@ -175,8 +175,8 @@ describe("budget approval recovery", () => {
           strings.join("").includes("clock_timestamp")
             ? [{ now: new Date() }]
             : strings.join("").includes("project_budgets")
-            ? [{ id: "budget-1", version: budgetVersion, limitMicroUsd: 100n }]
-            : [{ id: "locked" }],
+              ? [{ id: "budget-1", version: budgetVersion, limitMicroUsd: 100n }]
+              : [{ id: "locked" }],
         ),
       proposal: {
         findFirst: vi.fn().mockResolvedValue({ options: [] }),
@@ -210,7 +210,8 @@ describe("budget approval recovery", () => {
     const { tx, prisma } = fixture();
     const approval = await tx.budgetOverrunApproval.findUniqueOrThrow();
     tx.budgetOverrunApproval.findUniqueOrThrow.mockResolvedValue({
-      ...approval, expiresAt: new Date(0),
+      ...approval,
+      expiresAt: new Date(0),
     } as never);
     await decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" });
     expect(tx.proposal.updateMany).toHaveBeenLastCalledWith(

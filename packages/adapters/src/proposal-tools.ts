@@ -66,7 +66,7 @@ export function proposalDecisionText(proposal: {
   comment: string | null;
 }) {
   return [
-    `${({ approved: "Approved", rejected: "Rejected", expired: "Expired", stale: "Stale" })[proposal.status]}: ${proposal.title}`,
+    `${{ approved: "Approved", rejected: "Rejected", expired: "Expired", stale: "Stale" }[proposal.status]}: ${proposal.title}`,
     proposal.chosenOption ? `Chosen option: ${proposal.chosenOption}` : undefined,
     proposal.comment ? `Comment: ${proposal.comment}` : undefined,
     proposal.status === "approved"

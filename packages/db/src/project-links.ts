@@ -82,10 +82,19 @@ export async function archiveProject(
   const project = rows[0];
   if (!project) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
   const now = new Date();
-  const pending = await tx.budgetOverrunApproval.findMany({ where: { spaceId, projectId, status: "pending" }, select: { proposalId: true } });
-  await tx.budgetOverrunApproval.updateMany({ where: { spaceId, projectId, status: "pending" }, data: { status: "stale", decisionReason: "project_archived", decidedAt: now } });
-  const proposalIds = pending.flatMap((row) => row.proposalId ? [row.proposalId] : []);
-  await tx.proposal.updateMany({ where: { id: { in: proposalIds }, spaceId, status: "pending" }, data: { status: "expired", chosenOption: null, decidedAt: now } });
+  const pending = await tx.budgetOverrunApproval.findMany({
+    where: { spaceId, projectId, status: "pending" },
+    select: { proposalId: true },
+  });
+  await tx.budgetOverrunApproval.updateMany({
+    where: { spaceId, projectId, status: "pending" },
+    data: { status: "stale", decisionReason: "project_archived", decidedAt: now },
+  });
+  const proposalIds = pending.flatMap((row) => (row.proposalId ? [row.proposalId] : []));
+  await tx.proposal.updateMany({
+    where: { id: { in: proposalIds }, spaceId, status: "pending" },
+    data: { status: "expired", chosenOption: null, decidedAt: now },
+  });
   if (isProjectItemArchived(project)) return;
   await tx.project.update({ where: { id: projectId }, data: { archivedAt: now } });
 }
@@ -129,11 +138,15 @@ export async function deleteProject(
     orderBy: { callId: "asc" },
   });
   for (const reservation of reservations) {
-    const unstarted = reservation.status === "reserved" && reservation.executionState === "not_started";
+    const unstarted =
+      reservation.status === "reserved" && reservation.executionState === "not_started";
     await tx.budgetSpendLedger.create({
       data: {
-        spaceId, projectId, budgetId: reservation.budgetId,
-        budgetVersion: reservation.budgetVersion, callId: reservation.callId,
+        spaceId,
+        projectId,
+        budgetId: reservation.budgetId,
+        budgetVersion: reservation.budgetVersion,
+        callId: reservation.callId,
         kind: unstarted ? "released" : "open_at_deletion",
         amountMicroUsd: reservation.amountMicroUsd,
         auditData: { reservationId: reservation.id, executionState: reservation.executionState },
@@ -141,7 +154,8 @@ export async function deleteProject(
     });
     if (unstarted) {
       await tx.budgetReservation.update({
-        where: { id: reservation.id }, data: { status: "released", closedAt: new Date() },
+        where: { id: reservation.id },
+        data: { status: "released", closedAt: new Date() },
       });
       await tx.projectBudget.update({
         where: { id: reservation.budgetId },
@@ -153,12 +167,19 @@ export async function deleteProject(
   for (const approval of approvals) {
     await tx.budgetApprovalDeletionAudit.create({
       data: {
-        spaceId, projectId, budgetId: approval.budgetId,
-        budgetVersion: approval.budgetVersion, approvalId: approval.id,
-        amountMicroUsd: approval.amountMicroUsd, state: approval.status, scope: approval.scope,
+        spaceId,
+        projectId,
+        budgetId: approval.budgetId,
+        budgetVersion: approval.budgetVersion,
+        approvalId: approval.id,
+        amountMicroUsd: approval.amountMicroUsd,
+        state: approval.status,
+        scope: approval.scope,
         decision: approval.status === "pending" ? "project_deleted" : approval.decisionReason,
         auditData: {
-          approvalId: approval.id, state: approval.status, scope: approval.scope,
+          approvalId: approval.id,
+          state: approval.status,
+          scope: approval.scope,
           decision: approval.status === "pending" ? "project_deleted" : approval.decisionReason,
           decidedByUserId: approval.decidedByUserId,
           decidedAt: approval.decidedAt?.toISOString() ?? null,

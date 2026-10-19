@@ -65,14 +65,13 @@ it("submits exact decimal USD and rejects invalid amounts without changing the b
   }
 });
 
-
 it("distinguishes reserved and actual amounts and displays load failures", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   const root = createRoot(container);
   try {
     await act(async () => root.render(<ProjectBudget projectId="project-a" />));
-    const values = Array.from(container.querySelectorAll("dd"), node => node.textContent);
+    const values = Array.from(container.querySelectorAll("dd"), (node) => node.textContent);
     expect(values).toContain("$0.000002");
     expect(values).toContain("$0.000001");
     refreshState.error = new Error("Load failed");
@@ -99,11 +98,15 @@ it("keeps the entered amount and permits retry after a failed save", async () =>
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "12");
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    await act(async () => {
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
     expect(input.value).toBe("12");
     expect(container.querySelector('[role="alert"]')?.textContent).toBeTruthy();
     expect(container.querySelector("button")?.disabled).toBe(false);
-    await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    await act(async () => {
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
     expect(setBudget).toHaveBeenCalledTimes(2);
     expect(input.value).toBe("");
     expect(container.querySelector('[role="alert"]')).toBeNull();

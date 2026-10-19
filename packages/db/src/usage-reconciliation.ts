@@ -1,7 +1,7 @@
-import { lockTicketSpace } from "./ticket-space-lock.js";
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma } from "./client.js";
 import { settleBudgetInTransaction } from "./project-budgets.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 
 interface UsageSettlement {
   spaceId: string;

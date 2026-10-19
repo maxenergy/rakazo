@@ -1,6 +1,6 @@
-import { lockTicketSpace } from "./ticket-space-lock.js";
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
 
 /** All amounts are integer micro-USD (1 USD = 1_000_000) held as bigint. */
@@ -152,7 +152,10 @@ export async function reserveBudgetInTransaction(
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + (input.ttlMs ?? DEFAULT_RESERVATION_TTL_MS));
   await lockTicketSpace(tx, input.spaceId);
-  const project = await tx.project.findFirst({ where: { id: input.projectId, spaceId: input.spaceId }, select: { archivedAt: true } });
+  const project = await tx.project.findFirst({
+    where: { id: input.projectId, spaceId: input.spaceId },
+    select: { archivedAt: true },
+  });
   if (project?.archivedAt) throw new Error("Project is archived");
   await lockReservation(tx, input.spaceId, input.callId);
   const usage = await tx.usageRecord.findUnique({
@@ -260,26 +263,49 @@ async function settleDeletedBudget(
   input: { spaceId: string; callId: string; actualMicroUsd: bigint },
 ): Promise<BudgetSettlement | null> {
   const open = await tx.budgetSpendLedger.findUnique({
-    where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "open_at_deletion" } },
+    where: {
+      spaceId_callId_kind: {
+        spaceId: input.spaceId,
+        callId: input.callId,
+        kind: "open_at_deletion",
+      },
+    },
   });
   if (!open) return null;
-  const overrun = input.actualMicroUsd > open.amountMicroUsd ? input.actualMicroUsd - open.amountMicroUsd : 0n;
+  const overrun =
+    input.actualMicroUsd > open.amountMicroUsd ? input.actualMicroUsd - open.amountMicroUsd : 0n;
   const inserted = await tx.budgetSpendLedger.createMany({
     skipDuplicates: true,
-    data: [{
-      spaceId: open.spaceId, projectId: open.projectId, budgetId: open.budgetId,
-      budgetVersion: open.budgetVersion, callId: open.callId, kind: "settled_after_deletion",
-      amountMicroUsd: input.actualMicroUsd, overrunMicroUsd: overrun,
-    }],
+    data: [
+      {
+        spaceId: open.spaceId,
+        projectId: open.projectId,
+        budgetId: open.budgetId,
+        budgetVersion: open.budgetVersion,
+        callId: open.callId,
+        kind: "settled_after_deletion",
+        amountMicroUsd: input.actualMicroUsd,
+        overrunMicroUsd: overrun,
+      },
+    ],
   });
   const prior = await tx.budgetSpendLedger.findUniqueOrThrow({
-    where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "settled_after_deletion" } },
+    where: {
+      spaceId_callId_kind: {
+        spaceId: input.spaceId,
+        callId: input.callId,
+        kind: "settled_after_deletion",
+      },
+    },
   });
   const audit = open.auditData as { reservationId?: string } | null;
   return {
-    reservationId: audit?.reservationId ?? open.id, status: "settled",
+    reservationId: audit?.reservationId ?? open.id,
+    status: "settled",
     settledMicroUsd: prior?.amountMicroUsd ?? input.actualMicroUsd,
-    overrunMicroUsd: prior?.overrunMicroUsd ?? overrun, settledLate: true, replayed: inserted.count === 0,
+    overrunMicroUsd: prior?.overrunMicroUsd ?? overrun,
+    settledLate: true,
+    replayed: inserted.count === 0,
   };
 }
 
@@ -371,9 +397,12 @@ export function startBudgetReservation(
     const reservation = await lockReservation(tx, input.spaceId, input.callId);
     const [clock] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
     if (!clock) throw new Error("Database clock query returned no rows");
-    if (reservation?.status !== "reserved" ||
-        reservation.executionState !== "not_started" ||
-        reservation.expiresAt <= clock.now) return false;
+    if (
+      reservation?.status !== "reserved" ||
+      reservation.executionState !== "not_started" ||
+      reservation.expiresAt <= clock.now
+    )
+      return false;
     await tx.budgetReservation.update({
       where: { id: reservation.id },
       data: { executionState: "started", providerStartedAt: clock.now },
@@ -391,7 +420,8 @@ async function closeReserved(
 ) {
   return db.$transaction(async (tx) => {
     const reservation = await lockReservation(tx, spaceId, callId);
-    if (reservation?.status !== "reserved" || reservation.executionState !== "not_started") return false;
+    if (reservation?.status !== "reserved" || reservation.executionState !== "not_started")
+      return false;
     if (status === "expired" && reservation.expiresAt > now) return false;
     await tx.projectBudget.update({
       where: { id: reservation.budgetId },
@@ -472,22 +502,43 @@ export async function writeOffBudgetHolding(
     const reservation = await lockReservation(tx, input.spaceId, input.callId);
     if (!reservation) {
       const open = await tx.budgetSpendLedger.findUnique({
-        where: { spaceId_callId_kind: { spaceId: input.spaceId, callId: input.callId, kind: "open_at_deletion" } },
+        where: {
+          spaceId_callId_kind: {
+            spaceId: input.spaceId,
+            callId: input.callId,
+            kind: "open_at_deletion",
+          },
+        },
       });
       if (!open) return null;
       const closed = await tx.budgetSpendLedger.findMany({
-        where: { spaceId: input.spaceId, callId: input.callId, kind: { in: ["settled_after_deletion", "written_off"] } },
+        where: {
+          spaceId: input.spaceId,
+          callId: input.callId,
+          kind: { in: ["settled_after_deletion", "written_off"] },
+        },
       });
       const audit = open.auditData as { reservationId?: string } | null;
       const reservationId = audit?.reservationId ?? open.id;
       if (closed.length) return { reservationId, replayed: true };
-      const inserted = await tx.budgetSpendLedger.createMany({ skipDuplicates: true,
-        data: [{
-          spaceId: open.spaceId, projectId: open.projectId, budgetId: open.budgetId,
-          budgetVersion: open.budgetVersion, callId: open.callId, kind: "written_off",
-          amountMicroUsd: open.amountMicroUsd,
-          auditData: { actorUserId: input.actorUserId, reason: input.reason.trim(), writtenOffAt: (input.now ?? new Date()).toISOString() },
-        }],
+      const inserted = await tx.budgetSpendLedger.createMany({
+        skipDuplicates: true,
+        data: [
+          {
+            spaceId: open.spaceId,
+            projectId: open.projectId,
+            budgetId: open.budgetId,
+            budgetVersion: open.budgetVersion,
+            callId: open.callId,
+            kind: "written_off",
+            amountMicroUsd: open.amountMicroUsd,
+            auditData: {
+              actorUserId: input.actorUserId,
+              reason: input.reason.trim(),
+              writtenOffAt: (input.now ?? new Date()).toISOString(),
+            },
+          },
+        ],
       });
       return { reservationId, replayed: inserted.count === 0 };
     }

@@ -82,9 +82,13 @@ export function ApprovalsPage() {
                         {proposal.decidedBy === "team" ? (
                           <Trans>Team decision</Trans>
                         ) : proposal.status === "expired" ? (
-                          <span className="text-xs text-muted-foreground"><Trans>Expired</Trans></span>
+                          <span className="text-xs text-muted-foreground">
+                            <Trans>Expired</Trans>
+                          </span>
                         ) : proposal.status === "stale" ? (
-                          <span className="text-xs text-muted-foreground"><Trans>Stale</Trans></span>
+                          <span className="text-xs text-muted-foreground">
+                            <Trans>Stale</Trans>
+                          </span>
                         ) : proposal.status === "approved" ? (
                           <Trans>Approved</Trans>
                         ) : (

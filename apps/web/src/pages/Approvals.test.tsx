@@ -29,7 +29,11 @@ vi.mock("@rakazo/ui-web", () => ({
 
 import { ApprovalsPage } from "./Approvals";
 
-function proposal(id: string, status: "pending" | "approved" | "rejected" | "expired" | "stale", options: string[] = []) {
+function proposal(
+  id: string,
+  status: "pending" | "approved" | "rejected" | "expired" | "stale",
+  options: string[] = [],
+) {
   return {
     id,
     botId: "ceo-1",
@@ -98,16 +102,29 @@ it("approves a pending proposal with the chosen option and comment", async () =>
   container.remove();
 });
 
- it("renders expired and stale proposals without decision controls", async () => {
+it("renders expired and stale proposals without decision controls", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  api.proposals.list.mockResolvedValue([proposal("expired", "expired"), proposal("stale", "stale")]);
+  api.proposals.list.mockResolvedValue([
+    proposal("expired", "expired"),
+    proposal("stale", "stale"),
+  ]);
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   try {
-    await act(async () => root.render(<MemoryRouter><ApprovalsPage /></MemoryRouter>));
-    expect(container.querySelector('[data-testid="proposal-decided-expired"]')?.textContent).toContain("Expired");
-    expect(container.querySelector('[data-testid="proposal-decided-stale"]')?.textContent).toContain("Stale");
+    await act(async () =>
+      root.render(
+        <MemoryRouter>
+          <ApprovalsPage />
+        </MemoryRouter>,
+      ),
+    );
+    expect(
+      container.querySelector('[data-testid="proposal-decided-expired"]')?.textContent,
+    ).toContain("Expired");
+    expect(
+      container.querySelector('[data-testid="proposal-decided-stale"]')?.textContent,
+    ).toContain("Stale");
     expect(container.querySelector("textarea")).toBeNull();
     expect(container.querySelector("select")).toBeNull();
   } finally {

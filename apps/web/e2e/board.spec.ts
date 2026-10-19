@@ -68,7 +68,7 @@ test("board creates a ticket and opens it", async ({ page }, testInfo) => {
   await dependencies.getByRole("button", { name: "Add prerequisite", exact: true }).click();
   await expect(dependencies.getByRole("status")).toHaveText("Blocked by dependency");
   await captureScreenshot(page, testInfo, "board-ticket-dependency-blocked");
-  await dependencies.getByRole("button", { name: "Remove", exact: true }).click();
+  await dependencies.getByRole("button", { name: /^Remove prerequisite / }).click();
   await expect(dependencies.getByRole("status")).toHaveText("No incomplete prerequisites");
 });
 

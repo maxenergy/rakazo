@@ -10,7 +10,9 @@ loadRootEnv();
 import {
   ChatSdkMessagingSurface,
   CodexCatalogCache,
+  catalogBudgetRates,
   createBackgroundJobHandlers,
+  createBudgetObserver,
   createCloudAgentConnection,
   createConnectorStack,
   createJobReconciler,
@@ -20,7 +22,10 @@ import {
   createRunSandbox,
   createRunSecretWriter,
   createTicketChangeNotifier,
+  createUpperBound,
   createWebProvider,
+  currentBudgetScope,
+  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
   databaseCapacityBackoffMs,
   ExpoPushProvider,
   GraphileJobPublisher,
@@ -37,11 +42,6 @@ import {
   messagingEnvFromProcess,
   messagingPlatformsFromEnv,
   PiAgentRuntime,
-  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
-  catalogBudgetRates,
-  createBudgetObserver,
-  createUpperBound,
-  currentBudgetScope,
   PipedreamConnector,
   PostgresRealtimeFanout,
   pipedreamConfigFromEnv,
@@ -61,10 +61,10 @@ import { resolveEncryptionKey, resolveSupervisorToken } from "@rakazo/core";
 import {
   createBoardEvents,
   createDb,
+  createDbBudgetPort,
   createThreadEvents,
   isTooManyDatabaseConnections,
   parsePositiveInteger,
-  createDbBudgetPort,
   pushSessionExpiresAt,
 } from "@rakazo/db";
 import { SERVICE_NAMES } from "@rakazo/logging";
@@ -107,13 +107,13 @@ async function main() {
       : new PiAgentRuntime({
           sessionRoot: resolvePiSessionRoot(dataDir),
           modelCallObserver: createBudgetObserver({
-          port: createDbBudgetPort(prisma),
-          scope: currentBudgetScope,
-          upperBoundMicroUsd: createUpperBound({
-            lookup: catalogBudgetRates,
-            fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+            port: createDbBudgetPort(prisma),
+            scope: currentBudgetScope,
+            upperBoundMicroUsd: createUpperBound({
+              lookup: catalogBudgetRates,
+              fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+            }),
           }),
-        }),
         });
   // Same resolver the API uses, so both processes agree on provider, model and key.
   const { key: deploymentModelKey, configured: deploymentModelConfigured } =

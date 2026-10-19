@@ -32,8 +32,8 @@ import { DEFAULT_CONTEXT_STRATEGY } from "@rakazo/adapter-kit";
 import { responseLanguageInstruction, usableModelId } from "@rakazo/contracts";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
-import { BudgetExceededError } from "./budget-observer.js";
 import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
+import { BudgetExceededError } from "./budget-observer.js";
 import { DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
 import { registerCliModelProviders } from "./cli-model-provider.js";
 import { withCloudflareGatewayAuth } from "./cloudflare-ai-gateway.js";
@@ -614,10 +614,14 @@ export class PiAgentRuntime implements AgentRuntime {
             type: "budget_pause",
             reason: budgetDenial.reason,
             availableMicroUsd: budgetDenial.availableMicroUsd.toString(),
-            ...(budgetDenial.call ? { call: {
-              ...budgetDenial.call,
-              amountMicroUsd: budgetDenial.call.amountMicroUsd.toString(),
-            } } : {}),
+            ...(budgetDenial.call
+              ? {
+                  call: {
+                    ...budgetDenial.call,
+                    amountMicroUsd: budgetDenial.call.amountMicroUsd.toString(),
+                  },
+                }
+              : {}),
           });
           return;
         }

@@ -5,7 +5,10 @@ import { listPiCatalog } from "./pi-models.js";
 export const DEFAULT_BUDGET_FALLBACK_PER_MTOK = 100;
 
 /** Looks up per-model rates from the Pi catalog; undefined when the model has no entry or price. */
-export function catalogBudgetRates(provider: string, modelId: string): BudgetModelRates | undefined {
+export function catalogBudgetRates(
+  provider: string,
+  modelId: string,
+): BudgetModelRates | undefined {
   const pricing = listPiCatalog().find(
     (entry) => entry.provider === provider && entry.id === modelId,
   )?.pricing;

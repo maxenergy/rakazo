@@ -3196,7 +3196,12 @@ describe("pauseRunForBudget", () => {
     expect(tx.run.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ status: "running", leaseFence: 3 }),
-        data: { status: "waiting_budget", leaseOwner: null, leaseExpiresAt: null, checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }) },
+        data: {
+          status: "waiting_budget",
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+        },
       }),
     );
     expect(tx.event.create.mock.calls.map(([input]) => input.data.type)).toEqual([
@@ -3212,12 +3217,22 @@ describe("pauseRunForBudget", () => {
       run: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       attempt: { updateMany: vi.fn() },
     };
-    const prisma = { $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)) } as unknown as PrismaClient;
-    await expect(pauseRunForBudget(prisma, {
-      spaceId: "workspace-1", threadId: "thread-1", botId: "bot-1",
-      runId: "run-1", attemptId: "attempt-1", leaseOwner: "worker-1",
-      leaseFence: 3, blocks: [], checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
-    })).resolves.toBe(false);
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+    await expect(
+      pauseRunForBudget(prisma, {
+        spaceId: "workspace-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        runId: "run-1",
+        attemptId: "attempt-1",
+        leaseOwner: "worker-1",
+        leaseFence: 3,
+        blocks: [],
+        checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+      }),
+    ).resolves.toBe(false);
     expect(tx.attempt.updateMany).not.toHaveBeenCalled();
   });
 
@@ -3227,11 +3242,21 @@ describe("pauseRunForBudget", () => {
       run: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       attempt: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
     };
-    const prisma = { $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)) } as unknown as PrismaClient;
-    await expect(pauseRunForBudget(prisma, {
-      spaceId: "workspace-1", threadId: "thread-1", botId: "bot-1",
-      runId: "run-1", attemptId: "attempt-1", leaseOwner: "worker-1",
-      leaseFence: 3, blocks: [], checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
-    })).rejects.toThrow("Active run attempt was not available to pause");
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+    await expect(
+      pauseRunForBudget(prisma, {
+        spaceId: "workspace-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        runId: "run-1",
+        attemptId: "attempt-1",
+        leaseOwner: "worker-1",
+        leaseFence: 3,
+        blocks: [],
+        checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+      }),
+    ).rejects.toThrow("Active run attempt was not available to pause");
   });
 });

@@ -1,4 +1,3 @@
-import { BudgetExceededError } from "./budget-observer.js";
 import type * as AgentCore from "@earendil-works/pi-agent-core";
 import type { AgentOptions } from "@earendil-works/pi-agent-core";
 import type {
@@ -11,6 +10,7 @@ import type {
 import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import type { AgentRunRequest, AgentRuntimeEvent, ModelCallObserver } from "@rakazo/adapter-kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BudgetExceededError } from "./budget-observer.js";
 
 const providerState = vi.hoisted(() => ({
   models: new Map<string, Record<string, unknown>>(),
@@ -408,7 +408,10 @@ describe("Pi runtime ordered model fallback", () => {
   it("pauses on budget denial without invoking primary or backup models", async () => {
     const beforeCall = vi.fn<ModelCallObserver["beforeCall"]>(async () => {
       throw new BudgetExceededError("insufficient", 2n, {
-        spaceId: "space", projectId: "project", callId: "call", amountMicroUsd: 5n,
+        spaceId: "space",
+        projectId: "project",
+        callId: "call",
+        amountMicroUsd: 5n,
       });
     });
     const afterCall = vi.fn();
@@ -417,10 +420,14 @@ describe("Pi runtime ordered model fallback", () => {
       [],
       new PiAgentRuntime({ modelCallObserver: { beforeCall, afterCall } }),
     );
-    expect(events.filter((event) => event.type === "budget_pause")).toEqual([{
-      type: "budget_pause", reason: "insufficient", availableMicroUsd: "2",
-      call: { spaceId: "space", projectId: "project", callId: "call", amountMicroUsd: "5" },
-    }]);
+    expect(events.filter((event) => event.type === "budget_pause")).toEqual([
+      {
+        type: "budget_pause",
+        reason: "insufficient",
+        availableMicroUsd: "2",
+        call: { spaceId: "space", projectId: "project", callId: "call", amountMicroUsd: "5" },
+      },
+    ]);
     expect(events.some((event) => event.type === "done")).toBe(false);
     expect(beforeCall).toHaveBeenCalledTimes(1);
     expect(providerState.stream).not.toHaveBeenCalled();

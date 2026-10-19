@@ -38,7 +38,15 @@ export function isBackgroundRunTrigger(trigger: string | null | undefined): bool
 const allowed: Record<RunStatus, RunStatus[]> = {
   queued: ["leased", "cancelled"],
   leased: ["running", "queued", "cancelled"],
-  running: ["waiting_budget", "waiting_input", "waiting_takeover", "completed", "failed", "cancelled", "leased"],
+  running: [
+    "waiting_budget",
+    "waiting_input",
+    "waiting_takeover",
+    "completed",
+    "failed",
+    "cancelled",
+    "leased",
+  ],
   waiting_budget: ["queued", "cancelled"],
   waiting_input: ["queued", "leased", "cancelled"],
   waiting_takeover: ["queued", "leased", "cancelled"],

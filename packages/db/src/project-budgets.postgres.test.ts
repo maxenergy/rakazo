@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { writeOffBudgetHolding } from "./project-budgets.js";
 import type { PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
 import {
@@ -1138,8 +1137,13 @@ describePostgres("project budget reservations", () => {
       where: { spaceId, callId },
       data: { status: "unreconciled" },
     });
-    const audit = { spaceId, callId, actorId: "test-operator", reason: "Unknown charge reviewed" };
-    expect(await writeOffBudgetHolding(prisma, audit)).toBe(true);
+    const audit = {
+      spaceId,
+      callId,
+      actorUserId: "test-operator",
+      reason: "Unknown charge reviewed",
+    };
+    expect(await writeOffBudgetHolding(prisma, audit)).toMatchObject({ replayed: false });
     await Promise.all(
       Array.from({ length: 6 }, () =>
         settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n }),
@@ -1159,11 +1163,13 @@ describePostgres("project budget reservations", () => {
     >`SELECT * FROM "budget_reservations" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId}`;
     expect(rows[0]).toMatchObject({
       status: "settled",
-      writtenOffBy: audit.actorId,
+      writtenOffBy: audit.actorUserId,
       writeOffReason: audit.reason,
       chargedAfterWriteOff: true,
     });
-    expect(await writeOffBudgetHolding(prisma, audit)).toBe(false);
+    await expect(writeOffBudgetHolding(prisma, audit)).rejects.toThrow(
+      "Only unreconciled holdings",
+    );
   });
 
   it("releases the holding once when write-off races settlement", async () => {
@@ -1174,11 +1180,11 @@ describePostgres("project budget reservations", () => {
       where: { spaceId, callId },
       data: { status: "unreconciled" },
     });
-    await Promise.all([
+    const race = await Promise.allSettled([
       writeOffBudgetHolding(prisma, {
         spaceId,
         callId,
-        actorId: "test-operator",
+        actorUserId: "test-operator",
         reason: "Race review",
       }),
       settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n }),
@@ -1187,6 +1193,10 @@ describePostgres("project budget reservations", () => {
       reservedMicroUsd: 0n,
       settledMicroUsd: 250_000n,
     });
+    for (const result of race) {
+      if (result.status === "rejected")
+        expect(String(result.reason)).toContain("Only unreconciled holdings");
+    }
     const replay = await settleBudget(prisma, { spaceId, callId, actualMicroUsd: 250_000n });
     expect(replay).toMatchObject({ replayed: true });
     expect(await state(projectId)).toMatchObject({

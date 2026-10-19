@@ -1,4 +1,3 @@
-import { decideOverrunApprovalInTransaction } from "./budget-overrun-approvals.js";
 import type {
   Actor,
   DecideProposalInput,
@@ -7,6 +6,7 @@ import type {
   ProposalStatus,
 } from "@rakazo/contracts";
 import { ProposalKindSchema, ProposalStatusSchema } from "@rakazo/contracts";
+import { decideOverrunApprovalInTransaction } from "./budget-overrun-approvals.js";
 import type { Prisma, PrismaClient } from "./client.js";
 
 type ProposalRow = {
@@ -94,24 +94,24 @@ export async function createProposalInTransaction(
   const where = { spaceId_submitKey: { spaceId: scope.spaceId, submitKey: input.submitKey } };
   const existing = await prisma.proposal.findUnique({ where, include: withBotName });
   if (existing) return { proposal: mapProposal(existing), replayed: true };
-    const { teamDecision, ...fields } = input;
-    const row = await prisma.proposal.create({
-      data: {
-        spaceId: scope.spaceId,
-        userId: scope.userId,
-        ...fields,
-        ...(teamDecision
-          ? {
-              status: "approved",
-              decidedBy: "team",
-              decidedAt: new Date(),
-              chosenOption: teamDecision.chosenOption,
-            }
-          : {}),
-      },
-      include: withBotName,
-    });
-    return { proposal: mapProposal(row), replayed: false };
+  const { teamDecision, ...fields } = input;
+  const row = await prisma.proposal.create({
+    data: {
+      spaceId: scope.spaceId,
+      userId: scope.userId,
+      ...fields,
+      ...(teamDecision
+        ? {
+            status: "approved",
+            decidedBy: "team",
+            decidedAt: new Date(),
+            chosenOption: teamDecision.chosenOption,
+          }
+        : {}),
+    },
+    include: withBotName,
+  });
+  return { proposal: mapProposal(row), replayed: false };
 }
 
 export async function listProposals(
@@ -182,17 +182,29 @@ export async function decideProposalInTransaction(
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${binding.threadId} AND "spaceId" = ${scope.spaceId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM runs WHERE id = ${binding.runId} AND "spaceId" = ${scope.spaceId} FOR UPDATE`;
     const run = await tx.run.findFirst({
-      where: { id: binding.runId, spaceId: scope.spaceId, threadId: binding.threadId, botId: binding.botId },
+      where: {
+        id: binding.runId,
+        spaceId: scope.spaceId,
+        threadId: binding.threadId,
+        botId: binding.botId,
+      },
     });
-    const attempt = typeof binding.attemptId === "string"
-      ? await tx.attempt.findFirst({
-          where: { id: binding.attemptId, runId: binding.runId,
-            fence: binding.leaseFence, status: "waiting_budget" },
-          select: { id: true },
-        })
-      : null;
+    const attempt =
+      typeof binding.attemptId === "string"
+        ? await tx.attempt.findFirst({
+            where: {
+              id: binding.attemptId,
+              runId: binding.runId,
+              fence: binding.leaseFence,
+              status: "waiting_budget",
+            },
+            select: { id: true },
+          })
+        : null;
     const checkpoint = run?.checkpoint ? JSON.parse(run.checkpoint) : null;
-    const valid = attempt !== null && run?.status === "waiting_budget" &&
+    const valid =
+      attempt !== null &&
+      run?.status === "waiting_budget" &&
       run.leaseFence === binding.leaseFence &&
       checkpoint?.kind === "budget_pause_v1" &&
       checkpoint.approvalId === approval.id &&
@@ -205,17 +217,24 @@ export async function decideProposalInTransaction(
       throw new ProposalDecisionError("Budget approval no longer matches the paused run");
     }
     const result = await decideOverrunApprovalInTransaction(tx, {
-      spaceId: scope.spaceId, approvalId: approval.id,
+      spaceId: scope.spaceId,
+      approvalId: approval.id,
       decision: input.decision === "approve" ? "approved" : "rejected",
       decidedByUserId: scope.userId,
     });
     if (result.resume && valid) {
       const resumed = await tx.run.updateMany({
-        where: { id: binding.runId, spaceId: scope.spaceId, status: "waiting_budget",
-          leaseFence: binding.leaseFence, checkpoint: run!.checkpoint },
+        where: {
+          id: binding.runId,
+          spaceId: scope.spaceId,
+          status: "waiting_budget",
+          leaseFence: binding.leaseFence,
+          checkpoint: run!.checkpoint,
+        },
         data: { status: "queued", checkpoint: null },
       });
-      if (resumed.count !== 1) throw new ProposalDecisionError("Paused run changed during approval");
+      if (resumed.count !== 1)
+        throw new ProposalDecisionError("Paused run changed during approval");
     }
   }
   const row = await tx.proposal.findFirstOrThrow({

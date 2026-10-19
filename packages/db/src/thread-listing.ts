@@ -20,7 +20,14 @@ export const activeRunSelection = {
   select: { status: true },
 } as const;
 
-const ROSTER_STATUS_PRIORITY = ["waiting_budget", "waiting_takeover", "waiting_input", "running", "leased", "queued"];
+const ROSTER_STATUS_PRIORITY = [
+  "waiting_budget",
+  "waiting_takeover",
+  "waiting_input",
+  "running",
+  "leased",
+  "queued",
+];
 
 /**
  * The run that best describes a bot right now: one that needs the user, then the

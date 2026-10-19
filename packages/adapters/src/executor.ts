@@ -117,8 +117,8 @@ import {
   isTooManyDatabaseConnections,
   loadRunHistoryMessages,
   parseComputerMode,
-  readHistory,
   pauseRunForBudget,
+  readHistory,
   recordUsage,
   retireModelCredential,
   SpaceLimitError,
@@ -6930,10 +6930,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (event.type === "budget_pause") {
               await flushProgress();
               const paused = await pauseRunForBudget(deps.prisma, {
-                spaceId: run.spaceId, threadId: thread.id, botId: bot.id,
-                runId, attemptId: attempt.id, leaseOwner: workerId, leaseFence: fence,
+                spaceId: run.spaceId,
+                threadId: thread.id,
+                botId: bot.id,
+                runId,
+                attemptId: attempt.id,
+                leaseOwner: workerId,
+                leaseFence: fence,
                 checkpoint: JSON.stringify({ kind: "budget_pause_v1", ...event }),
-                blocks: [{ kind: "text", text: "Execution paused pending project budget approval." }],
+                blocks: [
+                  { kind: "text", text: "Execution paused pending project budget approval." },
+                ],
               });
               if (paused) leaseValid = false;
               return;

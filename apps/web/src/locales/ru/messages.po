@@ -251,6 +251,10 @@ msgstr "Ярлык аккаунта"
 msgid "Accounts"
 msgstr "Аккаунты"
 
+#: src/components/GoalEditor.tsx
+msgid "Achieved"
+msgstr "Достигнуто"
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Action confirmations"
 msgstr "Подтверждения действий"
@@ -267,6 +271,7 @@ msgstr "Действия для {0}"
 msgid "Actions for space"
 msgstr "Действия для пространства"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
@@ -335,6 +340,10 @@ msgstr "Добавить учётные данные"
 msgid "Add Executor"
 msgstr "Добавить Executor"
 
+#: src/components/ProjectGoals.tsx
+msgid "Add goal"
+msgstr "Добавить цель"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
 msgstr "Добавить GraphQL"
@@ -346,6 +355,10 @@ msgstr "Добавить конечную точку GraphQL"
 #: src/pages/ScratchpadSection.tsx
 msgid "Add item"
 msgstr "Добавить элемент"
+
+#: src/components/ProjectGoals.tsx
+msgid "Add key result"
+msgstr "Добавить ключевой результат"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -573,6 +586,10 @@ msgstr "Одобрено"
 msgid "Archive"
 msgstr "Архивировать"
 
+#: src/components/ProjectGoals.tsx
+msgid "Archive key result"
+msgstr "Архивировать ключевой результат"
+
 #: src/pages/Shell.tsx
 msgid "archived"
 msgstr "в архиве"
@@ -581,6 +598,19 @@ msgstr "в архиве"
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "В архиве"
+
+#: src/components/ProjectGoals.tsx
+msgid "Archived goals"
+msgstr "Архивные цели"
+
+#: src/components/ProjectGoals.tsx
+msgid "Archived key results"
+msgstr "Архивные ключевые результаты"
+
+#: src/components/GoalEditor.tsx
+#: src/components/ProjectGoals.tsx
+msgid "Archived milestone"
+msgstr "Архивный этап"
 
 #: src/pages/Shell.tsx
 msgid "Archived. Chat, memory, and files kept."
@@ -852,6 +882,11 @@ msgstr "Чтение кеша: {price}"
 msgid "Cache write: {price}"
 msgstr "Запись кеша: {price}"
 
+#: src/components/GoalEditor.tsx
+#: src/components/ProjectGoals.tsx
+msgid "Calculation rule"
+msgstr "Правило расчёта"
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "Не удаётся связаться с сервером."
@@ -892,6 +927,7 @@ msgid "cancelled"
 msgstr "отменен"
 
 #: src/components/AskCard.tsx
+#: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
 msgid "Cancelled"
 msgstr "Отменено"
@@ -1010,6 +1046,10 @@ msgstr "Очистить диалог"
 #: src/pages/ActivityList.tsx
 msgid "Clear filter {label}"
 msgstr "Сбросить фильтр {label}"
+
+#: src/components/GoalEditor.tsx
+msgid "Clear or replace the archived milestone before saving."
+msgstr "Перед сохранением удалите или замените архивный этап."
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -1899,6 +1939,10 @@ msgstr "Выражение Cron"
 msgid "Current password"
 msgstr "Текущий пароль"
 
+#: src/components/GoalEditor.tsx
+msgid "Current value"
+msgstr "Текущее значение"
+
 #: src/pages/shell/bot-credentials.tsx
 msgid "Custom header"
 msgstr "Пользовательский заголовок"
@@ -1997,9 +2041,17 @@ msgstr "Удалить {0}?"
 msgid "Delete account"
 msgstr "Удалить аккаунт"
 
+#: src/components/ProjectGoals.tsx
+msgid "Delete goal"
+msgstr "Удалить цель"
+
 #: src/pages/GroupPanel.tsx
 msgid "Delete group"
 msgstr "Удалить группу"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete key result"
+msgstr "Удалить ключевой результат"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
@@ -2008,6 +2060,14 @@ msgstr "Удалите воспоминания тоже"
 #: src/pages/Shell.tsx
 msgid "Delete space"
 msgstr "Удалить пространство"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete this goal and all its key results?"
+msgstr "Удалить эту цель и все её ключевые результаты?"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete this key result?"
+msgstr "Удалить этот ключевой результат?"
 
 #: src/pages/Shell.tsx
 msgid "deleted"
@@ -2046,6 +2106,7 @@ msgstr "Развертывание по умолчанию"
 msgid "Describe what this bot does"
 msgstr "Опишите, что делает этот бот"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/Board.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Description"
@@ -2171,6 +2232,10 @@ msgstr "Черновик навыка"
 msgid "Drag, drop, or paste an image"
 msgstr "Перетащите или вставьте изображение"
 
+#: src/components/GoalEditor.tsx
+msgid "Due date"
+msgstr "Срок выполнения"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Duplicate"
 msgstr "Дублировать"
@@ -2186,6 +2251,14 @@ msgstr "например, Mobbin"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "Сначала отредактируйте"
+
+#: src/components/ProjectGoals.tsx
+msgid "Edit goal"
+msgstr "Изменить цель"
+
+#: src/components/ProjectGoals.tsx
+msgid "Edit key result"
+msgstr "Изменить ключевой результат"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2455,6 +2528,14 @@ msgstr "Подготовка"
 msgid "Git event"
 msgstr "Git-событие"
 
+#: src/components/ProjectGoals.tsx
+msgid "Goal name"
+msgstr "Название цели"
+
+#: src/components/ProjectGoals.tsx
+msgid "Goals"
+msgstr "Цели"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2662,6 +2743,10 @@ msgstr "Сохранить память"
 #: src/pages/RoutineEditor.tsx
 msgid "key"
 msgstr "ключ"
+
+#: src/components/ProjectGoals.tsx
+msgid "Key result progress"
+msgstr "Прогресс ключевого результата"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Knowledge"
@@ -2892,6 +2977,10 @@ msgstr "Адрес MCP"
 msgid "MCP servers"
 msgstr "MCP-серверы"
 
+#: src/components/GoalEditor.tsx
+msgid "Measure"
+msgstr "Единица измерения"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
@@ -2970,6 +3059,7 @@ msgstr "Обмен сообщениями"
 msgid "Microphone failed"
 msgstr "Ошибка микрофона"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/Board.tsx
 msgid "Milestone"
 msgstr "Этап"
@@ -3087,6 +3177,7 @@ msgstr "Переместить в"
 msgid "Mute"
 msgstr "Выключить микрофон"
 
+#: src/components/GoalEditor.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
@@ -3205,6 +3296,14 @@ msgstr "Приложения для чата пока не связаны."
 msgid "No credentials saved for this bot."
 msgstr "Для этого бота нет сохранённых учётных данных."
 
+#: src/components/ProjectGoals.tsx
+msgid "No data"
+msgstr "Нет данных"
+
+#: src/components/ProjectGoals.tsx
+msgid "No goals"
+msgstr "Нет целей"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "Групповых чатов пока нет."
@@ -3298,6 +3397,10 @@ msgstr "Нет доступных инструментов."
 #: src/pages/RoutineEditor.tsx
 msgid "No trigger"
 msgstr "Нет триггера"
+
+#: src/components/GoalEditor.tsx
+msgid "None"
+msgstr "Нет"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "None yet"
@@ -3490,6 +3593,10 @@ msgstr "Другая модель…"
 msgid "Output: {price}"
 msgstr "Вывод: {price}"
 
+#: src/components/ProjectGoals.tsx
+msgid "Overdue"
+msgstr "Просрочено"
+
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Ответственный"
@@ -3572,6 +3679,10 @@ msgstr "Закрепить"
 #: src/pages/Approvals.tsx
 msgid "Plan"
 msgstr "План"
+
+#: src/components/GoalEditor.tsx
+msgid "Planned"
+msgstr "Запланировано"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -4053,6 +4164,7 @@ msgid "Runs when this bot receives a verified message from this provider."
 msgstr "Запускается, когда этот бот получает проверенное сообщение от этого провайдера."
 
 #: src/components/AskCard.tsx
+#: src/components/GoalEditor.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
@@ -4487,6 +4599,10 @@ msgstr "Запуск"
 msgid "Starting…"
 msgstr "Запуск…"
 
+#: src/components/GoalEditor.tsx
+msgid "State"
+msgstr "Состояние"
+
 #: src/pages/ActivityList.tsx
 #: src/pages/Board.tsx
 msgid "Status"
@@ -4577,6 +4693,10 @@ msgstr "Системная"
 #: src/pages/Shell.tsx
 msgid "Take control"
 msgstr "Взять управление"
+
+#: src/components/GoalEditor.tsx
+msgid "Target value"
+msgstr "Целевое значение"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

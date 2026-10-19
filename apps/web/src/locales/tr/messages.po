@@ -251,6 +251,10 @@ msgstr "Hesap etiketi"
 msgid "Accounts"
 msgstr "Hesaplar"
 
+#: src/components/GoalEditor.tsx
+msgid "Achieved"
+msgstr "Ulaşıldı"
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Action confirmations"
 msgstr "İşlem onayları"
@@ -267,6 +271,7 @@ msgstr "{0} için işlemler"
 msgid "Actions for space"
 msgstr "Alan işlemleri"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
@@ -335,6 +340,10 @@ msgstr "Kimlik bilgisi ekle"
 msgid "Add Executor"
 msgstr "Executor ekle"
 
+#: src/components/ProjectGoals.tsx
+msgid "Add goal"
+msgstr "Hedef ekle"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
 msgstr "GraphQL ekle"
@@ -346,6 +355,10 @@ msgstr "GraphQL uç noktası ekle"
 #: src/pages/ScratchpadSection.tsx
 msgid "Add item"
 msgstr "Öğe ekle"
+
+#: src/components/ProjectGoals.tsx
+msgid "Add key result"
+msgstr "Anahtar sonuç ekle"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -573,6 +586,10 @@ msgstr "Onaylandı"
 msgid "Archive"
 msgstr "Arşivle"
 
+#: src/components/ProjectGoals.tsx
+msgid "Archive key result"
+msgstr "Anahtar sonucu arşivle"
+
 #: src/pages/Shell.tsx
 msgid "archived"
 msgstr "arşivlendi"
@@ -581,6 +598,19 @@ msgstr "arşivlendi"
 #: src/pages/Shell.tsx
 msgid "Archived"
 msgstr "Arşivlendi"
+
+#: src/components/ProjectGoals.tsx
+msgid "Archived goals"
+msgstr "Arşivlenmiş hedefler"
+
+#: src/components/ProjectGoals.tsx
+msgid "Archived key results"
+msgstr "Arşivlenmiş anahtar sonuçlar"
+
+#: src/components/GoalEditor.tsx
+#: src/components/ProjectGoals.tsx
+msgid "Archived milestone"
+msgstr "Arşivlenmiş kilometre taşı"
 
 #: src/pages/Shell.tsx
 msgid "Archived. Chat, memory, and files kept."
@@ -852,6 +882,11 @@ msgstr "Önbellek okuma: {price}"
 msgid "Cache write: {price}"
 msgstr "Önbellek yazma: {price}"
 
+#: src/components/GoalEditor.tsx
+#: src/components/ProjectGoals.tsx
+msgid "Calculation rule"
+msgstr "Hesaplama kuralı"
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "Sunucuya ulaşılamıyor."
@@ -892,6 +927,7 @@ msgid "cancelled"
 msgstr "iptal edildi"
 
 #: src/components/AskCard.tsx
+#: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
 msgid "Cancelled"
 msgstr "İptal edildi"
@@ -1010,6 +1046,10 @@ msgstr "Sohbeti temizle"
 #: src/pages/ActivityList.tsx
 msgid "Clear filter {label}"
 msgstr "{label} filtresini temizle"
+
+#: src/components/GoalEditor.tsx
+msgid "Clear or replace the archived milestone before saving."
+msgstr "Kaydetmeden önce arşivlenmiş kilometre taşını kaldırın veya değiştirin."
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -1899,6 +1939,10 @@ msgstr "Cron ifadesi"
 msgid "Current password"
 msgstr "Mevcut parola"
 
+#: src/components/GoalEditor.tsx
+msgid "Current value"
+msgstr "Mevcut değer"
+
 #: src/pages/shell/bot-credentials.tsx
 msgid "Custom header"
 msgstr "Özel üstbilgi"
@@ -1997,9 +2041,17 @@ msgstr "{0} silinsin mi?"
 msgid "Delete account"
 msgstr "Hesabı sil"
 
+#: src/components/ProjectGoals.tsx
+msgid "Delete goal"
+msgstr "Hedefi sil"
+
 #: src/pages/GroupPanel.tsx
 msgid "Delete group"
 msgstr "Grubu sil"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete key result"
+msgstr "Anahtar sonucu sil"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
@@ -2008,6 +2060,14 @@ msgstr "Hafızayı da sil"
 #: src/pages/Shell.tsx
 msgid "Delete space"
 msgstr "Alanı sil"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete this goal and all its key results?"
+msgstr "Bu hedef ve tüm anahtar sonuçları silinsin mi?"
+
+#: src/components/ProjectGoals.tsx
+msgid "Delete this key result?"
+msgstr "Bu anahtar sonuç silinsin mi?"
 
 #: src/pages/Shell.tsx
 msgid "deleted"
@@ -2046,6 +2106,7 @@ msgstr "Dağıtım varsayılanı"
 msgid "Describe what this bot does"
 msgstr "Bu botun ne yaptığını açıkla"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/Board.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Description"
@@ -2171,6 +2232,10 @@ msgstr "Taslak beceri"
 msgid "Drag, drop, or paste an image"
 msgstr "Görüntüyü sürükleyip bırakın veya yapıştırın"
 
+#: src/components/GoalEditor.tsx
+msgid "Due date"
+msgstr "Son tarih"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Duplicate"
 msgstr "Çoğalt"
@@ -2186,6 +2251,14 @@ msgstr "ör. Mobbin"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "Önce düzenle"
+
+#: src/components/ProjectGoals.tsx
+msgid "Edit goal"
+msgstr "Hedefi düzenle"
+
+#: src/components/ProjectGoals.tsx
+msgid "Edit key result"
+msgstr "Anahtar sonucu düzenle"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2455,6 +2528,14 @@ msgstr "Hazırlanıyor"
 msgid "Git event"
 msgstr "Git olayı"
 
+#: src/components/ProjectGoals.tsx
+msgid "Goal name"
+msgstr "Hedef adı"
+
+#: src/components/ProjectGoals.tsx
+msgid "Goals"
+msgstr "Hedefler"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2662,6 +2743,10 @@ msgstr "Hafızayı koru"
 #: src/pages/RoutineEditor.tsx
 msgid "key"
 msgstr "anahtar"
+
+#: src/components/ProjectGoals.tsx
+msgid "Key result progress"
+msgstr "Anahtar sonuç ilerlemesi"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Knowledge"
@@ -2892,6 +2977,10 @@ msgstr "MCP uç noktası"
 msgid "MCP servers"
 msgstr "MCP sunucuları"
 
+#: src/components/GoalEditor.tsx
+msgid "Measure"
+msgstr "Ölçü birimi"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
@@ -2970,6 +3059,7 @@ msgstr "Mesajlaşma"
 msgid "Microphone failed"
 msgstr "Mikrofon hatası"
 
+#: src/components/GoalEditor.tsx
 #: src/pages/Board.tsx
 msgid "Milestone"
 msgstr "Kilometre taşı"
@@ -3087,6 +3177,7 @@ msgstr "Taşı"
 msgid "Mute"
 msgstr "Sesi kapat"
 
+#: src/components/GoalEditor.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
@@ -3205,6 +3296,14 @@ msgstr "Henüz sohbet uygulaması bağlanmadı."
 msgid "No credentials saved for this bot."
 msgstr "Bu bot için kayıtlı kimlik bilgisi yok."
 
+#: src/components/ProjectGoals.tsx
+msgid "No data"
+msgstr "Veri yok"
+
+#: src/components/ProjectGoals.tsx
+msgid "No goals"
+msgstr "Hedef yok"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "Henüz grup sohbeti yok."
@@ -3298,6 +3397,10 @@ msgstr "Kullanılabilir araç yok."
 #: src/pages/RoutineEditor.tsx
 msgid "No trigger"
 msgstr "Tetikleyici yok"
+
+#: src/components/GoalEditor.tsx
+msgid "None"
+msgstr "Yok"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "None yet"
@@ -3490,6 +3593,10 @@ msgstr "Başka model…"
 msgid "Output: {price}"
 msgstr "Çıktı: {price}"
 
+#: src/components/ProjectGoals.tsx
+msgid "Overdue"
+msgstr "Gecikmiş"
+
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Sorumlu"
@@ -3572,6 +3679,10 @@ msgstr "Sabitle"
 #: src/pages/Approvals.tsx
 msgid "Plan"
 msgstr "Plan"
+
+#: src/components/GoalEditor.tsx
+msgid "Planned"
+msgstr "Planlandı"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
@@ -4053,6 +4164,7 @@ msgid "Runs when this bot receives a verified message from this provider."
 msgstr "Bu bot, bu sağlayıcıdan doğrulanmış bir mesaj aldığında çalışır."
 
 #: src/components/AskCard.tsx
+#: src/components/GoalEditor.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
@@ -4487,6 +4599,10 @@ msgstr "Başlıyor"
 msgid "Starting…"
 msgstr "Başlatılıyor…"
 
+#: src/components/GoalEditor.tsx
+msgid "State"
+msgstr "Durum"
+
 #: src/pages/ActivityList.tsx
 #: src/pages/Board.tsx
 msgid "Status"
@@ -4577,6 +4693,10 @@ msgstr "Sistem"
 #: src/pages/Shell.tsx
 msgid "Take control"
 msgstr "Kontrolü al"
+
+#: src/components/GoalEditor.tsx
+msgid "Target value"
+msgstr "Hedef değer"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

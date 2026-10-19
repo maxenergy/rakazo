@@ -3,6 +3,7 @@ import { Button } from "@rakazo/ui-web";
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ProjectBudget } from "../components/ProjectBudget";
+import { ProjectGoals } from "../components/ProjectGoals";
 import { ProjectProgress } from "../components/ProjectProgress";
 import { rpc } from "../lib/rpc";
 import { useBoardRefresh } from "../lib/use-board-refresh";
@@ -86,7 +87,14 @@ export function ProjectsPage() {
           </section>
         ) : null}
         {projectId && !milestoneId && data?.project?.id === projectId && !error ? (
-          <ProjectBudget key={projectId} projectId={projectId} />
+          <ProjectBudget key={`budget:${projectId}`} projectId={projectId} />
+        ) : null}
+        {projectId && data?.project && !milestoneId ? (
+          <ProjectGoals
+            key={`goals:${projectId}`}
+            projectId={projectId}
+            readOnly={data.project.archived}
+          />
         ) : null}
         {!milestoneId ? (
           <>

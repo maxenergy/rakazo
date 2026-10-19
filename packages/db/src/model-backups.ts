@@ -44,3 +44,54 @@ export async function replaceSpaceBackupModels(
     ),
   );
 }
+
+
+type BotBackupModelScope = BackupModelScope & { botId: string };
+
+export async function listBotBackupModels(
+  prisma: Pick<PrismaClient, "bot" | "botBackupModel">,
+  scope: BotBackupModelScope,
+): Promise<ModelBackupChoice[]> {
+  const bot = await prisma.bot.findFirst({
+    where: { id: scope.botId, userId: scope.userId, spaceId: scope.spaceId },
+    select: { id: true },
+  });
+  if (!bot) throw new Error("Bot not found");
+  return prisma.botBackupModel.findMany({
+    where: { botId: bot.id },
+    orderBy: { position: "asc" },
+    select: { provider: true, modelId: true },
+  });
+}
+
+export async function replaceBotBackupModels(
+  prisma: Pick<PrismaClient, "$transaction">,
+  scope: BotBackupModelScope,
+  models: ModelBackupChoice[],
+): Promise<void> {
+  await withTransactionRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const bots = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "bots"
+        WHERE "id" = ${scope.botId}
+          AND "userId" = ${scope.userId} AND "spaceId" = ${scope.spaceId}
+        FOR UPDATE
+      `;
+      if (bots.length !== 1) throw new Error("Bot not found");
+      await tx.botBackupModel.deleteMany({ where: { botId: scope.botId } });
+      if (!models.length) return;
+      await tx.botBackupModel.createMany({
+        data: models.map((model, position) => ({ ...model, botId: scope.botId, position })),
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }),
+  );
+}
+
+/** A nonempty bot list replaces the entire owner list; empty means inherit. */
+export async function listEffectiveBotBackupModels(
+  prisma: Pick<PrismaClient, "bot" | "botBackupModel" | "spaceBackupModel">,
+  scope: BotBackupModelScope,
+): Promise<ModelBackupChoice[]> {
+  const models = await listBotBackupModels(prisma, scope);
+  return models.length ? models : listSpaceBackupModels(prisma, scope);
+}

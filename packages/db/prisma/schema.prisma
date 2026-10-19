@@ -371,6 +371,19 @@ model SpaceBackupModel {
   @@map("space_backup_models")
 }
 
+// Empty bot lists inherit the owner's space backup list.
+model BotBackupModel {
+  botId    String
+  bot      Bot    @relation(fields: [botId], references: [id], onDelete: Cascade)
+  provider String
+  modelId  String
+  position Int
+
+  @@id([botId, position])
+  @@unique([botId, provider, modelId])
+  @@map("bot_backup_models")
+}
+
 model SpaceVoicePreference {
   id           String              @id @default(cuid())
   spaceId      String
@@ -435,6 +448,7 @@ model Bot {
   webhookSecretId        String?
   teamChatAmbientEnabled Boolean           @default(false)
   teamChatRules          String            @default("")
+  backupModels           BotBackupModel[]
   routines               Routine[]
   scratchpadItems        ScratchpadItem[]
   taughtSkills           TaughtSkill[]

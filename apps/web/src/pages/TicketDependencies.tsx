@@ -144,7 +144,7 @@ export function TicketDependencies({
       <div className="flex min-w-0 flex-wrap gap-2">
         <select
           id={`${inputId}-selection`}
-          className="min-w-0 flex-1 rounded border p-2"
+          className="w-full min-w-0 flex-1 rounded border p-2"
           value={prerequisiteId}
           disabled={busy}
           onChange={(event) => setPrerequisiteId(event.target.value)}

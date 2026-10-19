@@ -34,13 +34,24 @@ async function createTicketWakeRun(
     noRun?.(bot ? "assignee_thread_missing" : "assignee_unavailable");
     return null;
   }
+  const prompt = `Work on ticket ${ticket.board.ticketPrefix}-${ticket.number}. Read it with ticket_get. Keep progress in ticket comments and update its status with ticket_update. Use ask or approval cards when user input is needed.`;
+  // A wake that is still waiting already brings the owner back to this ticket, and
+  // it reads the ticket fresh when it starts; another would only repeat the work.
+  const waiting = await tx.run.findFirst({
+    where: { botId: bot.id, trigger: "tickets", status: "queued", task: { prompt } },
+    select: { id: true },
+  });
+  if (waiting) {
+    noRun?.("already_queued");
+    return null;
+  }
   const task = await tx.task.create({
     data: {
       spaceId: input.spaceId,
       botId: bot.id,
       threadId: bot.thread.id,
       userId: bot.userId,
-      prompt: `Work on ticket ${ticket.board.ticketPrefix}-${ticket.number}. Read it with ticket_get. Keep progress in ticket comments and update its status with ticket_update. Use ask or approval cards when user input is needed.`,
+      prompt,
       status: "queued",
     },
   });

@@ -358,7 +358,7 @@ msgstr "添加 OpenAPI"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Add prerequisite"
-msgstr ""
+msgstr "添加前置工单"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -751,7 +751,7 @@ msgstr "受阻"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Blocked by dependency"
-msgstr ""
+msgstr "被依赖阻塞"
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2016,11 +2016,11 @@ msgstr "拒绝"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependencies"
-msgstr ""
+msgstr "依赖关系"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependents"
-msgstr ""
+msgstr "后续工单"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
@@ -3183,7 +3183,7 @@ msgstr "还没有群聊。"
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
-msgstr ""
+msgstr "没有未完成的前置工单"
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3555,11 +3555,11 @@ msgstr "POST 到"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisite ticket"
-msgstr ""
+msgstr "前置工单"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisites"
-msgstr ""
+msgstr "前置工单列表"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -3791,7 +3791,7 @@ msgstr "移除消息触发器"
 #. placeholder {0}: item.ref
 #: src/pages/TicketDependencies.tsx
 msgid "Remove prerequisite {0}"
-msgstr ""
+msgstr "移除前置工单 {0}"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4133,7 +4133,7 @@ msgstr "搜索运行记录"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Search tickets by reference or title"
-msgstr ""
+msgstr "按编号或标题搜索工单"
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -4155,7 +4155,7 @@ msgstr "选择已连接的模型"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
-msgstr ""
+msgstr "选择工单"
 
 #: src/pages/Shell.tsx
 msgid "Send"

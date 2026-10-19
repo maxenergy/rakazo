@@ -358,7 +358,7 @@ msgstr "OpenAPI ekle"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Add prerequisite"
-msgstr ""
+msgstr "Ön koşul ekle"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -751,7 +751,7 @@ msgstr "Engellendi"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Blocked by dependency"
-msgstr ""
+msgstr "Bağımlılık nedeniyle engellendi"
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2016,11 +2016,11 @@ msgstr "Reddet"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependencies"
-msgstr ""
+msgstr "Bağımlılıklar"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependents"
-msgstr ""
+msgstr "Bağımlı iş kayıtları"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
@@ -3183,7 +3183,7 @@ msgstr "Henüz grup sohbeti yok."
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
-msgstr ""
+msgstr "Tamamlanmamış ön koşul yok"
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3555,11 +3555,11 @@ msgstr "POST adresi"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisite ticket"
-msgstr ""
+msgstr "Ön koşul iş kaydı"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisites"
-msgstr ""
+msgstr "Ön koşullar"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -3791,7 +3791,7 @@ msgstr "Mesaj tetikleyicisini kaldır"
 #. placeholder {0}: item.ref
 #: src/pages/TicketDependencies.tsx
 msgid "Remove prerequisite {0}"
-msgstr ""
+msgstr "{0} ön koşulunu kaldır"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4133,7 +4133,7 @@ msgstr "Çalıştırmaları ara"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Search tickets by reference or title"
-msgstr ""
+msgstr "Referans veya başlığa göre iş kaydı ara"
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -4155,7 +4155,7 @@ msgstr "Bağlı bir model seçin"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
-msgstr ""
+msgstr "Bir iş kaydı seç"
 
 #: src/pages/Shell.tsx
 msgid "Send"

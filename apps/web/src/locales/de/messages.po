@@ -358,7 +358,7 @@ msgstr "OpenAPI hinzufügen"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Add prerequisite"
-msgstr ""
+msgstr "Voraussetzung hinzufügen"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -751,7 +751,7 @@ msgstr "Blockiert"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Blocked by dependency"
-msgstr ""
+msgstr "Durch Abhängigkeit blockiert"
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2016,11 +2016,11 @@ msgstr "Ablehnen"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependencies"
-msgstr ""
+msgstr "Abhängigkeiten"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependents"
-msgstr ""
+msgstr "Abhängige Tickets"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
@@ -3183,7 +3183,7 @@ msgstr "Noch keine Gruppenchats."
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
-msgstr ""
+msgstr "Keine offenen Voraussetzungen"
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3555,11 +3555,11 @@ msgstr "POST an"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisite ticket"
-msgstr ""
+msgstr "Vorausgesetztes Ticket"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisites"
-msgstr ""
+msgstr "Voraussetzungen"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -3791,7 +3791,7 @@ msgstr "Nachrichtenauslöser entfernen"
 #. placeholder {0}: item.ref
 #: src/pages/TicketDependencies.tsx
 msgid "Remove prerequisite {0}"
-msgstr ""
+msgstr "Voraussetzung {0} entfernen"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4133,7 +4133,7 @@ msgstr "Ausführungen suchen"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Search tickets by reference or title"
-msgstr ""
+msgstr "Tickets nach Referenz oder Titel suchen"
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -4155,7 +4155,7 @@ msgstr "Verbundenes Modell auswählen"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
-msgstr ""
+msgstr "Ticket auswählen"
 
 #: src/pages/Shell.tsx
 msgid "Send"

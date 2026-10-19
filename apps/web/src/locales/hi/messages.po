@@ -358,7 +358,7 @@ msgstr "OpenAPI जोड़ें"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Add prerequisite"
-msgstr ""
+msgstr "पूर्वापेक्षा जोड़ें"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -751,7 +751,7 @@ msgstr "अवरुद्ध"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Blocked by dependency"
-msgstr ""
+msgstr "निर्भरता के कारण अवरुद्ध"
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2016,11 +2016,11 @@ msgstr "अस्वीकार करें"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependencies"
-msgstr ""
+msgstr "निर्भरताएँ"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependents"
-msgstr ""
+msgstr "निर्भर टिकट"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
@@ -3183,7 +3183,7 @@ msgstr "अभी कोई समूह चैट नहीं है।"
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
-msgstr ""
+msgstr "कोई अधूरी पूर्वापेक्षा नहीं"
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3555,11 +3555,11 @@ msgstr "POST भेजें"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisite ticket"
-msgstr ""
+msgstr "पूर्वापेक्षित टिकट"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisites"
-msgstr ""
+msgstr "पूर्वापेक्षाएँ"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -3791,7 +3791,7 @@ msgstr "संदेश ट्रिगर हटाएँ"
 #. placeholder {0}: item.ref
 #: src/pages/TicketDependencies.tsx
 msgid "Remove prerequisite {0}"
-msgstr ""
+msgstr "पूर्वापेक्षा {0} हटाएँ"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4133,7 +4133,7 @@ msgstr "रन खोजें"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Search tickets by reference or title"
-msgstr ""
+msgstr "संदर्भ या शीर्षक से टिकट खोजें"
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -4155,7 +4155,7 @@ msgstr "जुड़ा मॉडल चुनें"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
-msgstr ""
+msgstr "टिकट चुनें"
 
 #: src/pages/Shell.tsx
 msgid "Send"

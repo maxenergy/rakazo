@@ -358,7 +358,7 @@ msgstr "Adicionar OpenAPI"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Add prerequisite"
-msgstr ""
+msgstr "Adicionar pré-requisito"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -751,7 +751,7 @@ msgstr "Bloqueado"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Blocked by dependency"
-msgstr ""
+msgstr "Bloqueado por dependência"
 
 #: src/pages/Board.tsx
 #: src/pages/Shell.tsx
@@ -2016,11 +2016,11 @@ msgstr "Negar"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependencies"
-msgstr ""
+msgstr "Dependências"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Dependents"
-msgstr ""
+msgstr "Tickets dependentes"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
@@ -3183,7 +3183,7 @@ msgstr "Ainda não há chats de grupo."
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
-msgstr ""
+msgstr "Nenhum pré-requisito pendente"
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3555,11 +3555,11 @@ msgstr "POST para"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisite ticket"
-msgstr ""
+msgstr "Ticket pré-requisito"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Prerequisites"
-msgstr ""
+msgstr "Pré-requisitos"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -3791,7 +3791,7 @@ msgstr "Remover gatilho de mensagem"
 #. placeholder {0}: item.ref
 #: src/pages/TicketDependencies.tsx
 msgid "Remove prerequisite {0}"
-msgstr ""
+msgstr "Remover pré-requisito {0}"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove schedule"
@@ -4133,7 +4133,7 @@ msgstr "Pesquisar execuções"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Search tickets by reference or title"
-msgstr ""
+msgstr "Buscar tickets por referência ou título"
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -4155,7 +4155,7 @@ msgstr "Selecione um modelo conectado"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
-msgstr ""
+msgstr "Selecionar um ticket"
 
 #: src/pages/Shell.tsx
 msgid "Send"

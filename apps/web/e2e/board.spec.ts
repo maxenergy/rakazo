@@ -32,7 +32,7 @@ test("board creates a ticket and opens it", async ({ page }, testInfo) => {
 
   await page.getByRole("button", { name: "New ticket", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "New ticket" });
-  await dialog.getByLabel("Title").fill(title);
+  await dialog.getByLabel("Title", { exact: true }).fill(title);
   await dialog.getByLabel("Description").fill(description);
   const owner = dialog.getByLabel("Owner");
   await expect(owner.locator("option", { hasText: "Planner" })).toHaveCount(1);
@@ -48,7 +48,7 @@ test("board creates a ticket and opens it", async ({ page }, testInfo) => {
 
   await card.click();
   const detail = page.getByRole("dialog", { name: title });
-  await expect(detail.getByLabel("Title")).toHaveValue(title);
+  await expect(detail.getByLabel("Title", { exact: true })).toHaveValue(title);
   await expect(detail.getByTestId("ticket-description")).toHaveValue(description);
   await expect(detail.getByTestId("ticket-comments")).toBeVisible();
   await captureScreenshot(page, testInfo, "board-ticket-detail");

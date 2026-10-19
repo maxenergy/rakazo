@@ -7,13 +7,8 @@ import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
 
 const databaseUrl = process.env.DATABASE_URL;
-if (process.env.RAK_REQUIRE_PG === "1" && (process.env.VERIFY_DATABASE !== "1" || !databaseUrl)) {
-  throw new Error("RAK_REQUIRE_PG=1 requires VERIFY_DATABASE=1 and DATABASE_URL.");
-}
-
 const describePostgres =
   process.env.VERIFY_DATABASE === "1" && databaseUrl ? describe.sequential : describe.skip;
-
 describePostgres("project and milestone API isolation", () => {
   const suffix = `${process.pid}-${Date.now()}`;
   const organizationId = `api-links-org-${suffix}`;

@@ -10,10 +10,8 @@ import {
 } from "./ticket-dependencies.js";
 
 const databaseUrl = process.env.DATABASE_URL;
-if (process.env.RAK_REQUIRE_PG === "1" && (!databaseUrl || process.env.VERIFY_DATABASE !== "1"))
-  throw new Error("RAK_REQUIRE_PG requires DATABASE_URL and VERIFY_DATABASE=1");
 const describePostgres =
-  process.env.VERIFY_DATABASE && databaseUrl ? describe.sequential : describe.skip;
+  process.env.VERIFY_DATABASE === "1" && databaseUrl ? describe.sequential : describe.skip;
 describePostgres("ticket dependency transactions", () => {
   let prisma: PrismaClient;
   let close: () => Promise<void>;

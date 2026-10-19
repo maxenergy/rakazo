@@ -1,4 +1,3 @@
-import { AI_DISCLOSURE_VERSION } from "@rakazo/contracts";
 import type {
   AgentRunRequest,
   AutoReviewProvider,
@@ -6,6 +5,7 @@ import type {
   ConnectorTool,
 } from "@rakazo/adapter-kit";
 import { MEMORY_REVISION_CONFLICT_ERROR } from "@rakazo/adapter-kit";
+import { AI_DISCLOSURE_VERSION } from "@rakazo/contracts";
 import type { ActionApprovalRule } from "@rakazo/core";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
 import { getLogger } from "@rakazo/logging";
@@ -194,7 +194,9 @@ function fixture({
       findFirst: vi.fn(async () => ({ id: run.botId })),
       findMany: vi.fn(async () => []),
     },
-    botBackupModel: { findMany: vi.fn(async () => [{ provider: "test-provider", modelId: "backup-model" }]) },
+    botBackupModel: {
+      findMany: vi.fn(async () => [{ provider: "test-provider", modelId: "backup-model" }]),
+    },
     spaceBackupModel: { findMany: vi.fn(async () => []) },
     aiDataConsent: { findUnique: vi.fn(async () => null) },
     attempt: {
@@ -717,7 +719,6 @@ describe("connector read-only metadata and approval enforcement", () => {
   });
 });
 
-
 describe("backup model ownership", () => {
   it("skips backup reads and resolution for a different owner and reports the primary failure", async () => {
     const info = vi.spyOn(getLogger(), "info");
@@ -751,29 +752,56 @@ describe("backup model ownership", () => {
         expect(request.fallbackModels).toEqual([{ provider: "openai", id: "gpt-4o" }]);
         const resolved = request.resolveFallbackModel!("openai", "gpt-4o");
         if (!accepted) {
-          await expect(resolved).rejects.toThrow("Backup model requires current AI data-sharing consent");
+          await expect(resolved).rejects.toThrow(
+            "Backup model requires current AI data-sharing consent",
+          );
           return;
         }
-        await expect(resolved).resolves.toMatchObject({ provider: "openai", id: "gpt-4o", apiKey: "fake-backup-key" });
+        await expect(resolved).resolves.toMatchObject({
+          provider: "openai",
+          id: "gpt-4o",
+          apiKey: "fake-backup-key",
+        });
         await request.onModelChange!("openai", "gpt-4o");
       });
       const f = fixture({ runtimeProbe: probe });
-      f.prisma.botBackupModel.findMany.mockResolvedValue([{ provider: "openai", modelId: "gpt-4o" }]);
+      f.prisma.botBackupModel.findMany.mockResolvedValue([
+        { provider: "openai", modelId: "gpt-4o" },
+      ]);
       f.prisma.userModelCredential.findFirst.mockResolvedValue({
-        id: "fake-credential", userId: "user-1", provider: "openai",
-        label: "Test", secretId: "fake-secret",
-        createdAt: new Date(0), updatedAt: new Date(0),
+        id: "fake-credential",
+        userId: "user-1",
+        provider: "openai",
+        label: "Test",
+        secretId: "fake-secret",
+        createdAt: new Date(0),
+        updatedAt: new Date(0),
       } as never);
-      const secret = { findFirst: vi.fn(async () => ({ id: "fake-secret", ciphertext: "fake-ciphertext" })) };
+      const secret = {
+        findFirst: vi.fn(async () => ({ id: "fake-secret", ciphertext: "fake-ciphertext" })),
+      };
       Object.assign(f.prisma, { secret });
-      f.prisma.aiDataConsent.findUnique.mockResolvedValue(accepted ? { version: AI_DISCLOSURE_VERSION } as never : null);
+      f.prisma.aiDataConsent.findUnique.mockResolvedValue(
+        accepted ? ({ version: AI_DISCLOSURE_VERSION } as never) : null,
+      );
       await f.continueRun();
       expect(probe).toHaveBeenCalledOnce();
-      expect(secret.findFirst).toHaveBeenCalledWith({ where: { id: "fake-secret", userId: "user-1", spaceId: null } });
-      expect(f.prisma.aiDataConsent.findUnique).toHaveBeenCalledWith(expect.objectContaining({
-        where: { userId_spaceId_recipientKey: expect.objectContaining({ userId: "user-1", spaceId: "space-1" }) },
-      }));
-      const persisted = expect.objectContaining({ data: { modelProvider: "openai", modelId: "gpt-4o" } });
+      expect(secret.findFirst).toHaveBeenCalledWith({
+        where: { id: "fake-secret", userId: "user-1", spaceId: null },
+      });
+      expect(f.prisma.aiDataConsent.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_spaceId_recipientKey: expect.objectContaining({
+              userId: "user-1",
+              spaceId: "space-1",
+            }),
+          },
+        }),
+      );
+      const persisted = expect.objectContaining({
+        data: { modelProvider: "openai", modelId: "gpt-4o" },
+      });
       if (accepted) expect(f.prisma.run.updateMany).toHaveBeenCalledWith(persisted);
       else expect(f.prisma.run.updateMany).not.toHaveBeenCalledWith(persisted);
     },
@@ -781,16 +809,19 @@ describe("backup model ownership", () => {
 
   it("rejects a disconnected same-owner backup through the real resolver", async () => {
     const probe = vi.fn(async (request: AgentRunRequest) => {
-      await expect(request.resolveFallbackModel!("test-provider", "backup-model"))
-        .rejects.toThrow("Connect that model provider first");
+      await expect(request.resolveFallbackModel!("test-provider", "backup-model")).rejects.toThrow(
+        "Connect that model provider first",
+      );
     });
     const f = fixture({ runtimeProbe: probe });
     await f.continueRun();
     expect(probe).toHaveBeenCalledOnce();
     expect(f.prisma.aiDataConsent.findUnique).not.toHaveBeenCalled();
-    expect(f.prisma.run.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({
-      data: { modelProvider: "test-provider", modelId: "backup-model" },
-    }));
+    expect(f.prisma.run.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { modelProvider: "test-provider", modelId: "backup-model" },
+      }),
+    );
   });
 
   it("disables backups when the scoped bot read fails isolation", async () => {
@@ -800,12 +831,13 @@ describe("backup model ownership", () => {
     });
     const f = fixture({ runtimeProbe: probe });
     const { IsolationError } = await import("@rakazo/db");
-    f.prisma.bot.findFirst.mockImplementation(async () => { throw new IsolationError(); });
+    f.prisma.bot.findFirst.mockImplementation(async () => {
+      throw new IsolationError();
+    });
     await f.continueRun();
     expect(probe).toHaveBeenCalledOnce();
     expect(f.prisma.botBackupModel.findMany).not.toHaveBeenCalled();
     expect(f.prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
     expect(f.prisma.aiDataConsent.findUnique).not.toHaveBeenCalled();
   });
-
 });

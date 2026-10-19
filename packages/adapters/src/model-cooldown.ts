@@ -5,8 +5,17 @@ export class ModelCooldown {
   private readonly salt = randomUUID();
   private readonly deadlines = new Map<string, number>();
 
-  key(spaceId: string | undefined, userId: string | undefined, provider: string, modelId: string, credential: string | undefined): string {
-    return createHash("sha256").update(this.salt).update(JSON.stringify([spaceId, userId, provider, modelId, credential])).digest("hex");
+  key(
+    spaceId: string | undefined,
+    userId: string | undefined,
+    provider: string,
+    modelId: string,
+    credential: string | undefined,
+  ): string {
+    return createHash("sha256")
+      .update(this.salt)
+      .update(JSON.stringify([spaceId, userId, provider, modelId, credential]))
+      .digest("hex");
   }
 
   active(key: string, now = Date.now()): boolean {
@@ -26,6 +35,9 @@ export class ModelCooldown {
       const oldest = this.deadlines.keys().next().value;
       if (oldest !== undefined) this.deadlines.delete(oldest);
     }
-    this.deadlines.set(key, Math.max(this.deadlines.get(key) ?? 0, now + Math.min(durationMs, 86_400_000)));
+    this.deadlines.set(
+      key,
+      Math.max(this.deadlines.get(key) ?? 0, now + Math.min(durationMs, 86_400_000)),
+    );
   }
 }

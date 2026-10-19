@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -188,7 +189,11 @@ test.afterEach(async ({ baseURL }, testInfo) => {
         try {
           await bounded(runningApp.close(), "Electron close");
         } finally {
-          if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+          if (child.exitCode === null && child.signalCode === null) {
+            const exited = new Promise<void>((resolve) => child.once("exit", () => resolve()));
+            child.kill("SIGKILL");
+            await bounded(exited, "Electron process exit");
+          }
         }
       }
     } catch (error) {
@@ -196,10 +201,21 @@ test.afterEach(async ({ baseURL }, testInfo) => {
 `);
     } finally {
       try {
+        const processCheck = spawnSync("pgrep", ["-af", "/electron( |$)|/electron --"], {
+          encoding: "utf8",
+        });
+        const leftover = processCheck.stdout?.trim() || "";
+        const evidence = `[cleanup] leftover Electron processes: ${leftover || "none"}
+`;
+        console.log(evidence.trim());
+        logs.push(evidence);
         await writeFile(
           testInfo.outputPath("main-process.log"),
           logs.join("") || "No main-process stdout or stderr captured.\n",
         );
+        expect(processCheck.error, "Process check must execute").toBeUndefined();
+        expect(processCheck.status, "pgrep must report no Electron processes").toBe(1);
+        expect(leftover, "Electron processes must exit after board test").toBe("");
       } finally {
         if (profile)
           await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });

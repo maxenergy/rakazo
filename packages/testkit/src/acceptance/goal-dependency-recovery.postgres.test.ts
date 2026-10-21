@@ -16,17 +16,31 @@ import {
 const execFileAsync = promisify(execFile);
 
 it("preserves exact dependency edges and Goal/KR fields across deploy, dump restore and server restart", async () => {
+  const oldDbDir = process.env.RAK_OLD_DB_DIR;
+  if (!oldDbDir || !path.isAbsolute(oldDbDir)) {
+    throw new Error("RAK_OLD_DB_DIR must be an absolute path to the old schema package");
+  }
   const cluster = await startDisposableCluster();
   const directory = await mkdtemp(path.join(tmpdir(), "rak19-exact-"));
   let db: ReturnType<typeof createDb> | undefined;
   try {
     await cluster.createDatabase("goal_exact");
-    await cluster.migrate("rak_t_goal_exact");
+    await execFileAsync("pnpm", ["exec", "prisma", "migrate", "deploy"], {
+      cwd: oldDbDir,
+      env: { ...process.env, DATABASE_URL: cluster.url("rak_t_goal_exact") },
+    });
     db = createDb(cluster.url("rak_t_goal_exact"));
     const fixture = await seedGoalDependencyFixture(db.prisma);
     const before = await captureGoalDependencyState(db.prisma, fixture.spaceId);
     expect(before.dependencies).toHaveLength(3);
     expect(before.keyResults).toHaveLength(2);
+    const exceeded = before.keyResults.find((kr) => kr.currentValue > kr.targetValue);
+    expect(exceeded).toBeDefined();
+    expect(exceeded!.state).toBe("active");
+    const upgradeExpected = path.join(directory, "before-upgrade.json");
+    await saveGoalDependencyExpectation(db.prisma, fixture.spaceId, upgradeExpected);
+    await cluster.migrate("rak_t_goal_exact");
+    await assertGoalDependencyExpectation(db.prisma, upgradeExpected);
     await db.prisma.$transaction((tx) =>
       archiveMilestone(tx, fixture.spaceId, fixture.milestoneId),
     );

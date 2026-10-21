@@ -66,7 +66,7 @@ export async function seedGoalDependencyFixture(db: FixtureDb) {
           state: "active",
           measure: "synthetic units",
           targetValue: 123.5 + index,
-          currentValue: 17.25 + index,
+          currentValue: index === 0 ? 150.25 : 18.25,
           calculationRule: "Explicit synthetic measurement; never inferred from progress",
           dueAt: new Date("2030-05-01T01:02:03.000Z"),
         },
@@ -101,9 +101,14 @@ export async function captureGoalDependencyState(db: FixtureDb, spaceId: string)
 
 export async function saveGoalDependencyExpectation(db: FixtureDb, spaceId: string, file: string) {
   const state = await captureGoalDependencyState(db, spaceId);
-  await writeFile(file, `${JSON.stringify({ version: 1, spaceId, state }, null, 2)}\n`, {
-    flag: "wx",
-  });
+  await writeFile(
+    file,
+    `${JSON.stringify({ version: 1, spaceId, state }, null, 2)}
+`,
+    {
+      flag: "wx",
+    },
+  );
 }
 
 export async function assertGoalDependencyExpectation(db: FixtureDb, file: string) {

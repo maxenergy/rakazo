@@ -1,3 +1,6 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { fileURLToPath } from "node:url";
 import type { JobPublisher } from "@rakazo/adapter-kit";
 import { reconcileTicketWakes } from "@rakazo/adapters";
 import {
@@ -107,8 +110,54 @@ describeCluster("ticket wake runtime wiring", () => {
 
       // runtime-1 claims the wake and dies before delivering it.
       const t0 = new Date();
-      const claimed = await claimTicketWakes(prisma(), "runtime-1", { leaseMs: 1_000, now: t0 });
-      expect(claimed).toHaveLength(1);
+      const child = spawn(
+        process.execPath,
+        ["--import", "tsx", fileURLToPath(new URL("./wake-crash-worker.ts", import.meta.url))],
+        {
+          env: { ...process.env, RAK_CRASH_TEST_DATABASE_URL: cluster.url(database) },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      let output = "";
+      let errors = "";
+      child.stdout.setEncoding("utf8");
+      child.stderr.setEncoding("utf8");
+      child.stdout.on("data", (chunk) => {
+        output += chunk;
+      });
+      child.stderr.on("data", (chunk) => {
+        errors += chunk;
+      });
+      try {
+        await expect
+          .poll(
+            () => {
+              if (child.exitCode !== null || child.signalCode !== null) {
+                throw new Error(`Crash worker exited: ${errors}`);
+              }
+              return output.includes("\n");
+            },
+            { timeout: 30_000 },
+          )
+          .toBe(true);
+        const message = JSON.parse(output.trim());
+        expect(message.pid).toBe(child.pid);
+        expect(message.claimed).toHaveLength(1);
+        const persisted = await prisma().ticketWake.findUniqueOrThrow({
+          where: { id: message.claimed[0].id },
+        });
+        expect(persisted.claimedBy).toBe("crashed-process");
+        const exited = once(child, "exit");
+        expect(child.kill("SIGKILL")).toBe(true);
+        expect(await exited).toEqual([null, "SIGKILL"]);
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) {
+          const exited = once(child, "exit");
+          child.kill("SIGKILL");
+          await exited;
+        }
+      }
+      const claimed = JSON.parse(output.trim()).claimed;
       await runtime.restart("crash");
 
       // While the lease is live, another runtime delivers nothing.
@@ -118,7 +167,7 @@ describeCluster("ticket wake runtime wiring", () => {
       expect(await prisma().run.count({ where: { botId: bot.id } })).toBe(0);
 
       // runtime-2 reclaims the expired wake and holds a live claim; stale runtime-1 cannot complete it.
-      const late = new Date(t0.getTime() + 5_000);
+      const late = new Date(t0.getTime() + 120_000);
       const reclaimed = await claimTicketWakes(prisma(), "runtime-2", {
         leaseMs: 1_000,
         now: late,
@@ -129,7 +178,7 @@ describeCluster("ticket wake runtime wiring", () => {
           prisma(),
           claimed[0]?.id ?? "",
           claimed[0]?.spaceId ?? "",
-          "runtime-1",
+          "crashed-process",
           late,
         ),
       ).toBe(false);
@@ -159,7 +208,7 @@ describeCluster("ticket wake runtime wiring", () => {
           prisma(),
           claimed[0]?.id ?? "",
           claimed[0]?.spaceId ?? "",
-          "runtime-1",
+          "crashed-process",
         ),
       ).toBe(false);
       const after = await prisma().ticketWake.findUniqueOrThrow({

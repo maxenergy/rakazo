@@ -16,6 +16,13 @@ import { archiveProject, deleteProject } from "./project-links.js";
 import { recordUsage, UsageReplayConflictError } from "./usage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
+if (process.env.VERIFY_DATABASE && !databaseUrl) {
+  describe("project budget database prerequisites", () => {
+    it("requires DATABASE_URL when VERIFY_DATABASE is set", () => {
+      throw new Error("VERIFY_DATABASE is set but DATABASE_URL is not; budget tests must not skip");
+    });
+  });
+}
 const describePostgres =
   process.env.VERIFY_DATABASE && databaseUrl ? describe.sequential : describe.skip;
 

@@ -103,8 +103,7 @@ export async function saveGoalDependencyExpectation(db: FixtureDb, spaceId: stri
   const state = await captureGoalDependencyState(db, spaceId);
   await writeFile(
     file,
-    `${JSON.stringify({ version: 1, spaceId, state }, null, 2)}
-`,
+    `${JSON.stringify({ version: 1, spaceId, state }, null, 2)}\n`,
     {
       flag: "wx",
     },

@@ -18,7 +18,9 @@ const execFileAsync = promisify(execFile);
 it("preserves exact dependency edges and Goal/KR fields across deploy, dump restore and server restart", async () => {
   const oldDbDir = process.env.RAK_OLD_DB_DIR;
   if (!oldDbDir || !path.isAbsolute(oldDbDir)) {
-    throw new Error("RAK_OLD_DB_DIR must be an absolute path to the disposable old-schema worktree");
+    throw new Error(
+      "RAK_OLD_DB_DIR must be an absolute path to the disposable old-schema worktree",
+    );
   }
   const { stdout: oldHead } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: oldDbDir });
   expect(oldHead.trim()).toBe("e402c0652185878e99e9a0364d057f7e385aa1f0");

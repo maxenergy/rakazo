@@ -93,8 +93,21 @@ describeCluster("ticket wake runtime wiring", () => {
       const prerequisite = await prisma().ticket.create({
         data: { spaceId, boardId, number: 1, title: "Prerequisite" },
       });
+      const originalProject = await prisma().project.create({
+        data: { spaceId, name: "Original synthetic project" },
+      });
+      const reassignedProject = await prisma().project.create({
+        data: { spaceId, name: "Reassigned synthetic project" },
+      });
       const dependent = await prisma().ticket.create({
-        data: { spaceId, boardId, number: 2, title: "Dependent", assigneeBotId: bot.id },
+        data: {
+          spaceId,
+          boardId,
+          number: 2,
+          title: "Dependent",
+          assigneeBotId: bot.id,
+          projectId: originalProject.id,
+        },
       });
       await prisma().$transaction((tx) =>
         addTicketDependency(tx, spaceId, dependent.id, prerequisite.id),
@@ -158,7 +171,18 @@ describeCluster("ticket wake runtime wiring", () => {
         }
       }
       const claimed = JSON.parse(output.trim()).claimed;
-      await runtime.restart("crash");
+      await runtime.restart("crash", async () => {
+        const offline = createDb(cluster.url(database));
+        try {
+          await offline.prisma.ticket.update({
+            where: { id: dependent.id },
+            data: { projectId: reassignedProject.id },
+          });
+        } finally {
+          await offline.prisma.$disconnect();
+          await endPool(offline.pool);
+        }
+      });
 
       // While the lease is live, another runtime delivers nothing.
       const { jobs, enqueued } = recordingJobs();
@@ -194,6 +218,11 @@ describeCluster("ticket wake runtime wiring", () => {
       expect(await reconcileTicketWakes(deps(), { claimer: "runtime-2", now: delivered })).toBe(1);
       expect(await prisma().run.count({ where: { botId: bot.id, trigger: "tickets" } })).toBe(1);
       expect(await prisma().task.count({ where: { botId: bot.id } })).toBe(1);
+      const recoveredRun = await prisma().run.findFirstOrThrow({
+        where: { botId: bot.id, trigger: "tickets" },
+      });
+      expect(recoveredRun.projectId).toBe(reassignedProject.id);
+      expect(recoveredRun.projectId).not.toBe(originalProject.id);
       expect(enqueued).toHaveLength(1);
       const wakes = await prisma().ticketWake.findMany({ where: { ticketId: dependent.id } });
       expect(wakes).toHaveLength(1);

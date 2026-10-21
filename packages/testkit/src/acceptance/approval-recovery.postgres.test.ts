@@ -506,7 +506,11 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
           orderBy: { id: "asc" },
         });
         for (const row of usage) expect(afterUsage).toContainEqual(row);
-        for (const row of ledger) expect(afterLedger).toContainEqual(row);
+        const originalCallId = usage[0]!.callId;
+        expect(originalCallId).toBeTruthy();
+        expect(afterLedger.filter((row) => row.callId === originalCallId)).toEqual(
+          ledger.filter((row) => row.callId === originalCallId),
+        );
         if (decision === "approve") {
           expect(afterUsage).toHaveLength(3);
           expect(new Set(afterUsage.map((row) => row.callId)).size).toBe(3);
@@ -535,6 +539,17 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
             ).toMatchObject({ status: "settled" });
           }
         } else {
+          const terminalStatus = decision === "deny" ? "rejected" : "expired";
+          expect(
+            await handles.prisma.budgetOverrunApproval.findUniqueOrThrow({
+              where: { id: approval.id },
+            }),
+          ).toMatchObject({ status: terminalStatus });
+          expect(
+            await handles.prisma.proposal.findUniqueOrThrow({
+              where: { id: approval.proposalId! },
+            }),
+          ).toMatchObject({ status: terminalStatus });
           expect(model.requests).toHaveLength(1);
           expect(afterUsage).toEqual(usage);
           expect(afterLedger).toEqual(ledger);

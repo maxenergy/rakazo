@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type PrismaClient } from "./client.js";
-import { claimEmptySpaceDeletionForMember, deleteEmptySpaceForMember } from "./spaces.js";
+import { claimEmptySpaceDeletionForMember, deleteEmptySpaceForMember, cleanOrganizationSpaceBudgetEvidence } from "./spaces.js";
 import { deleteProject } from "./project-links.js";
-import { reserveBudget, setProjectBudget, settleBudgetInTransaction, settleBudget, writeOffBudgetHolding, releaseBudgetReservation } from "./project-budgets.js";
+import { reserveBudget, startBudgetReservation, setProjectBudget, settleBudgetInTransaction, settleBudget, writeOffBudgetHolding, releaseBudgetReservation } from "./project-budgets.js";
+import { IsolationError } from "./scope.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 
 const suite = process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe.sequential : describe.skip;
@@ -26,6 +27,7 @@ suite("Space budget evidence cleanup", () => {
     const budget = await setProjectBudget(p, { spaceId: id, projectId: project.id, limitMicroUsd: 1000000n });
     const callId = `${id}-call`;
     await reserveBudget(p, { spaceId: id, projectId: project.id, callId, amountMicroUsd: 100n });
+    expect(await startBudgetReservation(p, { spaceId: id, callId })).toBe(true);
     await p.budgetOverrunApproval.create({ data: { spaceId: id, projectId: project.id, budgetId: budget.id, budgetVersion: budget.version, amountMicroUsd: 1n, scope: "project", requestKey: `${id}-approval` } });
     await p.$transaction(tx => deleteProject(tx, id, project.id));
     const input = { currentSpaceId: fallback, userId, spaceId: id };
@@ -42,6 +44,26 @@ suite("Space budget evidence cleanup", () => {
     expect(await counts(f.id)).toEqual([0, 0]);
     expect(await p.space.findUnique({ where: { id: f.id } })).toBeNull();
   });
+  it("cleans evidence atomically with personal organization cascade deletion", async () => {
+    const f = await fixture();
+    expect(await counts(f.id)).toEqual([1, 1]);
+    await expect(p.$transaction(async tx => {
+      await cleanOrganizationSpaceBudgetEvidence(tx, [f.id]);
+      await tx.organization.delete({ where: { id: f.id } });
+      throw new Error("synthetic account deletion rollback");
+    })).rejects.toThrow("synthetic account deletion rollback");
+    expect(await counts(f.id)).toEqual([1, 1]);
+    expect(await p.space.count({ where: { organizationId: f.id } })).toBe(2);
+    await p.$transaction(async tx => {
+      await cleanOrganizationSpaceBudgetEvidence(tx, [f.id]);
+      await tx.organization.delete({ where: { id: f.id } });
+    });
+    expect(await counts(f.id)).toEqual([0, 0]);
+    expect(await p.space.count({ where: { organizationId: f.id } })).toBe(0);
+    await expect(settleBudget(p, { spaceId: f.id, callId: f.callId, actualMicroUsd: 25n })).rejects.toThrow();
+    expect(await counts(f.id)).toEqual([0, 0]);
+  });
+
   it("rolls back both cleanups when the final Space delete fails", async () => {
     const f = await fixture();
     await p.$executeRawUnsafe(`CREATE FUNCTION rak35_reject_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic delete rejection'; END $$`);
@@ -70,8 +92,24 @@ suite("Space budget evidence cleanup", () => {
     // Surface writer failures without leaving the readiness barrier hanging.
     await Promise.race([ready, writer.then(() => { throw new Error("Writer exited before barrier"); })]);
     const deletion = deleteEmptySpaceForMember(p, f.input);
-    release();
-    await Promise.all([writer, deletion]);
+    try {
+      const deadline = Date.now() + 5000;
+      let waiting = false;
+      while (Date.now() < deadline) {
+        const rows = await p.$queryRaw<Array<{ waiting: boolean }>>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_locks
+            WHERE locktype = 'advisory' AND NOT granted
+              AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+          ) AS waiting`;
+        if (rows[0]?.waiting) { waiting = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(waiting, "deletion must wait on the held writer lock").toBe(true);
+    } finally {
+      release();
+      await Promise.all([writer, deletion]);
+    }
     expect(await counts(f.id)).toEqual([0, 0]);
     expect(await p.space.findUnique({ where: { id: f.id } })).toBeNull();
   });
@@ -83,6 +121,23 @@ suite("Space budget evidence cleanup", () => {
       writeOffBudgetHolding(p, { spaceId: f.id, callId: f.callId, actorUserId: f.input.userId, reason: "Synthetic write-off" }),
     ]);
     expect(outcomes[0].status).toBe("fulfilled");
+    const settlement = outcomes[1]!;
+    if (settlement.status === "fulfilled") {
+      expect(settlement.value).toMatchObject({ status: "settled", settledMicroUsd: 25n });
+    } else {
+      expect(settlement.reason).toBeInstanceOf(IsolationError);
+    }
+    const writeOff = outcomes[2]!;
+    if (writeOff.status === "fulfilled") {
+      expect(writeOff.value).not.toBeNull();
+      expect(typeof writeOff.value?.replayed).toBe("boolean");
+      if (writeOff.value?.replayed) {
+        expect(settlement.status).toBe("fulfilled");
+      }
+      expect(writeOff.value?.reservationId).toEqual(expect.any(String));
+    } else {
+      expect(writeOff.reason).toBeInstanceOf(IsolationError);
+    }
     expect(await counts(f.id)).toEqual([0, 0]);
     await expect(settleBudget(p, { spaceId: f.id, callId: f.callId, actualMicroUsd: 25n })).rejects.toThrow();
     await expect(writeOffBudgetHolding(p, { spaceId: f.id, callId: f.callId, actorUserId: f.input.userId, reason: "Late synthetic write-off" })).rejects.toThrow();

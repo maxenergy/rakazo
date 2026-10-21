@@ -279,6 +279,26 @@ async function lockSpaceDeletion(tx: Prisma.TransactionClient, spaceId: string):
   `);
 }
 
+/** Clean FK-free evidence before the account-deletion organization cascade.
+ * The caller must delete the organizations in this same transaction.
+ * Acquire all seed-0 locks before seed-712012 locks, in stable Space order.
+ */
+export async function cleanOrganizationSpaceBudgetEvidence(
+  tx: Prisma.TransactionClient,
+  organizationIds: string[],
+): Promise<void> {
+  const spaces = await tx.space.findMany({
+    where: { organizationId: { in: organizationIds } },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  for (const space of spaces) await lockSpaceDeletion(tx, space.id);
+  for (const space of spaces) await lockTicketSpace(tx, space.id);
+  const spaceIds = spaces.map(space => space.id);
+  await tx.budgetSpendLedger.deleteMany({ where: { spaceId: { in: spaceIds } } });
+  await tx.budgetApprovalDeletionAudit.deleteMany({ where: { spaceId: { in: spaceIds } } });
+}
+
 type ClaimedSpaceDeleteInput = SpaceMemberTargetInput & { claimId: string };
 
 type SpaceDeleteDb = Pick<PrismaClient, "spaceMember" | "bot" | "chatGroup" | "computer">;

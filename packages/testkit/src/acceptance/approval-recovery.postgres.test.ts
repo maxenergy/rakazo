@@ -16,6 +16,9 @@ import {
 
 type App = { request: (input: string, init?: RequestInit) => Promise<Response> };
 const databaseAvailable = postgresAvailable();
+if (process.env.RAK_REQUIRE_PG === "1" && !databaseAvailable) {
+  throw new Error("RAK_REQUIRE_PG=1 but PostgreSQL binaries are unavailable");
+}
 const fixtureOrigin = "http://127.0.0.1:5173";
 
 describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", () => {

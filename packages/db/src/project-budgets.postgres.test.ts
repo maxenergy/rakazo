@@ -94,12 +94,23 @@ describePostgres("project budget reservations", () => {
         data: { spaceId, userId, name: "Synthetic reassignment fixture", color: "blue" },
       });
       const thread = await prisma.thread.create({ data: { spaceId, userId, botId: bot.id } });
+      const task = await prisma.task.create({
+        data: {
+          spaceId,
+          userId,
+          botId: bot.id,
+          threadId: thread.id,
+          prompt: "fixture",
+          status: "running",
+        },
+      });
       const run = await prisma.run.create({
         data: {
           spaceId,
           userId,
           botId: bot.id,
           threadId: thread.id,
+          taskId: task.id,
           projectId: projectA,
           status: "running",
           trigger: "manual",

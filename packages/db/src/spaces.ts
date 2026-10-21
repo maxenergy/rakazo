@@ -3,6 +3,7 @@ import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
 import { IsolationError } from "./scope.js";
 import { withTransactionRetry } from "./transaction-retry.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 
 /** Per member, per organization: one person cannot fan out unbounded boundaries. */
 const MAX_SPACES_PER_MEMBER = 32;
@@ -468,12 +469,15 @@ export async function deleteEmptySpaceForMember(
     prisma.$transaction(
       async (tx) => {
         await lockSpaceDeletion(tx, input.spaceId);
+        await lockTicketSpace(tx, input.spaceId);
         const claim = await tx.space.findFirst({
           where: { id: input.spaceId, deletionClaimId: input.claimId },
           select: { id: true },
         });
         if (!claim) throw new SpaceDeletionInProgressError();
         const planned = await assertEmptySpaceDeletable(tx, input);
+        await tx.budgetSpendLedger.deleteMany({ where: { spaceId: input.spaceId } });
+        await tx.budgetApprovalDeletionAudit.deleteMany({ where: { spaceId: input.spaceId } });
         await tx.space.delete({ where: { id: input.spaceId } });
         if (input.spaceId !== input.currentSpaceId) {
           return { id: input.currentSpaceId };

@@ -85,7 +85,12 @@ suite("Space budget evidence cleanup", () => {
     const gate = new Promise<void>(resolve => { release = resolve; });
     const ready = new Promise<void>(resolve => { locked = resolve; });
     const writer = p.$transaction(async tx => {
-      await settleBudgetInTransaction(tx, { spaceId: f.id, callId: f.callId, actualMicroUsd: 25n });
+      const result = await settleBudgetInTransaction(tx, { spaceId: f.id, callId: f.callId, actualMicroUsd: 25n });
+      expect(result).not.toBeNull();
+      expect(result?.replayed).toBe(false);
+      expect(await tx.budgetSpendLedger.findUnique({
+        where: { spaceId_callId_kind: { spaceId: f.id, callId: f.callId, kind: "settled_after_deletion" } },
+      })).toMatchObject({ amountMicroUsd: 25n });
       locked();
       await gate;
     }, { timeout: 10000 });
@@ -113,7 +118,55 @@ suite("Space budget evidence cleanup", () => {
     expect(await counts(f.id)).toEqual([0, 0]);
     expect(await p.space.findUnique({ where: { id: f.id } })).toBeNull();
   });
-  it("serializes concurrent settlement/write-off and rejects late writers", async () => {
+  it("cleans evidence committed by an in-flight write-off before deletion", async () => {
+    const f = await fixture();
+    let release!: () => void;
+    let locked!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { locked = resolve; });
+    const writer = p.$transaction(async tx => {
+      // Run the public write-off callback inside this held transaction so
+      // the barrier observes its actual writes before deletion can acquire the lock.
+      const transactionalDb = {
+        $transaction: (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+      } as unknown as PrismaClient;
+      const result = await writeOffBudgetHolding(transactionalDb, {
+        spaceId: f.id, callId: f.callId, actorUserId: f.userId, reason: "synthetic controlled cleanup",
+      });
+      expect(result).not.toBeNull();
+      expect(result?.replayed).toBe(false);
+      expect(await tx.budgetSpendLedger.findUnique({
+        where: { spaceId_callId_kind: { spaceId: f.id, callId: f.callId, kind: "written_off" } },
+      })).toMatchObject({ amountMicroUsd: 50n });
+      locked();
+      await gate;
+    }, { timeout: 10000 });
+    // Surface writer failures without leaving the readiness barrier hanging.
+    await Promise.race([ready, writer.then(() => { throw new Error("Writer exited before barrier"); })]);
+    const deletion = deleteEmptySpaceForMember(p, f.input);
+    try {
+      const deadline = Date.now() + 5000;
+      let waiting = false;
+      while (Date.now() < deadline) {
+        const rows = await p.$queryRaw<Array<{ waiting: boolean }>>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_locks
+            WHERE locktype = 'advisory' AND NOT granted
+              AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+          ) AS waiting`;
+        if (rows[0]?.waiting) { waiting = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(waiting, "deletion must wait on the held writer lock").toBe(true);
+    } finally {
+      release();
+      await Promise.all([writer, deletion]);
+    }
+    expect(await counts(f.id)).toEqual([0, 0]);
+    expect(await p.space.findUnique({ where: { id: f.id } })).toBeNull();
+  });
+  // This race covers rejection of late writers only; the controlled tests above prove cleanup after actual writes.
+  it("rejects late settlement/write-off writers during concurrent deletion", async () => {
     const f = await fixture();
     const outcomes = await Promise.allSettled([
       deleteEmptySpaceForMember(p, f.input),

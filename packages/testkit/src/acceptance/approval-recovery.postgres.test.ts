@@ -26,6 +26,7 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
     const database = await cluster.createDatabase("approval_recovery");
     await cluster.migrate(database);
     databaseUrl = cluster.url(database);
+    vi.stubEnv("DATABASE_URL", databaseUrl);
   }, 60_000);
   afterAll(async () => {
     await cluster?.stop();

@@ -17,7 +17,7 @@ import { LoadingState } from "./components/ai/primitives";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SubscriptionGate } from "./components/SubscriptionGate";
 import { authClient } from "./lib/auth";
-import { getTicketBoardEnabled, subscribeTicketBoardEnabled } from "./lib/bootstrap";
+import { getTicketBoardCapability, subscribeTicketBoardCapability } from "./lib/bootstrap";
 import { markAfterPaint, markOnce } from "./lib/performance";
 import { getRemoteImagesEnabled, subscribeRemoteImages } from "./lib/remote-images-preference";
 import { rpc } from "./lib/rpc";
@@ -95,13 +95,14 @@ export function App() {
 }
 
 function SessionApp() {
+  const { t } = useLingui();
   const [searchParams] = useSearchParams();
   const signInDestination =
     searchParams.get("next") === "/integrations/setup" ? "/integrations/setup" : "/app";
-  const ticketBoardEnabled = useSyncExternalStore(
-    subscribeTicketBoardEnabled,
-    getTicketBoardEnabled,
-    () => false,
+  const ticketBoardCapability = useSyncExternalStore(
+    subscribeTicketBoardCapability,
+    getTicketBoardCapability,
+    () => undefined,
   );
   const session = authClient.useSession();
   const gate = sessionGate(session);
@@ -184,18 +185,66 @@ function SessionApp() {
             <Route path="/app/g/:groupId" element={<ShellPage />} />
             <Route path="/app/artifacts" element={<ArtifactsPage />} />
             <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
-            {ticketBoardEnabled ? (
-              <>
-                <Route path="/app/board" element={<BoardPage />} />
-                <Route path="/app/tickets" element={<BoardPage />} />
-                <Route path="/app/projects" element={<ProjectsPage />} />
-                <Route path="/app/projects/:projectId" element={<ProjectsPage />} />
-                <Route
-                  path="/app/projects/:projectId/milestones/:milestoneId"
-                  element={<ProjectsPage />}
-                />
-              </>
-            ) : null}
+            <Route
+              path="/app/board"
+              element={
+                ticketBoardCapability === "pending" ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardCapability === "enabled" ? (
+                  <BoardPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/tickets"
+              element={
+                ticketBoardCapability === "pending" ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardCapability === "enabled" ? (
+                  <BoardPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/projects"
+              element={
+                ticketBoardCapability === "pending" ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardCapability === "enabled" ? (
+                  <ProjectsPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/projects/:projectId"
+              element={
+                ticketBoardCapability === "pending" ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardCapability === "enabled" ? (
+                  <ProjectsPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/projects/:projectId/milestones/:milestoneId"
+              element={
+                ticketBoardCapability === "pending" ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardCapability === "enabled" ? (
+                  <ProjectsPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
             <Route path="/app/approvals" element={<ApprovalsPage />} />
             <Route path="/app/:botId" element={<ShellPage />} />
           </Route>

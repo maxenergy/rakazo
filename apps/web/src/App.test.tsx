@@ -5,14 +5,17 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 
-const capability = vi.hoisted(() => ({ enabled: false, boardLoaded: vi.fn() }));
+const capability = vi.hoisted(() => ({
+  state: "pending" as "pending" | "enabled" | "disabled",
+  boardLoaded: vi.fn(),
+}));
 vi.mock("@lingui/react/macro", () => ({
   Trans: ({ children }: { children: ReactNode }) => children,
   useLingui: () => ({ t: (parts: TemplateStringsArray) => parts.join("") }),
 }));
 vi.mock("./lib/bootstrap", () => ({
-  getTicketBoardEnabled: () => capability.enabled,
-  subscribeTicketBoardEnabled: () => () => {},
+  getTicketBoardCapability: () => capability.state,
+  subscribeTicketBoardCapability: () => () => {},
 }));
 vi.mock("./lib/auth", () => ({
   authClient: {
@@ -41,6 +44,7 @@ vi.mock("./pages/McpOAuthCallback", () => ({ McpOAuthCallbackPage: () => null })
 import { App } from "./App";
 
 it("loads the board chunk only after bootstrap enables the route", async () => {
+  capability.state = "pending";
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   const root = createRoot(container);
@@ -51,9 +55,9 @@ it("loads the board chunk only after bootstrap enables the route", async () => {
   );
   try {
     await act(async () => root.render(render()));
-    expect(container.textContent).toBe("Shell");
+    expect(container.textContent).toContain("Loading");
     expect(capability.boardLoaded).not.toHaveBeenCalled();
-    capability.enabled = true;
+    capability.state = "enabled";
     await act(async () => {
       root.render(render());
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -67,12 +71,13 @@ it("loads the board chunk only after bootstrap enables the route", async () => {
 });
 
 it.each([
+  "/app/board",
   "/app/tickets",
   "/app/projects",
   "/app/projects/project-1",
   "/app/projects/project-1/milestones/milestone-1",
 ])("keeps %s unavailable when the feature is disabled", async (path) => {
-  capability.enabled = false;
+  capability.state = "disabled";
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   const root = createRoot(container);

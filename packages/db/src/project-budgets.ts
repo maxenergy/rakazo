@@ -245,8 +245,9 @@ export async function reserveBudgetInTransaction(
   };
 }
 
-/** Lock order: call advisory lock, usage, reservation, then budget. */
+/** Lock order: Space lifecycle lock, call advisory lock, usage, reservation, then budget. */
 async function lockReservation(tx: Prisma.TransactionClient, spaceId: string, callId: string) {
+  await lockTicketSpace(tx, spaceId);
   await lockBudgetCall(tx, spaceId, callId);
   await tx.$queryRaw`SELECT 1 FROM "usage_records" WHERE "spaceId" = ${spaceId} AND "callId" = ${callId} FOR UPDATE`;
   const rows = await tx.$queryRaw<ReservationRow[]>`

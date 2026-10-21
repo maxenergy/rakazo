@@ -1,4 +1,5 @@
 import type { TransactionalEmail } from "@rakazo/adapter-kit";
+import type * as Db from "@rakazo/db";
 import { bootstrapUserSpace } from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuth } from "./index.js";
@@ -12,7 +13,10 @@ vi.mock("better-auth/adapters/prisma", async () => {
       memoryAdapter(prisma.authData),
   };
 });
-vi.mock("@rakazo/db", () => ({ bootstrapUserSpace: vi.fn(async () => ({ spaceId: "space-1" })) }));
+vi.mock("@rakazo/db", async (original) => ({
+  ...(await original<typeof Db>()),
+  bootstrapUserSpace: vi.fn(async () => ({ spaceId: "space-1" })),
+}));
 
 function fixture({
   allowlist = "",
@@ -104,6 +108,9 @@ function fixture({
         },
       ),
     },
+    space: { findMany: vi.fn(async () => []) },
+    budgetSpendLedger: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+    budgetApprovalDeletionAudit: { deleteMany: vi.fn(async () => ({ count: 0 })) },
     member: { findMany: vi.fn(async () => []) },
     messagingIdentity: { deleteMany: vi.fn(async () => ({ count: 0 })) },
     organization: { deleteMany: vi.fn(async () => ({ count: 0 })) },

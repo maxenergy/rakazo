@@ -20,7 +20,7 @@ it.each([true, false])("publishes capability after bootstrap: %s", async (enable
   expect(module.getTicketBoardCapability()).toBe("pending");
   const listener = vi.fn();
   const unsubscribe = module.subscribeTicketBoardCapability(listener);
-  const pending = module.loadBootstrap();
+  const pending = module.takeInitialBootstrap();
   expect(module.getTicketBoardCapability()).toBe("pending");
   const response = { me: { ticketBoardEnabled: enabled } };
   resolve(response);
@@ -35,7 +35,7 @@ it("disables capability and preserves the original rejection", async () => {
   const module = await import("./bootstrap");
   const listener = vi.fn();
   module.subscribeTicketBoardCapability(listener);
-  await expect(module.loadBootstrap()).rejects.toBe(error);
+  await expect(module.takeInitialBootstrap()).rejects.toBe(error);
   expect(module.getTicketBoardCapability()).toBe("disabled");
   expect(listener).toHaveBeenCalledOnce();
 });

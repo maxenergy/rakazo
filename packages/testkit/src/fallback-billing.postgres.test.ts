@@ -4,6 +4,8 @@ import type { AssistantMessage, Model } from "@earendil-works/pi-ai";
 import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import type { AgentRunRequest, AgentRuntimeEvent } from "@rakazo/adapter-kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBudgetObserver } from "../../adapters/src/budget-observer.js";
+import { currentBudgetScope } from "../../adapters/src/budget-scope.js";
 
 const providerState = vi.hoisted(() => ({
   models: new Map<string, Record<string, unknown>>(),
@@ -51,7 +53,16 @@ vi.mock("../../adapters/src/pi-openai-compatible-provider.js", () => ({
   registerOpenAiCompatibleRuntime: (models: unknown) => models,
 }));
 
-import { createDb, recordUsage, reserveBudget, setProjectBudget } from "@rakazo/db";
+import {
+  createDb,
+  decideOverrunApproval,
+  recordUsage,
+  releaseBudgetReservation,
+  requestOverrunApproval,
+  reserveBudget,
+  setProjectBudget,
+  startBudgetReservation,
+} from "@rakazo/db";
 import { PiAgentRuntime } from "../../adapters/src/pi-runtime.js";
 
 const primary = model("provider-a", "primary", 32_768);
@@ -316,6 +327,211 @@ describe.skipIf(!enabled)("fallback billing PostgreSQL", () => {
         where: { spaceId_projectId: { spaceId: space.id, projectId: project.id } },
       });
       expect(budget.settledMicroUsd).toBe(375003n);
+      expect(budget.reservedMicroUsd).toBe(0n);
+    } finally {
+      vi.unstubAllGlobals();
+      if (db) {
+        await db.prisma.$disconnect();
+        await db.pool.end();
+      }
+    }
+  }, 120000);
+  it("keeps backup unstarted on selection persistence failure and deduplicates usage after reconnect", async () => {
+    let db: ReturnType<typeof createDb> | undefined;
+    try {
+      db = createDb(process.env.DATABASE_URL!);
+      const prisma = db.prisma;
+      const organizationId = `case3-${crypto.randomUUID()}`;
+      await prisma.organization.create({
+        data: {
+          id: organizationId,
+          name: "Synthetic case 3",
+          slug: organizationId,
+          createdAt: new Date(),
+        },
+      });
+      const space = await prisma.space.create({
+        data: { id: `space-${organizationId}`, organizationId, name: "Synthetic fallback space" },
+      });
+      const project = await prisma.project.create({
+        data: { spaceId: space.id, name: "Synthetic fallback project" },
+      });
+      const bot = await prisma.bot.create({
+        data: { spaceId: space.id, userId: "case3-user", name: "Synthetic bot", color: "#000000" },
+      });
+      const thread = await prisma.thread.create({
+        data: { spaceId: space.id, botId: bot.id, userId: "case3-user" },
+      });
+      const task = await prisma.task.create({
+        data: {
+          spaceId: space.id,
+          botId: bot.id,
+          threadId: thread.id,
+          userId: "case3-user",
+          prompt: "Synthetic fallback",
+          status: "running",
+        },
+      });
+      const runData = {
+        spaceId: space.id,
+        botId: bot.id,
+        threadId: thread.id,
+        taskId: task.id,
+        userId: "case3-user",
+        status: "running",
+        projectId: project.id,
+        trigger: "test",
+      };
+      const parent = await prisma.run.create({ data: runData });
+      const child = await prisma.run.create({
+        data: { ...runData, parentRunId: parent.id, rootRunId: parent.id },
+      });
+      await setProjectBudget(prisma, {
+        spaceId: space.id,
+        projectId: project.id,
+        limitMicroUsd: 1000000n,
+      });
+      const approval = await requestOverrunApproval(prisma, {
+        spaceId: space.id,
+        projectId: project.id,
+        amountMicroUsd: 100000n,
+        scope: "fallback recovery fixture",
+        requestKey: crypto.randomUUID(),
+      });
+      const input = request([
+        { provider: backupA.provider, id: backupA.id, apiKey: "fake-backup-key" },
+      ]);
+      providerState.stream.mockImplementation((target, _context, options) => {
+        return (async function* () {
+          const primaryCall = target.id === primary.id;
+          const response = message(
+            target,
+            primaryCall ? [] : [{ type: "text", text: "backup answer" }],
+            primaryCall ? "error" : "stop",
+            primaryCall ? "503 synthetic unavailable" : undefined,
+          );
+          const cost = primaryCall ? 0.125001 : 0.250002;
+          const fetcher = options?.fetch;
+          expect(fetcher).toBeTypeOf("function");
+          const raw = await fetcher!("https://models.invalid/v1/chat/completions");
+          await raw.text();
+          response.usage.cost.total = cost;
+          yield* stream(target, response);
+        })();
+      });
+      let rawAttempt = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          const cost = rawAttempt++ === 0 ? 0.125001 : 0.250002;
+          return new Response(
+            `data: ${JSON.stringify({ usage: { prompt_tokens: 4, completion_tokens: 2, total_tokens: 6, cost } })}\n\ndata: [DONE]\n\n`,
+            { headers: { "content-type": "text/event-stream" } },
+          );
+        }),
+      );
+      input.onModelChange = vi.fn(async () => {
+        throw new Error("fixture selection persistence failed");
+      });
+      input.budgetScope = { spaceId: space.id, projectId: project.id };
+      const runtime = new PiAgentRuntime({
+        modelCallObserver: createBudgetObserver({
+          scope: currentBudgetScope,
+          upperBoundMicroUsd: () => 400000n,
+          port: {
+            reserve: (value) => reserveBudget(prisma, value),
+            start: (value) => startBudgetReservation(prisma, value),
+            release: (value) => releaseBudgetReservation(prisma, value),
+          },
+        }),
+      });
+      const events: AgentRuntimeEvent[] = [];
+      await expect(
+        (async () => {
+          for await (const event of runtime.run(input, {
+            traceId: "selection-failure",
+            spaceId: space.id,
+            userId: "case3-user",
+            signal: new AbortController().signal,
+          }))
+            events.push(event);
+        })(),
+      ).rejects.toThrow("fixture selection persistence failed");
+      expect(input.onModelChange).toHaveBeenCalledTimes(1);
+      const usage = events.filter(
+        (event): event is Extract<AgentRuntimeEvent, { type: "usage" }> => event.type === "usage",
+      );
+      expect(providerState.stream).toHaveBeenCalledTimes(1);
+      expect(usage).toHaveLength(1);
+      expect(new Set(usage.map((event) => event.callId)).size).toBe(1);
+      const attribution = {
+        spaceId: space.id,
+        projectId: project.id,
+        userId: "case3-user",
+        botId: bot.id,
+        runId: child.id,
+        parentRunId: parent.id,
+        rootRunId: parent.id,
+      };
+      const held = await prisma.projectBudget.findUniqueOrThrow({
+        where: { spaceId_projectId: { spaceId: space.id, projectId: project.id } },
+      });
+      expect(held.reservedMicroUsd).toBe(400000n);
+      expect(held.settledMicroUsd).toBe(0n);
+      await db.prisma.$disconnect();
+      await db.pool.end();
+      db = createDb(process.env.DATABASE_URL!);
+      const recovered = db.prisma;
+      const restoredApproval = await recovered.budgetOverrunApproval.findUniqueOrThrow({
+        where: { id: approval.id },
+      });
+      expect(restoredApproval).toMatchObject({
+        projectId: project.id,
+        budgetVersion: approval.budgetVersion,
+        amountMicroUsd: 100000n,
+        scope: "fallback recovery fixture",
+        status: "pending",
+      });
+      const decision = {
+        spaceId: space.id,
+        approvalId: approval.id,
+        decision: "approved" as const,
+        decidedByUserId: "fixture-reviewer",
+      };
+      await decideOverrunApproval(recovered, decision);
+      await decideOverrunApproval(recovered, decision);
+
+      const recoveredHolding = await recovered.projectBudget.findUniqueOrThrow({
+        where: { spaceId_projectId: { spaceId: space.id, projectId: project.id } },
+      });
+      expect(recoveredHolding.reservedMicroUsd).toBe(400000n);
+      for (const event of usage) {
+        await recordUsage(recovered, event, attribution);
+        await recordUsage(recovered, event, attribution);
+      }
+
+      for (const event of usage) await recordUsage(recovered, event, attribution);
+      const rows = await recovered.usageRecord.findMany({
+        where: { spaceId: space.id, projectId: project.id },
+        orderBy: { costMicroUsd: "asc" },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows.map((row) => row.costMicroUsd)).toEqual([125001n]);
+      expect(new Set(rows.map((row) => row.callId))).toEqual(
+        new Set(usage.map((event) => event.callId)),
+      );
+      for (const row of rows)
+        expect(row).toMatchObject({
+          projectId: project.id,
+          runId: child.id,
+          parentRunId: parent.id,
+          rootRunId: parent.id,
+        });
+      const budget = await recovered.projectBudget.findUniqueOrThrow({
+        where: { spaceId_projectId: { spaceId: space.id, projectId: project.id } },
+      });
+      expect(budget.limitMicroUsd).toBe(1100000n);
+      expect(budget.settledMicroUsd).toBe(125001n);
       expect(budget.reservedMicroUsd).toBe(0n);
     } finally {
       vi.unstubAllGlobals();

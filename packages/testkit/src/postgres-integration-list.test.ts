@@ -8,6 +8,8 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 // Explicit paths ensure new acceptance suites still require registration.
 const selfContained = new Set([
   "packages/testkit/src/acceptance/acceptance.postgres.test.ts",
+  "packages/testkit/src/acceptance/approval-recovery.postgres.test.ts",
+  "packages/testkit/src/acceptance/goal-dependency-recovery.postgres.test.ts",
   "packages/testkit/src/acceptance/ticket-wake-runtime.postgres.test.ts",
   "packages/testkit/src/acceptance/wake-recovery.postgres.test.ts",
 ]);

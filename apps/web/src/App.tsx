@@ -17,7 +17,7 @@ import { LoadingState } from "./components/ai/primitives";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SubscriptionGate } from "./components/SubscriptionGate";
 import { authClient } from "./lib/auth";
-import { getTicketBoardEnabled, subscribeTicketBoardEnabled } from "./lib/bootstrap";
+import { getTicketBoardCapability, subscribeTicketBoardCapability } from "./lib/bootstrap";
 import { markAfterPaint, markOnce } from "./lib/performance";
 import { getRemoteImagesEnabled, subscribeRemoteImages } from "./lib/remote-images-preference";
 import { rpc } from "./lib/rpc";
@@ -95,12 +95,13 @@ export function App() {
 }
 
 function SessionApp() {
+  const { t } = useLingui();
   const [searchParams] = useSearchParams();
   const signInDestination =
     searchParams.get("next") === "/integrations/setup" ? "/integrations/setup" : "/app";
-  const ticketBoardEnabled = useSyncExternalStore(
-    subscribeTicketBoardEnabled,
-    getTicketBoardEnabled,
+  const ticketBoardCapability = useSyncExternalStore(
+    subscribeTicketBoardCapability,
+    getTicketBoardCapability,
     () => undefined,
   );
   const session = authClient.useSession();
@@ -187,9 +188,9 @@ function SessionApp() {
             <Route
               path="/app/board"
               element={
-                ticketBoardEnabled === undefined ? (
+                ticketBoardCapability === "pending" ? (
                   <LoadingState label={t`Loading…`} />
-                ) : ticketBoardEnabled ? (
+                ) : ticketBoardCapability === "enabled" ? (
                   <BoardPage />
                 ) : (
                   <Navigate to="/app" replace />
@@ -199,9 +200,9 @@ function SessionApp() {
             <Route
               path="/app/tickets"
               element={
-                ticketBoardEnabled === undefined ? (
+                ticketBoardCapability === "pending" ? (
                   <LoadingState label={t`Loading…`} />
-                ) : ticketBoardEnabled ? (
+                ) : ticketBoardCapability === "enabled" ? (
                   <BoardPage />
                 ) : (
                   <Navigate to="/app" replace />
@@ -211,9 +212,9 @@ function SessionApp() {
             <Route
               path="/app/projects"
               element={
-                ticketBoardEnabled === undefined ? (
+                ticketBoardCapability === "pending" ? (
                   <LoadingState label={t`Loading…`} />
-                ) : ticketBoardEnabled ? (
+                ) : ticketBoardCapability === "enabled" ? (
                   <ProjectsPage />
                 ) : (
                   <Navigate to="/app" replace />
@@ -223,9 +224,9 @@ function SessionApp() {
             <Route
               path="/app/projects/:projectId"
               element={
-                ticketBoardEnabled === undefined ? (
+                ticketBoardCapability === "pending" ? (
                   <LoadingState label={t`Loading…`} />
-                ) : ticketBoardEnabled ? (
+                ) : ticketBoardCapability === "enabled" ? (
                   <ProjectsPage />
                 ) : (
                   <Navigate to="/app" replace />
@@ -235,9 +236,9 @@ function SessionApp() {
             <Route
               path="/app/projects/:projectId/milestones/:milestoneId"
               element={
-                ticketBoardEnabled === undefined ? (
+                ticketBoardCapability === "pending" ? (
                   <LoadingState label={t`Loading…`} />
-                ) : ticketBoardEnabled ? (
+                ) : ticketBoardCapability === "enabled" ? (
                   <ProjectsPage />
                 ) : (
                   <Navigate to="/app" replace />

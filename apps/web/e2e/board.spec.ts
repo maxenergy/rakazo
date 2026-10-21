@@ -176,3 +176,22 @@ for (const path of ["/app/board", "/app/tickets"]) {
     await expect(page).toHaveURL(new RegExp(`${path}$`));
   });
 }
+
+test("disabled board redirects to the first bot", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page, `disabled-${Date.now()}@rakazo.test`, "password12", "Disabled QA");
+  await completeOnboarding(page);
+  const botId = await createNamedBot(page, "Planner");
+  let intercepted = 0;
+  await page.route("**/rpc/bootstrap**", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.json.me.ticketBoardEnabled = false;
+    intercepted++;
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto("/app/board");
+  await expect(page).toHaveURL(new RegExp(`/app/${botId}$`));
+  await expect(page.getByPlaceholder("Message Planner")).toBeVisible();
+  expect(intercepted).toBeGreaterThan(0);
+});

@@ -101,7 +101,7 @@ function SessionApp() {
   const ticketBoardEnabled = useSyncExternalStore(
     subscribeTicketBoardEnabled,
     getTicketBoardEnabled,
-    () => false,
+    () => undefined,
   );
   const session = authClient.useSession();
   const gate = sessionGate(session);
@@ -184,18 +184,66 @@ function SessionApp() {
             <Route path="/app/g/:groupId" element={<ShellPage />} />
             <Route path="/app/artifacts" element={<ArtifactsPage />} />
             <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
-            {ticketBoardEnabled ? (
-              <>
-                <Route path="/app/board" element={<BoardPage />} />
-                <Route path="/app/tickets" element={<BoardPage />} />
-                <Route path="/app/projects" element={<ProjectsPage />} />
-                <Route path="/app/projects/:projectId" element={<ProjectsPage />} />
-                <Route
-                  path="/app/projects/:projectId/milestones/:milestoneId"
-                  element={<ProjectsPage />}
-                />
-              </>
-            ) : null}
+            <Route
+              path="/app/board"
+              element={
+                ticketBoardEnabled === undefined ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardEnabled ? (
+                  <BoardPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/tickets"
+              element={
+                ticketBoardEnabled === undefined ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardEnabled ? (
+                  <BoardPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/projects"
+              element={
+                ticketBoardEnabled === undefined ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardEnabled ? (
+                  <ProjectsPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/projects/:projectId"
+              element={
+                ticketBoardEnabled === undefined ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardEnabled ? (
+                  <ProjectsPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
+            <Route
+              path="/app/projects/:projectId/milestones/:milestoneId"
+              element={
+                ticketBoardEnabled === undefined ? (
+                  <LoadingState label={t`Loading…`} />
+                ) : ticketBoardEnabled ? (
+                  <ProjectsPage />
+                ) : (
+                  <Navigate to="/app" replace />
+                )
+              }
+            />
             <Route path="/app/approvals" element={<ApprovalsPage />} />
             <Route path="/app/:botId" element={<ShellPage />} />
           </Route>

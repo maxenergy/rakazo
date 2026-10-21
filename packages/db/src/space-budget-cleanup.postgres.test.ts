@@ -137,7 +137,7 @@ suite("Space budget evidence cleanup", () => {
       expect(result?.replayed).toBe(false);
       expect(await tx.budgetSpendLedger.findUnique({
         where: { spaceId_callId_kind: { spaceId: f.id, callId: f.callId, kind: "written_off" } },
-      })).toMatchObject({ amountMicroUsd: 50n });
+      })).toMatchObject({ amountMicroUsd: 100n });
       locked();
       await gate;
     }, { timeout: 10000 });

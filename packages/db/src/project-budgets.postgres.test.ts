@@ -85,6 +85,88 @@ describePostgres("project budget reservations", () => {
   const ledger = (callId: string) =>
     prisma.budgetSpendLedger.findMany({ where: { spaceId, callId }, orderBy: { kind: "asc" } });
 
+  for (const closure of ["expiry", "write-off"] as const) {
+    it(`settles a late call against its original project after reassignment and ${closure}`, async () => {
+      const projectA = await budgetFor(1_000_000n);
+      const projectB = await budgetFor(1_000_000n);
+      const userId = `reassignment-${projectA}`;
+      const bot = await prisma.bot.create({
+        data: { spaceId, userId, name: "Synthetic reassignment fixture", color: "blue" },
+      });
+      const thread = await prisma.thread.create({ data: { spaceId, userId, botId: bot.id } });
+      const run = await prisma.run.create({
+        data: {
+          spaceId,
+          userId,
+          botId: bot.id,
+          threadId: thread.id,
+          projectId: projectA,
+          status: "running",
+          trigger: "manual",
+        },
+      });
+      const callId = `late-reassignment-${run.id}`;
+      const now = new Date();
+      expect(
+        (
+          await reserveBudget(prisma, {
+            spaceId,
+            projectId: projectA,
+            callId,
+            amountMicroUsd: 600_000n,
+            now,
+            ttlMs: 1_000,
+          })
+        ).ok,
+      ).toBe(true);
+      await prisma.run.update({ where: { id: run.id }, data: { projectId: projectB } });
+      const bBefore = await state(projectB);
+      const bLedgerBefore = await prisma.budgetSpendLedger.findMany({
+        where: { spaceId, projectId: projectB },
+      });
+      if (closure === "expiry") {
+        await expireBudgetReservations(prisma, { now: new Date(now.getTime() + 2_000) });
+      } else {
+        expect(await startBudgetReservation(prisma, { spaceId, callId })).toBe(true);
+        await recordUsage(
+          prisma,
+          {
+            type: "usage",
+            provider: "fixture",
+            model: "fixture",
+            callId,
+            inputTokens: 10,
+            outputTokens: 2,
+            billingKind: "api",
+          },
+          { spaceId, projectId: projectA, userId },
+        );
+        await writeOffBudgetHolding(prisma, {
+          spaceId,
+          callId,
+          actorUserId: userId,
+          reason: "Synthetic test reconciliation",
+        });
+      }
+      const settlement = { spaceId, callId, actualMicroUsd: 125_000n };
+      await Promise.all([settleBudget(prisma, settlement), settleBudget(prisma, settlement)]);
+      const first = await ledger(callId);
+      await settleBudget(prisma, settlement);
+      expect(await ledger(callId)).toEqual(first);
+      expect(first.length).toBeGreaterThan(0);
+      expect(first.every((entry) => entry.projectId === projectA)).toBe(true);
+      expect((await state(projectA)).settledMicroUsd).toBe(125_000n);
+      expect((await state(projectA)).reservedMicroUsd).toBe(0n);
+      expect(await state(projectB)).toEqual(bBefore);
+      expect(
+        await prisma.budgetSpendLedger.findMany({ where: { spaceId, projectId: projectB } }),
+      ).toEqual(bLedgerBefore);
+      expect((await prisma.run.findUniqueOrThrow({ where: { id: run.id } })).projectId).toBe(
+        projectB,
+      );
+    });
+  }
+
   it("never oversubscribes under concurrent reservations", async () => {
     const projectId = await budgetFor(1_000_000n);
     const results = await Promise.all(

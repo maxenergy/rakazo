@@ -181,7 +181,9 @@ test("disabled board redirects to the first bot", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signup(page, `disabled-${Date.now()}@rakazo.test`, "password12", "Disabled QA");
   await completeOnboarding(page);
-  const botId = await createNamedBot(page, "Planner");
+  const bootstrap = await rpc<{ bots: { id: string; name: string }[] }>(page, "bootstrap", {});
+  const firstBot = bootstrap.bots[0];
+  expect(firstBot).toBeDefined();
   let intercepted = 0;
   await page.route("**/rpc/bootstrap**", async (route) => {
     const response = await route.fetch();
@@ -191,7 +193,7 @@ test("disabled board redirects to the first bot", async ({ page }) => {
     await route.fulfill({ response, json: body });
   });
   await page.goto("/app/board");
-  await expect(page).toHaveURL(new RegExp(`/app/${botId}$`));
-  await expect(page.getByPlaceholder("Message Planner")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/app/${firstBot.id}$`));
+  await expect(page.getByPlaceholder(`Message ${firstBot.name}`)).toBeVisible();
   expect(intercepted).toBeGreaterThan(0);
 });

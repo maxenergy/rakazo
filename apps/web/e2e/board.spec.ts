@@ -151,3 +151,49 @@ test("project budget preserves exact USD input after reload", async ({ page }, t
   await expect(panel).toContainText("$12.345678");
   await captureScreenshot(page, testInfo, "project-budget");
 });
+
+for (const path of ["/app/board", "/app/tickets"]) {
+  test(`direct ${path} survives delayed bootstrap`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signup(
+      page,
+      `bootstrap-${Date.now()}-${path.split("/").pop()}@rakazo.test`,
+      "password12",
+      "Bootstrap QA",
+    );
+    await completeOnboarding(page);
+    await createNamedBot(page, "Planner");
+    let intercepted = 0;
+    await page.route("**/rpc/bootstrap**", async (route) => {
+      intercepted++;
+      const response = await route.fetch();
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await route.fulfill({ response });
+    });
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: "Tickets", exact: true })).toBeVisible();
+    expect(intercepted).toBeGreaterThan(0);
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+  });
+}
+
+test("disabled board redirects to the first bot", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page, `disabled-${Date.now()}@rakazo.test`, "password12", "Disabled QA");
+  await completeOnboarding(page);
+  const bootstrap = await rpc<{ bots: { id: string; name: string }[] }>(page, "bootstrap", {});
+  const firstBot = bootstrap.bots[0];
+  expect(firstBot).toBeDefined();
+  let intercepted = 0;
+  await page.route("**/rpc/bootstrap**", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.json.me.ticketBoardEnabled = false;
+    intercepted++;
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto("/app/board");
+  await expect(page).toHaveURL(new RegExp(`/app/${firstBot.id}$`));
+  await expect(page.getByPlaceholder(`Message ${firstBot.name}`)).toBeVisible();
+  expect(intercepted).toBeGreaterThan(0);
+});

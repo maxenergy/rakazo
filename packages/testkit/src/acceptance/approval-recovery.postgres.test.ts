@@ -299,7 +299,7 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
                   expect(request: Parameters<ModelEmulatorStep["expect"]>[0]) {
                     expect(JSON.stringify(request.messages)).toContain("budget");
                   },
-                  usage: { prompt_tokens: 12, completion_tokens: 6, total_tokens: 18, cost: 0.002 },
+                  usage: { prompt_tokens: 12, completion_tokens: 6, total_tokens: 18, cost: 0 },
                   response: {
                     type: "tool" as const,
                     id: "budget-effect-replay",
@@ -510,15 +510,30 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
         if (decision === "approve") {
           expect(afterUsage).toHaveLength(3);
           expect(new Set(afterUsage.map((row) => row.callId)).size).toBe(3);
-          const subsequent = afterUsage.find((row) => !usage.some((old) => old.id === row.id))!;
-          expect(afterLedger).toContainEqual(
-            expect.objectContaining({ callId: subsequent.callId, kind: "settle" }),
+          const subsequent = afterUsage.filter((row) => !usage.some((old) => old.id === row.id));
+          expect(subsequent).toHaveLength(2);
+          expect(subsequent.some((row) => row.costMicroUsd !== null && row.costMicroUsd > 0n)).toBe(
+            true,
           );
-          expect(
-            await handles.prisma.budgetReservation.findFirstOrThrow({
-              where: { projectId: project.id, callId: subsequent.callId! },
-            }),
-          ).toMatchObject({ status: "settled" });
+          for (const row of subsequent) {
+            expect(
+              afterLedger.filter(
+                (entry) => entry.callId === row.callId && entry.kind === "settled",
+              ),
+            ).toHaveLength(1);
+            expect(afterLedger).toContainEqual(
+              expect.objectContaining({
+                callId: row.callId,
+                kind: "settled",
+                amountMicroUsd: row.costMicroUsd,
+              }),
+            );
+            expect(
+              await handles.prisma.budgetReservation.findFirstOrThrow({
+                where: { projectId: project.id, callId: row.callId! },
+              }),
+            ).toMatchObject({ status: "settled" });
+          }
         } else {
           expect(model.requests).toHaveLength(1);
           expect(afterUsage).toEqual(usage);

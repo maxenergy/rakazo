@@ -38,3 +38,4 @@ export * from "./ticket-wakes.js";
 export * from "./transaction-retry.js";
 export * from "./usage.js";
 export * from "./voice-credentials.js";
+export * from "./execution-fence.js";

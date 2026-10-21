@@ -1,6 +1,8 @@
 import type { AgentRuntimeEvent, UsageOperationKind } from "@rakazo/adapter-kit";
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import type { ExecutionFence } from "./execution-fence.js";
+import { assertExecutionFence } from "./execution-fence.js";
 import { decimalUsdToMicroUsd } from "./money.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
@@ -33,10 +35,18 @@ export function recordUsage(
   db: PrismaClient,
   event: UsageEvent,
   attribution: UsageAttribution,
-  options: { tx?: Prisma.TransactionClient } = {},
+  options: { tx?: Prisma.TransactionClient; executionFence?: ExecutionFence } = {},
 ) {
-  const execute = (tx: Prisma.TransactionClient) =>
-    recordUsageInTransaction(tx, event, attribution);
+  const execute = async (tx: Prisma.TransactionClient) => {
+    if (options.executionFence) {
+      if (attribution.runId !== options.executionFence.runId) {
+        throw new Error("Usage execution fence must match attributed run");
+      }
+      await lockTicketSpace(tx, attribution.spaceId);
+      await assertExecutionFence(tx, options.executionFence);
+    }
+    return recordUsageInTransaction(tx, event, attribution);
+  };
   return options.tx ? execute(options.tx) : db.$transaction(execute);
 }
 

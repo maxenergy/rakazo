@@ -1,3 +1,4 @@
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import type { RealtimeFanout } from "@rakazo/adapter-kit";
 import {
   type BotSecretDestination,
@@ -36,6 +37,7 @@ const PUSH_CATCH_UP_MS = 30_000;
 const POLL_ONLY_CATCH_UP_MS = 400;
 
 export interface AppendEventInput {
+  executionFence?: ExecutionFence;
   spaceId: string;
   threadId: string;
   botId: string;
@@ -543,6 +545,7 @@ export async function claimSteering(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       select: { id: true, trigger: true, sourceMessage: { select: { blocks: true } } },
     });
@@ -865,6 +868,7 @@ export async function pauseRunForInput(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_input",
@@ -938,6 +942,7 @@ export async function pauseRunForBudget(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_budget",
@@ -1066,6 +1071,7 @@ export async function pauseRunForTakeover(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_takeover",
@@ -1303,6 +1309,7 @@ async function finalizeRunOnce(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: input.outcome,
@@ -1502,6 +1509,12 @@ export async function appendEventInTransaction(
     data: { nextEventSeq: { increment: 1 } },
     select: { nextEventSeq: true },
   });
+  if (input.executionFence) {
+    if (input.runId !== input.executionFence.runId) {
+      throw new Error("Event execution fence must match run");
+    }
+    await assertExecutionFence(tx, input.executionFence);
+  }
   // run.cancelled is appended after the run row already reads cancelled, so it
   // asserts the terminal status where every other event needs a writable run.
   if (input.type === "run.cancelled") {

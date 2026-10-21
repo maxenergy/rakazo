@@ -1,5 +1,7 @@
 import { EditTicketDependencyInput, TicketDependenciesInput } from "@rakazo/contracts";
 import {
+  assertExecutionFence,
+  lockTicketSpace,
   addTicketDependency,
   Prisma,
   ProjectLinkError,
@@ -34,6 +36,10 @@ export async function executeDependencyTool(
     const result = await withTransactionRetry(() =>
       deps.prisma.$transaction(
         async (tx) => {
+          if (deps.executionFence) {
+            await lockTicketSpace(tx, spaceId);
+            await assertExecutionFence(tx, deps.executionFence);
+          }
           const { ticketId } = parsed.data;
           if (name !== "ticket_dependency_list") {
             const edge = EditTicketDependencyInput.parse(args);

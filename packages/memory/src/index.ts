@@ -1,3 +1,4 @@
+import { assertExecutionFence } from "@rakazo/db";
 import type {
   AdapterContext,
   MemoryCommitRequest,
@@ -75,6 +76,7 @@ export class MarkdownMemoryStore implements MemoryStore {
     return withTransactionRetry(() =>
       this.prisma.$transaction(
         async (tx) => {
+          if (context.executionFence) await assertExecutionFence(tx, context.executionFence);
           const existing = await tx.memoryDocument.findFirst({
             where: {
               spaceId: context.spaceId,

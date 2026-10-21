@@ -266,7 +266,7 @@ export function buildAutoReviewPrompt(input: AutoReviewRequest): string {
 }
 
 export async function runAutoReviewJudge(input: {
-  budgetScope?: Readonly<{ spaceId: string; projectId: string }> | null;
+  budgetScope?: Readonly<{ spaceId: string; projectId: string; executionFence?: Readonly<{ runId: string; leaseOwner: string; leaseFence: number }> }> | null;
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;
@@ -364,7 +364,7 @@ export async function runAutoReviewJudge(input: {
 }
 
 export type LlmAutoReviewOptions = {
-  budgetScope?: Readonly<{ spaceId: string; projectId: string }> | null;
+  budgetScope?: Readonly<{ spaceId: string; projectId: string; executionFence?: Readonly<{ runId: string; leaseOwner: string; leaseFence: number }> }> | null;
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;

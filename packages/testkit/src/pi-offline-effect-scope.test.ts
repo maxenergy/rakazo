@@ -58,6 +58,8 @@ it("isolates main and sibling effects with identical wire IDs and reconciles a c
   >();
   const deps = {
     prisma: {
+      $queryRaw: vi.fn(async () => []),
+$transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) { return callback(this); }),
       externalEffect: {
         findUnique: async ({ where }: { where: { idempotencyKey: string } }) =>
           effects.get(where.idempotencyKey) ?? null,

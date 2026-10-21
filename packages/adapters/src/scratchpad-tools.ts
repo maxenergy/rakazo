@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@rakazo/db";
+import { assertExecutionFence, type ExecutionFence, type Prisma, type PrismaClient } from "@rakazo/db";
 
 export const SCRATCHPAD_STATUSES = ["open", "parked", "done"] as const;
 export type ScratchpadStatus = (typeof SCRATCHPAD_STATUSES)[number];
@@ -10,6 +10,7 @@ const NOTES_MAX = 4_000;
 
 export type ScratchpadToolDeps = {
   prisma: PrismaClient;
+  executionFence?: ExecutionFence;
 };
 
 export type ScratchpadRow = {
@@ -92,7 +93,7 @@ export async function addScratchpadItemFromTool(
     status = input.status;
   }
 
-  const row = await deps.prisma.scratchpadItem.create({
+  const row = await fencedScratchpadWrite(deps, (tx) => tx.scratchpadItem.create({
     data: {
       spaceId: input.spaceId,
       botId: input.botId,
@@ -101,7 +102,7 @@ export async function addScratchpadItemFromTool(
       status,
       notes,
     },
-  });
+  }));
   return { item: mapScratchpadItem(row) };
 }
 
@@ -154,10 +155,10 @@ export async function updateScratchpadItemFromTool(
     return { error: "Provide title, status, and/or notes to update." };
   }
 
-  const row = await deps.prisma.scratchpadItem.update({
+  const row = await fencedScratchpadWrite(deps, (tx) => tx.scratchpadItem.update({
     where: { id: existing.id },
     data,
-  });
+  }));
   return { item: mapScratchpadItem(row) };
 }
 
@@ -198,7 +199,7 @@ export async function removeScratchpadItemFromTool(
   });
   if (!existing) return { error: "Scratchpad item not found." };
 
-  await deps.prisma.scratchpadItem.delete({ where: { id: existing.id } });
+  await fencedScratchpadWrite(deps, (tx) => tx.scratchpadItem.delete({ where: { id: existing.id } }));
   return { ok: true as const, itemId: existing.id, title: existing.title };
 }
 
@@ -216,4 +217,12 @@ export async function listScratchpadItemsFromTool(
     includeDone: input.includeDone,
   });
   return { items };
+}
+
+async function fencedScratchpadWrite<T>(deps: ScratchpadToolDeps, write: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  if (!deps.executionFence) return write(deps.prisma);
+  return deps.prisma.$transaction(async (tx) => {
+    await assertExecutionFence(tx, deps.executionFence!);
+    return write(tx);
+  });
 }

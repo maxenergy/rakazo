@@ -22,6 +22,7 @@ function fixture(initial: Effect[] = []) {
   const append = vi.fn();
   const deps = {
     prisma: {
+      $transaction: async (write: (tx: unknown) => Promise<unknown>) => write(deps.prisma),
       externalEffect: {
         findUnique: vi.fn(
           async ({ where }: { where: { idempotencyKey: string } }) =>

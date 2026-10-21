@@ -16,6 +16,11 @@ import { archiveProject, deleteProject } from "./project-links.js";
 import { recordUsage, UsageReplayConflictError } from "./usage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
+if (process.env.RAK_REQUIRE_PG === "1" && !(process.env.VERIFY_DATABASE && databaseUrl)) {
+  throw new Error(
+    "RAK_REQUIRE_PG=1 requires VERIFY_DATABASE and DATABASE_URL; budget tests must not skip",
+  );
+}
 const describePostgres =
   process.env.VERIFY_DATABASE && databaseUrl ? describe.sequential : describe.skip;
 

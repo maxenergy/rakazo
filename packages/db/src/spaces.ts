@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
 import { IsolationError } from "./scope.js";
-import { withTransactionRetry } from "./transaction-retry.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
+import { withTransactionRetry } from "./transaction-retry.js";
 
 /** Per member, per organization: one person cannot fan out unbounded boundaries. */
 const MAX_SPACES_PER_MEMBER = 32;
@@ -294,7 +294,7 @@ export async function cleanOrganizationSpaceBudgetEvidence(
   });
   for (const space of spaces) await lockSpaceDeletion(tx, space.id);
   for (const space of spaces) await lockTicketSpace(tx, space.id);
-  const spaceIds = spaces.map(space => space.id);
+  const spaceIds = spaces.map((space) => space.id);
   await tx.budgetSpendLedger.deleteMany({ where: { spaceId: { in: spaceIds } } });
   await tx.budgetApprovalDeletionAudit.deleteMany({ where: { spaceId: { in: spaceIds } } });
 }

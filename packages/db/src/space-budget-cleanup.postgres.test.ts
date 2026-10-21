@@ -131,7 +131,7 @@ suite("Space budget evidence cleanup", () => {
         $transaction: (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
       } as unknown as PrismaClient;
       const result = await writeOffBudgetHolding(transactionalDb, {
-        spaceId: f.id, callId: f.callId, actorUserId: f.userId, reason: "synthetic controlled cleanup",
+        spaceId: f.id, callId: f.callId, actorUserId: f.input.userId, reason: "synthetic controlled cleanup",
       });
       expect(result).not.toBeNull();
       expect(result?.replayed).toBe(false);

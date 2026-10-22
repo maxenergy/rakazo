@@ -1,7 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { CapacityCache } from "./storage-capacity-cache.js";
-import { SandboxCapacityProbe } from "./sandbox-capacity.js";
-import { StorageGuard } from "./storage-guard.js";
 import type {
   AdapterContext,
   AgentContextStrategy,
@@ -346,6 +343,7 @@ import {
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
 import { withRuntimeCleanup } from "./runtime-stream.js";
+import { SandboxCapacityProbe } from "./sandbox-capacity.js";
 import {
   cancelScheduleFromTool,
   compactScheduleInput,
@@ -376,6 +374,8 @@ import {
   skillReadFromTool,
   skillUpdateFromTool,
 } from "./skill-tools.js";
+import { CapacityCache } from "./storage-capacity-cache.js";
+import { StorageGuard } from "./storage-guard.js";
 import type { TakeoverResumeCheckpoint } from "./takeover-resume.js";
 import {
   continueRunClaimFence,
@@ -3883,48 +3883,49 @@ export function createRunExecutor(deps: ExecutorDeps) {
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
-        // The command channel starts in the execution computer's actual home.
-        // Capacity sampling is infrastructure work, not an agent tool call.
-        // Every run reaching this path has provisioned a sandbox and is heavy,
-        // including runs whose shell/computer tools have been disabled.
-        {
-          storageGuard = new StorageGuard({
-            host: `${computer.kind}:${computer.id}`,
-            home: ".",
-            tmp: "/tmp",
-            probe: new SandboxCapacityProbe(deps.sandbox, computer, context),
-            cache: storageCapacityCache,
-            signal: context.signal,
-            // Replace this sink with the shared fenced publisher after RAK-46 merges.
-            events: {
-              publish: async (type, decision) => {
-                const event = await deps.prisma.$transaction(async (tx) => {
-                  // Match finalizeRun and clearThread: lock Thread before Run.
-                  await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
-                  const owned = await tx.run.updateMany({
-                    where: {
-                      id: runId, status: "running", leaseOwner: workerId,
-                      leaseFence: fence, leaseExpiresAt: { gt: new Date() },
-                    },
-                    data: { leaseFence: fence },
-                  });
-                  if (owned.count !== 1) throw new Error("Storage event execution lease lost");
-                  return appendEventInTransaction(tx, {
-                    spaceId: run.spaceId, threadId: thread.id, botId: bot.id,
-                    runId, type, payload: decision,
-                  });
+        storageGuard = new StorageGuard({
+          host: `${computer.kind}:${computer.id}`,
+          home: ".",
+          tmp: "/tmp",
+          probe: new SandboxCapacityProbe(deps.sandbox, computer, context),
+          cache: storageCapacityCache,
+          signal: context.signal,
+          // Replace this sink with the shared fenced publisher after RAK-46 merges.
+          events: {
+            publish: async (type, decision) => {
+              const event = await deps.prisma.$transaction(async (tx) => {
+                // Match finalizeRun and clearThread: lock Thread before Run.
+                await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
+                const owned = await tx.run.updateMany({
+                  where: {
+                    id: runId,
+                    status: "running",
+                    leaseOwner: workerId,
+                    leaseFence: fence,
+                    leaseExpiresAt: { gt: new Date() },
+                  },
+                  data: { leaseFence: fence },
                 });
-                await deps.events.notify(thread.id, event.seq);
-              },
+                if (owned.count !== 1) throw new Error("Storage event execution lease lost");
+                return appendEventInTransaction(tx, {
+                  spaceId: run.spaceId,
+                  threadId: thread.id,
+                  botId: bot.id,
+                  runId,
+                  type,
+                  payload: decision,
+                });
+              });
+              await deps.events.notify(thread.id, event.seq);
             },
-            // Persistent pause/resume is deliberately deferred until RAK-42.
-          });
-          if (!(await storageGuard.admit())) {
-            await failRunBeforeModel("Storage admission refused: storage_low or capacity_unknown");
-            return;
-          }
-          storageGuard.start();
+          },
+          // Persistent pause/resume is deliberately deferred until RAK-42.
+        });
+        if (!(await storageGuard.admit())) {
+          await failRunBeforeModel("Storage admission refused: storage_low or capacity_unknown");
+          return;
         }
+        storageGuard.start();
         let currentTurnFiles: Awaited<ReturnType<typeof materializeCurrentTurnFiles>>;
         try {
           currentTurnFiles = deps.artifacts

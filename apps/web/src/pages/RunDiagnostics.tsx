@@ -31,6 +31,7 @@ export function RunDiagnostics({ runId }: { runId: string }) {
     {error ? <p role="alert">Diagnostics could not be loaded.</p> : null}
     {page ? <>
       <p>Run status: {page.status}</p>
+      {page.runContext ? <p>Run model: {page.runContext.modelProvider ?? "unrecorded"} / {page.runContext.modelId ?? "unrecorded"} · Pinned: {page.runContext.modelPinned ? "yes" : "no"} · Lease fence: {page.runContext.leaseFence}</p> : null}
       <p className="text-muted-foreground">Evidence since {new Date(page.windowStartedAt).toLocaleString()}. History may be incomplete. Missing evidence does not establish success.</p>
       {page.entries.length === 0 ? <p>No recorded evidence in this window.</p> : <ul>{page.entries.map(entry => <li key={entry.id} className="my-2 break-words">
         <time dateTime={entry.at}>{new Date(entry.at).toLocaleString()}</time> — {entry.kind}{entry.status ? `: ${entry.status}` : ""}
@@ -40,7 +41,9 @@ export function RunDiagnostics({ runId }: { runId: string }) {
         {entry.inputTokens !== null ? <span> · Input tokens {entry.inputTokens}</span> : null}
         {entry.outputTokens !== null ? <span> · Output tokens {entry.outputTokens}</span> : null}
         {entry.kind === "usage" ? <span> · Cost {entry.costMicroUsd === null ? "unknown" : `${entry.costMicroUsd} micro-USD`}</span> : null}
-        <details><summary>Evidence reference</summary><p>Run {entry.evidence.runId} · Thread {entry.evidence.threadId} · Record {entry.id}{entry.evidence.eventSeq !== null ? ` · Event sequence ${entry.evidence.eventSeq}` : ""}</p></details>
+        {entry.derived ? <p>Derived: {entry.derived === "model_changed" ? "Model changed" : "Lease takeover"}</p> : null}
+        {entry.recovery ? <p>Recovery: {entry.recovery.match}{entry.recovery.legacy ? " · Legacy" : ""}{entry.recovery.effect ? ` · ${entry.recovery.effect.kind} · ${entry.recovery.effect.status} · Review: ${entry.recovery.effect.reviewDecision ?? "unrecorded"}` : ""}</p> : null}
+        <details><summary>Evidence reference</summary><p>Run {entry.evidence.runId} · Thread {entry.evidence.threadId} · Record {entry.id}{entry.evidence.eventSeq !== null ? ` · Event sequence ${entry.evidence.eventSeq}` : ""}</p>{entry.evidence.sourceHref ? <a href={entry.evidence.sourceHref}>Open source message</a> : <p>No source message recorded.</p>}</details>
       </li>)}</ul>}
       {page.nextCursor ? <button type="button" onClick={() => setBefore(page.nextCursor!)}>Older evidence</button> : null}
     </> : null}

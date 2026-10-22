@@ -3204,6 +3204,7 @@ describe("pauseRunForBudget", () => {
           leaseOwner: null,
           leaseExpiresAt: null,
           checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+          segmentCheckpoint: null,
         },
       }),
     );

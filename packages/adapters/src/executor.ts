@@ -4965,10 +4965,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 }
                 // An intended secret request resumes protected entry below, including
                 // recovery after action approval but before the card was committed.
-              } else if (!needsApproval) {
-                const early = await claimOrReturn("intended");
-                if (early !== undefined) return early;
               } else {
+                // Policy permission does not approve replay of an existing intent.
                 const current = await deps.prisma.run.findUnique({
                   where: { id: runId },
                   select: { status: true },

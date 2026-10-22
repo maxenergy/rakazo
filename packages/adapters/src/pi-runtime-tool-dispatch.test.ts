@@ -700,6 +700,7 @@ describe("Pi connector tool dispatch", () => {
           threadId: "t",
           runId: "r",
           prompt: "Continue",
+          instructions: "Follow the user instructions.",
           history: [],
           tools: [],
           model: { provider: "test", id: "dispatch-test-model" },

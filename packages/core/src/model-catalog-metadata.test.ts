@@ -30,8 +30,20 @@ const translate = (message: string, values?: Record<string, string | number>) =>
 describe("catalog cost metadata", () => {
   it("labels discovered and static catalog sources", () => {
     const model = entry("source");
-    expect(catalogMetadataLines({ ...model, discovery: { status: "static", source: "Rakazo static CLI catalog" } }, undefined, translate)).toContain("Static catalog, availability not discovered: Rakazo static CLI catalog");
-    expect(catalogMetadataLines({ ...model, discovery: { status: "discovered", source: "Codex app-server model/list" } }, undefined, translate)).toContain("Discovered catalog: Codex app-server model/list");
+    expect(
+      catalogMetadataLines(
+        { ...model, discovery: { status: "static", source: "Rakazo static CLI catalog" } },
+        undefined,
+        translate,
+      ),
+    ).toContain("Static catalog, availability not discovered: Rakazo static CLI catalog");
+    expect(
+      catalogMetadataLines(
+        { ...model, discovery: { status: "discovered", source: "Codex app-server model/list" } },
+        undefined,
+        translate,
+      ),
+    ).toContain("Discovered catalog: Codex app-server model/list");
   });
 
   it("sorts distinct known keys consistently regardless of input order", () => {

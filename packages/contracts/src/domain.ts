@@ -1195,10 +1195,13 @@ export const ModelCatalogPricingSchema = z.object({
 });
 
 export const ModelCatalogEntrySchema = z.object({
-  discovery: z.object({
-    status: z.enum(["discovered", "static"]),
-    source: z.string().min(1),
-  }).nullable().optional(),
+  discovery: z
+    .object({
+      status: z.enum(["discovered", "static"]),
+      source: z.string().min(1),
+    })
+    .nullable()
+    .optional(),
   capabilities: ModelCapabilitiesSchema.optional(),
   provider: z.string(),
   providerName: z.string().optional(),

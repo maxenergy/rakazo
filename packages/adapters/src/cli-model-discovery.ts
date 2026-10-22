@@ -28,7 +28,11 @@ export async function discoverCodexModels(
   try {
     const directory = await prepareCliProfile(profileId);
     const executable = cliExecutable("codex-cli");
-    return await readCodexModelCatalog(executable, cliEnvironment("codex-cli", directory), timeoutMs);
+    return await readCodexModelCatalog(
+      executable,
+      cliEnvironment("codex-cli", directory),
+      timeoutMs,
+    );
   } catch {
     return { status: "static", models: null };
   }
@@ -42,7 +46,9 @@ export function readCodexModelCatalog(
 ): Promise<CliDiscoveryResult> {
   return new Promise((resolve) => {
     const child = spawn(executable.file, [...executable.prefix, "app-server"], {
-      env, stdio: ["pipe", "pipe", "ignore"], windowsHide: true,
+      env,
+      stdio: ["pipe", "pipe", "ignore"],
+      windowsHide: true,
     });
     const lines = createInterface({ input: child.stdout });
     let finished = false;
@@ -70,7 +76,8 @@ export function readCodexModelCatalog(
     };
     const fail = () => finish({ status: "static", models: null });
     const timer = setTimeout(fail, Math.max(1, Math.min(timeoutMs, 30_000)));
-    const send = (value: unknown) => child.stdin.write(JSON.stringify(value) + String.fromCharCode(10));
+    const send = (value: unknown) =>
+      child.stdin.write(JSON.stringify(value) + String.fromCharCode(10));
     child.once("error", fail);
     child.once("exit", fail);
     child.stdin.on("error", fail);
@@ -98,13 +105,21 @@ export function readCodexModelCatalog(
         }
         if (cursors.has(page.nextCursor)) return fail();
         cursors.add(page.nextCursor);
-        send({ id: ++requestId, method: "model/list", params: { limit: 100, cursor: page.nextCursor } });
+        send({
+          id: ++requestId,
+          method: "model/list",
+          params: { limit: 100, cursor: page.nextCursor },
+        });
       } catch {
         fail();
       }
     });
-    send({ id: requestId, method: "initialize", params: {
-      clientInfo: { name: "rakazo", title: "Rakazo", version: "0.1.0" },
-    } });
+    send({
+      id: requestId,
+      method: "initialize",
+      params: {
+        clientInfo: { name: "rakazo", title: "Rakazo", version: "0.1.0" },
+      },
+    });
   });
 }

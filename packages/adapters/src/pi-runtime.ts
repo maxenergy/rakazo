@@ -67,9 +67,11 @@ import {
   REASONING_MODEL_MAX_TOKENS,
   resolveCompletionMaxTokens,
 } from "./pi-runtime-limits.js";
+import { decodePiSegment, encodePiSegment } from "./pi-segment.js";
 import type { PiSessionHandle, PiSessionRecorder } from "./pi-session.js";
 import { PiJsonlSessionRecorder } from "./pi-session.js";
 import { observedPiStream } from "./pi-usage.js";
+import { reviewFailureFacts } from "./review-failure.js";
 import type { RuntimeContextDecision } from "./runtime-context.js";
 import { createRuntimeContextPolicy, VERBATIM_TOOL_RESULTS } from "./runtime-context.js";
 import type { FinishedShellCommand } from "./shell-command-stream.js";
@@ -227,6 +229,7 @@ export class PiAgentRuntime implements AgentRuntime {
     const work = (async () => {
       let trackedBudget: ToolCallBudget | undefined;
       let resumeHost: ToolHost | undefined;
+      let reviewHttpStatus: number | undefined;
       try {
         const selectedModel = resolveRuntimeModel(request.model);
         if (!selectedModel.model) {
@@ -249,6 +252,7 @@ export class PiAgentRuntime implements AgentRuntime {
           apiKey,
           credentials: selectedModel.credentials,
         };
+        const resumeSegment = decodePiSegment(request.segmentCheckpoint);
         const host: ToolHost = {
           queue,
           context,
@@ -262,7 +266,7 @@ export class PiAgentRuntime implements AgentRuntime {
           nestedAgents,
           subagentGate: createGate(MAX_PARALLEL_SUBAGENTS),
           toolCallBudget: trackedBudget,
-          toolCallSeq: { value: 0 },
+          toolCallSeq: { value: resumeSegment?.toolCallSeq ?? 0 },
           abortTurn: () => undefined,
           signal,
           depth: 0,
@@ -271,8 +275,10 @@ export class PiAgentRuntime implements AgentRuntime {
         };
         resumeHost = host;
         const tools = toAgentTools(toolDefs, host);
-        const seenSteeringIds: string[] = [];
-        const initialSteering = request.claimSteering ? await request.claimSteering([]) : [];
+        const seenSteeringIds: string[] = [...(resumeSegment?.seenSteeringIds ?? [])];
+        const initialSteering = request.claimSteering
+          ? await request.claimSteering([...seenSteeringIds])
+          : [];
         seenSteeringIds.push(...initialSteering.map((item) => item.id));
         const history = toHistory(
           withoutSteeringMessages(request.history, initialSteering),
@@ -427,7 +433,15 @@ export class PiAgentRuntime implements AgentRuntime {
                   models,
                   m,
                   ctx,
-                  withCloudflareGatewayAuth(request.model, options),
+                  withCloudflareGatewayAuth(request.model, {
+                    ...options,
+                    onResponse: (response, model) => {
+                      reviewHttpStatus = [401, 402, 429].includes(response.status)
+                        ? response.status
+                        : undefined;
+                      return options?.onResponse?.(response, model);
+                    },
+                  }),
                   request.model.maxTokens,
                   () => selectedModel.credentials?.accessToken ?? apiKey,
                   (preparedOptions) =>
@@ -454,6 +468,19 @@ export class PiAgentRuntime implements AgentRuntime {
                 : request.model.maxImagesPerPrompt,
             ),
           finishTurn: async (turn, turnSignal) => {
+            // Never interrupt a tool. This hook runs after its results and usage settle.
+            if (!host.pausePending && !request.shouldEndTurn?.()) {
+              await request.onSegmentCheckpoint?.(
+                encodePiSegment({
+                  messages: turn.context.messages,
+                  toolCallSeq: host.toolCallSeq.value,
+                  seenSteeringIds,
+                }),
+              );
+            }
+            if (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) {
+              throw new Error("deadline_exceeded");
+            }
             if (request.shouldEndTurn?.()) return { action: "end" };
             await deliverFinishedShells(
               (text) => {
@@ -472,7 +499,6 @@ export class PiAgentRuntime implements AgentRuntime {
             if (!request.claimSteering) return undefined;
             const steering = await request.claimSteering([...seenSteeringIds]);
             if (steering.length === 0) return undefined;
-            seenSteeringIds.push(...steering.map((item) => item.id));
             for (const item of steering) {
               const images = toPiImages(item.images);
               agent.steer({
@@ -481,6 +507,8 @@ export class PiAgentRuntime implements AgentRuntime {
                 timestamp: Date.now(),
               });
             }
+            await request.onSteeringDelivered?.(steering.map((item) => item.id));
+            seenSteeringIds.push(...steering.map((item) => item.id));
             return undefined;
           },
           initialState: {
@@ -488,7 +516,7 @@ export class PiAgentRuntime implements AgentRuntime {
             model: completionModel,
             thinkingLevel,
             tools,
-            messages: history,
+            messages: resumeSegment?.messages ?? history,
           },
         });
 
@@ -620,7 +648,38 @@ export class PiAgentRuntime implements AgentRuntime {
           ...initialSteering.flatMap((item) => item.images ?? []),
         ]);
         try {
-          await agent.prompt(initialPrompt, images?.length ? images : undefined);
+          if (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) {
+            throw new Error("deadline_exceeded");
+          }
+          if (initialSteering.length) {
+            await request.onSteeringDelivered?.(initialSteering.map((item) => item.id));
+          }
+          if (resumeSegment) {
+            for (const item of initialSteering) {
+              const extraImages = toPiImages(item.images);
+              agent.steer({
+                role: "user",
+                content: extraImages.length
+                  ? [{ type: "text", text: item.text }, ...extraImages]
+                  : item.text,
+                timestamp: Date.now(),
+              });
+            }
+            const last = resumeSegment.messages.at(-1);
+            // A final text-only segment may have committed just before a crash.
+            // Return it without another paid model call.
+            if (
+              last?.role === "assistant" &&
+              !messageHasToolCall(last) &&
+              initialSteering.length === 0
+            ) {
+              streamed = assistantText(last);
+            } else {
+              await agent.continue();
+            }
+          } else {
+            await agent.prompt(initialPrompt, images?.length ? images : undefined);
+          }
         } finally {
           try {
             await agent.waitForIdle();
@@ -716,7 +775,15 @@ export class PiAgentRuntime implements AgentRuntime {
         queue.push(streamed.trim() ? { type: "done", text: streamed } : { type: "done" });
       } catch (error) {
         const message = sanitizeError(error instanceof Error ? error.message : String(error));
-        queue.fail(new Error(message));
+        queue.fail(
+          Object.assign(
+            new Error(message),
+            reviewFailureFacts(error),
+            ...(request.runId.includes(":auto-review") && reviewHttpStatus
+              ? [{ status: reviewHttpStatus }]
+              : []),
+          ),
+        );
       } finally {
         queue.close();
         if (trackedBudget) {

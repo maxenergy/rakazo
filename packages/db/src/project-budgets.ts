@@ -1,5 +1,6 @@
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
 
@@ -144,10 +145,15 @@ export async function reserveBudgetInTransaction(
     projectId: string;
     callId: string;
     amountMicroUsd: bigint;
+    executionFence?: ExecutionFence;
     ttlMs?: number;
     now?: Date;
   },
 ): Promise<BudgetReservationResult> {
+  if (input.executionFence) {
+    await lockTicketSpace(tx, input.spaceId);
+    await assertExecutionFence(tx, input.executionFence);
+  }
   assertPositiveMicroUsd(input.amountMicroUsd, "amountMicroUsd");
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + (input.ttlMs ?? DEFAULT_RESERVATION_TTL_MS));
@@ -324,8 +330,18 @@ export function settleBudget(
 
 export async function settleBudgetInTransaction(
   tx: Prisma.TransactionClient,
-  input: { spaceId: string; callId: string; actualMicroUsd: bigint; now?: Date },
+  input: {
+    spaceId: string;
+    callId: string;
+    actualMicroUsd: bigint;
+    now?: Date;
+    executionFence?: ExecutionFence;
+  },
 ): Promise<BudgetSettlement | null> {
+  if (input.executionFence) {
+    await lockTicketSpace(tx, input.spaceId);
+    await assertExecutionFence(tx, input.executionFence);
+  }
   assertMicroUsd(input.actualMicroUsd, "actualMicroUsd");
   const now = input.now ?? new Date();
   await lockTicketSpace(tx, input.spaceId);
@@ -392,9 +408,13 @@ export async function settleBudgetInTransaction(
 /** Persist intent before touching the provider; uncertain calls retain holding. */
 export function startBudgetReservation(
   db: PrismaClient,
-  input: { spaceId: string; callId: string },
+  input: { spaceId: string; callId: string; executionFence?: ExecutionFence },
 ): Promise<boolean> {
   return db.$transaction(async (tx) => {
+    if (input.executionFence) {
+      await lockTicketSpace(tx, input.spaceId);
+      await assertExecutionFence(tx, input.executionFence);
+    }
     const reservation = await lockReservation(tx, input.spaceId, input.callId);
     const [clock] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
     if (!clock) throw new Error("Database clock query returned no rows");
@@ -418,8 +438,13 @@ async function closeReserved(
   callId: string,
   status: "released" | "expired",
   now: Date,
+  executionFence?: ExecutionFence,
 ) {
   return db.$transaction(async (tx) => {
+    if (executionFence) {
+      await lockTicketSpace(tx, spaceId);
+      await assertExecutionFence(tx, executionFence);
+    }
     const reservation = await lockReservation(tx, spaceId, callId);
     if (reservation?.status !== "reserved" || reservation.executionState !== "not_started")
       return false;
@@ -450,9 +475,16 @@ async function closeReserved(
 /** Release an unused reservation (the call never ran). No-op unless still reserved. */
 export function releaseBudgetReservation(
   db: PrismaClient,
-  input: { spaceId: string; callId: string; now?: Date },
+  input: { spaceId: string; callId: string; executionFence?: ExecutionFence; now?: Date },
 ): Promise<boolean> {
-  return closeReserved(db, input.spaceId, input.callId, "released", input.now ?? new Date());
+  return closeReserved(
+    db,
+    input.spaceId,
+    input.callId,
+    "released",
+    input.now ?? new Date(),
+    input.executionFence,
+  );
 }
 
 /**

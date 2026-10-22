@@ -1,4 +1,5 @@
 import type { PrismaClient } from "./client.js";
+import type { ExecutionFence } from "./execution-fence.js";
 import {
   releaseBudgetReservation,
   reserveBudget,
@@ -16,8 +17,11 @@ export function createDbBudgetPort(db: PrismaClient) {
       projectId: string;
       callId: string;
       amountMicroUsd: bigint;
+      executionFence?: ExecutionFence;
     }) => reserveBudget(db, input),
-    start: (input: { spaceId: string; callId: string }) => startBudgetReservation(db, input),
-    release: (input: { spaceId: string; callId: string }) => releaseBudgetReservation(db, input),
+    start: (input: { spaceId: string; callId: string; executionFence?: ExecutionFence }) =>
+      startBudgetReservation(db, input),
+    release: (input: { spaceId: string; callId: string; executionFence?: ExecutionFence }) =>
+      releaseBudgetReservation(db, input),
   };
 }

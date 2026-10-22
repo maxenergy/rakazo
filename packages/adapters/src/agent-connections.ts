@@ -8,8 +8,8 @@ import {
   nextBotMessageHop,
   sanitizeMessagingLabel,
 } from "@rakazo/core";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
+import type { ExecutionFence, PrismaClient, ThreadEvents } from "@rakazo/db";
+import { assertExecutionFence, appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { currentBotMessageHop } from "./bot-messages.js";
 
@@ -26,6 +26,7 @@ type ConnectionRun = {
   botId: string;
   userId: string;
   sourceMessageId?: string | null;
+  executionFence?: ExecutionFence;
 };
 
 type Result =
@@ -40,7 +41,7 @@ type Result =
  */
 export async function connectAgent(
   deps: AgentConnectionDeps,
-  _run: ConnectionRun,
+  run: ConnectionRun,
   sender: { id: string; name: string },
   input: { address?: string },
 ): Promise<Result> {
@@ -105,6 +106,7 @@ export async function connectAgent(
   let claimed: Awaited<ReturnType<typeof claimConnection>>;
   const claimConnection = () =>
     deps.prisma.$transaction(async (tx) => {
+      if (run.executionFence) await assertExecutionFence(tx, run.executionFence);
       if (existing) {
         const locked = await tx.$queryRaw<Array<{ status: string }>>`
           SELECT status FROM agent_connections WHERE id = ${existing.id} FOR UPDATE
@@ -179,7 +181,7 @@ export async function connectAgent(
 /** The target bot answers a pending request on its owner's instruction. */
 export async function respondAgentConnection(
   deps: AgentConnectionDeps,
-  _run: ConnectionRun,
+  run: ConnectionRun,
   sender: { id: string; name: string },
   input: { accept: boolean },
 ): Promise<Result> {
@@ -189,9 +191,12 @@ export async function respondAgentConnection(
   });
   if (!pending) return { ok: false, error: "no pending connection request" };
   const status = input.accept ? "approved" : "declined";
-  const { count } = await deps.prisma.agentConnection.updateMany({
-    where: { id: pending.id, status: "pending" },
-    data: { status },
+  const { count } = await deps.prisma.$transaction(async (tx) => {
+    if (run.executionFence) await assertExecutionFence(tx, run.executionFence);
+    return tx.agentConnection.updateMany({
+      where: { id: pending.id, status: "pending" },
+      data: { status },
+    });
   });
   // A revoke landing between the read and this write wins; never overwrite it.
   if (count === 0) return { ok: false, error: "connection request is no longer pending" };
@@ -262,6 +267,17 @@ export async function messageConnectedAgent(
   let committed!: Awaited<ReturnType<typeof deliverTx>>;
   const deliverTx = () =>
     deps.prisma.$transaction(async (tx) => {
+      // Lock both parent chains in deterministic order before fencing the run.
+      for (const spaceId of [...new Set([run.spaceId, targetIdentity.spaceId])].sort()) {
+        await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${spaceId} FOR KEY SHARE`;
+      }
+      for (const botId of [...new Set([run.botId, target.id])].sort()) {
+        await tx.$queryRaw`SELECT id FROM bots WHERE id = ${botId} FOR UPDATE`;
+      }
+      for (const threadId of [...new Set([run.threadId, targetThreadId])].sort()) {
+        await tx.$queryRaw`SELECT id FROM threads WHERE id = ${threadId} FOR UPDATE`;
+      }
+      if (run.executionFence) await assertExecutionFence(tx, run.executionFence);
       if (deliveryKey) {
         const already = await tx.message.findUnique({
           where: { threadId_clientNonce: { threadId: targetThreadId, clientNonce: deliveryKey } },

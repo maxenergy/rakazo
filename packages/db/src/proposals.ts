@@ -8,6 +8,11 @@ import type {
 import { ProposalKindSchema, ProposalStatusSchema } from "@rakazo/contracts";
 import { decideOverrunApprovalInTransaction } from "./budget-overrun-approvals.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import {
+  assertExecutionFence,
+  type ExecutionFence,
+  StaleExecutionFenceError,
+} from "./execution-fence.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 
 type ProposalRow = {
@@ -63,10 +68,19 @@ export async function createProposal(
     /** A decision the launch team made itself: recorded as already decided. */
     teamDecision?: { chosenOption: string | null };
   },
+  executionFence?: ExecutionFence,
 ): Promise<{ proposal: Proposal; replayed: boolean }> {
   try {
-    return await prisma.$transaction((tx) => createProposalInTransaction(tx, scope, input));
+    return await prisma.$transaction(async (tx) => {
+      if (executionFence) {
+        await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${scope.spaceId} FOR UPDATE`;
+        await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} FOR UPDATE`;
+        await assertExecutionFence(tx, executionFence);
+      }
+      return createProposalInTransaction(tx, scope, input);
+    });
   } catch (error) {
+    if (error instanceof StaleExecutionFenceError) throw error;
     const raced = await prisma.proposal.findUnique({
       where: { spaceId_submitKey: { spaceId: scope.spaceId, submitKey: input.submitKey } },
       include: withBotName,

@@ -2754,6 +2754,7 @@ describe("clearThread", () => {
     const fanout = new TestFanout();
     const publish = vi.spyOn(fanout, "publish");
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       thread: {
         update: vi
           .fn()
@@ -2815,6 +2816,7 @@ describe("clearThread", () => {
   it("scopes group clear lease cleanup to cancelled run ids", async () => {
     const fanout = new TestFanout();
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       thread: {
         update: vi
           .fn()
@@ -3135,6 +3137,7 @@ describe("pauseRunForBudget", () => {
     const fanout = new TestFanout();
     const publish = vi.spyOn(fanout, "publish");
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn().mockResolvedValue([{ id: "thread-1" }]),
       run: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -3201,6 +3204,7 @@ describe("pauseRunForBudget", () => {
           leaseOwner: null,
           leaseExpiresAt: null,
           checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+          segmentCheckpoint: null,
         },
       }),
     );
@@ -3213,6 +3217,7 @@ describe("pauseRunForBudget", () => {
 
   it("does not persist a pause after losing the lease", async () => {
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn().mockResolvedValue([]),
       run: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       attempt: { updateMany: vi.fn() },
@@ -3238,6 +3243,7 @@ describe("pauseRunForBudget", () => {
 
   it("rejects the transaction when the active attempt cannot pause", async () => {
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn().mockResolvedValue([]),
       run: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       attempt: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },

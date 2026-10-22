@@ -31,7 +31,7 @@ function fakeCodex() {
     );
     const token = options.env!.RAKAZO_TOOL_TOKEN!;
     options.onOutput?.(
-      '{"type":"thread.started","thread_id":"codex-thread-1"}\n{"type":"item.completed","item":{"type":"agent_message","text":"Checking."}}\n',
+      '{"type":"item.completed","item":{"type":"agent_message","text":"Checking."}}\n',
       () => undefined,
       () => undefined,
       true,
@@ -58,13 +58,11 @@ const step = (messages: Message[]) =>
     sessionId: "thread:bot",
     messages,
     startPrompt: () => "start",
-    resumePrompt: (added) => `resume ${added.length}`,
-    args: (url, tokenEnv, thread) => [
+    args: (url, tokenEnv) => [
       "-c",
       `mcp_servers.rakazo.url=${JSON.stringify(url)}`,
       "-c",
       `mcp_servers.rakazo.bearer_token_env_var=${JSON.stringify(tokenEnv)}`,
-      "resume" in thread ? `resume=${thread.resume}` : "persist",
     ],
   });
 
@@ -106,26 +104,6 @@ describe("resident Codex turns", () => {
     expect(output).toContain("Saw: a.txt");
     expect(output).toContain("Also hurry");
     expect(runCliProcess).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(runCliProcess).mock.calls[0]![0].args).toContain("persist");
-
-    // The bot's next turn continues the same Codex thread with only the new messages.
-    const finalReply = {
-      role: "assistant",
-      content: [{ type: "text", text: "Saw: a.txt" }],
-      timestamp: 0,
-    } as unknown as Message;
-    await step([
-      system,
-      user("List files"),
-      assistant,
-      result,
-      user("Also hurry"),
-      finalReply,
-      user("Next task"),
-    ]);
-    const next = vi.mocked(runCliProcess).mock.calls[1]![0];
-    expect(next.args).toContain("resume=codex-thread-1");
-    expect(next.input).toBe("resume 1");
   });
 
   it("starts over when the conversation no longer answers the waiting call", async () => {

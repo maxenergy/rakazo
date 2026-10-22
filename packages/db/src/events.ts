@@ -22,6 +22,7 @@ import { requestOverrunApprovalInTransaction } from "./budget-overrun-approvals.
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { expireComputerExecutionLeases } from "./computers.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import {
   assertRunCanWriteHistory,
   assertRunIsCancelled,
@@ -29,6 +30,7 @@ import {
   RunHistoryWriteError,
 } from "./messages.js";
 import { createProposalInTransaction } from "./proposals.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 const EVENT_BATCH_SIZE = 200;
@@ -36,6 +38,7 @@ const PUSH_CATCH_UP_MS = 30_000;
 const POLL_ONLY_CATCH_UP_MS = 400;
 
 export interface AppendEventInput {
+  executionFence?: ExecutionFence;
   spaceId: string;
   threadId: string;
   botId: string;
@@ -50,6 +53,7 @@ export interface ThreadEvents {
   answerRunInput(input: AnswerRunInput): Promise<boolean>;
   append(input: AppendEventInput): Promise<ProductEvent>;
   claimSteering(input: ClaimSteeringInput): Promise<ClaimedSteeringMessage[]>;
+  deliverSteering(input: DeliverSteeringInput): Promise<void>;
   clearThread(input: ClearThreadInput): Promise<ClearThreadResult>;
   finalizeComputerControlRelease(
     input: FinalizeComputerControlReleaseInput,
@@ -97,6 +101,10 @@ export interface ClaimSteeringInput {
   leaseOwner: string;
   leaseFence: number;
   seenIds: string[];
+}
+
+export interface DeliverSteeringInput extends Omit<ClaimSteeringInput, "seenIds"> {
+  ids: string[];
 }
 
 export interface ClaimedSteeringMessage {
@@ -256,6 +264,7 @@ export function createThreadEvents(
     answerRunInput: (input) => answerRunInput(prisma, input, realtime, options.runSecretWriter),
     append: (input) => appendEvent(prisma, input, realtime),
     claimSteering: (input) => claimSteering(prisma, input),
+    deliverSteering: (input) => deliverSteering(prisma, input, realtime),
     clearThread: (input) => clearThread(prisma, input, realtime),
     finalizeComputerControlRelease: (input) =>
       finalizeComputerControlRelease(prisma, input, realtime),
@@ -275,6 +284,13 @@ export async function clearThread(
   realtime?: RealtimeFanout,
 ): Promise<ClearThreadResult> {
   const committed = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Event inserts acquire a Space foreign-key lock before Bot/Thread/Run.
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${input.spaceId} FOR KEY SHARE`;
+    if (input.groupId) {
+      await tx.$queryRaw`SELECT id FROM chat_groups WHERE id = ${input.groupId} AND "spaceId" = ${input.spaceId} FOR UPDATE`;
+    } else {
+      await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} AND "spaceId" = ${input.spaceId} FOR UPDATE`;
+    }
     const thread = await tx.thread.update({
       where: {
         id: input.threadId,
@@ -543,6 +559,7 @@ export async function claimSteering(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       select: { id: true, trigger: true, sourceMessage: { select: { blocks: true } } },
     });
@@ -592,6 +609,83 @@ export async function claimSteering(
       blocks: item.message.blocks as MessageBlock[],
     }));
   });
+}
+
+/** Thread serialization makes receipts idempotent across retries and lease takeover. */
+export async function deliverSteering(
+  prisma: PrismaClient,
+  input: DeliverSteeringInput,
+  realtime?: RealtimeFanout,
+): Promise<void> {
+  if (input.ids.length === 0) return;
+  const seq = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
+    const fence = {
+      runId: input.runId,
+      leaseOwner: input.leaseOwner,
+      leaseFence: input.leaseFence,
+    };
+    await assertExecutionFence(tx, fence);
+    const run = await tx.run.findFirstOrThrow({
+      where: { id: input.runId, botId: input.botId, threadId: input.threadId },
+      select: { spaceId: true },
+    });
+    const steering = await tx.steeringMessage.findMany({
+      where: {
+        id: { in: input.ids },
+        runId: input.runId,
+        botId: input.botId,
+        claimedAt: { not: null },
+        message: { threadId: input.threadId },
+      },
+      include: { message: { select: { seq: true } } },
+      orderBy: [{ message: { seq: "asc" } }, { id: "asc" }],
+    });
+    if (steering.length !== new Set(input.ids).size) {
+      throw new Error("Steering delivery must acknowledge claimed messages from this run");
+    }
+    let lastSeq: number | undefined;
+    for (const item of steering) {
+      const existing = await tx.event.findFirst({
+        where: {
+          threadId: input.threadId,
+          botId: input.botId,
+          type: "steering.delivered",
+          payload: { path: ["steeringId"], equals: item.id },
+        },
+        select: { id: true },
+      });
+      if (existing) continue;
+      const received = await tx.event.findFirstOrThrow({
+        where: {
+          threadId: input.threadId,
+          type: "thread.message.created",
+          payload: { path: ["messageId"], equals: item.messageId },
+        },
+        orderBy: { seq: "asc" },
+        select: { id: true, createdAt: true },
+      });
+      const event = await appendEventInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: input.threadId,
+        botId: input.botId,
+        runId: input.runId,
+        executionFence: fence,
+        type: "steering.delivered",
+        payload: {
+          steeringId: item.id,
+          messageId: item.messageId,
+          messageSeq: item.message.seq,
+          receivedEventId: received.id,
+          receivedAt: received.createdAt.toISOString(),
+          leaseFence: input.leaseFence,
+        },
+      });
+      lastSeq = event.seq;
+    }
+    return lastSeq;
+  });
+  if (seq !== undefined) await notifyRealtime(realtime, input.threadId, seq);
 }
 
 async function findPendingAsk(
@@ -865,6 +959,7 @@ export async function pauseRunForInput(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_input",
@@ -926,8 +1021,9 @@ export async function pauseRunForBudget(
   realtime?: RealtimeFanout,
 ): Promise<boolean> {
   const committed = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    // Thread row first, then run rows — the same order as clearThread and finalizeRun, so a
-    // concurrent clear cannot deadlock against this transaction.
+    // Approval creation references Bot: acquire Space -> Bot -> Thread -> Run.
+    await lockTicketSpace(tx, input.spaceId);
+    await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} FOR KEY SHARE`;
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
     const paused = await tx.run.updateMany({
       where: {
@@ -938,12 +1034,16 @@ export async function pauseRunForBudget(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_budget",
         leaseOwner: null,
         leaseExpiresAt: null,
         checkpoint: input.checkpoint,
+        // Budget approval reconstructs history and replays completed effects.
+        // Runtime segments carry occurrence counters for crash recovery only.
+        segmentCheckpoint: null,
       },
     });
     if (paused.count !== 1) return null;
@@ -1066,6 +1166,7 @@ export async function pauseRunForTakeover(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_takeover",
@@ -1284,6 +1385,10 @@ async function finalizeRunOnce(
   input: FinalizeRunInput,
 ): Promise<{ threadId: string; seq: number; continuationRunId: string | null } | null> {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Event inserts acquire a Space foreign-key lock; take it before Bot.
+    // Follow the global parent lock order: Space -> Bot -> Thread -> Run.
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${input.spaceId} FOR KEY SHARE`;
+    await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
     let writableRun: { startedAt: Date | null } | undefined;
     try {
@@ -1303,6 +1408,7 @@ async function finalizeRunOnce(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: input.outcome,
@@ -1502,6 +1608,12 @@ export async function appendEventInTransaction(
     data: { nextEventSeq: { increment: 1 } },
     select: { nextEventSeq: true },
   });
+  if (input.executionFence) {
+    if (input.runId !== input.executionFence.runId) {
+      throw new Error("Event execution fence must match run");
+    }
+    await assertExecutionFence(tx, input.executionFence);
+  }
   // run.cancelled is appended after the run row already reads cancelled, so it
   // asserts the terminal status where every other event needs a writable run.
   if (input.type === "run.cancelled") {

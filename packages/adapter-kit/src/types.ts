@@ -6,6 +6,7 @@ import type {
 } from "@rakazo/contracts";
 
 export interface AdapterContext {
+  executionFence?: { runId: string; leaseOwner: string; leaseFence: number };
   operationId: string;
   traceId: string;
   spaceId: string;
@@ -451,7 +452,11 @@ export const DEFAULT_CONTEXT_STRATEGY: AgentContextStrategy = "retrieval";
 
 export interface AgentRunRequest {
   /** Immutable project attribution shared by reservation and accounting. */
-  budgetScope?: Readonly<{ spaceId: string; projectId: string }> | null;
+  budgetScope?: Readonly<{
+    spaceId: string;
+    projectId: string;
+    executionFence?: Readonly<{ runId: string; leaseOwner: string; leaseFence: number }>;
+  }> | null;
   /** Selected product locale, inherited by helpers within this turn. */
   uiLocale?: UiLocale;
   /** Awaited producer-side accounting, independent of event-consumer cancellation. */
@@ -485,6 +490,11 @@ export interface AgentRunRequest {
   /** Resolve an explicitly requested helper model within the active user and space scope. */
   resolveModel?: (provider: string, modelId: string) => Promise<AgentRunModel>;
   resumeFromCheckpoint?: string;
+  /** Backend-owned absolute deadline; checked only at safe tool boundaries. */
+  deadlineAt?: number;
+  /** Opaque, versioned runtime state from the last fully completed segment. */
+  segmentCheckpoint?: string;
+  onSegmentCheckpoint?: (checkpoint: string) => Promise<void>;
   script?: ScriptedTurn[];
   /**
    * FYI bot-message wakes and scheduled routines may finish with no text.
@@ -506,6 +516,8 @@ export interface AgentRunRequest {
   onToolCompleted?: (completion: AgentToolCompletion) => Promise<void> | void;
   /** Atomically claim durable user steering at the runtime's next safe turn boundary. */
   claimSteering?: (seenIds: string[]) => Promise<AgentSteeringMessage[]>;
+  /** Persist receipt of prepared steering at a safe turn boundary; failure stops the turn. */
+  onSteeringDelivered?: (ids: string[]) => Promise<void>;
 }
 
 export interface ScriptedTurn {
@@ -1019,6 +1031,7 @@ export interface AutoReviewRequest {
 }
 
 export interface AutoReviewResult {
+  failureClass?: "quota" | "rate_limit" | "no_credentials";
   decision: AutoReviewDecision;
   reason?: string;
   model: string;

@@ -6,14 +6,16 @@ import {
   TicketStatusSchema,
   UpdateTicketInput,
 } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
+import type { ExecutionFence, PrismaClient } from "@rakazo/db";
 import {
   allocateTicketNumber,
+  assertExecutionFence,
   enqueueDependentWakes,
   ensureBoard,
   findTicket,
   listTicketComments,
   lockTicketForLinkUpdate,
+  lockTicketSpace,
   resolveTicketLinks,
   toTicketCommentDto,
   toTicketDto,
@@ -22,6 +24,7 @@ import {
 import type { TicketChangeNotifier } from "./ticket-changes.js";
 
 export type TicketToolDeps = {
+  executionFence?: ExecutionFence;
   prisma: PrismaClient;
   ticketBoardEnabled?: boolean;
   onTicketChange?: TicketChangeNotifier;
@@ -96,7 +99,7 @@ export async function listBoardTickets(
     if ("error" in decoded) return decoded;
     pageCursor = decoded;
   }
-  const board = await ensureBoard(deps.prisma, input.spaceId);
+  const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
   const rows = await deps.prisma.ticket.findMany({
     where: {
       spaceId: input.spaceId,
@@ -132,7 +135,7 @@ export async function getTicket(deps: TicketToolDeps, input: { spaceId: string; 
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
   const ref = input.ref.trim();
   if (!ref) return { error: "ref is required." };
-  const board = await ensureBoard(deps.prisma, input.spaceId);
+  const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
   const row =
     (await findTicket(deps.prisma, input.spaceId, board, { ref })) ??
     (await findTicket(deps.prisma, input.spaceId, board, { id: ref }));
@@ -167,9 +170,13 @@ export async function createTicket(
   const data = parsed.data;
   if (!(await botInSpace(deps, input.spaceId, data.assigneeBotId)))
     return { error: "Unknown bot." };
-  const board = await ensureBoard(deps.prisma, input.spaceId);
+  const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
   const row = await withTransactionRetry(() =>
     deps.prisma.$transaction(async (tx) => {
+      if (deps.executionFence) {
+        await lockTicketSpace(tx, input.spaceId);
+        await assertExecutionFence(tx, deps.executionFence);
+      }
       const links = await resolveTicketLinks(
         tx,
         input.spaceId,
@@ -224,9 +231,13 @@ export async function updateTicket(
   const data = parsed.data;
   if (data.assigneeBotId && !(await botInSpace(deps, input.spaceId, data.assigneeBotId)))
     return { error: "Unknown bot." };
-  const board = await ensureBoard(deps.prisma, input.spaceId);
+  const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
   const result = await withTransactionRetry(() =>
     deps.prisma.$transaction(async (tx) => {
+      if (deps.executionFence) {
+        await lockTicketSpace(tx, input.spaceId);
+        await assertExecutionFence(tx, deps.executionFence);
+      }
       const locked = await lockTicketForLinkUpdate(tx, input.spaceId, board.id, data.id, data);
       if (!locked) return null;
       const { current, links } = locked;
@@ -282,10 +293,14 @@ export async function commentTicket(
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
   const parsed = CommentTicketInput.safeParse({ ticketId: input.id, body: input.body });
   if (!parsed.success) return { error: "Invalid comment." };
-  const board = await ensureBoard(deps.prisma, input.spaceId);
+  const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
   const ticket = await findTicket(deps.prisma, input.spaceId, board, { id: input.id });
   if (!ticket) return { error: "Ticket not found." };
   const row = await deps.prisma.$transaction(async (tx) => {
+    if (deps.executionFence) {
+      await lockTicketSpace(tx, input.spaceId);
+      await assertExecutionFence(tx, deps.executionFence);
+    }
     const comment = await tx.ticketComment.create({
       include: { authorBot: { select: { name: true } }, authorUser: { select: { name: true } } },
       data: {

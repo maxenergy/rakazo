@@ -2226,6 +2226,11 @@ description: Prepare standup notes
     );
     const enqueue = vi.fn(async () => undefined);
     const prisma = {
+      $queryRaw: vi.fn(async () => []),
+      $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+        return callback(this);
+      }),
+      externalEffect: { findMany: vi.fn(async () => []) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2269,8 +2274,10 @@ description: Prepare standup notes
     const updateMany = vi.fn(
       async (args: {
         where: { checkpoint?: string | null | { in: string[] } };
-        data: { status?: string; checkpoint?: string | null };
+        data: { status?: string; checkpoint?: string | null; leaseFence?: number };
       }) => {
+        if (args.data.leaseFence !== undefined && args.data.status === undefined)
+          return { count: 1 };
         if (args.data.status === "leased") {
           checkpoint = null;
           return { count: 1 };
@@ -2287,6 +2294,11 @@ description: Prepare standup notes
     );
     const enqueue = vi.fn(async () => undefined);
     const prisma = {
+      $queryRaw: vi.fn(async () => []),
+      $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+        return callback(this);
+      }),
+      externalEffect: { findMany: vi.fn(async () => []) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2346,6 +2358,11 @@ description: Prepare standup notes
     );
     const enqueue = vi.fn(async () => undefined);
     const prisma = {
+      $queryRaw: vi.fn(async () => []),
+      $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+        return callback(this);
+      }),
+      externalEffect: { findMany: vi.fn(async () => []) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2419,6 +2436,11 @@ description: Prepare standup notes
           },
     );
     const prisma = {
+      $queryRaw: vi.fn(async () => []),
+      $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+        return callback(this);
+      }),
+      externalEffect: { findMany: vi.fn(async () => []) },
       run: {
         findUnique: vi.fn(async () => run),
         findUniqueOrThrow: vi.fn(async () => ({ status: "leased", startedAt: null })),
@@ -2501,6 +2523,11 @@ description: Prepare standup notes
       leaseFence: 0,
     };
     const prisma = {
+      $queryRaw: vi.fn(async () => []),
+      $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+        return callback(this);
+      }),
+      externalEffect: { findMany: vi.fn(async () => []) },
       run: {
         findUnique: vi.fn(async () => run),
         findUniqueOrThrow: vi.fn(async () => ({ status: "leased", startedAt: null })),
@@ -3184,5 +3211,40 @@ describe("ticket board tool capability", () => {
     expect(orgTicketNames).toContain("message_bot");
     for (const name of ["message_user", "handoff_to_bot", "message_agent"])
       expect(orgTicketNames).not.toContain(name);
+  });
+});
+
+describe("continuation lease fence", () => {
+  it("rejects a stale claim after takeover even when status and checkpoint match", async () => {
+    const currentFence = 2;
+    const updateMany = vi.fn(async (args: { where: { leaseFence?: number } }) => ({
+      count: args.where.leaseFence === currentFence ? 1 : 0,
+    }));
+    const findUniqueOrThrow = vi.fn();
+    const prisma = {
+      run: {
+        findUnique: vi.fn(async () => ({
+          id: "run-stale",
+          botId: "bot-1",
+          status: "queued",
+          checkpoint: null,
+          leaseFence: 1,
+        })),
+        updateMany,
+        findUniqueOrThrow,
+      },
+    } as unknown as PrismaClient;
+    const executor = createRunExecutor({
+      prisma,
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+    } as Parameters<typeof createRunExecutor>[0]);
+    await executor.continueRun("run-stale", "stale-worker");
+    expect(updateMany).toHaveBeenCalledOnce();
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ leaseFence: 1 }),
+      }),
+    );
+    expect(findUniqueOrThrow).not.toHaveBeenCalled();
   });
 });

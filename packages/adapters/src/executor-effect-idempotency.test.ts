@@ -39,7 +39,7 @@ type ToolCall = {
   executionId: string;
 };
 
-function fixture(runId = "run-1") {
+function fixture(runId = "run-1", afterEffectClaim?: (effectId: string) => Promise<void>) {
   const effects: Effect[] = [];
   const results: unknown[] = [];
   const scratchpadRows: Array<{
@@ -107,6 +107,10 @@ function fixture(runId = "run-1") {
     ),
   };
   const prisma = {
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+      return callback(this);
+    }),
     user: { findUnique: vi.fn(async () => ({ uiLocale: "en" })) },
     run: {
       findUnique: vi.fn(async () => run),
@@ -195,6 +199,7 @@ function fixture(runId = "run-1") {
     yield { type: "done" as const, text: "Done" };
   });
   const executor = createRunExecutor({
+    afterEffectClaim,
     prisma,
     runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
     connector: {
@@ -239,6 +244,7 @@ function fixture(runId = "run-1") {
     results,
     scratchpadRows,
     memoryCommit,
+    prisma,
     setCalls(next: ToolCall[]) {
       calls = next;
     },
@@ -253,6 +259,23 @@ function fixture(runId = "run-1") {
 }
 
 describe("mutating tool effect idempotency keys", () => {
+  it("rejects a stale holder at the committed claim barrier before dispatch", async () => {
+    const f = fixture("barrier-run", async () => {
+      f.prisma.run.updateMany.mockImplementationOnce(async () => ({ count: 0 }));
+    });
+    f.setCalls([
+      {
+        name: "remember",
+        args: { path: "MEMORY.md", content: "synthetic barrier note" },
+        executionId: "barrier-call",
+      },
+    ]);
+    await f.run();
+    expect(f.effects).toHaveLength(1);
+    expect(f.effects[0]).toMatchObject({ status: "executing" });
+    expect(f.memoryCommit).not.toHaveBeenCalled();
+  });
+
   it("executes different tools that share a reused provider tool-call id", async () => {
     const f = fixture("run-a");
     f.setCalls([

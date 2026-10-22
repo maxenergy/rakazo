@@ -16,14 +16,6 @@ const system = {
   timestamp: 0,
 } as unknown as Message;
 const user = (text: string) => ({ role: "user", content: text, timestamp: 0 }) as Message;
-const stored = (text: string, id: string) =>
-  ({
-    role: "user",
-    content: text,
-    timestamp: 0,
-    rakazoHistory: true,
-    rakazoMessageId: id,
-  }) as Message;
 
 afterEach(() => {
   stopResidentTurns();
@@ -90,7 +82,7 @@ describe("resident Codex turns", () => {
 
   it("hands Codex's tool call to Rakazo and returns the answer to the same process", async () => {
     fakeCodex();
-    const first = await step([system, stored("List files", "m1")]);
+    const first = await step([system, user("List files")]);
     expect(first).toMatchObject({ kind: "calls", narration: "Checking." });
     const call = first?.kind === "calls" ? first.calls[0] : undefined;
     expect(call).toMatchObject({ name: "shell", arguments: { command: "ls" } });
@@ -108,13 +100,7 @@ describe("resident Codex turns", () => {
       isError: false,
       timestamp: 0,
     } as unknown as Message;
-    const second = await step([
-      system,
-      stored("List files", "m1"),
-      assistant,
-      result,
-      user("Also hurry"),
-    ]);
+    const second = await step([system, user("List files"), assistant, result, user("Also hurry")]);
     expect(second?.kind).toBe("done");
     const output = second?.kind === "done" ? second.output : "";
     expect(output).toContain("Saw: a.txt");
@@ -123,12 +109,19 @@ describe("resident Codex turns", () => {
     expect(vi.mocked(runCliProcess).mock.calls[0]![0].args).toContain("persist");
 
     // The bot's next turn continues the same Codex thread with only the new messages.
-    // A new run rebuilds the conversation from stored messages, including the bot's reply.
+    const finalReply = {
+      role: "assistant",
+      content: [{ type: "text", text: "Saw: a.txt" }],
+      timestamp: 0,
+    } as unknown as Message;
     await step([
       system,
-      stored("List files", "m1"),
-      stored("Assistant: Saw: a.txt", "m2"),
-      stored("Next task", "m3"),
+      user("List files"),
+      assistant,
+      result,
+      user("Also hurry"),
+      finalReply,
+      user("Next task"),
     ]);
     const next = vi.mocked(runCliProcess).mock.calls[1]![0];
     expect(next.args).toContain("resume=codex-thread-1");

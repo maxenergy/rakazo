@@ -340,14 +340,13 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         throw new Error("Missing enqueue barrier");
       }),
     ]);
-    let child: Awaited<typeof spawning>;
     try {
       await db.prisma.run.update({ where: { id: run.id }, data: { leaseExpiresAt: new Date(0) } });
       await expect(sourceExecutor.continueRun(run.id, "source-new")).rejects.toBe(stop);
     } finally {
       releaseEnqueue();
     }
-    child = await spawning;
+    const child = await spawning;
     if (!("botId" in child)) throw new Error("Expected child");
     const childBot = await db.prisma.bot.findUniqueOrThrow({ where: { id: child.botId } });
     const childRun = await db.prisma.run.findFirstOrThrow({ where: { botId: child.botId } });
@@ -2787,7 +2786,6 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
           return typeof value === "function" ? value.bind(target) : value;
         },
       });
-      const fence = { runId: run.id, leaseOwner: id, leaseFence: 1 };
       const pause = () =>
         pauseRunForBudget(instrumented, {
           spaceId: space.id,
@@ -2901,7 +2899,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
               leaseExpiresAt: new Date(Date.now() + 120000),
             },
           });
-          const attempt = await db.prisma.attempt.create({
+          await db.prisma.attempt.create({
             data: { runId: run.id, fence: 1, status: "running" },
           });
           const fence = { runId: run.id, leaseOwner: id, leaseFence: 1 };

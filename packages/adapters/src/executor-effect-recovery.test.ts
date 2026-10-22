@@ -65,6 +65,7 @@ describe("effect creation execution fence", () => {
   it("rejects a stale writer before creating an intended effect", async () => {
     const create = vi.fn();
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       run: { updateMany: vi.fn(async () => ({ count: 0 })) },
       externalEffect: { create },
     };

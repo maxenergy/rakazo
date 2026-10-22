@@ -2,7 +2,7 @@ import type { AgentRuntimeEvent, UsageOperationKind } from "@rakazo/adapter-kit"
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import type { ExecutionFence } from "./execution-fence.js";
-import { assertExecutionFence } from "./execution-fence.js";
+import { StaleExecutionFenceError } from "./execution-fence.js";
 import { decimalUsdToMicroUsd } from "./money.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
@@ -38,14 +38,32 @@ export function recordUsage(
   options: { tx?: Prisma.TransactionClient; executionFence?: ExecutionFence } = {},
 ) {
   const execute = async (tx: Prisma.TransactionClient) => {
+    let ledgerOnly = false;
     if (options.executionFence) {
       if (attribution.runId !== options.executionFence.runId) {
         throw new Error("Usage execution fence must match attributed run");
       }
       await lockTicketSpace(tx, attribution.spaceId);
-      await assertExecutionFence(tx, options.executionFence);
+      // Cancellation can flush producer usage after stop; ownership must still match.
+      const fence = options.executionFence;
+      const matched = await tx.run.updateMany({
+        where: {
+          id: fence.runId,
+          status: { in: ["running", "cancelled"] },
+          leaseOwner: fence.leaseOwner,
+          leaseFence: fence.leaseFence,
+          leaseExpiresAt: { gt: new Date() },
+        },
+        data: { leaseFence: fence.leaseFence },
+      });
+      if (matched.count !== 1) {
+        const run = await tx.run.findUnique({ where: { id: fence.runId }, select: { id: true } });
+        if (run) throw new StaleExecutionFenceError();
+        // Deleted runs retain accounting only; no budget or business reconciliation.
+        ledgerOnly = true;
+      }
     }
-    return recordUsageInTransaction(tx, event, attribution);
+    return recordUsageInTransaction(tx, event, attribution, ledgerOnly);
   };
   return options.tx ? execute(options.tx) : db.$transaction(execute);
 }
@@ -54,6 +72,7 @@ async function recordUsageInTransaction(
   tx: Prisma.TransactionClient,
   event: UsageEvent,
   attribution: UsageAttribution,
+  ledgerOnly = false,
 ) {
   await lockTicketSpace(tx, attribution.spaceId);
   const callId = event.callId ?? null;
@@ -125,7 +144,7 @@ async function recordUsageInTransaction(
         });
       }
     }
-    await reconcileUsageInTransaction(tx, row);
+    if (!ledgerOnly) await reconcileUsageInTransaction(tx, row);
     return row;
   }
   // Lock the optional lifecycle parent before insertion, avoiding a failed FK
@@ -160,6 +179,6 @@ async function recordUsageInTransaction(
       agentId: event.agentId ?? null,
     },
   });
-  await reconcileUsageInTransaction(tx, row);
+  if (!ledgerOnly) await reconcileUsageInTransaction(tx, row);
   return row;
 }

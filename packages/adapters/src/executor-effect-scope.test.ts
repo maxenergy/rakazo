@@ -22,6 +22,7 @@ function fixture(initial: Effect[] = []) {
   const append = vi.fn();
   const deps = {
     prisma: {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       $transaction: async (write: (tx: unknown) => Promise<unknown>) => write(deps.prisma),
       externalEffect: {
         findUnique: vi.fn(

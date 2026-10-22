@@ -187,7 +187,18 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         text: "Inspect the cancellation fixture.",
       });
       await cancellationStarted;
+      const cancellationFence = await handles.prisma.run.findUniqueOrThrow({
+        where: { id: cancelled.runId },
+        select: { leaseOwner: true, leaseFence: true },
+      });
+      expect(cancellationFence.leaseOwner).not.toBeNull();
       await rpc("threads/stop", { botId: bot.id });
+      expect(
+        await handles.prisma.run.findUniqueOrThrow({
+          where: { id: cancelled.runId },
+          select: { leaseOwner: true, leaseFence: true },
+        }),
+      ).toEqual(cancellationFence);
       // The API marks durable cancellation; production workers may learn it at lease renewal.
       // Abort explicitly here to deterministically exercise the producer-side accounting boundary.
       await handles.runtime.abort(cancelled.runId);

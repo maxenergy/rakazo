@@ -307,11 +307,16 @@ const CLI_CONTEXT_SHARE = 0.5;
 const CLI_CONTEXT_WINDOW_CAP: Partial<Record<CliModelProvider, number>> = {
   "claude-code": 200_000,
 };
+/**
+ * Every step of a CLI turn starts a fresh process that resends the whole prompt, and a
+ * subscription plan counts each resend in full. Keep the prompt well below even a large
+ * model window so a long turn does not drain the plan; older context is condensed instead.
+ */
+const CLI_USAGE_WINDOW = 100_000;
 
 function cliContextWindow(provider: CliModelProvider, catalogWindow: number | undefined) {
-  const cap = CLI_CONTEXT_WINDOW_CAP[provider];
-  if (!catalogWindow) return cap;
-  return cap ? Math.min(cap, catalogWindow) : catalogWindow;
+  const cap = Math.min(CLI_CONTEXT_WINDOW_CAP[provider] ?? CLI_USAGE_WINDOW, CLI_USAGE_WINDOW);
+  return catalogWindow ? Math.min(cap, catalogWindow) : cap;
 }
 const CLI_RECENT_MESSAGES = 12;
 const CLI_OLD_TEXT_LIMIT = 2_000;

@@ -417,7 +417,9 @@ describe("subscription CLI provider conformance", () => {
       .mockResolvedValueOnce(output("codex-cli"));
     const models = registerCliModelProviders(builtinModels());
     const model = models.getProvider("codex-cli")!.getModels()[0]!;
-    const big = "x".repeat(Math.floor(model.contextWindow * 3 * 0.6 * 0.8));
+    // Sized against the usage window that caps every CLI prompt.
+    const window = Math.min(model.contextWindow, 100_000);
+    const big = "x".repeat(Math.floor(window * 3 * 0.6 * 0.8));
     const messages = [
       { role: "user" as const, content: "Start", timestamp: 0 },
       ...Array.from({ length: 30 }, (_, index) => ({

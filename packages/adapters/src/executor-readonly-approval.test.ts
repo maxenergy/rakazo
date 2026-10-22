@@ -171,6 +171,10 @@ function fixture({
     ),
   };
   const prisma = {
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+      return callback(this);
+    }),
     user: { findUnique: vi.fn(async () => ({ uiLocale: "en" })) },
     run: {
       findUnique: vi.fn(async () => run),

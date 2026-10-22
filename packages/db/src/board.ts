@@ -12,9 +12,28 @@ import type {
   TicketComment as TicketCommentRow,
   Ticket as TicketRow,
 } from "./client.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 
 /** skipDuplicates tolerates concurrent first opens without aborting their transactions. */
-export async function ensureBoard(prisma: PrismaClient, spaceId: string): Promise<BoardRow> {
+export async function ensureBoard(
+  prisma: PrismaClient,
+  spaceId: string,
+  executionFence?: ExecutionFence,
+): Promise<BoardRow> {
+  if (executionFence) {
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${spaceId} FOR KEY SHARE`;
+      await assertExecutionFence(tx, executionFence);
+      const existing = await tx.board.findUnique({ where: { spaceId } });
+      if (existing) return existing;
+      const space = await tx.space.findUnique({ where: { id: spaceId }, select: { name: true } });
+      await tx.board.createMany({
+        data: [{ spaceId, name: space?.name.trim() || "Board" }],
+        skipDuplicates: true,
+      });
+      return tx.board.findUniqueOrThrow({ where: { spaceId } });
+    });
+  }
   const existing = await prisma.board.findUnique({ where: { spaceId } });
   if (existing) return existing;
   const space = await prisma.space.findUnique({

@@ -6,14 +6,17 @@ import {
   UpdateGoalInput,
   UpdateKeyResultInput,
 } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
 import {
   archiveKeyResult,
+  assertExecutionFence,
   createGoal,
   createKeyResult,
   deleteGoal,
   deleteKeyResult,
+  type ExecutionFence,
+  lockTicketSpace,
   Prisma,
+  type PrismaClient,
   ProjectLinkError,
   readGoals,
   readKeyResults,
@@ -43,7 +46,7 @@ export function isGoalToolName(name: string): name is GoalToolName {
 }
 
 export async function executeGoalTool(
-  deps: { prisma: PrismaClient; ticketBoardEnabled?: boolean },
+  deps: { prisma: PrismaClient; ticketBoardEnabled?: boolean; executionFence?: ExecutionFence },
   spaceId: string,
   name: GoalToolName,
   args: unknown,
@@ -55,6 +58,10 @@ export async function executeGoalTool(
     return await withTransactionRetry(() =>
       deps.prisma.$transaction(
         async (tx) => {
+          if (deps.executionFence) {
+            await lockTicketSpace(tx, spaceId);
+            await assertExecutionFence(tx, deps.executionFence);
+          }
           switch (name) {
             case "goal_list":
               return readGoals(tx, spaceId, ListGoalsInput.parse(args));

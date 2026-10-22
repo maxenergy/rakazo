@@ -7,7 +7,13 @@ import {
   nextCronDate,
   ONCE_ROUTINE_CRON,
 } from "@rakazo/core";
-import type { PrismaClient, ThreadEvents } from "@rakazo/db";
+import {
+  assertExecutionFence,
+  type ExecutionFence,
+  type Prisma,
+  type PrismaClient,
+  type ThreadEvents,
+} from "@rakazo/db";
 
 export { isOneShotRoutineCron, ONCE_ROUTINE_CRON };
 
@@ -196,6 +202,7 @@ function validateRepeatingCron(cron: string): string | null {
 }
 
 export interface ScheduleToolDeps {
+  executionFence?: ExecutionFence;
   prisma: PrismaClient;
   events: ThreadEvents;
   jobs: JobPublisher;
@@ -224,39 +231,44 @@ export async function createScheduleFromTool(
   const resolved = resolveScheduleTiming(input.schedule, timezone);
   if (!resolved.ok) return { error: resolved.error };
 
-  const row = await deps.prisma.routine.create({
-    data: {
-      spaceId: input.spaceId,
-      botId: input.botId,
-      userId: input.userId,
-      threadId: input.threadId,
-      name,
-      prompt,
-      crons: [resolved.cron],
-      timezone,
-      notify: true,
-      active: true,
-      nextRunAt: resolved.nextRunAt,
-    },
-  });
+  const row = await fencedScheduleWrite(deps, input, (tx) =>
+    tx.routine.create({
+      data: {
+        spaceId: input.spaceId,
+        botId: input.botId,
+        userId: input.userId,
+        threadId: input.threadId,
+        name,
+        prompt,
+        crons: [resolved.cron],
+        timezone,
+        notify: true,
+        active: true,
+        nextRunAt: resolved.nextRunAt,
+      },
+    }),
+  );
 
   try {
     await deps.jobs.enqueue(routineWakeupJob(row.id, resolved.nextRunAt));
   } catch {
     try {
-      await deps.prisma.routine.delete({ where: { id: row.id } });
+      await fencedScheduleWrite(deps, input, (tx) => tx.routine.delete({ where: { id: row.id } }));
     } catch {
       // Do not soft-return while the row may still be active.
-      await deps.prisma.routine.update({
-        where: { id: row.id },
-        data: { active: false, nextRunAt: null },
-      });
+      await fencedScheduleWrite(deps, input, (tx) =>
+        tx.routine.update({
+          where: { id: row.id },
+          data: { active: false, nextRunAt: null },
+        }),
+      );
     }
     return { error: "Could not schedule the reminder. Try again." };
   }
 
   try {
     await deps.events.append({
+      executionFence: deps.executionFence,
       spaceId: input.spaceId,
       threadId: input.threadId,
       botId: input.botId,
@@ -333,7 +345,22 @@ export async function cancelScheduleFromTool(
   });
   if (!existing) return { error: "Schedule not found." };
 
-  await deps.prisma.routine.delete({ where: { id: existing.id } });
+  await fencedScheduleWrite(deps, input, (tx) => tx.routine.delete({ where: { id: existing.id } }));
   await deps.jobs.cancel(routineJobKey(existing.id));
   return { ok: true as const, routineId: existing.id, name: existing.name };
+}
+
+async function fencedScheduleWrite<T>(
+  deps: ScheduleToolDeps,
+  scope: { spaceId: string; botId: string; threadId?: string },
+  write: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  if (!deps.executionFence) return write(deps.prisma);
+  return deps.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${scope.spaceId} FOR KEY SHARE`;
+    await tx.$queryRaw`SELECT id FROM bots WHERE id = ${scope.botId} FOR KEY SHARE`;
+    if (scope.threadId) await tx.$queryRaw`SELECT id FROM threads WHERE id = ${scope.threadId} FOR KEY SHARE`;
+    await assertExecutionFence(tx, deps.executionFence!);
+    return write(tx);
+  });
 }

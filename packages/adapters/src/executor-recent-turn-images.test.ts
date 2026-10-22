@@ -82,6 +82,10 @@ async function runWithModel(
     yield { type: "done" as const, text: "Done" };
   });
   const prisma = {
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+      return callback(this);
+    }),
     user: { findUnique: vi.fn(async () => ({ uiLocale: "zh-CN" })) },
     run: {
       findUnique: vi.fn(async () => run),
@@ -325,6 +329,7 @@ describe("recent turn images follow model vision", () => {
         status: "running",
         leaseOwner: "worker-1",
         leaseFence: expect.any(Number),
+        leaseExpiresAt: { gt: expect.any(Date) },
       },
       data: { modelProvider: backup.provider, modelId: backup.modelId },
     });

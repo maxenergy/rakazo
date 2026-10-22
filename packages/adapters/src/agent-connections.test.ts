@@ -54,6 +54,7 @@ function createDeps(
       update: vi.fn(async () => ({})),
     },
     run: {
+      updateMany: vi.fn(async () => ({ count: 0 })),
       findFirst: vi.fn(async () => ({ id: "run-1" })),
       create: vi.fn(async ({ data }: { data: unknown }) => {
         txCalls.runCreate.push(data);
@@ -527,5 +528,27 @@ describe("messageConnectedAgent revocation locking", () => {
     expect(deps.txCalls.taskCreate).toHaveLength(0);
     expect(deps.txCalls.runCreate).toHaveLength(0);
     expect(deps.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("connection mutation execution fence", () => {
+  const staleRun = { ...run, executionFence: { runId: run.id, leaseOwner: "old-worker", leaseFence: 1 } };
+
+  it("rejects a stale invite before creating connection or outbound data", async () => {
+    const harness = createDeps();
+    await expect(connectAgent(harness, staleRun, sender, { address: "+15552222222" }))
+      .rejects.toMatchObject({ name: "StaleExecutionFenceError" });
+    expect(harness.prisma.agentConnection.create).not.toHaveBeenCalled();
+    expect(harness.outboundRows).toHaveLength(0);
+    expect(harness.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale response before changing a pending connection", async () => {
+    const harness = createDeps({ pendingConnection: { id: "ac-pending", status: "pending", requesterBotId: "bot-2", targetBotId: "bot-1" } });
+    await expect(respondAgentConnection(harness, staleRun, sender, { accept: true }))
+      .rejects.toMatchObject({ name: "StaleExecutionFenceError" });
+    expect(harness.prisma.agentConnection.updateMany).not.toHaveBeenCalled();
+    expect(harness.enqueue).not.toHaveBeenCalled();
   });
 });

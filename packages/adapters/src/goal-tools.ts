@@ -6,14 +6,17 @@ import {
   UpdateGoalInput,
   UpdateKeyResultInput,
 } from "@rakazo/contracts";
-import { assertExecutionFence, lockTicketSpace, type ExecutionFence, type PrismaClient } from "@rakazo/db";
 import {
   archiveKeyResult,
+  assertExecutionFence,
   createGoal,
   createKeyResult,
   deleteGoal,
   deleteKeyResult,
+  type ExecutionFence,
+  lockTicketSpace,
   Prisma,
+  type PrismaClient,
   ProjectLinkError,
   readGoals,
   readKeyResults,

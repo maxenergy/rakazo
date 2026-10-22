@@ -18,6 +18,9 @@ import {
 } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
 import {
+  assertExecutionFence,
+  StaleExecutionFenceError,
+  type ExecutionFence,
   cancelRunsInTransaction,
   computerScopeKey,
   createRepos,
@@ -63,6 +66,7 @@ export async function spawnBot(
       userId: string;
     };
     runId: string;
+    executionFence?: ExecutionFence;
     spawnKey: string;
     name: string;
     title?: string;
@@ -104,6 +108,7 @@ export async function spawnBot(
             reportsToBotId: input.spawnedBy.id,
           }
         : {}),
+      executionFence: input.executionFence,
       initialMessage: {
         role: "system",
         blocks: [{ kind: "meta", text: `Created by ${input.spawnedBy.name}` }],
@@ -111,6 +116,7 @@ export async function spawnBot(
       },
     });
   } catch (error) {
+    if (error instanceof StaleExecutionFenceError) throw error;
     const existing = await deps.prisma.bot.findUnique({
       where: {
         spaceId_spawnKey: {
@@ -147,9 +153,18 @@ export async function spawnBot(
       botId: created.id,
       threadId: created.threadId,
       sourceRunId: input.runId,
+      executionFence: input.executionFence,
       spawnKey: input.spawnKey,
       prompt,
     });
+    // Best-effort rejection for replay and conflict-winner reads. Takeover can
+    // still race after this transaction: enqueue is only a wake hint, while
+    // fenced child creation and continueRun lease claim authorize durable work.
+    if (input.executionFence) {
+      await deps.prisma.$transaction(async (tx) => {
+        await assertExecutionFence(tx, input.executionFence!);
+      });
+    }
     await deps.jobs
       .enqueue(runContinueJob(run.id))
       .catch((error) => getLogger().error("spawned bot enqueue", error));
@@ -175,6 +190,7 @@ async function ensureSpawnRun(
     botId: string;
     threadId: string;
     sourceRunId: string;
+    executionFence?: ExecutionFence;
     spawnKey: string;
     prompt: string;
   },
@@ -191,6 +207,9 @@ async function ensureSpawnRun(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      // Task/Run foreign keys must be acquired before the child Thread lock.
+      await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${input.spaceId} FOR KEY SHARE`;
+      await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} AND "spaceId" = ${input.spaceId} FOR KEY SHARE`;
       await createThreadMessageInTransaction(tx, {
         threadId: input.threadId,
         role: "user",
@@ -207,7 +226,7 @@ async function ensureSpawnRun(
           status: "queued",
         },
       });
-      return tx.run.create({
+      const createdRun = await tx.run.create({
         data: {
           spaceId: input.spaceId,
           botId: input.botId,
@@ -219,8 +238,11 @@ async function ensureSpawnRun(
           clientNonce,
         },
       });
+      if (input.executionFence) await assertExecutionFence(tx, input.executionFence);
+      return createdRun;
     });
   } catch (error) {
+    if (error instanceof StaleExecutionFenceError) throw error;
     const winner = await prisma.run.findUnique({ where });
     if (winner) return winner;
     throw error;
@@ -317,6 +339,12 @@ export async function archiveBot(
   const runIds = activeRuns.map((run) => run.id);
   const now = new Date();
   await deps.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${bot.spaceId} FOR KEY SHARE`;
+    const botIds = [...new Set([bot.id, ...(context.botId ? [context.botId] : [])])].sort();
+    for (const botId of botIds) {
+      await tx.$queryRaw`SELECT id FROM bots WHERE id = ${botId} FOR UPDATE`;
+    }
+    if (context.executionFence) await assertExecutionFence(tx, context.executionFence);
     await tx.run.updateMany({
       where: { id: { in: runIds } },
       data: { status: "cancelled", completedAt: now },

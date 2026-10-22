@@ -33,12 +33,26 @@ describe("usage ledger transactions", () => {
   it("rejects a stale execution fence before recording usage", async () => {
     const { db, tx } = fixture();
     tx.run.updateMany.mockResolvedValue({ count: 0 });
-    await expect(recordUsage(db, event, { ...attribution, runId: "run-fixture" }, { executionFence: { runId: "run-fixture", leaseOwner: "worker-old", leaseFence: 1 } })).rejects.toThrow("Run execution fence is no longer current");
+    await expect(
+      recordUsage(
+        db,
+        event,
+        { ...attribution, runId: "run-fixture" },
+        { executionFence: { runId: "run-fixture", leaseOwner: "worker-old", leaseFence: 1 } },
+      ),
+    ).rejects.toThrow("Run execution fence is no longer current");
     expect(tx.usageRecord.create).not.toHaveBeenCalled();
   });
   it("rejects a fence for a different attributed run", async () => {
     const { db, tx } = fixture();
-    await expect(recordUsage(db, event, { ...attribution, runId: "run-other" }, { executionFence: { runId: "run-fixture", leaseOwner: "worker", leaseFence: 1 } })).rejects.toThrow("Usage execution fence must match attributed run");
+    await expect(
+      recordUsage(
+        db,
+        event,
+        { ...attribution, runId: "run-other" },
+        { executionFence: { runId: "run-fixture", leaseOwner: "worker", leaseFence: 1 } },
+      ),
+    ).rejects.toThrow("Usage execution fence must match attributed run");
     expect(tx.run.updateMany).not.toHaveBeenCalled();
     expect(tx.usageRecord.create).not.toHaveBeenCalled();
   });

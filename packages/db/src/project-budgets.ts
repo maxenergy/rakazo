@@ -1,6 +1,6 @@
-import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import { lockBudgetCall } from "./budget-call-lock.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 import { reconcileUsageInTransaction } from "./usage-reconciliation.js";
 
@@ -330,7 +330,13 @@ export function settleBudget(
 
 export async function settleBudgetInTransaction(
   tx: Prisma.TransactionClient,
-  input: { spaceId: string; callId: string; actualMicroUsd: bigint; now?: Date; executionFence?: ExecutionFence },
+  input: {
+    spaceId: string;
+    callId: string;
+    actualMicroUsd: bigint;
+    now?: Date;
+    executionFence?: ExecutionFence;
+  },
 ): Promise<BudgetSettlement | null> {
   if (input.executionFence) {
     await lockTicketSpace(tx, input.spaceId);
@@ -406,9 +412,9 @@ export function startBudgetReservation(
 ): Promise<boolean> {
   return db.$transaction(async (tx) => {
     if (input.executionFence) {
-    await lockTicketSpace(tx, input.spaceId);
-    await assertExecutionFence(tx, input.executionFence);
-  }
+      await lockTicketSpace(tx, input.spaceId);
+      await assertExecutionFence(tx, input.executionFence);
+    }
     const reservation = await lockReservation(tx, input.spaceId, input.callId);
     const [clock] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
     if (!clock) throw new Error("Database clock query returned no rows");
@@ -471,7 +477,14 @@ export function releaseBudgetReservation(
   db: PrismaClient,
   input: { spaceId: string; callId: string; executionFence?: ExecutionFence; now?: Date },
 ): Promise<boolean> {
-  return closeReserved(db, input.spaceId, input.callId, "released", input.now ?? new Date(), input.executionFence);
+  return closeReserved(
+    db,
+    input.spaceId,
+    input.callId,
+    "released",
+    input.now ?? new Date(),
+    input.executionFence,
+  );
 }
 
 /**

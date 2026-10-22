@@ -1,8 +1,8 @@
 import { EditTicketDependencyInput, TicketDependenciesInput } from "@rakazo/contracts";
 import {
+  addTicketDependency,
   assertExecutionFence,
   lockTicketSpace,
-  addTicketDependency,
   Prisma,
   ProjectLinkError,
   readTicketDependencies,

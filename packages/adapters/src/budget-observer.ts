@@ -18,8 +18,16 @@ export interface BudgetPort {
         availableMicroUsd: bigint;
       }
   >;
-  start(input: { spaceId: string; callId: string; executionFence?: ExecutionFence }): Promise<boolean>;
-  release(input: { spaceId: string; callId: string; executionFence?: ExecutionFence }): Promise<unknown>;
+  start(input: {
+    spaceId: string;
+    callId: string;
+    executionFence?: ExecutionFence;
+  }): Promise<boolean>;
+  release(input: {
+    spaceId: string;
+    callId: string;
+    executionFence?: ExecutionFence;
+  }): Promise<unknown>;
 }
 
 export interface BudgetCallScope {
@@ -51,7 +59,10 @@ export class BudgetExceededError extends Error {
 
 /** Reserve per physical call; D1 accounting exclusively owns settlement. */
 export function createBudgetObserver(options: BudgetObserverOptions): ModelCallObserver {
-  const open = new Map<string, { spaceId: string; callId: string; inner?: string; executionFence?: ExecutionFence }>();
+  const open = new Map<
+    string,
+    { spaceId: string; callId: string; inner?: string; executionFence?: ExecutionFence }
+  >();
   return {
     async beforeCall(call) {
       const scope = options.scope();
@@ -72,10 +83,19 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
       try {
         inner = options.inner ? await options.inner.beforeCall(call) : undefined;
       } catch (error) {
-        await options.port.release({ spaceId: scope.spaceId, callId, executionFence: scope.executionFence });
+        await options.port.release({
+          spaceId: scope.spaceId,
+          callId,
+          executionFence: scope.executionFence,
+        });
         throw error;
       }
-      open.set(callId, { spaceId: scope.spaceId, callId, inner, executionFence: scope.executionFence });
+      open.set(callId, {
+        spaceId: scope.spaceId,
+        callId,
+        inner,
+        executionFence: scope.executionFence,
+      });
       return callId;
     },
     async startCall(reservationId) {
@@ -85,7 +105,11 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
         return;
       }
       await options.inner?.startCall?.(entry.inner ?? reservationId);
-      const started = await options.port.start({ spaceId: entry.spaceId, callId: entry.callId, executionFence: entry.executionFence });
+      const started = await options.port.start({
+        spaceId: entry.spaceId,
+        callId: entry.callId,
+        executionFence: entry.executionFence,
+      });
       if (!started) throw new BudgetExceededError("reservation_closed", 0n);
     },
     async afterCall(
@@ -104,7 +128,11 @@ export function createBudgetObserver(options: BudgetObserverOptions): ModelCallO
         if (usage === null) {
           // Missing accounting is not evidence that no provider call started.
           if (lifecycle?.started === false) {
-            await options.port.release({ spaceId: entry.spaceId, callId, executionFence: entry.executionFence });
+            await options.port.release({
+              spaceId: entry.spaceId,
+              callId,
+              executionFence: entry.executionFence,
+            });
           }
         }
       } finally {

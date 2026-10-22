@@ -1,4 +1,9 @@
-import { assertExecutionFence, type ExecutionFence, type Prisma, type PrismaClient } from "@rakazo/db";
+import {
+  assertExecutionFence,
+  type ExecutionFence,
+  type Prisma,
+  type PrismaClient,
+} from "@rakazo/db";
 
 export const SCRATCHPAD_STATUSES = ["open", "parked", "done"] as const;
 export type ScratchpadStatus = (typeof SCRATCHPAD_STATUSES)[number];
@@ -93,16 +98,18 @@ export async function addScratchpadItemFromTool(
     status = input.status;
   }
 
-  const row = await fencedScratchpadWrite(deps, (tx) => tx.scratchpadItem.create({
-    data: {
-      spaceId: input.spaceId,
-      botId: input.botId,
-      userId: input.userId,
-      title,
-      status,
-      notes,
-    },
-  }));
+  const row = await fencedScratchpadWrite(deps, input, (tx) =>
+    tx.scratchpadItem.create({
+      data: {
+        spaceId: input.spaceId,
+        botId: input.botId,
+        userId: input.userId,
+        title,
+        status,
+        notes,
+      },
+    }),
+  );
   return { item: mapScratchpadItem(row) };
 }
 
@@ -155,10 +162,12 @@ export async function updateScratchpadItemFromTool(
     return { error: "Provide title, status, and/or notes to update." };
   }
 
-  const row = await fencedScratchpadWrite(deps, (tx) => tx.scratchpadItem.update({
-    where: { id: existing.id },
-    data,
-  }));
+  const row = await fencedScratchpadWrite(deps, input, (tx) =>
+    tx.scratchpadItem.update({
+      where: { id: existing.id },
+      data,
+    }),
+  );
   return { item: mapScratchpadItem(row) };
 }
 
@@ -199,7 +208,9 @@ export async function removeScratchpadItemFromTool(
   });
   if (!existing) return { error: "Scratchpad item not found." };
 
-  await fencedScratchpadWrite(deps, (tx) => tx.scratchpadItem.delete({ where: { id: existing.id } }));
+  await fencedScratchpadWrite(deps, input, (tx) =>
+    tx.scratchpadItem.delete({ where: { id: existing.id } }),
+  );
   return { ok: true as const, itemId: existing.id, title: existing.title };
 }
 
@@ -219,9 +230,15 @@ export async function listScratchpadItemsFromTool(
   return { items };
 }
 
-async function fencedScratchpadWrite<T>(deps: ScratchpadToolDeps, write: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+async function fencedScratchpadWrite<T>(
+  deps: ScratchpadToolDeps,
+  scope: { spaceId: string; botId: string; threadId?: string },
+  write: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
   if (!deps.executionFence) return write(deps.prisma);
   return deps.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${scope.spaceId} FOR KEY SHARE`;
+    await tx.$queryRaw`SELECT id FROM bots WHERE id = ${scope.botId} FOR KEY SHARE`;
     await assertExecutionFence(tx, deps.executionFence!);
     return write(tx);
   });

@@ -83,7 +83,9 @@ async function runWithModel(
   });
   const prisma = {
     $queryRaw: vi.fn(async () => []),
-$transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) { return callback(this); }),
+    $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+      return callback(this);
+    }),
     user: { findUnique: vi.fn(async () => ({ uiLocale: "zh-CN" })) },
     run: {
       findUnique: vi.fn(async () => run),

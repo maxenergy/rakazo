@@ -1,5 +1,3 @@
-import { assertExecutionFence, StaleExecutionFenceError } from "@rakazo/db";
-import type { ExecutionFence } from "@rakazo/db";
 import { randomUUID } from "node:crypto";
 import type {
   AdapterContext,
@@ -106,9 +104,10 @@ import {
   stableJsonValue,
   toolEffectIdempotencyKey,
 } from "@rakazo/core/node/approval-effect-key";
-import type { McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+import type { ExecutionFence, McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  assertExecutionFence,
   createProposal,
   createSpaceForMember,
   createThreadMessageInTransaction,
@@ -126,6 +125,7 @@ import {
   recordUsage,
   retireModelCredential,
   SpaceLimitError,
+  StaleExecutionFenceError,
   searchHistory,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -3281,7 +3281,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
 
     async continueRun(runId: string, workerId: string) {
       const loadedRun = await deps.prisma.run.findUnique({ where: { id: runId } });
-      const run = loadedRun ? Object.assign(loadedRun, { executionFence: undefined as ExecutionFence | undefined }) : null;
+      const run = loadedRun
+        ? Object.assign(loadedRun, { executionFence: undefined as ExecutionFence | undefined })
+        : null;
       if (!run) return;
       if (isTerminal(run.status as RunStatus)) return;
       let { resumeCheckpoint, heldForTakeover, resumeHeldLease, takeoverResume } =
@@ -3341,9 +3343,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
       // before waiting for the bot's computer: while the bot works one long turn, its
       // colleagues' messages queue up, and each would otherwise wait for its own turn.
       if (run.trigger === "bot_message" && (await peerMessageAlreadySeen(deps.prisma, run))) {
-        const attempt = await withExecutionFence(deps, run.executionFence, (tx) => tx.attempt.create({
-          data: { runId, fence, status: "running" },
-        }));
+        const attempt = await withExecutionFence(deps, run.executionFence, (tx) =>
+          tx.attempt.create({
+            data: { runId, fence, status: "running" },
+          }),
+        );
         const skipped = await deps.events.finalizeRun({
           spaceId: run.spaceId,
           threadId: run.threadId,
@@ -3387,13 +3391,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
         await requeueComputerRun(deps, runId, workerId, fence, resumeCheckpoint, heldForTakeover);
         return;
       }
-      const attempt = await withExecutionFence(deps, run.executionFence, (tx) => tx.attempt.create({
+      const attempt = await withExecutionFence(deps, run.executionFence, (tx) =>
+        tx.attempt.create({
           data: { runId, fence, status: "running" },
-        }))
-        .catch(async (error) => {
-          await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
-          throw error;
-        });
+        }),
+      ).catch(async (error) => {
+        await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
+        throw error;
+      });
 
       let leaseValid = true;
       let lastLeaseCheckAt = 0;
@@ -3798,7 +3803,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
         // used; modelPinned is what keeps that record from becoming the next choice.
         if (!run.modelPinned) {
           await deps.prisma.run.updateMany({
-            where: { id: runId, status: "running", leaseOwner: workerId, leaseFence: fence, leaseExpiresAt: { gt: new Date() } },
+            where: {
+              id: runId,
+              status: "running",
+              leaseOwner: workerId,
+              leaseFence: fence,
+              leaseExpiresAt: { gt: new Date() },
+            },
             data: { modelProvider: runModelProvider, modelId: runModelId },
           });
         }
@@ -4041,7 +4052,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const flushProgress = async () => {
           if (scripted || !pendingProgress || isBackgroundRunTrigger(run.trigger)) return;
           await deps.events.append({
-          executionFence: run.executionFence,
+            executionFence: run.executionFence,
             spaceId: run.spaceId,
             threadId: thread.id,
             botId: bot.id,
@@ -4465,20 +4476,29 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   provider = createAutoReviewProvider("llm", {
                     llm: {
                       budgetScope: run.projectId
-                        ? { spaceId: run.spaceId, projectId: run.projectId, executionFence: run.executionFence }
+                        ? {
+                            spaceId: run.spaceId,
+                            projectId: run.projectId,
+                            executionFence: run.executionFence,
+                          }
                         : null,
                       onUsage: (event) =>
-                        recordUsage(deps.prisma, event, {
-                          spaceId: run.spaceId,
-                          userId: run.userId,
-                          botId: bot.id,
-                          parentRunId: runId,
-                          projectId: run.projectId,
-                          rootRunId: run.rootRunId ?? runId,
-                          runId,
-                          operationId: `auto-review:${runId}`,
-                          operationKind: "setup",
-                        }, { executionFence: { runId, leaseOwner: workerId, leaseFence: fence } }),
+                        recordUsage(
+                          deps.prisma,
+                          event,
+                          {
+                            spaceId: run.spaceId,
+                            userId: run.userId,
+                            botId: bot.id,
+                            parentRunId: runId,
+                            projectId: run.projectId,
+                            rootRunId: run.rootRunId ?? runId,
+                            runId,
+                            operationId: `auto-review:${runId}`,
+                            operationKind: "setup",
+                          },
+                          { executionFence: { runId, leaseOwner: workerId, leaseFence: fence } },
+                        ),
                       runtime: deps.runtime,
                       checker: checker!,
                       apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
@@ -4514,14 +4534,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 consequential: requiresApprovalByDefault,
               });
               if (applied) {
-                await withExecutionFence(deps, run.executionFence, (tx) => tx.externalEffect.update({
-                  where: { id: applied.effect.id },
-                  data: {
-                    reviewDecision: judge.decision,
-                    reviewReason: judge.reason,
-                    reviewModel: judge.model,
-                  },
-                }));
+                await withExecutionFence(deps, run.executionFence, (tx) =>
+                  tx.externalEffect.update({
+                    where: { id: applied.effect.id },
+                    data: {
+                      reviewDecision: judge.decision,
+                      reviewReason: judge.reason,
+                      reviewModel: judge.model,
+                    },
+                  }),
+                );
               }
             } catch {
               // Cancellation must not write a review the next attempt would reuse.
@@ -4533,16 +4555,18 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 consequential: requiresApprovalByDefault,
               });
               if (applied) {
-                await withExecutionFence(deps, run.executionFence, (tx) => tx.externalEffect.update({
-                  where: { id: applied.effect.id },
-                  data: {
-                    reviewDecision: "error",
-                    reviewReason,
-                    reviewModel: checker
-                      ? `${checker.provider}/${checker.model}`
-                      : (injectedReview?.describe().id ?? "auto-review"),
-                  },
-                }));
+                await withExecutionFence(deps, run.executionFence, (tx) =>
+                  tx.externalEffect.update({
+                    where: { id: applied.effect.id },
+                    data: {
+                      reviewDecision: "error",
+                      reviewReason,
+                      reviewModel: checker
+                        ? `${checker.provider}/${checker.model}`
+                        : (injectedReview?.describe().id ?? "auto-review"),
+                    },
+                  }),
+                );
               }
             }
           };
@@ -4580,7 +4604,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             from: "approved" | "intended",
           ): Promise<unknown | undefined> => {
             const claim = from === "approved" ? claimApprovedEffect : claimIntendedEffect;
-            if (await withExecutionFence(deps, run.executionFence, (tx) => claim(tx, applied!.effect.id))) {
+            if (
+              await withExecutionFence(deps, run.executionFence, (tx) =>
+                claim(tx, applied!.effect.id),
+              )
+            ) {
               claimedEffect = true;
               await deps.afterEffectClaim?.(applied!.effect.id);
               // The barrier or scheduling delay may have allowed another owner to claim.
@@ -4594,7 +4622,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               const retryGate = resolveDuplicateEffectGate(current, name);
               if (retryGate.action === "return") return retryGate.result;
               if (retryGate.action === "uncertain") {
-                return withExecutionFence(deps, run.executionFence, (tx) => settleUncertainEffect(tx, applied!.effect.id, name));
+                return withExecutionFence(deps, run.executionFence, (tx) =>
+                  settleUncertainEffect(tx, applied!.effect.id, name),
+                );
               }
             }
             throw uncertainEffectError(name);
@@ -4659,9 +4689,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                     effectUpdatedAt,
                   }) === "drop_leftover"
                 ) {
-                  await withExecutionFence(deps, run.executionFence, (tx) => tx.secret.delete({
-                    where: { id: replacementSecret.id },
-                  }));
+                  await withExecutionFence(deps, run.executionFence, (tx) =>
+                    tx.secret.delete({
+                      where: { id: replacementSecret.id },
+                    }),
+                  );
                   return gate.result;
                 }
               } else {
@@ -4693,7 +4725,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 return requestApproval();
               }
             } else if (gate.action === "uncertain") {
-              return withExecutionFence(deps, run.executionFence, (tx) => settleUncertainEffect(tx, applied.effect.id, gate.toolName));
+              return withExecutionFence(deps, run.executionFence, (tx) =>
+                settleUncertainEffect(tx, applied.effect.id, gate.toolName),
+              );
             } else if (gate.action === "execute") {
               const early = await claimOrReturn("approved");
               if (early !== undefined) return early;
@@ -4955,6 +4989,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                     filePath: outPath,
                     bytes: png,
                     operationId: executionId,
+                    executionFence: run.executionFence,
                   },
                 );
                 await publishMessage(deps, run, "bot", [result.block]);
@@ -5000,6 +5035,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   filePath,
                   bytes,
                   operationId: executionId,
+                  executionFence: run.executionFence,
                   name: typeof args.name === "string" ? args.name : undefined,
                   description: typeof args.description === "string" ? args.description : undefined,
                 },
@@ -5348,49 +5384,61 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
           }
           if (name === "scratchpad_add") {
-            const created = await addScratchpadItemFromTool({ ...deps, executionFence: run.executionFence }, {
-              spaceId: run.spaceId,
-              botId: bot.id,
-              userId: run.userId,
-              title: String(args.title ?? ""),
-              status: args.status ? String(args.status) : undefined,
-              notes: args.notes !== undefined ? String(args.notes) : undefined,
-            });
+            const created = await addScratchpadItemFromTool(
+              { ...deps, executionFence: run.executionFence },
+              {
+                spaceId: run.spaceId,
+                botId: bot.id,
+                userId: run.userId,
+                title: String(args.title ?? ""),
+                status: args.status ? String(args.status) : undefined,
+                notes: args.notes !== undefined ? String(args.notes) : undefined,
+              },
+            );
             return finish(created);
           }
           if (name === "scratchpad_update") {
-            const updated = await updateScratchpadItemFromTool({ ...deps, executionFence: run.executionFence }, {
-              spaceId: run.spaceId,
-              botId: bot.id,
-              userId: run.userId,
-              itemId: String(args.itemId ?? ""),
-              title: args.title !== undefined ? String(args.title) : undefined,
-              status: args.status !== undefined ? String(args.status) : undefined,
-              notes: args.notes !== undefined ? String(args.notes) : undefined,
-            });
+            const updated = await updateScratchpadItemFromTool(
+              { ...deps, executionFence: run.executionFence },
+              {
+                spaceId: run.spaceId,
+                botId: bot.id,
+                userId: run.userId,
+                itemId: String(args.itemId ?? ""),
+                title: args.title !== undefined ? String(args.title) : undefined,
+                status: args.status !== undefined ? String(args.status) : undefined,
+                notes: args.notes !== undefined ? String(args.notes) : undefined,
+              },
+            );
             return finish(updated);
           }
           if (name === "scratchpad_complete") {
-            const completed = await completeScratchpadItemFromTool({ ...deps, executionFence: run.executionFence }, {
-              spaceId: run.spaceId,
-              botId: bot.id,
-              userId: run.userId,
-              itemId: String(args.itemId ?? ""),
-            });
+            const completed = await completeScratchpadItemFromTool(
+              { ...deps, executionFence: run.executionFence },
+              {
+                spaceId: run.spaceId,
+                botId: bot.id,
+                userId: run.userId,
+                itemId: String(args.itemId ?? ""),
+              },
+            );
             return finish(completed);
           }
           if (name === "scratchpad_remove") {
-            const removed = await removeScratchpadItemFromTool({ ...deps, executionFence: run.executionFence }, {
-              spaceId: run.spaceId,
-              botId: bot.id,
-              userId: run.userId,
-              itemId: String(args.itemId ?? ""),
-            });
+            const removed = await removeScratchpadItemFromTool(
+              { ...deps, executionFence: run.executionFence },
+              {
+                spaceId: run.spaceId,
+                botId: bot.id,
+                userId: run.userId,
+                itemId: String(args.itemId ?? ""),
+              },
+            );
             return finish(removed);
           }
           if (name === "board_tickets") {
             return finish(
-              await listBoardTickets(deps, {
+              await listBoardTickets({ ...deps, executionFence: run.executionFence }, {
                 spaceId: run.spaceId,
                 status: args.status !== undefined ? String(args.status) : undefined,
                 assigneeBotId: args.ownerBotId !== undefined ? String(args.ownerBotId) : undefined,
@@ -5399,14 +5447,28 @@ export function createRunExecutor(deps: ExecutorDeps) {
             );
           }
           if (isDependencyToolName(name)) {
-            return finish(await executeDependencyTool({ ...deps, executionFence: run.executionFence }, run.spaceId, name, args));
+            return finish(
+              await executeDependencyTool(
+                { ...deps, executionFence: run.executionFence },
+                run.spaceId,
+                name,
+                args,
+              ),
+            );
           }
           if (isGoalToolName(name)) {
-            return finish(await executeGoalTool({ ...deps, executionFence: run.executionFence }, run.spaceId, name, args));
+            return finish(
+              await executeGoalTool(
+                { ...deps, executionFence: run.executionFence },
+                run.spaceId,
+                name,
+                args,
+              ),
+            );
           }
           if (name === "ticket_get") {
             return finish(
-              await getTicket(deps, {
+              await getTicket({ ...deps, executionFence: run.executionFence }, {
                 spaceId: run.spaceId,
                 ref: String(args.ref ?? ""),
               }),
@@ -5414,60 +5476,74 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
           if (name === "ticket_create") {
             return finish(
-              await createTicket({ ...deps, executionFence: run.executionFence }, {
-                spaceId: run.spaceId,
-                botId: bot.id,
-                userId: run.userId,
-                title: String(args.title ?? ""),
-                description: args.description !== undefined ? String(args.description) : undefined,
-                priority: args.priority !== undefined ? String(args.priority) : undefined,
-                ownerBotId: args.ownerBotId !== undefined ? String(args.ownerBotId) : undefined,
-              }),
+              await createTicket(
+                { ...deps, executionFence: run.executionFence },
+                {
+                  spaceId: run.spaceId,
+                  botId: bot.id,
+                  userId: run.userId,
+                  title: String(args.title ?? ""),
+                  description:
+                    args.description !== undefined ? String(args.description) : undefined,
+                  priority: args.priority !== undefined ? String(args.priority) : undefined,
+                  ownerBotId: args.ownerBotId !== undefined ? String(args.ownerBotId) : undefined,
+                },
+              ),
             );
           }
           if (name === "ticket_update") {
             return finish(
-              await updateTicket({ ...deps, executionFence: run.executionFence }, {
-                spaceId: run.spaceId,
-                botId: bot.id,
-                id: String(args.id ?? ""),
-                title: args.title !== undefined ? String(args.title) : undefined,
-                description: args.description !== undefined ? String(args.description) : undefined,
-                priority: args.priority !== undefined ? String(args.priority) : undefined,
-                status: args.status !== undefined ? String(args.status) : undefined,
-                ownerBotId: args.ownerBotId !== undefined ? String(args.ownerBotId) : undefined,
-              }),
+              await updateTicket(
+                { ...deps, executionFence: run.executionFence },
+                {
+                  spaceId: run.spaceId,
+                  botId: bot.id,
+                  id: String(args.id ?? ""),
+                  title: args.title !== undefined ? String(args.title) : undefined,
+                  description:
+                    args.description !== undefined ? String(args.description) : undefined,
+                  priority: args.priority !== undefined ? String(args.priority) : undefined,
+                  status: args.status !== undefined ? String(args.status) : undefined,
+                  ownerBotId: args.ownerBotId !== undefined ? String(args.ownerBotId) : undefined,
+                },
+              ),
             );
           }
           if (name === "ticket_comment") {
             return finish(
-              await commentTicket({ ...deps, executionFence: run.executionFence }, {
-                spaceId: run.spaceId,
-                botId: bot.id,
-                userId: run.userId,
-                id: String(args.id ?? ""),
-                body: String(args.body ?? ""),
-              }),
+              await commentTicket(
+                { ...deps, executionFence: run.executionFence },
+                {
+                  spaceId: run.spaceId,
+                  botId: bot.id,
+                  userId: run.userId,
+                  id: String(args.id ?? ""),
+                  body: String(args.body ?? ""),
+                },
+              ),
             );
           }
           if (name === "schedule_create") {
-            const created = await createScheduleFromTool({ ...deps, executionFence: run.executionFence }, {
-              spaceId: run.spaceId,
-              botId: bot.id,
-              userId: run.userId,
-              threadId: thread.id,
-              name: String(args.name ?? ""),
-              prompt: String(args.prompt ?? ""),
-              timezone: args.timezone ? String(args.timezone) : undefined,
-              schedule: compactScheduleInput({
-                cron: args.cron,
-                every: args.every,
-                unit: args.unit,
-                runAt: args.runAt,
-                delayMinutes: args.delayMinutes,
-                delaySeconds: args.delaySeconds,
-              }),
-            });
+            const created = await createScheduleFromTool(
+              { ...deps, executionFence: run.executionFence },
+              {
+                spaceId: run.spaceId,
+                botId: bot.id,
+                userId: run.userId,
+                threadId: thread.id,
+                name: String(args.name ?? ""),
+                prompt: String(args.prompt ?? ""),
+                timezone: args.timezone ? String(args.timezone) : undefined,
+                schedule: compactScheduleInput({
+                  cron: args.cron,
+                  every: args.every,
+                  unit: args.unit,
+                  runAt: args.runAt,
+                  delayMinutes: args.delayMinutes,
+                  delaySeconds: args.delaySeconds,
+                }),
+              },
+            );
             return finish(created);
           }
           if (name === "schedule_list") {
@@ -5479,14 +5555,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
           }
           if (name === "schedule_cancel") {
-            const cancelled = await cancelScheduleFromTool({ ...deps, executionFence: run.executionFence }, {
-              spaceId: run.spaceId,
-              botId: bot.id,
-              userId: run.userId,
-              ...(thread.groupId ? { threadId: thread.id } : {}),
-              routineId: args.routineId ? String(args.routineId) : undefined,
-              name: args.name ? String(args.name) : undefined,
-            });
+            const cancelled = await cancelScheduleFromTool(
+              { ...deps, executionFence: run.executionFence },
+              {
+                spaceId: run.spaceId,
+                botId: bot.id,
+                userId: run.userId,
+                ...(thread.groupId ? { threadId: thread.id } : {}),
+                routineId: args.routineId ? String(args.routineId) : undefined,
+                name: args.name ? String(args.name) : undefined,
+              },
+            );
             return finish(cancelled);
           }
           if (name === "skill_read") {
@@ -5599,6 +5678,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             let approvalEventSeq: number | undefined;
             try {
               const created = await deps.prisma.$transaction(async (tx) => {
+                await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${run.spaceId} FOR KEY SHARE`;
                 await tx.$queryRaw`SELECT id FROM threads WHERE id = ${run.threadId} FOR UPDATE`;
                 if (run.executionFence) await assertExecutionFence(tx, run.executionFence);
                 if (storedCredential) {
@@ -5793,12 +5873,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
               );
               changed = JSON.stringify(blocks) !== JSON.stringify(before);
               if (changed) {
-                await withExecutionFence(deps, run.executionFence, (tx) => tx.message.update({
-                  where: { id: existing.id },
-                  data: { blocks: blocks as Prisma.InputJsonValue },
-                }));
+                await withExecutionFence(deps, run.executionFence, (tx) =>
+                  tx.message.update({
+                    where: { id: existing.id },
+                    data: { blocks: blocks as Prisma.InputJsonValue },
+                  }),
+                );
                 await deps.events.append({
-          executionFence: run.executionFence,
+                  executionFence: run.executionFence,
                   spaceId: run.spaceId,
                   threadId: thread.id,
                   botId: bot.id,
@@ -5811,7 +5893,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             if (changed) {
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -5844,14 +5926,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             const parsed = parseProposalArgs(args);
             if (!parsed.ok) return finish({ error: parsed.error });
-            const { proposal, replayed } = await createProposal(deps.prisma, run, {
-              ...parsed.draft,
-              title: redactSecrets(parsed.draft.title, runSecrets),
-              summary: redactSecrets(parsed.draft.summary, runSecrets),
-              recommendation: redactSecrets(parsed.draft.recommendation, runSecrets),
-              botId: bot.id,
-              submitKey: effectKey,
-            }, run.executionFence);
+            const { proposal, replayed } = await createProposal(
+              deps.prisma,
+              run,
+              {
+                ...parsed.draft,
+                title: redactSecrets(parsed.draft.title, runSecrets),
+                summary: redactSecrets(parsed.draft.summary, runSecrets),
+                recommendation: redactSecrets(parsed.draft.recommendation, runSecrets),
+                botId: bot.id,
+                submitKey: effectKey,
+              },
+              run.executionFence,
+            );
             return finish({
               ok: true,
               proposalId: proposal.id,
@@ -5886,15 +5973,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const parsed = parseProposalArgs({ ...args, options: [] });
             if (!parsed.ok) return finish({ error: parsed.error });
             const choice = args.choice ? String(args.choice).trim().slice(0, 200) : "";
-            const { proposal, replayed } = await createProposal(deps.prisma, run, {
-              ...parsed.draft,
-              title: redactSecrets(parsed.draft.title, runSecrets),
-              summary: redactSecrets(parsed.draft.summary, runSecrets),
-              recommendation: redactSecrets(String(args.rationale ?? "").trim(), runSecrets),
-              botId: bot.id,
-              submitKey: effectKey,
-              teamDecision: { chosenOption: choice || null },
-            }, run.executionFence);
+            const { proposal, replayed } = await createProposal(
+              deps.prisma,
+              run,
+              {
+                ...parsed.draft,
+                title: redactSecrets(parsed.draft.title, runSecrets),
+                summary: redactSecrets(parsed.draft.summary, runSecrets),
+                recommendation: redactSecrets(String(args.rationale ?? "").trim(), runSecrets),
+                botId: bot.id,
+                submitKey: effectKey,
+                teamDecision: { chosenOption: choice || null },
+              },
+              run.executionFence,
+            );
             return finish({
               ok: true,
               decisionId: proposal.id,
@@ -5991,10 +6083,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
               // Action approval authorizes showing the card; it is not a credential submission.
               // Return the claim to intended so the answer transaction can approve the saved value.
               if (claimedEffect) {
-                const released = await withExecutionFence(deps, run.executionFence, (tx) => tx.externalEffect.updateMany({
-                  where: { id: applied!.effect.id, status: "executing" },
-                  data: { status: "intended" },
-                }));
+                const released = await withExecutionFence(deps, run.executionFence, (tx) =>
+                  tx.externalEffect.updateMany({
+                    where: { id: applied!.effect.id, status: "executing" },
+                    data: { status: "intended" },
+                  }),
+                );
                 if (released.count !== 1) return uncertainEffectResult(name);
                 claimedEffect = false;
               }
@@ -6038,9 +6132,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               // Retries without a secret reconcile via connectionReady / settle_attempt.
               return commitConsumedRunSecret({
                 deleteSecret: async () => {
-                  await withExecutionFence(deps, run.executionFence, (tx) => tx.secret.delete({
-                    where: { id: storedSecret.id },
-                  }));
+                  await withExecutionFence(deps, run.executionFence, (tx) =>
+                    tx.secret.delete({
+                      where: { id: storedSecret.id },
+                    }),
+                  );
                 },
                 afterSecretTaken: async () => {
                   let connectionResult: { connected: boolean; error?: string } | undefined;
@@ -6075,7 +6171,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 },
                 persist: (secretResult) =>
                   applied?.duplicate && applied.effect.status === "completed"
-                    ? withExecutionFence(deps, run.executionFence, (tx) => replaceCompletedExternalEffectResult(tx, applied!.effect.id, secretResult))
+                    ? withExecutionFence(deps, run.executionFence, (tx) =>
+                        replaceCompletedExternalEffectResult(tx, applied!.effect.id, secretResult),
+                      )
                     : persistEffectResult(secretResult),
                 onPersistFailed: uncertainEffectResult(name),
               });
@@ -6098,7 +6196,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   connected: true,
                 };
                 if (recordedForAsk.effect.status === "executing") {
-                  return (await withExecutionFence(deps, run.executionFence, (tx) => completeExternalEffect(tx, recordedForAsk.effect.id, "executing", connectedResult)))
+                  return (await withExecutionFence(deps, run.executionFence, (tx) =>
+                    completeExternalEffect(
+                      tx,
+                      recordedForAsk.effect.id,
+                      "executing",
+                      connectedResult,
+                    ),
+                  ))
                     ? connectedResult
                     : uncertainEffectResult(name);
                 }
@@ -6116,11 +6221,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 connectionError: "Connection could not be completed.",
               };
               if (recordedForAsk.effect.status === "executing") {
-                return (await withExecutionFence(deps, run.executionFence, (tx) => completeExternalEffect(tx, recordedForAsk.effect.id, "executing", failedAttempt)))
+                return (await withExecutionFence(deps, run.executionFence, (tx) =>
+                  completeExternalEffect(tx, recordedForAsk.effect.id, "executing", failedAttempt),
+                ))
                   ? failedAttempt
                   : uncertainEffectResult(name);
               }
-              return withExecutionFence(deps, run.executionFence, (tx) => settleUncertainEffect(tx, recordedForAsk.effect.id, "request_secret"));
+              return withExecutionFence(deps, run.executionFence, (tx) =>
+                settleUncertainEffect(tx, recordedForAsk.effect.id, "request_secret"),
+              );
             }
             if (!(await renewRunLease(deps, runId, workerId, fence))) {
               return pauseForSecret();
@@ -6250,6 +6359,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 userId: run.userId,
               },
               runId,
+              executionFence: run.executionFence,
               spawnKey: effectKey,
               name: String(args.name ?? ""),
               title: args.title ? String(args.title) : undefined,
@@ -6274,7 +6384,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 },
               ]);
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -6335,21 +6445,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
               await tx.$queryRaw`SELECT id FROM bots WHERE id = ${bot.id} FOR UPDATE`;
               if (run.executionFence) await assertExecutionFence(tx, run.executionFence);
               return tx.bot.update({
-              where: { id: bot.id },
-              data: patch,
-              select: {
-                id: true,
-                name: true,
-                title: true,
-                description: true,
-                color: true,
-                notifyOnFinish: true,
-              },
+                where: { id: bot.id },
+                data: patch,
+                select: {
+                  id: true,
+                  name: true,
+                  title: true,
+                  description: true,
+                  color: true,
+                  notifyOnFinish: true,
+                },
               });
             });
             try {
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -6504,7 +6614,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 },
               ]);
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -6528,7 +6638,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 const logIds = collectLogIds(event.data);
                 for (const logId of logIds) {
                   await deps.events.append({
-          executionFence: run.executionFence,
+                    executionFence: run.executionFence,
                     spaceId: run.spaceId,
                     threadId: thread.id,
                     botId: bot.id,
@@ -6542,7 +6652,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 result = { error: event.message };
                 for (const logId of event.logIds ?? []) {
                   await deps.events.append({
-          executionFence: run.executionFence,
+                    executionFence: run.executionFence,
                     spaceId: run.spaceId,
                     threadId: thread.id,
                     botId: bot.id,
@@ -6737,23 +6847,32 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const runtimeEvents = deps.runtime.run(
             {
               budgetScope: run.projectId
-                ? { spaceId: run.spaceId, projectId: run.projectId, executionFence: run.executionFence }
+                ? {
+                    spaceId: run.spaceId,
+                    projectId: run.projectId,
+                    executionFence: run.executionFence,
+                  }
                 : null,
               botId: bot.id,
               threadId: thread.id,
               runId,
               sourceMessageId: run.sourceMessageId,
               onUsage: async (event) => {
-                await recordUsage(deps.prisma, event, {
-                  spaceId: run.spaceId,
-                  botId: bot.id,
-                  userId: run.userId,
-                  runId,
-                  parentRunId: runId,
-                  projectId: run.projectId,
-                  rootRunId: run.rootRunId ?? runId,
-                  operationId: runId,
-                }, { executionFence: { runId, leaseOwner: workerId, leaseFence: fence } });
+                await recordUsage(
+                  deps.prisma,
+                  event,
+                  {
+                    spaceId: run.spaceId,
+                    botId: bot.id,
+                    userId: run.userId,
+                    runId,
+                    parentRunId: runId,
+                    projectId: run.projectId,
+                    rootRunId: run.rootRunId ?? runId,
+                    operationId: runId,
+                  },
+                  { executionFence: { runId, leaseOwner: workerId, leaseFence: fence } },
+                );
               },
               prompt,
               uiLocale: normalizeUiLocale(user?.uiLocale),
@@ -6999,7 +7118,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               // ahead of text the model streamed before the tool call.
               if (pendingProgress) {
                 await deps.events.append({
-          executionFence: run.executionFence,
+                  executionFence: run.executionFence,
                   spaceId: run.spaceId,
                   threadId: thread.id,
                   botId: bot.id,
@@ -7011,7 +7130,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 lastProgressAt = Date.now();
               }
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -7130,7 +7249,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 await publishMidTurnNarration();
               }
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -7238,7 +7357,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 : undefined;
               const safeResult = event.result ? redactSecrets(event.result, runSecrets) : undefined;
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -7282,16 +7401,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 );
               }
             } else if (event.type === "usage" && !event.accounted) {
-              await recordUsage(deps.prisma, event, {
-                spaceId: run.spaceId,
-                botId: bot.id,
-                userId: run.userId,
-                runId,
-                parentRunId: runId,
-                projectId: run.projectId,
-                rootRunId: run.rootRunId ?? runId,
-                operationId: runId,
-              }, { executionFence: { runId, leaseOwner: workerId, leaseFence: fence } });
+              await recordUsage(
+                deps.prisma,
+                event,
+                {
+                  spaceId: run.spaceId,
+                  botId: bot.id,
+                  userId: run.userId,
+                  runId,
+                  parentRunId: runId,
+                  projectId: run.projectId,
+                  rootRunId: run.rootRunId ?? runId,
+                  operationId: runId,
+                },
+                { executionFence: { runId, leaseOwner: workerId, leaseFence: fence } },
+              );
             } else if (event.type === "done") {
               if (!assembled && event.text) {
                 if (publishedMidTurnUserMessage || discardedMidTurnNarration) {
@@ -7336,7 +7460,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 context,
               );
               await deps.events.append({
-          executionFence: run.executionFence,
+                executionFence: run.executionFence,
                 spaceId: run.spaceId,
                 threadId: thread.id,
                 botId: bot.id,
@@ -8392,50 +8516,50 @@ async function writeComputerRunRequeue(
   failedAttemptId?: string,
 ): Promise<boolean> {
   return deps.prisma.$transaction(async (tx) => {
-  const whereLease = {
-    id: runId,
-    status: "running" as const,
-    leaseOwner: workerId,
-    leaseFence: fence,
-    leaseExpiresAt: { gt: new Date() },
-  };
-  const releasedHold = {
-    status: "queued" as const,
-    error,
-    leaseOwner: null,
-    leaseExpiresAt: null,
-  };
-  const preserve = await tx.run.updateMany({
-    where: {
-      ...whereLease,
-      checkpoint: { in: [...TAKEOVER_RESUME_CHECKPOINTS] },
-    },
-    data: releasedHold,
-  });
-  if (preserve.count === 1) return finish();
-  const planned = await tx.run.updateMany({
-    where: { ...whereLease, checkpoint: null },
-    data: computerRunRequeueData(resumeCheckpoint, error, heldForTakeover),
-  });
-  if (planned.count === 1) return finish();
-  const retried = await tx.run.updateMany({
-    where: {
-      ...whereLease,
-      checkpoint: { in: [...TAKEOVER_RESUME_CHECKPOINTS] },
-    },
-    data: releasedHold,
-  });
-  return retried.count === 1 ? finish() : false;
+    const whereLease = {
+      id: runId,
+      status: "running" as const,
+      leaseOwner: workerId,
+      leaseFence: fence,
+      leaseExpiresAt: { gt: new Date() },
+    };
+    const releasedHold = {
+      status: "queued" as const,
+      error,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+    };
+    const preserve = await tx.run.updateMany({
+      where: {
+        ...whereLease,
+        checkpoint: { in: [...TAKEOVER_RESUME_CHECKPOINTS] },
+      },
+      data: releasedHold,
+    });
+    if (preserve.count === 1) return finish();
+    const planned = await tx.run.updateMany({
+      where: { ...whereLease, checkpoint: null },
+      data: computerRunRequeueData(resumeCheckpoint, error, heldForTakeover),
+    });
+    if (planned.count === 1) return finish();
+    const retried = await tx.run.updateMany({
+      where: {
+        ...whereLease,
+        checkpoint: { in: [...TAKEOVER_RESUME_CHECKPOINTS] },
+      },
+      data: releasedHold,
+    });
+    return retried.count === 1 ? finish() : false;
 
-  async function finish(): Promise<boolean> {
-    if (failedAttemptId) {
-      await tx.attempt.update({
-        where: { id: failedAttemptId },
-        data: { status: "setup_failed", error, finishedAt: new Date() },
-      });
+    async function finish(): Promise<boolean> {
+      if (failedAttemptId) {
+        await tx.attempt.update({
+          where: { id: failedAttemptId },
+          data: { status: "setup_failed", error, finishedAt: new Date() },
+        });
+      }
+      return true;
     }
-    return true;
-  }
   });
 }
 
@@ -8561,7 +8685,13 @@ async function publishMessage(
 
 async function persistMessageInTransaction(
   tx: Prisma.TransactionClient,
-  run: { id: string; spaceId: string; threadId: string; botId: string; executionFence?: ExecutionFence },
+  run: {
+    id: string;
+    spaceId: string;
+    threadId: string;
+    botId: string;
+    executionFence?: ExecutionFence;
+  },
   role: "user" | "bot" | "system",
   blocks: MessageBlock[],
   markUnread?: boolean,
@@ -8621,7 +8751,13 @@ export function legacyPiToolCallId(executionId: string): string | undefined {
 
 export async function recordEffect(
   deps: ExecutorDeps,
-  run: { id: string; spaceId: string; threadId: string; botId: string; executionFence?: ExecutionFence },
+  run: {
+    id: string;
+    spaceId: string;
+    threadId: string;
+    botId: string;
+    executionFence?: ExecutionFence;
+  },
   kind: string,
   idempotencyKey: string,
   request: unknown,
@@ -8636,7 +8772,8 @@ export async function recordEffect(
   }
   if (existing) {
     consumedIds?.add(existing.id);
-    await deps.events.append({ executionFence: run.executionFence,
+    await deps.events.append({
+      executionFence: run.executionFence,
       spaceId: run.spaceId,
       threadId: run.threadId,
       botId: run.botId,
@@ -8690,7 +8827,8 @@ export async function recordEffect(
         stableJsonValue(sameIdLegacy.request) === expectedRequest
       ) {
         consumedIds?.add(sameIdLegacy.id);
-        await deps.events.append({ executionFence: run.executionFence,
+        await deps.events.append({
+          executionFence: run.executionFence,
           spaceId: run.spaceId,
           threadId: run.threadId,
           botId: run.botId,
@@ -8729,7 +8867,8 @@ export async function recordEffect(
         });
   if (legacy) {
     consumedIds?.add(legacy.id);
-    await deps.events.append({ executionFence: run.executionFence,
+    await deps.events.append({
+      executionFence: run.executionFence,
       spaceId: run.spaceId,
       threadId: run.threadId,
       botId: run.botId,
@@ -8740,16 +8879,20 @@ export async function recordEffect(
     return { duplicate: true, effect: legacy };
   }
 
-  const effect = await withExecutionFence(deps, run.executionFence, (tx) => tx.externalEffect.create({
-    data: {
-      spaceId: run.spaceId,
-      runId: run.id,
-      kind,
-      idempotencyKey,
-      status: "intended",
-      request: request as never,
-    },
-  }));
+  const effect = await deps.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${run.spaceId} FOR KEY SHARE`;
+    if (run.executionFence) await assertExecutionFence(tx, run.executionFence);
+    return tx.externalEffect.create({
+      data: {
+        spaceId: run.spaceId,
+        runId: run.id,
+        kind,
+        idempotencyKey,
+        status: "intended",
+        request: request as never,
+      },
+    });
+  });
   consumedIds?.add(effect.id);
   return { duplicate: false, effect };
 }
@@ -8768,7 +8911,9 @@ async function completeEffect(
     "details" in result
       ? (result as { details: unknown }).details
       : result;
-  return withExecutionFence(deps, executionFence, (tx) => completeExternalEffect(tx, effectId, expectedStatus, storedResult as never));
+  return withExecutionFence(deps, executionFence, (tx) =>
+    completeExternalEffect(tx, effectId, expectedStatus, storedResult as never),
+  );
 }
 
 function uncertainEffectError(toolName: string): Error {
@@ -9349,6 +9494,7 @@ export async function recoverUnfinishedEffects(
   fence: ExecutionFence,
 ): Promise<void> {
   await deps.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${run.spaceId} FOR KEY SHARE`;
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${run.threadId} FOR UPDATE`;
     await assertExecutionFence(tx, fence);
     const unfinished = await tx.externalEffect.findMany({
@@ -9358,7 +9504,10 @@ export async function recoverUnfinishedEffects(
     for (const effect of unfinished) {
       const updated = await tx.externalEffect.updateMany({
         where: { id: effect.id, status: "executing" },
-        data: { status: "uncertain", result: uncertainEffectResult(effect.kind) as Prisma.InputJsonValue },
+        data: {
+          status: "uncertain",
+          result: uncertainEffectResult(effect.kind) as Prisma.InputJsonValue,
+        },
       });
       if (updated.count !== 1) continue;
       await appendEventInTransaction(tx, {
@@ -9368,7 +9517,13 @@ export async function recoverUnfinishedEffects(
         botId: run.botId,
         runId: run.id,
         type: "effect.reconciled",
-        payload: { effectId: effect.id, kind: effect.kind, status: "uncertain", reason: "execution_takeover", requiresReview: true },
+        payload: {
+          effectId: effect.id,
+          kind: effect.kind,
+          status: "uncertain",
+          reason: "execution_takeover",
+          requiresReview: true,
+        },
       });
     }
   });

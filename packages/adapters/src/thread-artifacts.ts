@@ -18,7 +18,7 @@ import {
   messageBlockForArtifact,
   validateAttachmentMimeType,
 } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import type { PrismaClient, ExecutionFence } from "@rakazo/db";
 import { withResolvedArtifactVersion } from "@rakazo/db";
 import { resolveBotWorkspacePath } from "./computer-support.js";
 
@@ -43,6 +43,7 @@ export async function attachWorkspaceFileToThread(
     filePath: string;
     bytes: Uint8Array;
     operationId: string;
+    executionFence?: ExecutionFence;
     name?: string;
     description?: string;
   },
@@ -75,6 +76,7 @@ export async function attachWorkspaceFileToThread(
       userId: input.userId,
       botId: input.botId,
       groupId: input.groupId,
+      executionFence: input.executionFence,
       name,
     },
     (tx, { rootArtifactId, version }) =>

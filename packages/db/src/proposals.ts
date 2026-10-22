@@ -1,4 +1,3 @@
-import { assertExecutionFence, StaleExecutionFenceError, type ExecutionFence } from "./execution-fence.js";
 import type {
   Actor,
   DecideProposalInput,
@@ -9,6 +8,11 @@ import type {
 import { ProposalKindSchema, ProposalStatusSchema } from "@rakazo/contracts";
 import { decideOverrunApprovalInTransaction } from "./budget-overrun-approvals.js";
 import type { Prisma, PrismaClient } from "./client.js";
+import {
+  assertExecutionFence,
+  type ExecutionFence,
+  StaleExecutionFenceError,
+} from "./execution-fence.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 
 type ProposalRow = {

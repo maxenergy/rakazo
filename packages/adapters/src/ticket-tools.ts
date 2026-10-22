@@ -8,14 +8,14 @@ import {
 } from "@rakazo/contracts";
 import type { ExecutionFence, PrismaClient } from "@rakazo/db";
 import {
-  assertExecutionFence,
-  lockTicketSpace,
   allocateTicketNumber,
+  assertExecutionFence,
   enqueueDependentWakes,
   ensureBoard,
   findTicket,
   listTicketComments,
   lockTicketForLinkUpdate,
+  lockTicketSpace,
   resolveTicketLinks,
   toTicketCommentDto,
   toTicketDto,
@@ -99,7 +99,7 @@ export async function listBoardTickets(
     if ("error" in decoded) return decoded;
     pageCursor = decoded;
   }
-  const board = await ensureBoard(deps.prisma, input.spaceId);
+  const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
   const rows = await deps.prisma.ticket.findMany({
     where: {
       spaceId: input.spaceId,
@@ -135,7 +135,7 @@ export async function getTicket(deps: TicketToolDeps, input: { spaceId: string; 
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
   const ref = input.ref.trim();
   if (!ref) return { error: "ref is required." };
-  const board = await ensureBoard(deps.prisma, input.spaceId);
+  const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
   const row =
     (await findTicket(deps.prisma, input.spaceId, board, { ref })) ??
     (await findTicket(deps.prisma, input.spaceId, board, { id: ref }));
@@ -297,10 +297,10 @@ export async function commentTicket(
   const ticket = await findTicket(deps.prisma, input.spaceId, board, { id: input.id });
   if (!ticket) return { error: "Ticket not found." };
   const row = await deps.prisma.$transaction(async (tx) => {
-      if (deps.executionFence) {
-        await lockTicketSpace(tx, input.spaceId);
-        await assertExecutionFence(tx, deps.executionFence);
-      }
+    if (deps.executionFence) {
+      await lockTicketSpace(tx, input.spaceId);
+      await assertExecutionFence(tx, deps.executionFence);
+    }
     const comment = await tx.ticketComment.create({
       include: { authorBot: { select: { name: true } }, authorUser: { select: { name: true } } },
       data: {

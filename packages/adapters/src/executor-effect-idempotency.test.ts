@@ -108,7 +108,9 @@ function fixture(runId = "run-1", afterEffectClaim?: (effectId: string) => Promi
   };
   const prisma = {
     $queryRaw: vi.fn(async () => []),
-$transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) { return callback(this); }),
+    $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+      return callback(this);
+    }),
     user: { findUnique: vi.fn(async () => ({ uiLocale: "en" })) },
     run: {
       findUnique: vi.fn(async () => run),
@@ -243,7 +245,13 @@ describe("mutating tool effect idempotency keys", () => {
     const f = fixture("barrier-run", async () => {
       f.prisma.run.updateMany.mockImplementationOnce(async () => ({ count: 0 }));
     });
-    f.setCalls([{ name: "remember", args: { path: "MEMORY.md", content: "synthetic barrier note" }, executionId: "barrier-call" }]);
+    f.setCalls([
+      {
+        name: "remember",
+        args: { path: "MEMORY.md", content: "synthetic barrier note" },
+        executionId: "barrier-call",
+      },
+    ]);
     await f.run();
     expect(f.effects).toHaveLength(1);
     expect(f.effects[0]).toMatchObject({ status: "executing" });

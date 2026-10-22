@@ -2,6 +2,7 @@ import type { Actor, Bot, BotOrgRole, BotSection, MessageBlock, SpaceBot } from 
 import { BOT_COLORS, parseBotOrgRole } from "@rakazo/contracts";
 import { BACKGROUND_RUN_TRIGGERS, isBackgroundRunTrigger, userVisibleMessages } from "@rakazo/core";
 import type { PrismaClient } from "./client.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import type { ComputerMode } from "./computers.js";
 import { ensureComputerRecord, parseComputerMode } from "./computers.js";
 import { createThreadMessageInTransaction } from "./messages.js";
@@ -434,6 +435,7 @@ export function createRepos(prisma: PrismaClient) {
         orgRole?: BotOrgRole | null;
         team?: string;
         reportsToBotId?: string | null;
+        executionFence?: ExecutionFence;
         initialMessage?: {
           role: "user" | "bot" | "system";
           blocks: MessageBlock[];
@@ -565,6 +567,8 @@ export function createRepos(prisma: PrismaClient) {
               content: `# ${input.name}\n\n`,
             },
           });
+          // Check after creation locks; a stale holder rolls back every inserted row.
+          if (input.executionFence) await assertExecutionFence(tx, input.executionFence);
           return tx.bot.findFirstOrThrow({
             where: { id: created.id },
             include: { thread: true, computer: true },
@@ -596,9 +600,13 @@ export function createRepos(prisma: PrismaClient) {
         } else {
           // Free the key from the archived bot so empty-space onboarding
           // creates a fresh first bot (stale thread/runtime must not return).
-          await prisma.bot.update({
-            where: { id: existing.id },
-            data: { spawnKey: null },
+          await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM bots WHERE id = ${existing.id} AND "spaceId" = ${actor.spaceId} FOR UPDATE`;
+            if (input.executionFence) await assertExecutionFence(tx, input.executionFence);
+            await tx.bot.updateMany({
+              where: { id: existing.id, spaceId: actor.spaceId, spawnKey: input.spawnKey, archivedAt: { not: null } },
+              data: { spawnKey: null },
+            });
           });
           try {
             bot = await insertBot();

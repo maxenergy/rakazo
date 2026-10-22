@@ -1,9 +1,16 @@
-import { createDb, assertExecutionFence } from "@rakazo/db";
 import { recordEffect } from "@rakazo/adapters";
+import { assertExecutionFence, createDb } from "@rakazo/db";
+
 const url = process.env.RAK_CRASH_TEST_DATABASE_URL;
 if (!url) throw new Error("Missing disposable database URL");
 const parsed = new URL(url);
-if (!/^rak_t_[a-z0-9_]{1,40}$/.test(parsed.pathname.slice(1)) || !["localhost", "127.0.0.1"].includes(parsed.hostname) || !parsed.port || parsed.port === "5432") throw new Error("Requires private disposable database");
+if (
+  !/^rak_t_[a-z0-9_]{1,40}$/.test(parsed.pathname.slice(1)) ||
+  !["localhost", "127.0.0.1"].includes(parsed.hostname) ||
+  !parsed.port ||
+  parsed.port === "5432"
+)
+  throw new Error("Requires private disposable database");
 const runId = process.env.RAK_FENCE_TEST_RUN_ID;
 if (!runId) throw new Error("Missing synthetic run ID");
 const db = createDb(url);
@@ -11,7 +18,13 @@ const run = await db.prisma.run.findUniqueOrThrow({ where: { id: runId } });
 if (!run.leaseOwner) throw new Error("Missing lease owner");
 const fence = { runId, leaseOwner: run.leaseOwner, leaseFence: run.leaseFence };
 const deps = { prisma: db.prisma } as Parameters<typeof recordEffect>[0];
-const { effect } = await recordEffect(deps, { ...run, executionFence: fence }, "synthetic_write", `crash-${runId}`, {});
+const { effect } = await recordEffect(
+  deps,
+  { ...run, executionFence: fence },
+  "synthetic_write",
+  `crash-${runId}`,
+  {},
+);
 await db.prisma.$transaction(async (tx) => {
   await assertExecutionFence(tx, fence);
   await tx.externalEffect.update({ where: { id: effect.id }, data: { status: "executing" } });

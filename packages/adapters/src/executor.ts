@@ -3899,6 +3899,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
             events: {
               publish: async (type, decision) => {
                 const event = await deps.prisma.$transaction(async (tx) => {
+                  // Match finalizeRun and clearThread: lock Thread before Run.
+                  await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
                   const owned = await tx.run.updateMany({
                     where: {
                       id: runId, status: "running", leaseOwner: workerId,

@@ -37,7 +37,7 @@ export {
 } from "./cli-model-admission.js";
 export * from "./cli-model-catalog.js";
 export { CliModelSignInError } from "./cli-model-login.js";
-export { isCliModelProvider, removeCliProfile } from "./cli-model-process.js";
+export { isCliModelProvider, removeCliProfile, runCliProcess } from "./cli-model-process.js";
 export * from "./cloud-agent-emulator.js";
 export * from "./cloud-agent-factory.js";
 export * from "./cloud-agent-poll.js";

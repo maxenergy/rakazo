@@ -1,4 +1,5 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentRuntime } from "@rakazo/adapter-kit";
@@ -8,6 +9,7 @@ import {
   FakeSandboxProvider,
   LocalAgentHomeStore,
   recordEffect,
+  runCliProcess,
 } from "@rakazo/adapters";
 import { toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
 import {
@@ -41,6 +43,29 @@ async function boundary(name: string) {
   await channel.barrier(name, { fence: run.leaseFence, attemptId: attempt?.id ?? null });
 }
 const sandbox = new FakeSandboxProvider();
+if (process.env.RAK_FAULT_LOW_DISK === "1") {
+  const execute = sandbox.execute.bind(sandbox);
+  sandbox.execute = async function* (computer, request, context) {
+    if (request.argv[0] === "python3" && request.argv[1] === "-c") {
+      yield {
+        type: "stdout",
+        data: JSON.stringify(
+          request.argv.slice(3).map((path) => ({
+            path,
+            fsId: "private-low-disk",
+            bavail: "1",
+            frsize: "4096",
+            availBytes: "4096",
+            sampledAt: Date.now(),
+          })),
+        ),
+      };
+      yield { type: "exit", code: 0 };
+      return;
+    }
+    yield* execute(computer, request, context);
+  };
+}
 const memory = {
   describe: () => ({
     id: "fault-memory",
@@ -86,7 +111,76 @@ const runtime: AgentRuntime = {
   }),
   abort: async () => undefined,
   async *run(request) {
+    if (request.runId.endsWith(":auto-review")) {
+      if (request.model.provider === "openai" || process.env.RAK_FAULT_REVIEW_QUOTA === "all")
+        throw Object.assign(new Error("Synthetic reviewer quota exhausted"), {
+          code: "insufficient_quota",
+          status: 429,
+        });
+      if (request.model.provider !== "anthropic") throw new Error("Unexpected reviewer identity");
+      const callId = `${request.runId}:billable`;
+      const scope = request.budgetScope!;
+      const reserved = await reserveBudget(db.prisma, {
+        ...scope,
+        callId,
+        amountMicroUsd: 250000n,
+      });
+      if (!reserved.ok) throw new Error("Synthetic reviewer budget refused");
+      await startBudgetReservation(db.prisma, { ...scope, callId });
+      await request.onUsage!({
+        type: "usage",
+        provider: "anthropic",
+        model: "synthetic-review",
+        callId,
+        inputTokens: 10,
+        outputTokens: 5,
+        costUsdDecimal: "0.125",
+        billingKind: "api",
+      });
+      await settleBudget(db.prisma, { ...scope, callId, actualMicroUsd: 125000n });
+      yield {
+        type: "done",
+        text: JSON.stringify({ decision: "pass", reason: "Synthetic independent review" }),
+      };
+      return;
+    }
     await boundary("runtime-entered");
+    if (process.env.RAK_FAULT_DELAYED_STEERING === "1") {
+      const messages = await request.claimSteering!([]);
+      await request.onSteeringDelivered!(messages.map((item) => item.id));
+      const applied = messages.map((message) => ({
+        id: message.id,
+        messageId: message.messageId,
+        appliedAt: Date.now(),
+      }));
+      await request.onSegmentCheckpoint!(JSON.stringify(applied));
+      if ((await request.claimSteering!(applied.map((item) => item.id))).length)
+        throw new Error("Steering replayed after application");
+      await channel.barrier("steering-applied");
+      yield { type: "done", text: "Synthetic steering applied" };
+      return;
+    }
+    if (process.env.RAK_FAULT_CLI_TIMEOUT === "1") {
+      const executable = join(dataDir, "codex");
+      await writeFile(
+        executable,
+        `#!${process.execPath}\nconsole.log("fixture-pid=" + process.pid); setInterval(() => {}, 1000);\n`,
+        { mode: 0o700 },
+      );
+      process.env.PATH = `${dataDir}:${process.env.PATH}`;
+      process.env.DATA_DIR = dataDir;
+      await runCliProcess({
+        provider: "codex-cli",
+        profileId: randomUUID(),
+        args: [],
+        timeoutMs: 500,
+        onOutput: async (text) => {
+          const pid = text.match(/fixture-pid=(\d+)/)?.[1];
+          if (pid) await request.onSegmentCheckpoint!(JSON.stringify({ cliPid: Number(pid) }));
+        },
+      });
+      throw new Error("CLI timeout fixture unexpectedly completed");
+    }
     const scenario = process.env.RAK_FAULT_STALE_CALLBACK;
     if (scenario) {
       if (scenario === "checkpoint") {
@@ -135,6 +229,13 @@ const runtime: AgentRuntime = {
     });
     await settleBudget(db.prisma, { ...scope, callId, actualMicroUsd: 125000n });
     if (process.env.RAK_FAULT_USAGE_BARRIER === "1") await boundary("usage-committed");
+    if (process.env.RAK_FAULT_REVIEW_QUOTA) {
+      await request.executeTool!(
+        "forget_secret",
+        { name: "synthetic-absent-credential" },
+        "review-effect",
+      );
+    }
     if (process.env.RAK_FAULT_EFFECT === "1") {
       if (process.env.RAK_FAULT_BEFORE_DISPATCH === "1" && config.instanceId === "effect-old") {
         const run = await db.prisma.run.findUniqueOrThrow({ where: { id: config.runId } });

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { assertExecutionFence, createDb, setProjectBudget } from "@rakazo/db";
+import { EncryptedSecretStore } from "@rakazo/adapters";
+import { assertExecutionFence, createDb, createThreadEvents, setProjectBudget } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { completeExternalEffect } from "../../../adapters/src/approval-effect.js";
 import type { DisposableCluster } from "./disposable-postgres.js";
@@ -115,6 +116,232 @@ describe.skipIf(!available)("full execution worker fault harness PostgreSQL", ()
     workers.push(handle);
     return handle;
   }
+  for (const quota of ["first", "all"]) {
+    it(`routes reviewer quota (${quota}) through independent failover or explicit pause`, async () => {
+      const { run, space, bot, id } = await fixture();
+      await db.prisma.user.create({
+        data: { id, name: "Synthetic fixture", email: `${id}@example.invalid` },
+      });
+      await db.prisma.actionAutoReviewPreference.create({
+        data: { spaceId: space.id, userId: id, enabled: true },
+      });
+      const store = new EncryptedSecretStore("synthetic-fault-fixture-key");
+      for (const provider of ["openai", "anthropic"]) {
+        const sealed = await store.put("synthetic-offline-placeholder", {
+          operationId: "fixture",
+          traceId: "fixture",
+          spaceId: space.id,
+          userId: id,
+          signal: new AbortController().signal,
+        });
+        await db.prisma.secret.create({
+          data: { id: sealed.id, userId: id, kind: "model", ciphertext: sealed.ciphertext! },
+        });
+        await db.prisma.userModelCredential.create({
+          data: { userId: id, provider, label: "Synthetic reviewer", secretId: sealed.id },
+        });
+      }
+      await db.prisma.botBackupModel.create({
+        data: { botId: bot.id, provider: "anthropic", modelId: "synthetic-review", position: 0 },
+      });
+      const reviewing = await worker(run.id, `quota-${quota}`, {
+        RAK_FAULT_REVIEW_QUOTA: quota,
+        RAKAZO_AUTO_REVIEW_PROVIDER: "openai",
+        RAKAZO_AUTO_REVIEW_MODEL: "synthetic-review",
+      });
+      const entered = await reviewing.waitFor("reached", "runtime-entered");
+      await reviewing.release(entered);
+      expect(await reviewing.drain()).toEqual({ code: 0, signal: null });
+      const events = await db.prisma.event.findMany({
+        where: { runId: run.id, type: "effect.recorded" },
+        orderBy: { seq: "asc" },
+      });
+      const attempts = events
+        .map((event) => event.payload as Record<string, unknown>)
+        .filter((payload) => payload.kind === "auto_review.attempt");
+      expect(attempts).toHaveLength(2);
+      expect(attempts[0]).toMatchObject({
+        provider: "openai",
+        failureClass: "quota",
+        disposition: "switch",
+      });
+      expect(attempts[1]).toMatchObject({
+        provider: "anthropic",
+        disposition: quota === "first" ? "pass" : "ask",
+      });
+      expect(attempts.every((item) => item.provider !== item.primaryProvider)).toBe(true);
+      expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+        status: quota === "first" ? "completed" : "waiting_input",
+      });
+      const calls = new Map([[`${run.id}-${entered.fence}`, 125000n]]);
+      if (quota === "first") calls.set(`${attempts[1]!.usageKey}:auto-review:billable`, 125000n);
+      assertUniqueBilling(await ledgerSnapshot(db.prisma, space.id, [...calls.keys()]), calls);
+      const effects = await db.prisma.externalEffect.findMany({ where: { runId: run.id } });
+      expect(effects).toHaveLength(1);
+      expect(effects[0]!.reviewDecision).toBe(quota === "first" ? "pass" : "ask");
+    }, 60_000);
+  }
+
+  it("terminates a real CLI child at the turn deadline and persists failure without billing", async () => {
+    const { run, space } = await fixture();
+    const timed = await worker(run.id, "cli-timeout", { RAK_FAULT_CLI_TIMEOUT: "1" });
+    const entered = await timed.waitFor("reached", "runtime-entered");
+    await timed.release(entered);
+    expect(await timed.drain()).toEqual({ code: 0, signal: null });
+    const failed = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+    expect(failed).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining("CLI request timed out"),
+    });
+    const { cliPid } = JSON.parse(JSON.parse(failed.segmentCheckpoint!).runtime) as {
+      cliPid: number;
+    };
+    expect(cliPid).toBeGreaterThan(0);
+    expect(() => process.kill(cliPid, 0)).toThrow();
+    expect(await db.prisma.attempt.count({ where: { runId: run.id } })).toBe(1);
+    const ledger = await ledgerSnapshot(db.prisma, space.id, []);
+    expect(ledger.usage).toHaveLength(0);
+    expect(ledger.settlements).toHaveLength(0);
+    expect(ledger.effects).toHaveLength(0);
+    expect(await db.prisma.budgetReservation.count({ where: { spaceId: space.id } })).toBe(0);
+  }, 60_000);
+
+  it("applies 20 delayed steering messages once in order across crash recovery", async () => {
+    const { run, space, bot, thread, id } = await fixture();
+    const env = { RAK_FAULT_DELAYED_STEERING: "1" };
+    const first = await worker(run.id, "steering-before", env);
+    const entered = await first.waitFor("reached", "runtime-entered");
+    const messageIds: string[] = [];
+    for (let seq = 1; seq <= 20; seq++) {
+      const message = await db.prisma.message.create({
+        data: {
+          threadId: thread.id,
+          seq,
+          role: "user",
+          blocks: [{ kind: "text", text: `Synthetic instruction ${seq}` }],
+        },
+      });
+      messageIds.push(message.id);
+      await createThreadEvents(db.prisma).append({
+        spaceId: space.id,
+        threadId: thread.id,
+        botId: bot.id,
+        type: "thread.message.created",
+        payload: { messageId: message.id },
+      });
+      await db.prisma.steeringMessage.create({
+        data: {
+          messageId: message.id,
+          botId: bot.id,
+          userId: id,
+          runId: run.id,
+        },
+      });
+    }
+    await first.kill();
+    await expireWorkerLease(db.prisma, run.id, entered.fence);
+    const recovered = await worker(run.id, "steering-after", env);
+    const resumed = await recovered.waitFor("reached", "runtime-entered");
+    await recovered.release(resumed);
+    const appliedBoundary = await recovered.waitFor("reached", "steering-applied");
+    const saved = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+    const applied = JSON.parse(JSON.parse(saved.segmentCheckpoint!).runtime) as {
+      id: string;
+      messageId: string;
+      appliedAt: number;
+    }[];
+    expect(applied.map((item) => item.messageId)).toEqual(messageIds);
+    expect(new Set(applied.map((item) => item.id)).size).toBe(20);
+    const delivered = await db.prisma.event.findMany({
+      where: { runId: run.id, type: "steering.delivered" },
+      orderBy: { seq: "asc" },
+    });
+    expect(delivered).toHaveLength(20);
+    const samples = delivered.map((event, index) => {
+      const payload = event.payload as {
+        messageId: string;
+        receivedAt: string;
+        messageSeq: number;
+      };
+      expect(payload.messageId).toBe(applied[index]!.messageId);
+      expect(payload.messageSeq).toBe(index + 1);
+      return {
+        messageId: payload.messageId,
+        runId: run.id,
+        sequence: payload.messageSeq,
+        arrivalToDeliveryMs: event.createdAt.getTime() - Date.parse(payload.receivedAt),
+        deliveryToApplicationMs: applied[index]!.appliedAt - event.createdAt.getTime(),
+      };
+    });
+    const total = samples
+      .map((sample) => sample.arrivalToDeliveryMs + sample.deliveryToApplicationMs)
+      .sort((a, b) => a - b);
+    expect(total[9]).toBeLessThanOrEqual(120_000);
+    expect(total[18]).toBeLessThanOrEqual(600_000);
+    expect(total[19]).toBeLessThanOrEqual(1_800_000);
+    console.log(
+      JSON.stringify({
+        scenario: "delayed-steering",
+        units: "ms",
+        n: 20,
+        p50: total[9],
+        p95: total[18],
+        max: total[19],
+        samples,
+      }),
+    );
+    await recovered.release(appliedBoundary);
+    expect(await recovered.drain()).toEqual({ code: 0, signal: null });
+    expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+      status: "completed",
+    });
+  }, 60_000);
+
+  it("low disk fails the claimed Run before model calls, billing or effects", async () => {
+    const { run, space } = await fixture();
+    const refused = await worker(run.id, "low-disk", { RAK_FAULT_LOW_DISK: "1" });
+    expect(await refused.drain()).toEqual({ code: 0, signal: null });
+    expect(refused.events.filter((event) => event.boundary === "runtime-entered")).toHaveLength(0);
+    expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining("storage_low"),
+    });
+    expect(await db.prisma.attempt.count({ where: { runId: run.id } })).toBe(1);
+    const refusal = await db.prisma.event.findMany({
+      where: { runId: run.id, type: "run.storage_refused" },
+    });
+    expect(refusal).toHaveLength(1);
+    expect(refusal[0]!.payload).toMatchObject({ reason: "storage_low", allowed: false });
+    const ledger = await ledgerSnapshot(db.prisma, space.id, []);
+    expect(ledger.usage).toHaveLength(0);
+    expect(ledger.settlements).toHaveLength(0);
+    expect(ledger.effects).toHaveLength(0);
+    expect(await db.prisma.budgetReservation.count({ where: { spaceId: space.id } })).toBe(0);
+  }, 60_000);
+
+  it("orderly drain and restart preserve completed billing without replay", async () => {
+    const { run, space } = await fixture();
+    const first = await worker(run.id, "orderly-before");
+    const entered = await first.waitFor("reached", "runtime-entered");
+    await first.release(entered);
+    const exit = await first.drain();
+    expect(exit).toEqual({ code: 0, signal: null });
+    expect(first.events.filter((event) => event.kind === "drained")).toHaveLength(1);
+    expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+      status: "completed",
+    });
+    const calls = new Map([[`${run.id}-${entered.fence}`, 125000n]]);
+    const before = await ledgerSnapshot(db.prisma, space.id, [...calls.keys()]);
+    assertUniqueBilling(before, calls);
+    const restarted = await worker(run.id, "orderly-after");
+    await restarted.drain();
+    expect(restarted.events.filter((event) => event.boundary === "runtime-entered")).toHaveLength(
+      0,
+    );
+    assertLedgerUnchanged(before, await ledgerSnapshot(db.prisma, space.id, [...calls.keys()]));
+    expect(await db.prisma.attempt.count({ where: { runId: run.id } })).toBe(1);
+  }, 60_000);
+
   it("uses SIGKILL without drain, then races four real workers for one newer lease", async () => {
     const { run, space } = await fixture();
     const first = await worker(run.id, "fault-a", { RAK_FAULT_USAGE_BARRIER: "1" });

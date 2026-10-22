@@ -483,6 +483,11 @@ export interface AgentRunRequest {
   /** Resolve an explicitly requested helper model within the active user and space scope. */
   resolveModel?: (provider: string, modelId: string) => Promise<AgentRunModel>;
   resumeFromCheckpoint?: string;
+  /** Backend-owned absolute deadline; checked only at safe tool boundaries. */
+  deadlineAt?: number;
+  /** Opaque, versioned runtime state from the last fully completed segment. */
+  segmentCheckpoint?: string;
+  onSegmentCheckpoint?: (checkpoint: string) => Promise<void>;
   script?: ScriptedTurn[];
   /**
    * FYI bot-message wakes and scheduled routines may finish with no text.

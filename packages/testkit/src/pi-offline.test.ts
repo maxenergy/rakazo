@@ -557,3 +557,107 @@ function deferred() {
   });
   return { promise, resolve };
 }
+
+describe("durable run segments", () => {
+  it("resumes a completed tool segment without replaying its effect or usage", async () => {
+    const server = await startModelEmulator({
+      steps: [
+        {
+          expect() {},
+          response: {
+            type: "tool",
+            id: "saved-write",
+            name: "write_file",
+            arguments: { path: "notes.txt", content: "hello" },
+          },
+        },
+        {
+          expect(request) {
+            expect(latestToolResult(request)?.tool_call_id).toBe("saved-write");
+            expect(String(latestToolResult(request)?.content)).toContain("saved");
+          },
+          response: { type: "text", text: "Saved." },
+        },
+      ],
+    });
+    cleanups.push(() => server.close());
+    let checkpoint: string | undefined;
+    let effects = 0;
+    const usageIds = new Set<string>();
+    let usageCount = 0;
+    const request = runRequest(server.model, {
+      executeTool: async () => {
+        effects++;
+        return { saved: true };
+      },
+      onUsage: async (event) => {
+        usageCount++;
+        usageIds.add(JSON.stringify(event.callId));
+      },
+      onSegmentCheckpoint: async (value) => {
+        checkpoint = value;
+        throw new Error("synthetic crash after checkpoint");
+      },
+    });
+    await expect(collect(new PiAgentRuntime().run(request))).rejects.toThrow(
+      "synthetic crash after checkpoint",
+    );
+    expect(checkpoint).toBeDefined();
+    expect(effects).toBe(1);
+    expect(usageCount).toBe(1);
+    const resumed = await collect(
+      new PiAgentRuntime().run({
+        ...request,
+        segmentCheckpoint: checkpoint,
+        onSegmentCheckpoint: async (value) => {
+          checkpoint = value;
+        },
+      }),
+    );
+    expect(resumed.some((event) => event.type === "done" && event.text === "Saved.")).toBe(true);
+    expect(effects).toBe(1);
+    expect(usageCount).toBe(2);
+    expect(usageIds.size).toBe(2);
+    // A crash after the final segment must also avoid another model request.
+    await collect(new PiAgentRuntime().run({ ...request, segmentCheckpoint: checkpoint }));
+    expect(effects).toBe(1);
+    expect(usageCount).toBe(2);
+    server.assertComplete();
+  });
+
+  it("lets an active tool finish before reporting deadline_exceeded", async () => {
+    const server = await startModelEmulator({
+      steps: [
+        {
+          expect() {},
+          response: {
+            type: "tool",
+            id: "deadline-write",
+            name: "write_file",
+            arguments: { path: "notes.txt", content: "hello" },
+          },
+        },
+      ],
+    });
+    cleanups.push(() => server.close());
+    let finished = false;
+    let saved = false;
+    const request = runRequest(server.model, {
+      deadlineAt: Date.now() + 60_000,
+      executeTool: async () => {
+        request.deadlineAt = Date.now() - 1;
+        await Promise.resolve();
+        finished = true;
+        return { saved: true };
+      },
+      onSegmentCheckpoint: async () => {
+        expect(finished).toBe(true);
+        saved = true;
+      },
+    });
+    await expect(collect(new PiAgentRuntime().run(request))).rejects.toThrow("deadline_exceeded");
+    expect(finished).toBe(true);
+    expect(saved).toBe(true);
+    server.assertComplete();
+  });
+});

@@ -66,6 +66,7 @@ import {
   REASONING_MODEL_MAX_TOKENS,
   resolveCompletionMaxTokens,
 } from "./pi-runtime-limits.js";
+import { decodePiSegment, encodePiSegment } from "./pi-segment.js";
 import type { PiSessionHandle, PiSessionRecorder } from "./pi-session.js";
 import { PiJsonlSessionRecorder } from "./pi-session.js";
 import { observedPiStream } from "./pi-usage.js";
@@ -250,6 +251,7 @@ export class PiAgentRuntime implements AgentRuntime {
           apiKey,
           credentials: selectedModel.credentials,
         };
+        const resumeSegment = decodePiSegment(request.segmentCheckpoint);
         const host: ToolHost = {
           queue,
           context,
@@ -263,7 +265,7 @@ export class PiAgentRuntime implements AgentRuntime {
           nestedAgents,
           subagentGate: createGate(MAX_PARALLEL_SUBAGENTS),
           toolCallBudget: trackedBudget,
-          toolCallSeq: { value: 0 },
+          toolCallSeq: { value: resumeSegment?.toolCallSeq ?? 0 },
           abortTurn: () => undefined,
           signal,
           depth: 0,
@@ -272,8 +274,10 @@ export class PiAgentRuntime implements AgentRuntime {
         };
         resumeHost = host;
         const tools = toAgentTools(toolDefs, host);
-        const seenSteeringIds: string[] = [];
-        const initialSteering = request.claimSteering ? await request.claimSteering([]) : [];
+        const seenSteeringIds: string[] = [...(resumeSegment?.seenSteeringIds ?? [])];
+        const initialSteering = request.claimSteering
+          ? await request.claimSteering([...seenSteeringIds])
+          : [];
         seenSteeringIds.push(...initialSteering.map((item) => item.id));
         const history = toHistory(
           withoutSteeringMessages(request.history, initialSteering),
@@ -463,6 +467,19 @@ export class PiAgentRuntime implements AgentRuntime {
                 : request.model.maxImagesPerPrompt,
             ),
           finishTurn: async (turn, turnSignal) => {
+            // Never interrupt a tool. This hook runs after its results and usage settle.
+            if (!host.pausePending && !request.shouldEndTurn?.()) {
+              await request.onSegmentCheckpoint?.(
+                encodePiSegment({
+                  messages: turn.context.messages,
+                  toolCallSeq: host.toolCallSeq.value,
+                  seenSteeringIds,
+                }),
+              );
+            }
+            if (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) {
+              throw new Error("deadline_exceeded");
+            }
             if (request.shouldEndTurn?.()) return { action: "end" };
             await deliverFinishedShells(
               (text) => {
@@ -497,7 +514,7 @@ export class PiAgentRuntime implements AgentRuntime {
             model: completionModel,
             thinkingLevel,
             tools,
-            messages: history,
+            messages: resumeSegment?.messages ?? history,
           },
         });
 
@@ -629,7 +646,35 @@ export class PiAgentRuntime implements AgentRuntime {
           ...initialSteering.flatMap((item) => item.images ?? []),
         ]);
         try {
-          await agent.prompt(initialPrompt, images?.length ? images : undefined);
+          if (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) {
+            throw new Error("deadline_exceeded");
+          }
+          if (resumeSegment) {
+            for (const item of initialSteering) {
+              const extraImages = toPiImages(item.images);
+              agent.steer({
+                role: "user",
+                content: extraImages.length
+                  ? [{ type: "text", text: item.text }, ...extraImages]
+                  : item.text,
+                timestamp: Date.now(),
+              });
+            }
+            const last = resumeSegment.messages.at(-1);
+            // A final text-only segment may have committed just before a crash.
+            // Return it without another paid model call.
+            if (
+              last?.role === "assistant" &&
+              !messageHasToolCall(last) &&
+              initialSteering.length === 0
+            ) {
+              streamed = assistantText(last);
+            } else {
+              await agent.continue();
+            }
+          } else {
+            await agent.prompt(initialPrompt, images?.length ? images : undefined);
+          }
         } finally {
           try {
             await agent.waitForIdle();

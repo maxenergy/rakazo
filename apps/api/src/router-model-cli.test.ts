@@ -2,8 +2,13 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { removeCliProfile } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { discoverCodexModels } from "../../../packages/adapters/src/cli-model-discovery.js";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
+
+vi.mock("../../../packages/adapters/src/cli-model-discovery.js", () => ({
+  discoverCodexModels: vi.fn().mockResolvedValue({ status: "static", models: null }),
+}));
 
 vi.mock("@rakazo/adapters", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -47,6 +52,7 @@ function fixture(existing = false) {
     },
     spaceBackupModel: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     spaceModelPreference: {
+      findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       upsert: vi.fn().mockResolvedValue({}),
@@ -104,6 +110,41 @@ function fixture(existing = false) {
 }
 
 describe("CLI credential lifecycle", () => {
+  it("sets a discovered new ID as default and rejects hidden IDs before saving", async () => {
+    const f = fixture(true);
+    f.tx.secret.findFirst.mockResolvedValue({
+      id: "secret-old",
+      ciphertext: "discovered-default-fixture",
+    });
+    vi.mocked(discoverCodexModels).mockResolvedValue({
+      status: "discovered",
+      models: [
+        { id: "new", model: "fixture-new-default", displayName: "New" },
+        { id: "hidden", model: "fixture-hidden-default", displayName: "Hidden", hidden: true },
+      ],
+    });
+    const response = await f.call("setDefault", {
+      provider: "codex-cli",
+      modelId: "fixture-new-default",
+    });
+    expect(response.status).toBe(200);
+    expect(f.tx.spaceModelPreference.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          modelId: "fixture-new-default",
+          credentialId: "cred-test",
+        }),
+      }),
+    );
+    f.tx.spaceModelPreference.upsert.mockClear();
+    const rejected = await f.call("setDefault", {
+      provider: "codex-cli",
+      modelId: "fixture-hidden-default",
+    });
+    expect(rejected.status).toBe(400);
+    expect(f.tx.spaceModelPreference.upsert).not.toHaveBeenCalled();
+  });
+
   it("persists a private profile reference without exposing it in the response", async () => {
     const { call, deps } = fixture();
     const response = await call("finishOAuth", { loginId: "login-test" });

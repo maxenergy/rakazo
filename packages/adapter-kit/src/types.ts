@@ -405,6 +405,13 @@ export interface AgentSteeringMessage {
 export type CacheCapabilities = ConnectionCacheCapabilities;
 
 export interface AgentRunModel {
+  /** Process-local CLI discovery evidence; never persisted or accepted from clients. */
+  cliDiscovery?: Readonly<{
+    modelId: string;
+    profileId: string;
+    imageInput: boolean | null;
+    reasoning: boolean | null;
+  }>;
   cacheCapabilities?: CacheCapabilities;
   provider: string;
   id: string;

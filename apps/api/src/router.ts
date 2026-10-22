@@ -73,6 +73,7 @@ import {
   isAutoReviewCheckerConfigured,
   isCliModelProvider,
   isComputerScreenUnavailable,
+  isNewCodexCliModel,
   isSandboxGoneError,
   isScratchpadStatus,
   kickModelCredentialRefresh,
@@ -1287,8 +1288,13 @@ export function createRouter(deps: RouterDeps) {
               context.actor,
               choice.provider,
               choice.modelId,
+              deps.secrets,
             );
-            if (error || choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
+            if (
+              error ||
+              (choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
+                !isNewCodexCliModel(choice.provider, choice.modelId))
+            ) {
               throw new ORPCError("BAD_REQUEST", {
                 message: error ?? "That model is not available for this connection",
               });
@@ -1493,6 +1499,7 @@ export function createRouter(deps: RouterDeps) {
                             input.provider,
                           ),
                       },
+                      { spaceId: context.actor.spaceId, credentialId: candidate.id },
                     ),
                   ] as const,
               ),
@@ -1715,8 +1722,13 @@ export function createRouter(deps: RouterDeps) {
               context.actor,
               choice.provider,
               choice.modelId,
+              deps.secrets,
             );
-            if (error || choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
+            if (
+              error ||
+              (choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
+                !isNewCodexCliModel(choice.provider, choice.modelId))
+            ) {
               throw new ORPCError("BAD_REQUEST", {
                 message: error ?? "That model is not available for this connection",
               });
@@ -1889,7 +1901,21 @@ export function createRouter(deps: RouterDeps) {
           const inCatalog = knownModels.some(
             (item) => item.provider === input.modelProvider && item.id === input.modelId,
           );
-          if (!inCatalog && credential.defaultModel !== input.modelId) {
+          if (isNewCodexCliModel(input.modelProvider, input.modelId)) {
+            const error = await validateConnectedModelChoice(
+              deps.prisma,
+              context.actor,
+              input.modelProvider,
+              input.modelId,
+              deps.secrets,
+            );
+            if (error) throw new ORPCError("BAD_REQUEST", { message: error });
+          }
+          if (
+            !inCatalog &&
+            !isNewCodexCliModel(input.modelProvider, input.modelId) &&
+            credential.defaultModel !== input.modelId
+          ) {
             throw new ORPCError("BAD_REQUEST", { message: "Unknown model for that provider" });
           }
           if (inCatalog) {
@@ -7592,6 +7618,7 @@ async function assertRoutineModel(
     actor,
     model.modelProvider,
     model.modelId,
+    deps.secrets,
   );
   if (message) throw new ORPCError("BAD_REQUEST", { message });
 }

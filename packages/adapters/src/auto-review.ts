@@ -270,6 +270,7 @@ export async function runAutoReviewJudge(input: {
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;
+  cliDiscovery?: AgentRunModel["cliDiscovery"];
   apiKey?: string;
   accountId?: string;
   gatewayId?: string;
@@ -316,6 +317,7 @@ export async function runAutoReviewJudge(input: {
         model: {
           provider: input.checker.provider,
           id: input.checker.model,
+          cliDiscovery: input.cliDiscovery,
           apiKey: input.oauth ? undefined : input.apiKey,
           accountId: input.accountId,
           gatewayId: input.gatewayId,
@@ -368,6 +370,7 @@ export type LlmAutoReviewOptions = {
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;
+  cliDiscovery?: AgentRunModel["cliDiscovery"];
   apiKey?: string;
   accountId?: string;
   gatewayId?: string;

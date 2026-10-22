@@ -215,6 +215,12 @@ import {
 } from "./browser-tools.js";
 import { agentConnectionTools, builtinAgentTools, sharedMemorySaveError } from "./builtin-tools.js";
 import { archiveSpawnedBot, spawnBot } from "./child-bots.js";
+import {
+  admittedCliModel,
+  discoverSelectedCliCredential,
+  isNewCodexCliModel,
+  MODEL_NOT_DISCOVERED,
+} from "./cli-model-admission.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
 import { executeCloudAgentTool } from "./cloud-agent-service.js";
@@ -2996,12 +3002,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
     modelId: string,
     registerSecrets?: (values: string[]) => void,
     requireStoredSecret = false,
+    cliCacheOnly = false,
   ): Promise<AgentRunRequest["model"]> => {
     const validationError = await validateConnectedModelChoice(
       deps.prisma,
       scope,
       provider,
       modelId,
+      deps.secretStore,
+      cliCacheOnly,
     );
     if (validationError) throw new Error(validationError);
     const credential = await findModelCredential(deps.prisma, scope, provider, modelId);
@@ -3009,7 +3018,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
     // Free-form selections must keep the preference that owns this modelId. A
     // intervening delete/change can make findModelCredential fall back to another
     // same-provider credential; reject that mismatch instead of mixing baseUrl.
-    if (!isCatalogModelChoice(provider, modelId) && credential.defaultModel !== modelId) {
+    if (
+      !isCatalogModelChoice(provider, modelId) &&
+      !isNewCodexCliModel(provider, modelId) &&
+      credential.defaultModel !== modelId
+    ) {
       throw new Error("Unknown model for that provider");
     }
     const resolved = await resolveModelKey(
@@ -3021,10 +3034,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
       modelId,
       registerSecrets,
       requireStoredSecret,
+      cliCacheOnly,
     );
     return {
       provider,
       id: modelId,
+      cliDiscovery: resolved.cliDiscovery,
       apiKey: resolved.oauth ? undefined : resolved.apiKey,
       ...cloudflareRunFields(resolved),
       baseUrl: resolved.baseUrl,
@@ -3078,6 +3093,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
           where: { id: "default" },
         }),
       ]);
+      if (
+        override?.modelProvider &&
+        override.modelId &&
+        isNewCodexCliModel(override.modelProvider, override.modelId) &&
+        !overrideCredential
+      )
+        throw new UnavailableModelForAuthError(MODEL_NOT_DISCOVERED);
       const selected = selectConfiguredModel({
         override,
         overrideCredential,
@@ -3101,10 +3123,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
         credential,
         provider,
         id,
+        undefined,
+        false,
+        false,
       );
       return {
         provider,
         id,
+        cliDiscovery: resolved.cliDiscovery,
         apiKey: resolved.oauth ? undefined : resolved.apiKey,
         ...cloudflareRunFields(resolved),
         baseUrl: resolved.baseUrl,
@@ -3283,6 +3309,55 @@ export function createRunExecutor(deps: ExecutorDeps) {
       const run = await deps.prisma.run.findUnique({ where: { id: runId } });
       if (!run) return;
       if (isTerminal(run.status as RunStatus)) return;
+      // CLI discovery is read-only and must finish before claiming any lease.
+      // Under a lease, all later model resolutions use valid cached evidence only.
+      if (!deps.runtime.describe().capabilities.scripted) {
+        const scope = { userId: run.userId, spaceId: run.spaceId };
+        const bot = await deps.prisma.bot.findUniqueOrThrow({ where: { id: run.botId } });
+        const choice = runModelChoice(run, bot);
+        const [overrideCredential, defaultCredential, settings, backups] = await Promise.all([
+          choice.modelProvider && choice.modelId
+            ? findModelCredential(deps.prisma, scope, choice.modelProvider, choice.modelId)
+            : Promise.resolve(null),
+          findDefaultModelCredential(deps.prisma, scope),
+          deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
+          bot.userId === run.userId
+            ? listEffectiveBotBackupModels(deps.prisma, { ...scope, botId: bot.id }).catch(() => [])
+            : Promise.resolve([]),
+        ]);
+        const selected = selectConfiguredModel({
+          override: choice,
+          overrideCredential,
+          defaultCredential,
+          settings,
+          deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+        });
+        const primary =
+          choice.modelProvider && choice.modelId
+            ? { provider: choice.modelProvider, modelId: choice.modelId }
+            : { provider: selected.provider, modelId: selected.id };
+        const reviewer = resolveAutoReviewChecker();
+        const candidates = [
+          primary,
+          { provider: selected.provider, modelId: selected.id },
+          ...backups,
+          ...(reviewer ? [{ provider: reviewer.provider, modelId: reviewer.model }] : []),
+        ];
+        await Promise.all(
+          candidates.map(async ({ provider, modelId }) => {
+            if (provider === "codex-cli" && modelId) {
+              const credential = await findModelCredential(deps.prisma, scope, provider, modelId);
+              if (credential)
+                await discoverSelectedCliCredential(
+                  deps.prisma,
+                  deps.secretStore,
+                  scope,
+                  credential,
+                );
+            }
+          }),
+        );
+      }
       let { resumeCheckpoint, heldForTakeover, resumeHeldLease, takeoverResume } =
         takeoverContinuePlan(run);
 
@@ -3751,6 +3826,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
           }
         };
+        if (
+          modelChoice.modelProvider &&
+          modelChoice.modelId &&
+          isNewCodexCliModel(modelChoice.modelProvider, modelChoice.modelId) &&
+          (!overrideCredential ||
+            !(await admittedCliModel(
+              deps.prisma,
+              deps.secretStore,
+              run,
+              modelChoice.modelId,
+              true,
+            )))
+        ) {
+          await failRunBeforeModel(MODEL_NOT_DISCOVERED);
+          return;
+        }
         if (pinError) {
           await failRunBeforeModel(pinError);
           return;
@@ -4401,7 +4492,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : await loadAutoReviewPreference();
           const injectedReview = requiresMandatoryApproval ? undefined : deps.autoReview;
           const checker = requiresMandatoryApproval ? undefined : resolveAutoReviewChecker();
+          const reviewerAdmitted =
+            !checker ||
+            !isNewCodexCliModel(checker.provider, checker.model) ||
+            Boolean(
+              await admittedCliModel(deps.prisma, deps.secretStore, run, checker.model, true),
+            );
           const checkerConfigured =
+            reviewerAdmitted &&
             autoReviewPref &&
             (Boolean(injectedReview) ||
               (checker
@@ -4521,6 +4619,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                         }),
                       runtime: deps.runtime,
                       checker: checker!,
+                      cliDiscovery: judgeKey.cliDiscovery,
                       apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
                       accountId: judgeKey.accountId,
                       gatewayId: judgeKey.gatewayId,
@@ -6228,13 +6327,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
           }
           if (name === "recommend_model") {
-            return finish(await recommendModelFromTool(deps, run, args));
+            return finish(await recommendModelFromTool({ ...deps, cliCacheOnly: true }, run, args));
           }
           if (name === "list_models") {
-            return finish(await listConnectedBotModels(deps, run));
+            return finish(await listConnectedBotModels({ ...deps, cliCacheOnly: true }, run));
           }
           if (name === "set_bot_model") {
-            const changed = await setBotModelFromTool(deps, { ...run, botId: bot.id }, args);
+            const changed = await setBotModelFromTool(
+              { ...deps, cliCacheOnly: true },
+              { ...run, botId: bot.id },
+              args,
+            );
             if ("error" in changed) return finish(changed);
             if (!(await persistEffectResult(changed))) return uncertainEffectResult(name);
             await deps.events
@@ -6270,7 +6373,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if ("error" in model) return finish(model);
             if (model.modelProvider && model.modelId) {
               const error = await validateBotModelSelection(
-                deps,
+                { ...deps, cliCacheOnly: true },
                 run,
                 model.modelProvider,
                 model.modelId,
@@ -6832,6 +6935,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               model: {
                 provider: runModelProvider,
                 id: runModelId,
+                cliDiscovery: resolved.cliDiscovery,
                 apiKey: resolved.oauth ? undefined : resolved.apiKey,
                 ...cloudflareRunFields(resolved),
                 baseUrl: resolved.baseUrl,
@@ -6865,6 +6969,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       provider,
                       modelId,
                       (values) => runSecrets.push(...values),
+                      true,
                       true,
                     );
                     await requireBackupModelConsent(
@@ -6901,8 +7006,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
               resolveModel: scripted
                 ? undefined
                 : (provider, modelId) =>
-                    resolveConnectedModel(run, provider, modelId, (values) =>
-                      runSecrets.push(...values),
+                    resolveConnectedModel(
+                      run,
+                      provider,
+                      modelId,
+                      (values) => runSecrets.push(...values),
+                      false,
+                      true,
                     ),
               onToolCompleted: (completion) =>
                 appendToolCompletionAudit(
@@ -8829,7 +8939,9 @@ async function resolveModelKey(
   modelId: string,
   registerSecrets?: (values: string[]) => void,
   requireStoredSecret = false,
+  cliCacheOnly = true,
 ): Promise<{
+  cliDiscovery?: AgentRunRequest["model"]["cliDiscovery"];
   apiKey?: string;
   accountId?: string;
   gatewayId?: string;
@@ -8850,18 +8962,49 @@ async function resolveModelKey(
   ) => Promise<boolean | undefined>;
   redact: string[];
 }> {
+  const newCliModel = isNewCodexCliModel(provider, modelId);
+  if (newCliModel && !cliCacheOnly) {
+    await admittedCliModel(deps.prisma, deps.secretStore, { userId, spaceId }, modelId);
+  }
+  if (newCliModel && !credential) throw new UnavailableModelForAuthError(MODEL_NOT_DISCOVERED);
   if (credential) {
     return withModelCredentialLock(credential.secretId, async () => {
+      let cliDiscovery: AgentRunRequest["model"]["cliDiscovery"];
+      if (newCliModel) {
+        const current = await findModelCredential(
+          deps.prisma,
+          { userId, spaceId },
+          provider,
+          modelId,
+        );
+        if (current?.id !== credential.id || current.secretId !== credential.secretId)
+          throw new UnavailableModelForAuthError(MODEL_NOT_DISCOVERED);
+        cliDiscovery = await admittedCliModel(
+          deps.prisma,
+          deps.secretStore,
+          { userId, spaceId },
+          modelId,
+          true,
+        );
+        if (!cliDiscovery) throw new UnavailableModelForAuthError(MODEL_NOT_DISCOVERED);
+      }
       const row = await deps.prisma.secret.findFirst({
         where: { id: credential.secretId, userId, spaceId: null },
       });
       if (!row) {
+        if (newCliModel) throw new UnavailableModelForAuthError(MODEL_NOT_DISCOVERED);
         if (requireStoredSecret) throw new Error("Backup model credential is no longer available");
         cloudflareGatewayProviderEnv({ provider });
         return { apiKey: deploymentKeyFor(deps, provider), redact: [] };
       }
       const plaintext = await deps.secretStore.load(row.ciphertext, row.id);
-      registerSecrets?.(secretValuesToRedact(parseModelSecret(plaintext)));
+      const parsed = parseModelSecret(plaintext);
+      if (
+        cliDiscovery &&
+        (parsed.kind !== "cli" || parsed.credential.profileId !== cliDiscovery.profileId)
+      )
+        throw new UnavailableModelForAuthError(MODEL_NOT_DISCOVERED);
+      registerSecrets?.(secretValuesToRedact(parsed));
       const persist = persistStoredModelSecret(
         deps.prisma,
         deps.secretStore,
@@ -8927,6 +9070,7 @@ async function resolveModelKey(
       const gatewayId = resolved.secret.kind === "api_key" ? resolved.secret.gatewayId : undefined;
       cloudflareGatewayProviderEnv({ provider, accountId, gatewayId });
       return {
+        cliDiscovery,
         apiKey: resolved.apiKey,
         accountId,
         gatewayId,
@@ -8939,12 +9083,15 @@ async function resolveModelKey(
           resolved.secret.kind === "api_key" || resolved.secret.kind === "openai_compatible"
             ? resolved.secret.contextWindow
             : undefined,
-        reasoning:
-          resolved.secret.kind === "openai_compatible" ? resolved.secret.reasoning : undefined,
+        reasoning: cliDiscovery
+          ? cliDiscovery.reasoning === true
+          : resolved.secret.kind === "openai_compatible"
+            ? resolved.secret.reasoning
+            : undefined,
         maxTokens: resolved.secret.maxTokens,
         thinkingLevel:
           resolved.secret.kind === "openai_compatible" ? resolved.secret.thinkingLevel : undefined,
-        acceptsImages,
+        acceptsImages: cliDiscovery ? cliDiscovery.imageInput === true : acceptsImages,
         maxImagesPerPrompt:
           resolved.secret.kind === "openai_compatible"
             ? resolved.secret.maxImagesPerPrompt

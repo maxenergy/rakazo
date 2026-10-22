@@ -11,10 +11,11 @@ import {
   ORG_BOT_MESSAGE_MAX_HOPS,
   resolveBotAddress,
 } from "@rakazo/core";
+import type { ExecutionFence, PrismaClient } from "@rakazo/db";
 import {
+  assertExecutionFence,
   appendEventInTransaction,
   createThreadMessageInTransaction,
-  type PrismaClient,
   withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -73,6 +74,7 @@ export async function messageBot(
     botId: string;
     userId: string;
     sourceMessageId?: string | null;
+    executionFence?: ExecutionFence;
   },
   sender: { id: string; name: string },
   input: {
@@ -171,8 +173,16 @@ export async function messageBot(
   try {
     committed = await withTransactionRetry(() =>
       deps.prisma.$transaction(async (tx) => {
-        for (const threadId of [run.threadId, targetThreadId].sort()) {
+        // Match cleanup/finalization: Space -> Bot -> Thread -> Run.
+        await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${run.spaceId} FOR KEY SHARE`;
+        for (const botId of [...new Set([run.botId, target.id])].sort()) {
+          await tx.$queryRaw`SELECT id FROM bots WHERE id = ${botId} FOR UPDATE`;
+        }
+        for (const threadId of [...new Set([run.threadId, targetThreadId])].sort()) {
           await tx.$queryRaw`SELECT id FROM threads WHERE id = ${threadId} FOR UPDATE`;
+        }
+        if (run.executionFence && !options?.allowTerminalSource) {
+          await assertExecutionFence(tx, run.executionFence);
         }
         // Claim the delivery key inside the transaction so a concurrent retry
         // either sees the winner or loses on the unique (threadId, clientNonce).

@@ -1,3 +1,4 @@
+import { messageBot } from "../../../adapters/src/bot-messages.js";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
@@ -1799,6 +1800,116 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
       }, 30000);
     }
   }
+  }
+
+  it("rejects peer delivery after a persisted lease takeover without durable writes", async () => {
+    const id = `peer-${randomUUID()}`;
+    await db.prisma.user.create({ data: { id, name: "Synthetic peer user", email: `${id}@example.invalid` } });
+    await db.prisma.organization.create({ data: { id, slug: id, name: "Synthetic peer org", createdAt: new Date() } });
+    const space = await db.prisma.space.create({ data: { id: id + "-space", organizationId: id, name: "Synthetic peer space" } });
+    const sender = await db.prisma.bot.create({ data: { spaceId: space.id, userId: id, name: "Sender", color: "#123456" } });
+    const target = await db.prisma.bot.create({ data: { spaceId: space.id, userId: id, name: "Target", color: "#123456" } });
+    const thread = await db.prisma.thread.create({ data: { spaceId: space.id, userId: id, botId: sender.id } });
+    const targetThread = await db.prisma.thread.create({ data: { spaceId: space.id, userId: id, botId: target.id } });
+    const task = await db.prisma.task.create({ data: { spaceId: space.id, botId: sender.id, threadId: thread.id, userId: id, prompt: "Synthetic", status: "running" } });
+    const run = await db.prisma.run.create({ data: { spaceId: space.id, botId: sender.id, threadId: thread.id, taskId: task.id, userId: id, trigger: "user", status: "running", leaseOwner: id, leaseFence: 1, leaseExpiresAt: new Date(Date.now() + 120000) } });
+    const stale = { ...run, executionFence: { runId: run.id, leaseOwner: id, leaseFence: 1 } };
+    await db.prisma.run.update({ where: { id: run.id }, data: { leaseOwner: id + "-replacement", leaseFence: 2 } });
+    const enqueue = vi.fn();
+    const notify = vi.fn();
+    await expect(messageBot({ prisma: db.prisma, jobs: { enqueue }, events: { notify } } as any, stale, sender, { bot_id: target.id, message: "stale delivery", deliveryKey: id })).rejects.toMatchObject({ name: "StaleExecutionFenceError" });
+    expect(await db.prisma.message.count({ where: { threadId: { in: [thread.id, targetThread.id] } } })).toBe(0);
+    expect(await db.prisma.task.count({ where: { botId: target.id } })).toBe(0);
+    expect(await db.prisma.run.count({ where: { botId: target.id } })).toBe(0);
+    expect(await db.prisma.event.count({ where: { threadId: { in: [thread.id, targetThread.id] } } })).toBe(0);
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  for (const clearFirst of [false, true]) {
+    it(`serializes peer delivery against sender cleanup, clear first=${clearFirst}`, async () => {
+    const id = `peer-${randomUUID()}`;
+    await db.prisma.user.create({ data: { id, name: "Synthetic peer user", email: `${id}@example.invalid` } });
+    await db.prisma.organization.create({ data: { id, slug: id, name: "Synthetic peer org", createdAt: new Date() } });
+    const space = await db.prisma.space.create({ data: { id: id + "-space", organizationId: id, name: "Synthetic peer space" } });
+    const sender = await db.prisma.bot.create({ data: { spaceId: space.id, userId: id, name: "Sender", color: "#123456" } });
+    const target = await db.prisma.bot.create({ data: { spaceId: space.id, userId: id, name: "Target", color: "#123456" } });
+    const thread = await db.prisma.thread.create({ data: { spaceId: space.id, userId: id, botId: sender.id } });
+    const targetThread = await db.prisma.thread.create({ data: { spaceId: space.id, userId: id, botId: target.id } });
+    const task = await db.prisma.task.create({ data: { spaceId: space.id, botId: sender.id, threadId: thread.id, userId: id, prompt: "Synthetic", status: "running" } });
+    const run = await db.prisma.run.create({ data: { spaceId: space.id, botId: sender.id, threadId: thread.id, taskId: task.id, userId: id, trigger: "user", status: "running", leaseOwner: id, leaseFence: 1, leaseExpiresAt: new Date(Date.now() + 120000) } });
+
+        function deferred() {
+          let resolve!: () => void;
+          const promise = new Promise<void>((r) => { resolve = r; });
+          return { promise, resolve };
+        }
+        const locked = deferred();
+        const waiting = deferred();
+        const release = deferred();
+        let seen = 0;
+        let holderPid = 0; let waiterPid = 0;
+        const instrumented = new Proxy(db.prisma, {
+          get(target, key) {
+            if (key === "$transaction") return (callback: (tx: any) => Promise<unknown>, options?: any) => target.$transaction((tx) => callback(new Proxy(tx, {
+              get(transaction, method) {
+                const value = Reflect.get(transaction, method);
+                if (method === "$queryRaw") return async (...args: any[]) => {
+                  const query = String(args[0]);
+                  const parentLock = query.includes("FROM bots") && args[1] === sender.id;
+                  const ordinal = parentLock ? ++seen : 0;
+                  if (ordinal === 2) waiting.resolve();
+                  const currentPid = (await transaction.$queryRawUnsafe("SELECT pg_backend_pid() AS pid"))[0].pid;
+                if (holderPid && currentPid !== holderPid) waiterPid = currentPid;
+                const result = await value.apply(transaction, args);
+                  if (ordinal === 1) {
+                    const identity = await transaction.$queryRawUnsafe('SELECT pg_backend_pid() AS pid');
+                    holderPid = identity[0].pid;
+                    locked.resolve();
+                    await release.promise;
+                  }
+                  return result;
+                };
+                return typeof value === "function" ? value.bind(transaction) : value;
+              },
+            })), options);
+            const value = Reflect.get(target, key);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
+
+      const enqueue = vi.fn().mockResolvedValue(undefined);
+      const notify = vi.fn().mockResolvedValue(undefined);
+      const delivery = () => messageBot({ prisma: instrumented, jobs: { enqueue }, events: { notify } } as any, { ...run, executionFence: { runId: run.id, leaseOwner: id, leaseFence: 1 } }, sender, { bot_id: target.id, message: "concurrent delivery", deliveryKey: id });
+      const cleanup = () => clearThread(instrumented, { spaceId: space.id, threadId: thread.id, botId: sender.id });
+      const first = (clearFirst ? cleanup() : delivery()).then(value => ({ value }), error => ({ error }));
+      await locked.promise;
+      const second = (clearFirst ? delivery() : cleanup()).then(value => ({ value }), error => ({ error }));
+      try {
+        await waiting.promise;
+        await waitForConfirmedBlocking(db.prisma, holderPid, () => waiterPid);
+      } finally {
+        release.resolve();
+      }
+      const outcomes = await Promise.all([first, second]);
+      const deliveryOutcome = outcomes[clearFirst ? 1 : 0];
+      const cleanupOutcome = outcomes[clearFirst ? 0 : 1];
+      expect(cleanupOutcome).not.toHaveProperty("error");
+      if (clearFirst) {
+        expect(deliveryOutcome).toHaveProperty("error.name", "StaleExecutionFenceError");
+      } else {
+        if ("error" in deliveryOutcome) throw deliveryOutcome.error;
+        expect(deliveryOutcome).toHaveProperty("value.ok", true);
+      }
+      expect(await db.prisma.task.count({ where: { botId: target.id } })).toBe(clearFirst ? 0 : 1);
+      expect(await db.prisma.run.count({ where: { botId: target.id } })).toBe(clearFirst ? 0 : 1);
+      expect(await db.prisma.message.count({ where: { threadId: targetThread.id } })).toBe(clearFirst ? 0 : 1);
+      expect((await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).status).toBe("cancelled");
+      if (clearFirst) {
+        expect(enqueue).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
+      }
+    }, 30000);
   }
 
   for (const grouped of [false, true]) {

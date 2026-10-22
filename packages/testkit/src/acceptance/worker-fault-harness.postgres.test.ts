@@ -214,12 +214,18 @@ describe.skipIf(!available)("full execution worker fault harness PostgreSQL", ()
             drained.then(() => "drained"),
             recovered
               .waitFor("reached", "effect-received-before-result")
-              .then(() => "unauthorized-dispatch"),
+              .then(
+                () => "unauthorized-dispatch",
+                () => drained.then(() => "drained"),
+              ),
           ]);
           expect(outcome, "An intended effect requires approval before recovery dispatch").toBe(
             "drained",
           );
           expect(receives).toBe(0);
+          expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+            status: "waiting_input",
+          });
         }
         await drained;
         const after = await ledgerSnapshot(db.prisma, space.id, []);

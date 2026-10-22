@@ -105,6 +105,7 @@ async function main() {
         "packages/testkit/src/pi-offline.postgres.test.ts",
         "packages/testkit/src/usage-accounting.postgres.test.ts",
         "packages/testkit/src/fallback-billing.postgres.test.ts",
+        "packages/testkit/src/acceptance/worker-fault-harness.postgres.test.ts",
         "packages/db/src/history-retrieval.postgres.test.ts",
         "packages/testkit/src/history-retrieval.postgres.test.ts",
         "packages/testkit/src/history-short-product.postgres.test.ts",

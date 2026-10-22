@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { TranscriptContext } from "@earendil-works/pi-ai";
 import { getLogger } from "@rakazo/logging";
 import { runCliProcess } from "./cli-model-process.js";
+import { codexResumeDelta, forgetCodexThread, rememberCodexThread } from "./codex-cli-sessions.js";
 import type { BridgeCall, BridgeResult, BridgeTool } from "./codex-tool-bridge.js";
 import { CodexToolBridge } from "./codex-tool-bridge.js";
 
@@ -13,6 +14,12 @@ type TranscriptMessage = TranscriptContext["messages"][number];
 const RESIDENT_IDLE_MS = 30 * 60_000;
 const RESIDENT_TIMEOUT_MS = 4 * 60 * 60_000;
 const TOKEN_ENV = "RAKAZO_TOOL_TOKEN";
+/**
+ * A bot's Codex thread carries over from turn to turn, so a new turn sends only the new
+ * messages. Past this many characters sent into it (prompts and tool results), the next
+ * turn starts a fresh thread from the bounded conversation instead.
+ */
+const THREAD_MAX_CHARS = 400_000;
 
 export type ResidentStep =
   | { kind: "calls"; calls: BridgeCall[]; narration: string }
@@ -36,6 +43,10 @@ class ResidentTurn {
   /** Tool call ids Codex is waiting on, in the order they were handed to Rakazo. */
   waiting: string[] = [];
   stopped = false;
+  /** The Codex thread this turn runs in, once Codex reports it. */
+  threadId: string | undefined;
+  /** Characters sent into the thread during this turn. */
+  charsSent = 0;
 
   constructor(
     readonly bridge: CodexToolBridge,
@@ -86,13 +97,20 @@ class ResidentTurn {
     const lines = this.lineBuffer.split("\n");
     this.lineBuffer = lines.pop() ?? "";
     for (const line of lines) {
-      if (!line.includes('"agent_message"') && !line.includes('"turn.completed"')) continue;
+      if (
+        !line.includes('"agent_message"') &&
+        !line.includes('"turn.completed"') &&
+        !line.includes('"thread.started"')
+      )
+        continue;
       try {
         const event = JSON.parse(line) as {
           type?: string;
+          thread_id?: string;
           item?: { type?: string; text?: string };
           usage?: Record<string, number>;
         };
+        if (event.type === "thread.started" && event.thread_id) this.threadId = event.thread_id;
         // The subscription's real cost: Codex reports the whole turn's tokens once.
         if (event.type === "turn.completed" && event.usage)
           getLogger().info("cli.resident_usage", {
@@ -194,6 +212,7 @@ function answerWaitingCalls(turn: ResidentTurn, messages: readonly TranscriptMes
     const result = toBridgeResult(results.get(id)!);
     if (note && index === turn.waiting.length - 1)
       result.content.push({ type: "text", text: note.trimStart() });
+    for (const part of result.content) if (part.type === "text") turn.charsSent += part.text.length;
     turn.bridge.resolve(id, result);
   });
   turn.waiting = [];
@@ -204,9 +223,15 @@ export type ResidentStepOptions = {
   profileId: string;
   sessionId: string;
   messages: readonly TranscriptMessage[];
-  /** Prompt that starts a new turn: the instructions and the bounded conversation. */
+  /** Prompt that starts a new thread: the instructions and the bounded conversation. */
   startPrompt: () => string;
-  args: (bridgeUrl: string, tokenEnv: string) => string[];
+  /** Prompt that continues the bot's thread with only what is new since its last turn. */
+  resumePrompt: (messages: TranscriptMessage[], updated: TranscriptMessage[]) => string;
+  args: (
+    bridgeUrl: string,
+    tokenEnv: string,
+    thread: { persist: true } | { resume: string },
+  ) => string[];
   signal?: AbortSignal;
 };
 
@@ -236,14 +261,23 @@ export async function residentCodexStep(
     const bridge = new CodexToolBridge(tools);
     const url = await bridge.start();
     const directory = await mkdtemp(join(tmpdir(), "rakazo-cli-turn-"));
-    const prompt = options.startPrompt();
+    const delta = codexResumeDelta(
+      options.profileId,
+      options.sessionId,
+      options.messages,
+      THREAD_MAX_CHARS,
+    );
+    const prompt = delta
+      ? options.resumePrompt(delta.messages, delta.updated)
+      : options.startPrompt();
+    const thread = delta ? { resume: delta.threadId } : { persist: true as const };
     const started: ResidentTurn = new ResidentTurn(
       bridge,
       (signal, onOutput) =>
         runCliProcess({
           provider: "codex-cli",
           profileId: options.profileId,
-          args: options.args(url, TOKEN_ENV),
+          args: options.args(url, TOKEN_ENV, thread),
           cwd: directory,
           input: prompt,
           env: { [TOKEN_ENV]: bridge.token },
@@ -261,15 +295,33 @@ export async function residentCodexStep(
         if (turns.get(key) === started) turns.delete(key);
       },
     );
+    started.charsSent = prompt.length;
     turn = started;
     turns.set(key, turn);
     getLogger().info("cli.resident_start", {
       "cli.chars": prompt.length,
       "cli.tools": tools.length,
+      "cli.resumed": Boolean(delta),
     });
   }
-  const outcome = await turn.next(options.signal);
-  if (outcome.kind === "failed") throw outcome.error;
+  const active = turn;
+  const outcome = await active.next(options.signal);
+  if (outcome.kind === "failed") {
+    forgetCodexThread(options.profileId, options.sessionId);
+    throw outcome.error;
+  }
+  if (outcome.kind === "done") {
+    // Keep the thread: the bot's next turn continues it with only the new messages.
+    if (active.threadId)
+      rememberCodexThread(
+        options.profileId,
+        options.sessionId,
+        active.threadId,
+        options.messages,
+        active.charsSent,
+      );
+    else forgetCodexThread(options.profileId, options.sessionId);
+  }
   return outcome;
 }
 

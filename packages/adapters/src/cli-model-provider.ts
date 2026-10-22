@@ -545,9 +545,12 @@ function cliPrompt(
 }
 
 /** A resumed Codex thread already holds the instructions and earlier messages. */
-function cliResumePrompt(messages: TranscriptMessage[]): string {
+function cliResumePrompt(messages: TranscriptMessage[], updated: TranscriptMessage[]): string {
   const added = JSON.stringify(collapseSystemMessages(messages.map(modelVisibleMessage)));
-  return `New conversation messages since your last reply:\n${added}\nContinue the conversation. Return only one JSON object matching the schema.`;
+  const revised = updated.length
+    ? `Earlier tool results, updated since you saw them (they replace the earlier versions):\n${JSON.stringify(updated.map(modelVisibleMessage))}\n`
+    : "";
+  return `${revised}New conversation messages since your last reply:\n${added}\nContinue the conversation. Return only one JSON object matching the schema.`;
 }
 
 export function cliInferenceArgs(
@@ -726,7 +729,7 @@ function streamCliModel(
           (contextWindow ?? CLI_USAGE_WINDOW) * CLI_CHARS_PER_TOKEN,
         );
         const prompt = resume
-          ? cliResumePrompt(resume.messages)
+          ? cliResumePrompt(resume.messages, resume.updated)
           : cliPrompt(context, contextWindow, budgetScale).prompt;
         // Subscription CLIs report no token counts, so prompt size is the only usage signal.
         getLogger().info("cli.request", {

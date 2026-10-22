@@ -53,12 +53,17 @@ export function codexResumeDelta(
   sessionId: string | undefined,
   messages: readonly TranscriptMessage[],
   maxChars: number,
-): { threadId: string; messages: TranscriptMessage[] } | undefined {
+): { threadId: string; messages: TranscriptMessage[]; updated: TranscriptMessage[] } | undefined {
   if (!sessionId) return undefined;
   const thread = threads.get(threadKey(profileId, sessionId));
   if (!thread) return undefined;
   const current = hashMessages(messages.slice(0, thread.sent));
-  const changed = thread.sentHashes.findIndex((hash, index) => current[index] !== hash);
+  const changedIndexes = thread.sentHashes.flatMap((hash, index) =>
+    current[index] === hash ? [] : [index],
+  );
+  // The runtime rewrites recent tool results (shortened output, finished shells) after
+  // the thread saw them; resend those. Any other edit means a different history.
+  const changed = changedIndexes.find((index) => messages[index]?.role !== "toolResult") ?? -1;
   const reason =
     thread.chars >= maxChars
       ? "thread_full"
@@ -82,7 +87,11 @@ export function codexResumeDelta(
     });
     return undefined;
   }
-  return { threadId: thread.threadId, messages: messages.slice(thread.sent + 1) };
+  return {
+    threadId: thread.threadId,
+    messages: messages.slice(thread.sent + 1),
+    updated: changedIndexes.map((index) => messages[index]!),
+  };
 }
 
 /** Remember the thread a step used, so the next step of the conversation resumes it. */

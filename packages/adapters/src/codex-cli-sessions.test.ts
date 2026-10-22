@@ -21,6 +21,30 @@ describe("codex thread reuse", () => {
     expect(codexResumeDelta("profile", "thread:bot", next, 1_000)).toEqual({
       threadId: "t-1",
       messages: [user("tool result")],
+      updated: [],
+    });
+  });
+
+  it("resends tool results the runtime rewrote after the thread saw them", () => {
+    const result = (text: string) =>
+      ({
+        role: "toolResult",
+        toolCallId: "c1",
+        content: [{ type: "text", text }],
+      }) as unknown as Message;
+    const first = [user("Start"), assistant("calls shell"), result("full output")];
+    rememberCodexThread("profile", "rewrite", "t-2", first, 100);
+    const next = [
+      user("Start"),
+      assistant("calls shell"),
+      result("short"),
+      assistant("next"),
+      user("more"),
+    ];
+    expect(codexResumeDelta("profile", "rewrite", next, 1_000)).toEqual({
+      threadId: "t-2",
+      messages: [user("more")],
+      updated: [result("short")],
     });
   });
 

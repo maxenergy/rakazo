@@ -481,7 +481,6 @@ export class PiAgentRuntime implements AgentRuntime {
             if (!request.claimSteering) return undefined;
             const steering = await request.claimSteering([...seenSteeringIds]);
             if (steering.length === 0) return undefined;
-            seenSteeringIds.push(...steering.map((item) => item.id));
             for (const item of steering) {
               const images = toPiImages(item.images);
               agent.steer({
@@ -490,6 +489,8 @@ export class PiAgentRuntime implements AgentRuntime {
                 timestamp: Date.now(),
               });
             }
+            await request.onSteeringDelivered?.(steering.map((item) => item.id));
+            seenSteeringIds.push(...steering.map((item) => item.id));
             return undefined;
           },
           initialState: {
@@ -629,6 +630,9 @@ export class PiAgentRuntime implements AgentRuntime {
           ...initialSteering.flatMap((item) => item.images ?? []),
         ]);
         try {
+          if (initialSteering.length) {
+            await request.onSteeringDelivered?.(initialSteering.map((item) => item.id));
+          }
           await agent.prompt(initialPrompt, images?.length ? images : undefined);
         } finally {
           try {

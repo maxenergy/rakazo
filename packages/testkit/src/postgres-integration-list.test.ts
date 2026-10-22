@@ -7,6 +7,7 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 // These suites own disposable PG16 clusters and run in the unit-test job.
 // Explicit paths ensure new acceptance suites still require registration.
 const selfContained = new Set([
+  "packages/testkit/src/acceptance/steering-delivery.postgres.test.ts",
   "packages/testkit/src/acceptance/execution-fence.postgres.test.ts",
   // Skips in CI; proof is the local fallback restart PG16 script run, like goal-dependency-recovery.
   "packages/testkit/src/fallback-restart.postgres.test.ts",

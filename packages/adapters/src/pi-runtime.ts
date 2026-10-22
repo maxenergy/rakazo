@@ -36,6 +36,7 @@ import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
 import { BudgetExceededError } from "./budget-observer.js";
 import { runWithBudgetScope } from "./budget-scope.js";
 import { DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
+import { validCliDiscoveryEvidence } from "./cli-model-admission.js";
 import { registerCliModelProviders } from "./cli-model-provider.js";
 import { withCloudflareGatewayAuth } from "./cloudflare-ai-gateway.js";
 import { shortenToolResultText } from "./context-selection.js";
@@ -837,6 +838,23 @@ function configuredOpenRouterModel(
   };
 }
 
+// Operational limits derived from all existing Codex CLI models. These are
+// transport safeguards, never evidence of a discovered model's price or context.
+export function codexDiscoveredTransportLimits() {
+  const entries = builtinRuntimeModels().getProvider("codex-cli")?.getModels() ?? [];
+  if (!entries.length) throw new Error("Codex CLI transport limits are unavailable");
+  return Object.freeze({
+    contextWindow: Math.min(...entries.map((model) => model.contextWindow)),
+    maxTokens: Math.min(...entries.map((model) => model.maxTokens)),
+    cost: Object.freeze({
+      input: Math.max(...entries.map((model) => model.cost.input)),
+      output: Math.max(...entries.map((model) => model.cost.output)),
+      cacheRead: Math.max(...entries.map((model) => model.cost.cacheRead)),
+      cacheWrite: Math.max(...entries.map((model) => model.cost.cacheWrite)),
+    }),
+  });
+}
+
 export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   provider: string;
   modelId: string;
@@ -855,7 +873,25 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   const credentials = credentialStoreForRequest({ model: modelConfig }, provider);
   const models = modelsForRequest({ model: modelConfig }, provider, credentials);
   let model = models.getModel(provider, modelId);
-  if (!model && provider !== "openrouter" && provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
+  if (!model && provider === "codex-cli" && validCliDiscoveryEvidence(modelConfig)) {
+    const evidence = modelConfig.cliDiscovery!;
+    model = {
+      id: modelId,
+      name: modelId,
+      provider,
+      api: "rakazo-cli",
+      baseUrl: "",
+      input: evidence.imageInput === true ? ["text", "image"] : ["text"],
+      reasoning: evidence.reasoning === true,
+      ...codexDiscoveredTransportLimits(),
+    };
+  }
+  if (
+    !model &&
+    provider !== "codex-cli" &&
+    provider !== "openrouter" &&
+    provider !== OPENAI_COMPATIBLE_PROVIDER_ID
+  ) {
     model = models.getModel("openrouter", modelId);
   }
   if (
@@ -867,7 +903,11 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   ) {
     model = configuredOpenRouterModel(modelId, modelConfig.contextWindow);
   }
-  if (model && (modelConfig.contextWindow !== undefined || modelConfig.maxTokens !== undefined)) {
+  if (
+    model &&
+    !modelConfig.cliDiscovery &&
+    (modelConfig.contextWindow !== undefined || modelConfig.maxTokens !== undefined)
+  ) {
     model = {
       ...model,
       ...(modelConfig.contextWindow !== undefined
@@ -2535,6 +2575,7 @@ function fallbackSupportsContext(
   requestedThinkingLevel: AgentRunRequest["model"]["thinkingLevel"],
   tools: readonly ConnectorTool[],
 ): boolean {
+  if (candidate.config.cliDiscovery) return false;
   const inputTokens = estimateModelContextTokens(context, estimatePiImageTokens);
   const outputTokens = resolveCompletionMaxTokens(
     candidate.model.maxTokens,

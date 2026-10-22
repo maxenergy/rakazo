@@ -4,6 +4,7 @@ import { recommendModels } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { findModelCredential } from "@rakazo/db";
 import { z } from "zod";
+import { isNewCodexCliModel } from "./cli-model-admission.js";
 import { cliCatalogForSpace } from "./cli-model-catalog.js";
 import {
   isCatalogModelChoice,
@@ -21,6 +22,7 @@ type BotModelDeps = {
   prisma: PrismaClient;
   secretStore: Pick<EncryptedSecretStore, "load">;
   codexCatalog?: CodexLiveCatalog;
+  cliCacheOnly?: boolean;
 };
 
 export function parseBotModelSelection(
@@ -51,13 +53,25 @@ export async function validateBotModelSelection(
   provider: string,
   modelId: string,
 ) {
-  const error = await validateConnectedModelChoice(deps.prisma, scope, provider, modelId);
+  const error = await validateConnectedModelChoice(
+    deps.prisma,
+    scope,
+    provider,
+    modelId,
+    deps.secretStore,
+    deps.cliCacheOnly,
+  );
   if (error) return error;
   const credential = await findModelCredential(deps.prisma, scope, provider, modelId);
   if (!credential) return "Connect that model provider first";
-  if (!isCatalogModelChoice(provider, modelId) && credential.defaultModel !== modelId) {
+  if (
+    !isCatalogModelChoice(provider, modelId) &&
+    !isNewCodexCliModel(provider, modelId) &&
+    credential.defaultModel !== modelId
+  ) {
     return "Unknown model for that provider";
   }
+  if (isNewCodexCliModel(provider, modelId)) return undefined;
   const auth = await readStoredModelAuth(
     deps.prisma,
     deps.secretStore,
@@ -85,9 +99,20 @@ async function connectedModelCandidates(deps: BotModelDeps, scope: BotModelScope
     );
     if (live.size > 0) catalog = applyCodexLiveCatalog(catalog, auth, live);
   }
-  catalog = await cliCatalogForSpace(deps.prisma, deps.secretStore, scope, auth, catalog);
+  catalog = await cliCatalogForSpace(
+    deps.prisma,
+    deps.secretStore,
+    scope,
+    auth,
+    catalog,
+    undefined,
+    deps.cliCacheOnly,
+  );
   const models = catalog.flatMap((entry) => {
-    const kind = auth.byModel[entry.provider]?.[entry.id] ?? auth.byProvider[entry.provider];
+    const kind =
+      entry.provider === "codex-cli" && entry.discovery?.status === "discovered"
+        ? "cli"
+        : (auth.byModel[entry.provider]?.[entry.id] ?? auth.byProvider[entry.provider]);
     if (entry.placeholder || kind === undefined || kind === "disconnected") return [];
     return [{ ...entry, effectiveAuthKind: kind }];
   });

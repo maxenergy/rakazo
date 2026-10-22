@@ -24,7 +24,43 @@ function fixture() {
     { id: "first", ciphertext: "first" },
     { id: "second", ciphertext: "second" },
   ]);
-  const prisma = { secret: { findMany } } as unknown as PrismaClient;
+  const findFirst = vi.fn(async ({ where }: { where: { id: string } }) => ({
+    id: where.id,
+    ciphertext: where.id,
+  }));
+  const credentials = ["first", "second"].map((id) => ({
+    id: `${id}-credential`,
+    provider: "codex-cli",
+    secretId: id,
+    userId: "user",
+    label: id,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  }));
+  const prisma = {
+    secret: { findMany, findFirst },
+    userModelCredential: { findMany: vi.fn(async () => credentials) },
+    spaceModelPreference: {
+      findMany: vi.fn(async () => [
+        {
+          id: "default",
+          modelId: null,
+          isDefault: true,
+          thinkingLevel: null,
+          updatedAt: new Date(0),
+          credential: credentials[0],
+        },
+        {
+          id: "specific",
+          modelId: "b",
+          isDefault: false,
+          thinkingLevel: null,
+          updatedAt: new Date(0),
+          credential: credentials[1],
+        },
+      ]),
+    },
+  } as unknown as PrismaClient;
   const load = vi.fn(async (_cipher: string, id: string) =>
     JSON.stringify({
       kind: "cli",
@@ -37,10 +73,10 @@ function fixture() {
       },
     }),
   );
-  return { prisma, load, findMany };
+  return { prisma, load, findMany, findFirst };
 }
 describe("credential-scoped CLI catalog", () => {
-  it("excludes discovered IDs outside the static catalog", async () => {
+  it("includes discovered new IDs with unknown price and context", async () => {
     const f = fixture();
     const discover = vi.fn(async () => ({
       status: "discovered" as const,
@@ -57,7 +93,9 @@ describe("credential-scoped CLI catalog", () => {
       [entry("a")],
       discover,
     );
-    expect(result.map((model) => model.id)).toEqual(["a"]);
+    expect(result.map((model) => model.id)).toEqual(["a", "fixture-new-codex-model"]);
+    expect(result[1]?.contextWindow).toBeNull();
+    expect(result[1]?.pricing).toBeUndefined();
     expect(result[0]?.discovery?.status).toBe("discovered");
   });
 
@@ -85,8 +123,8 @@ describe("credential-scoped CLI catalog", () => {
       "11111111-1111-4111-8111-111111111111",
       "22222222-2222-4222-8222-222222222222",
     ]);
-    expect(f.findMany).toHaveBeenCalledWith({
-      where: { id: { in: ["first", "second"] }, userId: "user", spaceId: null },
+    expect(f.findFirst).toHaveBeenCalledWith({
+      where: { id: "first", userId: "user", spaceId: null },
       select: { id: true, ciphertext: true },
     });
     expect(result.map((model) => model.id)).toEqual(["a", "b", "blocked"]);

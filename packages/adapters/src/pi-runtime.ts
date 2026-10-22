@@ -1,3 +1,4 @@
+import { reviewFailureFacts } from "./review-failure.js";
 import { randomUUID } from "node:crypto";
 import type { AgentMessage, AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Agent } from "@earendil-works/pi-agent-core";
@@ -226,6 +227,7 @@ export class PiAgentRuntime implements AgentRuntime {
     const work = (async () => {
       let trackedBudget: ToolCallBudget | undefined;
       let resumeHost: ToolHost | undefined;
+      let reviewHttpStatus: number | undefined;
       try {
         const selectedModel = resolveRuntimeModel(request.model);
         if (!selectedModel.model) {
@@ -426,7 +428,14 @@ export class PiAgentRuntime implements AgentRuntime {
                   models,
                   m,
                   ctx,
-                  withCloudflareGatewayAuth(request.model, options),
+                  withCloudflareGatewayAuth(request.model, {
+                    ...options,
+                    onResponse: (response, model) => {
+                      reviewHttpStatus = [401, 402, 429].includes(response.status)
+                        ? response.status : undefined;
+                      return options?.onResponse?.(response, model);
+                    },
+                  }),
                   request.model.maxTokens,
                   () => selectedModel.credentials?.accessToken ?? apiKey,
                   (preparedOptions) =>
@@ -715,7 +724,15 @@ export class PiAgentRuntime implements AgentRuntime {
         queue.push(streamed.trim() ? { type: "done", text: streamed } : { type: "done" });
       } catch (error) {
         const message = sanitizeError(error instanceof Error ? error.message : String(error));
-        queue.fail(new Error(message));
+        queue.fail(
+          Object.assign(
+            new Error(message),
+            reviewFailureFacts(error),
+            ...(request.runId.includes(":auto-review") && reviewHttpStatus
+              ? [{ status: reviewHttpStatus }]
+              : []),
+          ),
+        );
       } finally {
         queue.close();
         if (trackedBudget) {

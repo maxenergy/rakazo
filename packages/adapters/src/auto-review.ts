@@ -16,6 +16,8 @@ import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { LOCAL_PROVIDER_ID } from "./pi-local-provider.js";
 
+import { reviewFailureClass } from "./review-failure.js";
+
 const DEFAULT_TIMEOUT_MS = 1_500;
 const MAX_TASK_CHARS = 400;
 const MAX_BOT_CHARS = 240;
@@ -348,8 +350,13 @@ export async function runAutoReviewJudge(input: {
         else text = body;
       }
     }
-  } catch {
-    return { decision: "error", model: modelLabel, reason: "Checker timed out or failed." };
+  } catch (error) {
+    return {
+      decision: "error",
+      model: modelLabel,
+      reason: "Checker timed out or failed.",
+      failureClass: reviewFailureClass(error),
+    };
   }
 
   if (failed || !text) {

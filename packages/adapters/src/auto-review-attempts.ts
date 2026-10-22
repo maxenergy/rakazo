@@ -1,6 +1,6 @@
 import type { AutoReviewResult, ProcessEvent } from "@rakazo/adapter-kit";
 
-export type ReviewFailureClass = "quota_exhausted" | "rate_limited" | "no_credentials";
+export type ReviewFailureClass = "quota" | "rate_limit" | "no_credentials";
 export type ReviewCandidate = { provider: string; model: string };
 export type ReviewHead = {
   cwd: string;

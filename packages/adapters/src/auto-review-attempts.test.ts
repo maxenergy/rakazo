@@ -1,3 +1,5 @@
+import { reviewFailureFacts } from "./review-failure.js";
+import { runAutoReviewJudge } from "./auto-review.js";
 import { expect, it, vi } from "vitest";
 import { readReviewHead, runReviewAttempts, type ReviewAttempt } from "./auto-review-attempts.js";
 
@@ -28,7 +30,11 @@ it("switches on quota to a different provider and records HEAD per attempt", asy
   const { input, events } = setup();
   const review = vi
     .fn()
-    .mockResolvedValueOnce({ decision: "error", model: "a/m1", failureClass: "quota_exhausted" })
+    .mockResolvedValueOnce({
+      decision: "error",
+      model: "a/m1",
+      failureClass: "quota",
+    })
     .mockResolvedValueOnce({ decision: "pass", model: "b/m2" });
   expect((await runReviewAttempts({ ...input, review })).decision).toBe("pass");
   expect(events.map((e) => [e.provider, e.disposition, e.head])).toEqual([
@@ -44,7 +50,11 @@ it("asks when all candidates are unavailable; unclassified errors never fail ove
     (
       await runReviewAttempts({
         ...input,
-        review: async () => ({ decision: "error", model: "m", failureClass: "rate_limited" }),
+        review: async () => ({
+          decision: "error",
+          model: "m",
+          failureClass: "rate_limit",
+        }),
       })
     ).decision,
   ).toBe("ask");
@@ -78,7 +88,7 @@ it("gives each actual fake provider call a distinct accounting key", async () =>
     review: async (candidate, key) => {
       usage.push(key);
       return candidate.provider === "a"
-        ? { decision: "error", model: "m", failureClass: "quota_exhausted" }
+        ? { decision: "error", model: "m", failureClass: "quota" }
         : { decision: "pass", model: "m" };
     },
   });
@@ -106,4 +116,39 @@ it("records no_git_workspace and continues the review", async () => {
     ).decision,
   ).toBe("pass");
   expect(events[0]?.reason).toBe("no_git_workspace");
+});
+
+it("passes only whitelisted failure facts without leaking the provider payload", async () => {
+  const raw = Object.assign(new Error("secret-provider-payload"), {
+    code: "insufficient_quota",
+    status: 429,
+    apiKey: "secret-api-key",
+    body: "secret-body",
+  });
+  const facts = reviewFailureFacts(raw);
+  expect(facts).toEqual({ code: "insufficient_quota", status: 429 });
+  const result = await runAutoReviewJudge({
+    runtime: {
+      describe: () => ({
+        id: "fake",
+        contractVersion: "1",
+        adapterVersion: "1",
+        capabilities: { streaming: false, compaction: false, tools: false, scripted: false },
+      }),
+      abort: async () => {},
+      async *run() {
+        throw Object.assign(new Error("safe"), facts);
+      },
+    },
+    checker: { provider: "a", model: "m" },
+    prompt: "check",
+    runId: "run",
+    spaceId: "space",
+    userId: "user",
+    botId: "bot",
+    threadId: "thread",
+  });
+  expect(result.failureClass).toBe("quota");
+  expect(JSON.stringify({ facts, result })).not.toContain("secret");
+  expect(reviewFailureFacts({ code: "secret-code", status: 500 })).toEqual({});
 });

@@ -1787,57 +1787,98 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
           let threadLocks = 0;
           let holderPid = 0;
           let waiterPid = 0;
+          const realPause = tool === "update_bot" && competitor === "budget_pause";
+          let winnerSnapshot: unknown;
+          const snapshot = async (client: any) => ({
+            space: await client.space.findUniqueOrThrow({ where: { id: space.id } }),
+            bot: await client.bot.findUniqueOrThrow({ where: { id: bot.id } }),
+            runs: await client.run.findMany({
+              where: { threadId: thread.id },
+              orderBy: { id: "asc" },
+            }),
+            attempts: await client.attempt.findMany({
+              where: { runId: run.id },
+              orderBy: { id: "asc" },
+            }),
+            thread: await client.thread.findUniqueOrThrow({ where: { id: thread.id } }),
+            proposals: await client.proposal.findMany({
+              where: { spaceId: space.id },
+              orderBy: { id: "asc" },
+            }),
+            approvals: await client.budgetOverrunApproval.findMany({
+              where: { spaceId: space.id },
+              orderBy: { id: "asc" },
+            }),
+            messages: await client.message.findMany({
+              where: { threadId: thread.id },
+              orderBy: { id: "asc" },
+            }),
+            events: await client.event.findMany({
+              where: { spaceId: space.id },
+              orderBy: { id: "asc" },
+            }),
+            botUpdated: await client.event.findMany({
+              where: { spaceId: space.id, type: "bot.updated" },
+              orderBy: { id: "asc" },
+            }),
+          });
           const instrumentedPrisma = new Proxy(db.prisma, {
             get(target, key) {
               if (key === "$transaction")
                 return (callback: (tx: any) => Promise<unknown>, options?: any) =>
-                  target.$transaction(
-                    async (tx) =>
-                      callback(
-                        new Proxy(tx, {
-                          get(transaction, method) {
-                            const value = Reflect.get(transaction, method);
-                            if (method === "$queryRaw")
-                              return async (...args: any[]) => {
-                                const query = String(args[0]);
-                                const isThreadLock =
-                                  armed &&
-                                  query.includes(tool === "add_mcp_server" ? "threads" : "bots") &&
-                                  (query.includes("FOR UPDATE") || query.includes("FOR KEY SHARE"));
-                                // The competitor can block on Space before reaching Bot.
-                                if (
-                                  armed &&
-                                  held &&
-                                  query.includes("spaces") &&
-                                  (query.includes("FOR UPDATE") || query.includes("FOR KEY SHARE"))
-                                ) {
-                                  waiting.resolve();
-                                }
-                                if (isThreadLock && ++threadLocks === 2) waiting.resolve();
-                                const currentPid = (
-                                  await transaction.$queryRawUnsafe(
-                                    "SELECT pg_backend_pid() AS pid",
-                                  )
-                                )[0].pid;
-                                if (holderPid && currentPid !== holderPid) waiterPid = currentPid;
-                                const result = await value.apply(transaction, args);
-                                if (isThreadLock && !held) {
-                                  held = true;
-                                  const identity = await transaction.$queryRawUnsafe(
-                                    "SELECT pg_backend_pid() AS pid",
-                                  );
-                                  holderPid = identity[0].pid;
-                                  locked.resolve();
-                                  await unlock.promise;
-                                }
-                                return result;
-                              };
-                            return typeof value === "function" ? value.bind(transaction) : value;
-                          },
-                        }),
-                      ),
-                    options,
-                  );
+                  target.$transaction(async (tx) => {
+                    const result = await callback(
+                      new Proxy(tx, {
+                        get(transaction, method) {
+                          const value = Reflect.get(transaction, method);
+                          if (method === "$queryRaw")
+                            return async (...args: any[]) => {
+                              const query = String(args[0]);
+                              const isThreadLock =
+                                armed &&
+                                query.includes(tool === "add_mcp_server" ? "threads" : "bots") &&
+                                (query.includes("FOR UPDATE") || query.includes("FOR KEY SHARE"));
+                              // The competitor can block on Space before reaching Bot.
+                              if (
+                                armed &&
+                                held &&
+                                query.includes("spaces") &&
+                                (query.includes("FOR UPDATE") || query.includes("FOR KEY SHARE"))
+                              ) {
+                                waiting.resolve();
+                              }
+                              if (isThreadLock && ++threadLocks === 2) waiting.resolve();
+                              const currentPid = (
+                                await transaction.$queryRawUnsafe("SELECT pg_backend_pid() AS pid")
+                              )[0].pid;
+                              if (holderPid && currentPid !== holderPid) waiterPid = currentPid;
+                              const result = await value.apply(transaction, args);
+                              if (isThreadLock && !held) {
+                                held = true;
+                                const identity = await transaction.$queryRawUnsafe(
+                                  "SELECT pg_backend_pid() AS pid",
+                                );
+                                holderPid = identity[0].pid;
+                                locked.resolve();
+                                await unlock.promise;
+                              }
+                              return result;
+                            };
+                          return typeof value === "function" ? value.bind(transaction) : value;
+                        },
+                      }),
+                    );
+                    if (
+                      realPause &&
+                      first === "competitor" &&
+                      armed &&
+                      winnerSnapshot === undefined
+                    ) {
+                      const current = await tx.run.findUniqueOrThrow({ where: { id: run.id } });
+                      if (current.status === "waiting_budget") winnerSnapshot = await snapshot(tx);
+                    }
+                    return result;
+                  }, options);
               const value = Reflect.get(target, key);
               return typeof value === "function" ? value.bind(target) : value;
             },
@@ -1904,6 +1945,22 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
               trigger: "user",
               status: "queued",
             },
+          });
+          const project = realPause
+            ? await db.prisma.project.create({
+                data: { spaceId: space.id, name: "Synthetic budget project" },
+              })
+            : null;
+          if (project)
+            await setProjectBudget(db.prisma, {
+              spaceId: space.id,
+              projectId: project.id,
+              limitMicroUsd: 0n,
+            });
+          const append = vi.fn(async (input: Parameters<typeof appendEventInTransaction>[1]) => {
+            if (realPause && input.type === "bot.updated") {
+              await db.prisma.$transaction((tx) => appendEventInTransaction(tx, input));
+            }
           });
           const memoryCommit = vi.fn(async () => ({ revision: "synthetic-revision" }));
           const toolResults: unknown[] = [];
@@ -1994,7 +2051,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
             },
             memoryProviders: { resolve: async () => null },
             events: {
-              append: vi.fn(async () => undefined),
+              append,
               pauseRunForInput: vi.fn(async () => true),
               finalizeRun,
             },
@@ -2038,7 +2095,20 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
                     leaseOwner: fence.leaseOwner,
                     leaseFence: fence.leaseFence,
                     blocks: [],
-                    checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "synthetic" }),
+                    checkpoint: JSON.stringify({
+                      kind: "budget_pause_v1",
+                      reason: realPause ? "insufficient" : "synthetic",
+                      ...(project
+                        ? {
+                            call: {
+                              spaceId: space.id,
+                              projectId: project.id,
+                              callId: `${id}-call`,
+                              amountMicroUsd: "100000",
+                            },
+                          }
+                        : {}),
+                    }),
                   })
                 : recoverUnfinishedEffects(
                     { prisma: instrumentedPrisma } as Parameters<
@@ -2076,6 +2146,36 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
           );
           expect(executorFailures, JSON.stringify(executorFailures)).toEqual([]);
           if (competingError) throw competingError;
+          if (realPause) {
+            const after = await snapshot(db.prisma);
+            expect(after.proposals).toHaveLength(1);
+            expect(after.approvals).toHaveLength(1);
+            const checkpoint = JSON.parse(after.runs[0].checkpoint!);
+            expect(checkpoint.proposalId).toBe(after.proposals[0].id);
+            expect(checkpoint.approvalId).toBe(after.approvals[0].id);
+            expect(after.approvals[0].proposalId).toBe(after.proposals[0].id);
+            expect(after.approvals[0].amountMicroUsd).toBe(100000n);
+            // Snapshot the pause winner before releasing its locks. A stale update_bot
+            // adds no row changes, including its separate bot.updated event.
+            // Space SET id=id is a lock touch; all Space values still compare exactly.
+            if (first === "competitor") {
+              expect(winnerSnapshot).toBeDefined();
+              expect(after).toEqual(winnerSnapshot);
+              expect(after.botUpdated).toEqual([]);
+              expect(append.mock.calls.filter(([input]) => input.type === "bot.updated")).toEqual(
+                [],
+              );
+            } else {
+              expect(
+                append.mock.calls.filter(([input]) => input.type === "bot.updated"),
+              ).toHaveLength(1);
+              // The separately fenced notification may lose to pause after the bot update commits.
+              expect(after.botUpdated.length).toBeLessThanOrEqual(1);
+            }
+            // Pause cleared the lease: another pause with the old fence is a no-op.
+            expect(await compete()).toBe(false);
+            expect(await snapshot(db.prisma)).toEqual(after);
+          }
           const shouldWrite = !(competitor !== "recover" && first === "competitor");
           if (tool === "add_mcp_server") {
             expect(await db.prisma.mcpServer.count({ where: { spaceId: space.id } })).toBe(

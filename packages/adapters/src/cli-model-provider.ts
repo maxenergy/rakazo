@@ -585,21 +585,6 @@ function residentFinalText(output: string): string {
   }
 }
 
-/** A bot's next turn in its resident Codex thread: only what is new since the last turn. */
-function bridgedResumePrompt(messages: TranscriptMessage[], updated: TranscriptMessage[]): string {
-  const added = JSON.stringify(
-    collapseSystemMessages(messages.map(modelVisibleMessage)).map((message) => {
-      if (message.role !== "system") return message;
-      const { toolsAdded: _added, toolsRemoved: _removed, ...rest } = message;
-      return rest as TranscriptMessage;
-    }),
-  );
-  const revised = updated.length
-    ? `Earlier tool results, updated since you saw them (they replace the earlier versions):\n${JSON.stringify(updated.map(modelVisibleMessage))}\n`
-    : "";
-  return `${revised}New conversation messages since your last reply:\n${added}\nContinue the conversation, acting through the "rakazo" MCP tools, and reply with your final message as plain text.`;
-}
-
 /** A resumed Codex thread already holds the instructions and earlier messages. */
 function cliResumePrompt(messages: TranscriptMessage[], updated: TranscriptMessage[]): string {
   const added = JSON.stringify(collapseSystemMessages(messages.map(modelVisibleMessage)));
@@ -803,9 +788,8 @@ function streamCliModel(
             sessionId,
             messages: context.messages,
             startPrompt: () => cliPrompt(context, contextWindow, 1, true).prompt,
-            resumePrompt: bridgedResumePrompt,
-            args: (url, tokenEnv, thread) =>
-              cliInferenceArgs(provider, model.id, schemaPath, thread, { url, tokenEnv }),
+            args: (url, tokenEnv) =>
+              cliInferenceArgs(provider, model.id, schemaPath, undefined, { url, tokenEnv }),
             signal: options.signal,
           });
           if (step?.kind === "calls")

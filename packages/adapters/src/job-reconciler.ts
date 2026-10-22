@@ -8,6 +8,7 @@ import type { PoolClient } from "pg";
 import { returnBotMessageOutcome } from "./bot-messages.js";
 import { scheduleComputerControlExpiry } from "./computer-control.js";
 import { reconcileStuckWork } from "./stuck-work.js";
+import { createStuckWorkerDetector } from "./stuck-worker.js";
 import { isLoopGuardStopText } from "./tool-loop.js";
 import { isUserProgressClientNonce } from "./user-progress.js";
 
@@ -112,6 +113,7 @@ export function createJobReconciler(
   },
   options: { intervalMs?: number; batchSize?: number } = {},
 ) {
+  const detectStuckWorkers = createStuckWorkerDetector(deps.prisma);
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -142,6 +144,11 @@ export function createJobReconciler(
       }
 
       const now = new Date();
+      try {
+        await detectStuckWorkers(now);
+      } catch (error) {
+        getLogger().error("stuck worker detection", error);
+      }
       try {
         stuckCursor = await reconcileStuckWork({
           prisma: deps.prisma,

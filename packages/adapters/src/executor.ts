@@ -2683,6 +2683,8 @@ function runtimeFallbackModel(runtime: AgentRuntime) {
 export interface ExecutorDeps {
   /** Test-only barrier outside the claim transaction; omitted in production. */
   afterEffectClaim?: (effectId: string) => Promise<void>;
+  /** Test-only barrier before claiming an effect; never holds a transaction open. */
+  beforeEffectClaim?: (effectId: string) => Promise<void>;
   contextStrategy?: AgentContextStrategy;
   prisma: PrismaClient;
   events: ThreadEvents;
@@ -4857,6 +4859,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const claimOrReturn = async (
             from: "approved" | "intended",
           ): Promise<unknown | undefined> => {
+            await deps.beforeEffectClaim?.(applied!.effect.id);
             const claim = from === "approved" ? claimApprovedEffect : claimIntendedEffect;
             if (
               await withExecutionFence(deps, run.executionFence, (tx) =>

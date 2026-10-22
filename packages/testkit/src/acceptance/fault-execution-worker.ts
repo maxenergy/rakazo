@@ -58,6 +58,8 @@ const memory = {
   }),
   exportMarkdown: async function* () {},
   commit: async () => {
+    if (process.env.RAK_FAULT_PRE_CLAIM === "1")
+      await channel.barrier("unauthorized-stale-dispatch");
     // Private simulated external receiver; the controller owns its receive log.
     const receiver = process.env.RAK_FAULT_RECEIVER;
     if (receiver) {
@@ -85,6 +87,32 @@ const runtime: AgentRuntime = {
   abort: async () => undefined,
   async *run(request) {
     await boundary("runtime-entered");
+    const scenario = process.env.RAK_FAULT_STALE_CALLBACK;
+    if (scenario) {
+      if (scenario === "checkpoint") {
+        await request.onSegmentCheckpoint!("synthetic-current-checkpoint");
+      }
+      const steering = scenario === "steering" ? await request.claimSteering!([]) : [];
+      if (scenario === "steering" && steering.length !== 1)
+        throw new Error("Expected one synthetic steering message");
+      await channel.barrier("callback-ready");
+      if (scenario === "steering" && (await request.claimSteering!([])).length !== 0)
+        throw new Error("Stale steering claim succeeded");
+      try {
+        if (scenario === "checkpoint")
+          await request.onSegmentCheckpoint!("synthetic-stale-checkpoint");
+        else await request.onSteeringDelivered!(steering.map((item) => item.id));
+        throw new Error("Stale callback succeeded");
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          !error.message.includes("Run execution fence is no longer current")
+        )
+          throw error;
+      }
+      await channel.barrier("stale-callback-rejected");
+      return;
+    }
     if (!request.budgetScope) throw new Error("Fixture requires budget scope");
     const callId = `${config.runId}-${identity.fence}`;
     const scope = request.budgetScope;
@@ -140,6 +168,10 @@ const runtime: AgentRuntime = {
   },
 };
 const executorDeps: Parameters<typeof createRunExecutor>[0] = {
+  beforeEffectClaim:
+    process.env.RAK_FAULT_PRE_CLAIM === "1"
+      ? () => channel.barrier("before-effect-claim")
+      : undefined,
   prisma: db.prisma,
   events: createThreadEvents(db.prisma),
   sandbox,

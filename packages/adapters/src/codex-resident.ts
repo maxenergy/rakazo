@@ -1,10 +1,10 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TranscriptContext } from "@earendil-works/pi-ai";
 import { getLogger } from "@rakazo/logging";
 import { runCliProcess } from "./cli-model-process.js";
-import { codexResumeDelta, forgetCodexThread, rememberCodexThread } from "./codex-cli-sessions.js";
 import type { BridgeCall, BridgeResult, BridgeTool } from "./codex-tool-bridge.js";
 import { CodexToolBridge } from "./codex-tool-bridge.js";
 
@@ -132,6 +132,88 @@ class ResidentTurn {
 }
 
 const turns = new Map<string, ResidentTurn>();
+
+/**
+ * The Codex thread a bot's last turn ran in. A new turn rebuilds the conversation from
+ * stored messages, so it is matched by their stored ids, not by position or content.
+ */
+type BotThread = { threadId: string; seen: Set<string>; systemHash: string; chars: number };
+const botThreads = new Map<string, BotThread>();
+
+function storedId(message: TranscriptMessage): string | undefined {
+  return (message as { rakazoMessageId?: string }).rakazoMessageId;
+}
+
+function systemText(messages: readonly TranscriptMessage[]): string {
+  return messages
+    .filter((message) => message.role === "system")
+    .map(messageText)
+    .join("\n\n");
+}
+
+function hashText(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+/** The bot's own earlier replies, which the Codex thread already holds. */
+function isOwnReply(message: TranscriptMessage): boolean {
+  return (
+    (message as { rakazoHistory?: boolean }).rakazoHistory === true &&
+    messageText(message).startsWith("Assistant: ")
+  );
+}
+
+/**
+ * Messages a new turn must add to the bot's Codex thread: those after the newest one the
+ * thread has already seen, plus the instructions when they changed. Undefined when there
+ * is no usable thread, so the turn starts fresh from the bounded conversation.
+ */
+export function botThreadDelta(
+  key: string,
+  messages: readonly TranscriptMessage[],
+): { threadId: string; messages: TranscriptMessage[] } | undefined {
+  const thread = botThreads.get(key);
+  if (!thread || thread.chars >= THREAD_MAX_CHARS) return undefined;
+  let last = -1;
+  messages.forEach((message, index) => {
+    const id = storedId(message);
+    if (id && thread.seen.has(id)) last = index;
+  });
+  if (last < 0) return undefined;
+  const added = messages
+    .slice(last + 1)
+    .filter((message) => message.role !== "system" && !isOwnReply(message));
+  if (added.length === 0) return undefined;
+  const system = systemText(messages);
+  return {
+    threadId: thread.threadId,
+    messages:
+      hashText(system) === thread.systemHash
+        ? added
+        : [{ role: "system", content: system, timestamp: 0 } as TranscriptMessage, ...added],
+  };
+}
+
+export function rememberBotThread(
+  key: string,
+  threadId: string,
+  messages: readonly TranscriptMessage[],
+  chars: number,
+) {
+  const previous = botThreads.get(key);
+  const same = previous?.threadId === threadId;
+  const seen = same ? previous.seen : new Set<string>();
+  for (const message of messages) {
+    const id = storedId(message);
+    if (id) seen.add(id);
+  }
+  botThreads.set(key, {
+    threadId,
+    seen,
+    systemHash: hashText(systemText(messages)),
+    chars: (same ? previous.chars : 0) + chars,
+  });
+}
 
 function turnKey(profileId: string, sessionId: string) {
   return `${profileId}:${sessionId}`;
@@ -261,15 +343,8 @@ export async function residentCodexStep(
     const bridge = new CodexToolBridge(tools);
     const url = await bridge.start();
     const directory = await mkdtemp(join(tmpdir(), "rakazo-cli-turn-"));
-    const delta = codexResumeDelta(
-      options.profileId,
-      options.sessionId,
-      options.messages,
-      THREAD_MAX_CHARS,
-    );
-    const prompt = delta
-      ? options.resumePrompt(delta.messages, delta.updated)
-      : options.startPrompt();
+    const delta = botThreadDelta(key, options.messages);
+    const prompt = delta ? options.resumePrompt(delta.messages, []) : options.startPrompt();
     const thread = delta ? { resume: delta.threadId } : { persist: true as const };
     const started: ResidentTurn = new ResidentTurn(
       bridge,
@@ -307,20 +382,14 @@ export async function residentCodexStep(
   const active = turn;
   const outcome = await active.next(options.signal);
   if (outcome.kind === "failed") {
-    forgetCodexThread(options.profileId, options.sessionId);
+    botThreads.delete(key);
     throw outcome.error;
   }
   if (outcome.kind === "done") {
     // Keep the thread: the bot's next turn continues it with only the new messages.
     if (active.threadId)
-      rememberCodexThread(
-        options.profileId,
-        options.sessionId,
-        active.threadId,
-        options.messages,
-        active.charsSent,
-      );
-    else forgetCodexThread(options.profileId, options.sessionId);
+      rememberBotThread(key, active.threadId, options.messages, active.charsSent);
+    else botThreads.delete(key);
   }
   return outcome;
 }
@@ -329,4 +398,5 @@ export async function residentCodexStep(
 export function stopResidentTurns() {
   for (const turn of turns.values()) turn.stop();
   turns.clear();
+  botThreads.clear();
 }

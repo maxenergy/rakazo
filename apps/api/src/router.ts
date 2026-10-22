@@ -297,6 +297,7 @@ import {
   startOnboarding,
 } from "./onboarding.js";
 import { listRoutineRuns } from "./routine-runs.js";
+import { getRunDiagnostics } from "./run-diagnostics.js";
 import { listSpaceRuns } from "./runs.js";
 import { addScreenProxyCapability } from "./screen-proxy.js";
 import { querySpaceSearch } from "./search.js";
@@ -6764,6 +6765,9 @@ export function createRouter(deps: RouterDeps) {
       favicon: authed.links.favicon.handler(async ({ input }) => favicons.favicon(input.origin)),
     },
     runs: {
+      diagnostics: authed.runs.diagnostics.handler(async ({ context, input }) =>
+        getRunDiagnostics(deps.prisma, context.actor, input),
+      ),
       list: authed.runs.list.handler(async ({ context, input }) => ({
         runs: await listSpaceRuns(deps.prisma, context.actor, input.filter),
       })),

@@ -13,6 +13,7 @@ import {
   filterActivityRuns,
 } from "../lib/activity-list-filters";
 import { rpc } from "../lib/rpc";
+import { RunDiagnostics } from "./RunDiagnostics";
 
 export function statusTone(status: RunActivityRow["status"], updatedAt?: string): string {
   if (status === "failed") return "text-destructive";
@@ -354,12 +355,14 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 }
 
 function ActivityRow({ run, onOpen }: { run: RunActivityRow; onOpen: () => void }) {
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const { t } = useLingui();
   const title = run.groupName ? `${run.botName} · ${run.groupName}` : run.botName;
   const label = statusLabel(run.status);
   const activityLabel = t`${title}, ${label}`;
   const tone = statusTone(run.status, run.updatedAt);
   return (
+    <div>
     <button
       type="button"
       aria-label={activityLabel}
@@ -387,6 +390,8 @@ function ActivityRow({ run, onOpen }: { run: RunActivityRow; onOpen: () => void 
         </div>
       </div>
     </button>
+    <details className="mx-3 mb-2" onToggle={(event) => setDiagnosticsOpen(event.currentTarget.open)}><summary className="cursor-pointer text-xs text-muted-foreground">Run diagnostics</summary>{diagnosticsOpen ? <RunDiagnostics runId={run.runId} /> : null}</details>
+    </div>
   );
 }
 

@@ -101,6 +101,7 @@ async function main() {
         "packages/db/src/project-archive.postgres.test.ts",
         "apps/api/src/project-links.postgres.test.ts",
         "apps/api/src/projects.postgres.test.ts",
+        "apps/api/src/run-diagnostics.postgres.test.ts",
         "packages/testkit/src/pi-offline.postgres.test.ts",
         "packages/testkit/src/usage-accounting.postgres.test.ts",
         "packages/testkit/src/fallback-billing.postgres.test.ts",

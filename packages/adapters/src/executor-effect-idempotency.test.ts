@@ -244,6 +244,8 @@ function fixture(runId = "run-1", afterEffectClaim?: (effectId: string) => Promi
     results,
     scratchpadRows,
     memoryCommit,
+    pauseRunForInput,
+    runRow: run,
     prisma,
     setCalls(next: ToolCall[]) {
       calls = next;
@@ -497,6 +499,37 @@ describe("mutating tool effect idempotency keys", () => {
     expect(f.memoryCommit).not.toHaveBeenCalled();
     expect(f.effects).toHaveLength(1);
     expect(f.results[0]).toEqual({ ok: true, legacy: true });
+  });
+
+  it("pauses recovered intent until explicit approval, then dispatches once", async () => {
+    const args = { path: "MEMORY.md", content: "recovered fact" };
+    const f = fixture("run-recovered-intent");
+    f.effects.push({
+      id: "recovered-intent",
+      spaceId: "space-1",
+      runId: "run-recovered-intent",
+      kind: "remember",
+      idempotencyKey: toolEffectIdempotencyKey("run-recovered-intent", "remember", args),
+      status: "intended",
+      request: args,
+    });
+    f.setCalls([{ name: "remember", args, executionId: "recovery-call" }]);
+
+    await f.run();
+
+    expect(f.memoryCommit).not.toHaveBeenCalled();
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
+    expect(f.runRow.status).toBe("waiting_input");
+    expect(f.effects[0]?.status).toBe("intended");
+
+    // The existing approval handler transitions the effect before resuming the run.
+    f.effects[0]!.status = "approved";
+    await f.run();
+
+    expect(f.memoryCommit).toHaveBeenCalledOnce();
+    expect(f.effects).toHaveLength(1);
+    expect(f.effects[0]?.status).toBe("completed");
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
   });
 
   it("does not reuse an incomplete legacy effect when the request differs", async () => {

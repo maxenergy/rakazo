@@ -696,6 +696,14 @@ function streamCliModel(
       const contextWindow = cliContextWindow(provider, model.contextWindow);
       for (let attempt = 1; !reply; attempt += 1) {
         const { prompt } = cliPrompt(context, contextWindow, budgetScale);
+        // Subscription CLIs report no token counts, so prompt size is the only usage signal.
+        getLogger().info("cli.request", {
+          "cli.provider": provider,
+          "cli.model": model.id,
+          "cli.chars": prompt.length,
+          "cli.context_window": contextWindow,
+          "cli.messages": context.messages.length,
+        });
         // Grok CLI reads the prompt from this file instead of stdin.
         await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
         let responseText = "";

@@ -102,7 +102,7 @@ describe.skipIf(!available)("full execution worker fault harness PostgreSQL", ()
         trigger: "user",
       },
     });
-    return { id, space, run };
+    return { id, space, run, bot, thread };
   }
   async function worker(runId: string, instanceId: string, env: Record<string, string> = {}) {
     const handle = await spawnFaultWorker({
@@ -160,6 +160,100 @@ describe.skipIf(!available)("full execution worker fault harness PostgreSQL", ()
     ).toHaveLength(1);
   }, 60_000);
 
+  for (const scenario of ["checkpoint", "steering"]) {
+    it(`rejects stale ${scenario} callbacks after a real worker takeover`, async () => {
+      const { run, space, bot, thread, id } = await fixture();
+      if (scenario === "steering") {
+        const message = await db.prisma.message.create({
+          data: {
+            threadId: thread.id,
+            seq: 1,
+            role: "user",
+            blocks: [{ kind: "text", text: "Synthetic steering" }],
+          },
+        });
+        await db.prisma.steeringMessage.create({
+          data: { messageId: message.id, botId: bot.id, userId: id, runId: run.id },
+        });
+      }
+      const first = await worker(run.id, "callback-old", { RAK_FAULT_STALE_CALLBACK: scenario });
+      const entered = await first.waitFor("reached", "runtime-entered");
+      await first.release(entered);
+      const ready = await first.waitFor("reached", "callback-ready");
+      const checkpoint = (await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } }))
+        .segmentCheckpoint;
+      if (scenario === "checkpoint")
+        expect(JSON.parse(checkpoint!).runtime).toBe("synthetic-current-checkpoint");
+      await expireWorkerLease(db.prisma, run.id, ready.fence);
+      const recovered = await worker(run.id, "callback-new");
+      const resumed = await recovered.waitFor("reached", "runtime-entered");
+      expect(resumed.fence).toBeGreaterThan(ready.fence);
+      const before = await ledgerSnapshot(db.prisma, space.id, []);
+      const steeringBefore = await db.prisma.steeringMessage.findMany({ where: { botId: bot.id } });
+      const eventsBefore = await db.prisma.event.findMany({ where: { runId: run.id } });
+      const messagesBefore = await db.prisma.message.findMany({ where: { threadId: thread.id } });
+      await first.release(ready);
+      const rejected = await first.waitFor("reached", "stale-callback-rejected");
+      expect(rejected.fence).toBe(ready.fence);
+      expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+        status: "running",
+        leaseOwner: "callback-new",
+        leaseFence: resumed.fence,
+        segmentCheckpoint: checkpoint,
+      });
+      expect(await db.prisma.steeringMessage.findMany({ where: { botId: bot.id } })).toEqual(
+        steeringBefore,
+      );
+      expect(await db.prisma.event.findMany({ where: { runId: run.id } })).toEqual(eventsBefore);
+      expect(await db.prisma.message.findMany({ where: { threadId: thread.id } })).toEqual(
+        messagesBefore,
+      );
+      assertLedgerUnchanged(before, await ledgerSnapshot(db.prisma, space.id, []));
+      await first.release(rejected);
+      await first.drain();
+      await recovered.release(resumed);
+      await recovered.drain();
+      expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+        status: "completed",
+      });
+    }, 60_000);
+  }
+
+  it("fences an old worker held immediately before the intended-effect claim", async () => {
+    const { run, space } = await fixture();
+    const first = await worker(run.id, "claim-old", {
+      RAK_FAULT_EFFECT: "1",
+      RAK_FAULT_PRE_CLAIM: "1",
+    });
+    const entered = await first.waitFor("reached", "runtime-entered");
+    await first.release(entered);
+    const ready = await first.waitFor("reached", "before-effect-claim");
+    const effects = await db.prisma.externalEffect.findMany({ where: { runId: run.id } });
+    expect(effects).toHaveLength(1);
+    expect(effects[0]!.status).toBe("intended");
+    await expireWorkerLease(db.prisma, run.id, ready.fence);
+    const recovered = await worker(run.id, "claim-new", { RAK_FAULT_EFFECT: "1" });
+    const resumed = await recovered.waitFor("reached", "runtime-entered");
+    expect(resumed.fence).toBeGreaterThan(ready.fence);
+    const calls = [`${run.id}-${ready.fence}`];
+    const before = await ledgerSnapshot(db.prisma, space.id, calls);
+    await first.release(ready);
+    await first.drain();
+    assertLedgerUnchanged(before, await ledgerSnapshot(db.prisma, space.id, calls));
+    expect(await db.prisma.externalEffect.findMany({ where: { runId: run.id } })).toEqual(effects);
+    expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+      status: "running",
+      leaseOwner: "claim-new",
+      leaseFence: resumed.fence,
+    });
+    await recovered.release(resumed);
+    await recovered.drain();
+    expect(await db.prisma.externalEffect.findMany({ where: { runId: run.id } })).toEqual(effects);
+    expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
+      status: "waiting_input",
+    });
+  }, 60_000);
+
   for (const dispatched of [false, true]) {
     it(`prevents replay of ${dispatched ? "received" : "undispatched"} effects after real worker death`, async () => {
       const { run, space } = await fixture();
@@ -212,12 +306,10 @@ describe.skipIf(!available)("full execution worker fault harness PostgreSQL", ()
         if (!dispatched) {
           const outcome = await Promise.race([
             drained.then(() => "drained"),
-            recovered
-              .waitFor("reached", "effect-received-before-result")
-              .then(
-                () => "unauthorized-dispatch",
-                () => drained.then(() => "drained"),
-              ),
+            recovered.waitFor("reached", "effect-received-before-result").then(
+              () => "unauthorized-dispatch",
+              () => drained.then(() => "drained"),
+            ),
           ]);
           expect(outcome, "An intended effect requires approval before recovery dispatch").toBe(
             "drained",

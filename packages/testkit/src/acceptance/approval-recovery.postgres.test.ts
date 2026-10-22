@@ -451,6 +451,7 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
           orderBy: { id: "asc" },
         });
         const paused = await handles.prisma.run.findUniqueOrThrow({ where: { id: sent.runId } });
+        expect(paused.segmentCheckpoint).toBeNull();
         const approval = await handles.prisma.budgetOverrunApproval.findFirstOrThrow({
           where: { projectId: project.id },
         });

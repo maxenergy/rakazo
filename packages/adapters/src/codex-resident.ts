@@ -96,9 +96,9 @@ class ResidentTurn {
         // The subscription's real cost: Codex reports the whole turn's tokens once.
         if (event.type === "turn.completed" && event.usage)
           getLogger().info("cli.resident_usage", {
-            "cli.input_tokens": event.usage.input_tokens ?? 0,
-            "cli.cached_input_tokens": event.usage.cached_input_tokens ?? 0,
-            "cli.output_tokens": event.usage.output_tokens ?? 0,
+            "cli.usage.input": event.usage.input_tokens ?? 0,
+            "cli.usage.cached_input": event.usage.cached_input_tokens ?? 0,
+            "cli.usage.output": event.usage.output_tokens ?? 0,
           });
         if (
           event.type === "item.completed" &&

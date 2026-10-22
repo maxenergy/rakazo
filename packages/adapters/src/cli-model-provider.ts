@@ -572,6 +572,19 @@ ${conversationText}`,
   };
 }
 
+/**
+ * A resident turn may end without a closing message, for example right after messaging a
+ * colleague. That is a silent completion, as an empty JSON reply is on the step path.
+ */
+function residentFinalText(output: string): string {
+  try {
+    return cliResponseText("codex-cli", output);
+  } catch (error) {
+    if (error instanceof CliReplyError && error.reason === "empty_response") return "";
+    throw error;
+  }
+}
+
 /** A resumed Codex thread already holds the instructions and earlier messages. */
 function cliResumePrompt(messages: TranscriptMessage[], updated: TranscriptMessage[]): string {
   const added = JSON.stringify(collapseSystemMessages(messages.map(modelVisibleMessage)));
@@ -788,7 +801,7 @@ function streamCliModel(
                 argumentsJson: JSON.stringify(call.arguments),
               })),
             };
-          else if (step) reply = { text: cliResponseText(provider, step.output), calls: [] };
+          else if (step) reply = { text: residentFinalText(step.output), calls: [] };
         } catch (error) {
           if (options.signal?.aborted) throw error;
           const reason = cliFailureReason(error);

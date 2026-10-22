@@ -446,15 +446,15 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
     const enqueueBarrier = new Promise<void>((resolve) => {
       releaseEnqueue = resolve;
     });
-    const wakeups: string[] = [];
+    const wakeups: { name: string; payload: { runId: string } }[] = [];
     const spawning = spawnBot(
       {
         prisma: db.prisma,
         jobs: {
-          enqueue: async () => {
+          enqueue: async (job: { name: string; payload: { runId: string } }) => {
             enqueueReached();
             await enqueueBarrier;
-            wakeups.push("wake");
+            wakeups.push(job);
           },
         } as any,
       },
@@ -473,17 +473,56 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         throw new Error("Missing enqueue barrier");
       }),
     ]);
+    // Creation has committed and the best-effort pre-check has passed.
+    const queuedChild = await db.prisma.run.findFirstOrThrow({
+      where: { spaceId: space.id, trigger: "spawn" },
+    });
+    expect(queuedChild.status).toBe("queued");
+    const businessRows = async () => ({
+      space: await db.prisma.space.findUniqueOrThrow({ where: { id: space.id } }),
+      bots: await db.prisma.bot.findMany({ where: { spaceId: space.id }, orderBy: { id: "asc" } }),
+      threads: await db.prisma.thread.findMany({
+        where: { spaceId: space.id },
+        orderBy: { id: "asc" },
+      }),
+      tasks: await db.prisma.task.findMany({
+        where: { spaceId: space.id },
+        orderBy: { id: "asc" },
+      }),
+      runs: await db.prisma.run.findMany({ where: { spaceId: space.id }, orderBy: { id: "asc" } }),
+      messages: await db.prisma.message.findMany({
+        where: { thread: { spaceId: space.id } },
+        orderBy: { id: "asc" },
+      }),
+      events: await db.prisma.event.findMany({
+        where: { spaceId: space.id },
+        orderBy: { id: "asc" },
+      }),
+      scratchpad: await db.prisma.scratchpadItem.findMany({
+        where: { spaceId: space.id },
+        orderBy: { id: "asc" },
+      }),
+    });
+    let beforeStaleEnqueue: Awaited<ReturnType<typeof businessRows>>;
     try {
       await db.prisma.run.update({ where: { id: run.id }, data: { leaseExpiresAt: new Date(0) } });
       await expect(sourceExecutor.continueRun(run.id, "source-new")).rejects.toBe(stop);
+      const winner = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+      expect(winner.leaseFence).toBeGreaterThan(executionFence.leaseFence);
+      expect(winner.leaseOwner).toBe("source-new");
+      beforeStaleEnqueue = await businessRows();
     } finally {
       releaseEnqueue();
     }
     const child = await spawning;
+    expect(await businessRows()).toEqual(beforeStaleEnqueue!);
     if (!("botId" in child)) throw new Error("Expected child");
     const childBot = await db.prisma.bot.findUniqueOrThrow({ where: { id: child.botId } });
     const childRun = await db.prisma.run.findFirstOrThrow({ where: { botId: child.botId } });
-    expect(wakeups).toHaveLength(1);
+    expect(childRun.id).toBe(queuedChild.id);
+    expect(wakeups).toEqual([
+      expect.objectContaining({ name: "run.continue", payload: { runId: childRun.id } }),
+    ]);
     let release!: () => void;
     let claimed!: (effectId: string) => void;
     const barrier = new Promise<void>((resolve) => {
@@ -494,6 +533,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
     });
     const memoryCommit = vi.fn(async () => ({ revision: "synthetic-revision" }));
     const toolResults: unknown[] = [];
+    let runtimeCalls = 0;
     const finalizeRun = vi.fn(async (input: Parameters<typeof finalizeRunInDb>[1]) =>
       finalizeRunInDb(db.prisma, input),
     );
@@ -534,6 +574,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
             executionId: string,
           ) => Promise<unknown>;
         }) {
+          runtimeCalls++;
           toolResults.push(
             await request.executeTool!(
               "remember",
@@ -584,7 +625,8 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
     });
     try {
       const before = await snapshot();
-      await executor.continueRun(childRun.id, "child-duplicate");
+      // Deliver the captured stale wake while the legitimate child owner is active.
+      await executor.continueRun(wakeups[0]!.payload.runId, "child-duplicate");
       await expect(
         addScratchpadItemFromTool(
           { prisma: db.prisma, executionFence },
@@ -592,6 +634,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         ),
       ).rejects.toThrow("Run execution fence is no longer current");
       expect(await snapshot()).toEqual(before);
+      expect(runtimeCalls).toBe(1);
       expect(await db.prisma.scratchpadItem.count({ where: { spaceId: space.id } })).toBe(0);
     } finally {
       release();
@@ -603,11 +646,13 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
       status: "completed",
     });
     const completed = await db.prisma.run.findUniqueOrThrow({ where: { id: childRun.id } });
-    await executor.continueRun(childRun.id, "child-terminal-duplicate");
+    await executor.continueRun(wakeups[0]!.payload.runId, "child-terminal-duplicate");
     expect(await db.prisma.run.findUniqueOrThrow({ where: { id: childRun.id } })).toEqual(
       completed,
     );
     expect(memoryCommit).toHaveBeenCalledTimes(1);
+    expect(runtimeCalls).toBe(1);
+    expect(toolResults).toHaveLength(1);
   }, 30000);
 
   it("blocks dispatch after a real takeover at the committed claim barrier", async () => {

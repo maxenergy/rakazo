@@ -343,6 +343,7 @@ import {
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
 import { withRuntimeCleanup } from "./runtime-stream.js";
+import { SandboxCapacityProbe } from "./sandbox-capacity.js";
 import {
   cancelScheduleFromTool,
   compactScheduleInput,
@@ -373,6 +374,8 @@ import {
   skillReadFromTool,
   skillUpdateFromTool,
 } from "./skill-tools.js";
+import { CapacityCache } from "./storage-capacity-cache.js";
+import { StorageGuard } from "./storage-guard.js";
 import type { TakeoverResumeCheckpoint } from "./takeover-resume.js";
 import {
   continueRunClaimFence,
@@ -2982,6 +2985,7 @@ export function isTerminalModelSetupError(error: unknown): boolean {
 }
 
 export function createRunExecutor(deps: ExecutorDeps) {
+  const storageCapacityCache = new CapacityCache();
   const contextStrategy = deps.contextStrategy ?? DEFAULT_CONTEXT_STRATEGY;
   const web = deps.web ?? createWebProvider();
   const browser = deps.browser ?? createBrowserProvider(undefined, { sandbox: deps.sandbox });
@@ -3390,6 +3394,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       let leaseValid = true;
       let lastLeaseCheckAt = 0;
       let retainComputerLease = false;
+      let storageGuard: StorageGuard | undefined;
       let screenRelease: { computer: ComputerRef; context: AdapterContext } | undefined;
       let runAbortController: AbortController | null = null;
       let detachShutdown: (() => void) | undefined;
@@ -3802,29 +3807,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const workspaceCheckpoint = createRunWorkspaceCheckpoint(() =>
           checkpointRunComputerWorkspace(deps, storedComputer, computer, context),
         );
-        let currentTurnFiles: Awaited<ReturnType<typeof materializeCurrentTurnFiles>>;
-        try {
-          currentTurnFiles = deps.artifacts
-            ? await materializeCurrentTurnFiles(
-                {
-                  prisma: deps.prisma,
-                  artifacts: deps.artifacts,
-                  sandbox: deps.sandbox,
-                },
-                turnBlocks,
-                {
-                  context,
-                  computer,
-                  computerMode,
-                  markWorkspaceDirty: workspaceCheckpoint.markDirty,
-                },
-              )
-            : [];
-        } catch (error) {
-          await workspaceCheckpoint.flush().catch(() => undefined);
-          throw error;
-        }
-        const attachedFilesPrompt = currentTurnFilesInstruction(currentTurnFiles);
         const graphical =
           computer.kind !== "desktop" && deps.sandbox.describe().capabilities.graphical;
         // Gate on the model this run will actually call — the pair written to the run row
@@ -3901,6 +3883,72 @@ export function createRunExecutor(deps: ExecutorDeps) {
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
+        storageGuard = new StorageGuard({
+          host: `${computer.kind}:${computer.id}`,
+          home: ".",
+          tmp: "/tmp",
+          probe: new SandboxCapacityProbe(deps.sandbox, computer, context),
+          cache: storageCapacityCache,
+          signal: context.signal,
+          // Replace this sink with the shared fenced publisher after RAK-46 merges.
+          events: {
+            publish: async (type, decision) => {
+              const event = await deps.prisma.$transaction(async (tx) => {
+                // Match finalizeRun and clearThread: lock Thread before Run.
+                await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
+                const owned = await tx.run.updateMany({
+                  where: {
+                    id: runId,
+                    status: "running",
+                    leaseOwner: workerId,
+                    leaseFence: fence,
+                    leaseExpiresAt: { gt: new Date() },
+                  },
+                  data: { leaseFence: fence },
+                });
+                if (owned.count !== 1) throw new Error("Storage event execution lease lost");
+                return appendEventInTransaction(tx, {
+                  spaceId: run.spaceId,
+                  threadId: thread.id,
+                  botId: bot.id,
+                  runId,
+                  type,
+                  payload: decision,
+                });
+              });
+              await deps.events.notify(thread.id, event.seq);
+            },
+          },
+          // Persistent pause/resume is deliberately deferred until RAK-42.
+        });
+        if (!(await storageGuard.admit())) {
+          await failRunBeforeModel("Storage admission refused: storage_low or capacity_unknown");
+          return;
+        }
+        storageGuard.start();
+        let currentTurnFiles: Awaited<ReturnType<typeof materializeCurrentTurnFiles>>;
+        try {
+          currentTurnFiles = deps.artifacts
+            ? await materializeCurrentTurnFiles(
+                {
+                  prisma: deps.prisma,
+                  artifacts: deps.artifacts,
+                  sandbox: deps.sandbox,
+                },
+                turnBlocks,
+                {
+                  context,
+                  computer,
+                  computerMode,
+                  markWorkspaceDirty: workspaceCheckpoint.markDirty,
+                },
+              )
+            : [];
+        } catch (error) {
+          await workspaceCheckpoint.flush().catch(() => undefined);
+          throw error;
+        }
+        const attachedFilesPrompt = currentTurnFilesInstruction(currentTurnFiles);
         const exposedConnectorTools = discovered.filter(
           (tool) => !builtinAgentTools.some((builtin) => builtin.name === tool.name),
         );
@@ -4118,6 +4166,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           observer?: AgentToolExecutionObserver,
         ) => {
           context.signal.throwIfAborted();
+          if (storageGuard && !(await storageGuard.beforeTool())) {
+            return { error: "Storage guard stopped this run segment." };
+          }
           if (handedOff) {
             return {
               error: "This stage was handed off. End the turn without more tool calls.",
@@ -7546,6 +7597,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           throw new Error("Run setup failed; retrying");
         }
       } finally {
+        storageGuard?.stop();
         detachShutdown?.();
         clearInterval(heartbeat);
         if (!retainComputerLease) {

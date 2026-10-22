@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { TranscriptContext } from "@earendil-works/pi-ai";
+import { getLogger } from "@rakazo/logging";
 import { cliProfileDirectory } from "./cli-model-process.js";
 
 type TranscriptMessage = TranscriptContext["messages"][number];
@@ -25,8 +26,18 @@ type CodexThread = {
 const threads = new Map<string, CodexThread>();
 const THREAD_FILE_MAX_AGE_MS = 24 * 60 * 60_000;
 
+/**
+ * Only what the model reads counts: the runtime fills in usage, details and similar
+ * bookkeeping on earlier messages after the step that sent them.
+ */
 function hashMessages(messages: readonly TranscriptMessage[]): string {
-  return createHash("sha256").update(JSON.stringify(messages)).digest("hex");
+  const hash = createHash("sha256");
+  for (const message of messages) {
+    const { role, content } = message as { role: string; content: unknown };
+    const toolCallId = (message as { toolCallId?: string }).toolCallId;
+    hash.update(JSON.stringify([role, toolCallId ?? null, content]));
+  }
+  return hash.digest("hex");
 }
 
 function threadKey(profileId: string, sessionId: string) {
@@ -45,10 +56,19 @@ export function codexResumeDelta(
 ): { threadId: string; messages: TranscriptMessage[] } | undefined {
   if (!sessionId) return undefined;
   const thread = threads.get(threadKey(profileId, sessionId));
-  if (!thread || thread.chars >= maxChars) return undefined;
-  const reply = messages[thread.sent];
-  if (reply?.role !== "assistant" || messages.length <= thread.sent + 1) return undefined;
-  if (hashMessages(messages.slice(0, thread.sent)) !== thread.sentHash) return undefined;
+  if (!thread) return undefined;
+  const reason =
+    thread.chars >= maxChars
+      ? "thread_full"
+      : messages[thread.sent]?.role !== "assistant" || messages.length <= thread.sent + 1
+        ? "not_extended"
+        : hashMessages(messages.slice(0, thread.sent)) !== thread.sentHash
+          ? "history_changed"
+          : undefined;
+  if (reason) {
+    getLogger().info("cli.resume_skipped", { "cli.reason": reason });
+    return undefined;
+  }
   return { threadId: thread.threadId, messages: messages.slice(thread.sent + 1) };
 }
 

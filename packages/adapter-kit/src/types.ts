@@ -1012,6 +1012,7 @@ export interface AutoReviewRequest {
 }
 
 export interface AutoReviewResult {
+  failureClass?: "quota" | "rate_limit" | "no_credentials";
   decision: AutoReviewDecision;
   reason?: string;
   model: string;

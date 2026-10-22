@@ -86,12 +86,20 @@ class ResidentTurn {
     const lines = this.lineBuffer.split("\n");
     this.lineBuffer = lines.pop() ?? "";
     for (const line of lines) {
-      if (!line.includes('"agent_message"')) continue;
+      if (!line.includes('"agent_message"') && !line.includes('"turn.completed"')) continue;
       try {
         const event = JSON.parse(line) as {
           type?: string;
           item?: { type?: string; text?: string };
+          usage?: Record<string, number>;
         };
+        // The subscription's real cost: Codex reports the whole turn's tokens once.
+        if (event.type === "turn.completed" && event.usage)
+          getLogger().info("cli.resident_usage", {
+            "cli.input_tokens": event.usage.input_tokens ?? 0,
+            "cli.cached_input_tokens": event.usage.cached_input_tokens ?? 0,
+            "cli.output_tokens": event.usage.output_tokens ?? 0,
+          });
         if (
           event.type === "item.completed" &&
           event.item?.type === "agent_message" &&

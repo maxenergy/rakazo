@@ -6746,7 +6746,9 @@ export function createRouter(deps: RouterDeps) {
       favicon: authed.links.favicon.handler(async ({ input }) => favicons.favicon(input.origin)),
     },
     runs: {
-      diagnostics: authed.runs.diagnostics.handler(async ({ context, input }) => getRunDiagnostics(deps.prisma, context.actor, input)),
+      diagnostics: authed.runs.diagnostics.handler(async ({ context, input }) =>
+        getRunDiagnostics(deps.prisma, context.actor, input),
+      ),
       list: authed.runs.list.handler(async ({ context, input }) => ({
         runs: await listSpaceRuns(deps.prisma, context.actor, input.filter),
       })),

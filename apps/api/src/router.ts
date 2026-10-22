@@ -37,6 +37,7 @@ import type {
 import {
   acquireComputerExecutionLease,
   applyCodexLiveCatalog,
+  cliCatalogForSpace,
   applyTeachingDesktopInput,
   archiveBot,
   assertSafeRemoteUrl,
@@ -1178,7 +1179,7 @@ export function createRouter(deps: RouterDeps) {
               refreshExpiredCredential(context.actor, secretId, CHATGPT_OAUTH_PROVIDER),
           },
         );
-        const catalog = live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available;
+        const catalog = await cliCatalogForSpace(deps.prisma, deps.secrets, context.actor, auth, live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available);
         // The scripted fixture only exists to drive the scripted runtime; a real
         // runtime cannot execute it, so it stays out of the user-facing catalog.
         return deps.env.agentRuntime === "scripted" ? [...catalog, scriptedCatalogEntry] : catalog;
@@ -1250,7 +1251,7 @@ export function createRouter(deps: RouterDeps) {
                 refreshExpiredCredential(context.actor, secretId, CHATGPT_OAUTH_PROVIDER),
             },
           );
-          const catalog = live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available;
+          const catalog = await cliCatalogForSpace(deps.prisma, deps.secrets, context.actor, auth, live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available);
           for (const choice of input) {
             const credential = await findModelCredential(
               deps.prisma,
@@ -1672,7 +1673,7 @@ export function createRouter(deps: RouterDeps) {
                 refreshExpiredCredential(context.actor, secretId, CHATGPT_OAUTH_PROVIDER),
             },
           );
-          const catalog = live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available;
+          const catalog = await cliCatalogForSpace(deps.prisma, deps.secrets, context.actor, auth, live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available);
           for (const choice of models) {
             const credential = await findModelCredential(
               deps.prisma,

@@ -50,6 +50,7 @@ export function recommendModels<T extends ModelCatalogEntry>(
         provider: entry.provider,
         id: entry.id,
         label: entry.label,
+        discovery: entry.discovery ?? null,
         capabilities: entry.capabilities ?? null,
         billingMode,
         estimatedCostUsd,

@@ -16,6 +16,7 @@ import {
 export type PiCatalogAuth = "api-key" | "oauth" | "both";
 
 export type PiCatalogEntry = {
+  discovery?: ModelCatalogEntry["discovery"];
   capabilities?: ModelCatalogEntry["capabilities"];
   provider: string;
   providerName: string;

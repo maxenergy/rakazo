@@ -971,6 +971,16 @@ describe("connected model validation", () => {
     spaceId: "space-1",
   };
 
+  it("rejects unknown Codex IDs despite discovery availability", async () => {
+    const prisma = {
+      spaceModelPreference: { findFirst: async () => null },
+      userModelCredential: { findFirst: async () => credential("codex-cli", null) },
+    } as unknown as PrismaClient;
+    await expect(
+      validateConnectedModelChoice(prisma, actor, "codex-cli", "fixture-new-codex-model"),
+    ).resolves.toBe("Unknown model for that provider");
+  });
+
   it("accepts catalog and saved free-form models but rejects unavailable choices", async () => {
     const catalogPrisma = {
       spaceModelPreference: { findFirst: async () => null },

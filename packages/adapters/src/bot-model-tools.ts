@@ -4,6 +4,7 @@ import { recommendModels } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { findModelCredential } from "@rakazo/db";
 import { z } from "zod";
+import { cliCatalogForSpace } from "./cli-model-catalog.js";
 import {
   isCatalogModelChoice,
   modelCredentialAuthKindsForSpace,
@@ -84,6 +85,7 @@ async function connectedModelCandidates(deps: BotModelDeps, scope: BotModelScope
     );
     if (live.size > 0) catalog = applyCodexLiveCatalog(catalog, auth, live);
   }
+  catalog = await cliCatalogForSpace(deps.prisma, deps.secretStore, scope, auth, catalog);
   const models = catalog.flatMap((entry) => {
     const kind = auth.byModel[entry.provider]?.[entry.id] ?? auth.byProvider[entry.provider];
     if (entry.placeholder || kind === undefined || kind === "disconnected") return [];

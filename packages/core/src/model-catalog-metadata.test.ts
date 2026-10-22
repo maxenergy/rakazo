@@ -28,6 +28,12 @@ const translate = (message: string, values?: Record<string, string | number>) =>
   message.replace(/\{(\w+)\}/g, (match, key: string) => String(values?.[key] ?? match));
 
 describe("catalog cost metadata", () => {
+  it("labels discovered and static catalog sources", () => {
+    const model = entry("source");
+    expect(catalogMetadataLines({ ...model, discovery: { status: "static", source: "Rakazo static CLI catalog" } }, undefined, translate)).toContain("Static catalog, availability not discovered: Rakazo static CLI catalog");
+    expect(catalogMetadataLines({ ...model, discovery: { status: "discovered", source: "Codex app-server model/list" } }, undefined, translate)).toContain("Discovered catalog: Codex app-server model/list");
+  });
+
   it("sorts distinct known keys consistently regardless of input order", () => {
     const a = entry("a", 1, 4);
     const b = entry("b", 1, 2);

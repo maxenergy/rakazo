@@ -101,6 +101,7 @@ export * from "./openai-compatible-url.js";
 export * from "./openai-voice.js";
 export * from "./org-check-in.js";
 export * from "./page-browser-session.js";
+export * from "./cli-model-catalog.js";
 export * from "./pi-catalog-availability.js";
 export * from "./pi-codex-catalog.js";
 export * from "./pi-credentials.js";

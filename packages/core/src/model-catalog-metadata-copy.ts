@@ -32,6 +32,13 @@ export function catalogMetadataLines(
       t("Cache write: {price}", { price: price(pricing?.cacheWritePerMTok) }),
     );
   }
+  if (entry.discovery) {
+    lines.push(
+      entry.discovery.status === "discovered"
+        ? t("Discovered catalog: {source}", { source: entry.discovery.source })
+        : t("Static catalog, availability not discovered: {source}", { source: entry.discovery.source }),
+    );
+  }
   const limit = (value: number | null | undefined): string =>
     typeof value === "number" && Number.isSafeInteger(value) && value > 0
       ? String(value)

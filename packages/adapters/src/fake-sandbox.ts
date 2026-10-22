@@ -24,6 +24,7 @@ import {
 } from "./computer-support.js";
 import { FakeTerminalGateway } from "./fake-terminal.js";
 import { sandboxCommandEnvironment } from "./sandbox-command-environment.js";
+import { STATVFS_SCRIPT } from "./storage-capacity.js";
 
 export interface FakeBox {
   ref: ComputerRef;
@@ -91,6 +92,19 @@ export class FakeSandboxProvider implements SandboxProvider {
     if (!box) {
       yield { type: "stderr", data: "computer not found" };
       yield { type: "exit", code: 1 };
+      return;
+    }
+    if (request.argv[0] === "python3" && request.argv[2] === STATVFS_SCRIPT) {
+      const rows = request.argv.slice(3).map((path) => ({
+        path,
+        fsId: "fake-workspace",
+        bavail: "26214400",
+        frsize: "4096",
+        availBytes: "107374182400",
+        sampledAt: Date.now(),
+      }));
+      yield { type: "stdout", data: JSON.stringify(rows) };
+      yield { type: "exit", code: 0 };
       return;
     }
     if (request.argv[0] === "printenv") {

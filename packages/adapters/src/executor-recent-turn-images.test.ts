@@ -184,6 +184,22 @@ async function runWithModel(
     deploymentModelKey: "fake-deployment-key",
     runtime: { describe: () => ({ capabilities: { scripted } }), run: runtimeRun },
     sandbox: {
+      async *execute(_computer: unknown, request: { argv: string[] }) {
+        yield {
+          type: "stdout" as const,
+          data: JSON.stringify(
+            request.argv.slice(3).map((path) => ({
+              path,
+              fsId: "fixture",
+              bavail: "26214400",
+              frsize: "4096",
+              availBytes: "107374182400",
+              sampledAt: 1,
+            })),
+          ),
+        };
+        yield { type: "exit" as const, code: 0 };
+      },
       describe: () => ({ capabilities: { graphical: false } }),
       writeFile: vi.fn(async () => undefined),
       async *exportWorkspace() {

@@ -69,6 +69,7 @@ import {
 import type { PiSessionHandle, PiSessionRecorder } from "./pi-session.js";
 import { PiJsonlSessionRecorder } from "./pi-session.js";
 import { observedPiStream } from "./pi-usage.js";
+import { reviewFailureFacts } from "./review-failure.js";
 import type { RuntimeContextDecision } from "./runtime-context.js";
 import { createRuntimeContextPolicy, VERBATIM_TOOL_RESULTS } from "./runtime-context.js";
 import type { FinishedShellCommand } from "./shell-command-stream.js";
@@ -226,6 +227,7 @@ export class PiAgentRuntime implements AgentRuntime {
     const work = (async () => {
       let trackedBudget: ToolCallBudget | undefined;
       let resumeHost: ToolHost | undefined;
+      let reviewHttpStatus: number | undefined;
       try {
         const selectedModel = resolveRuntimeModel(request.model);
         if (!selectedModel.model) {
@@ -426,7 +428,15 @@ export class PiAgentRuntime implements AgentRuntime {
                   models,
                   m,
                   ctx,
-                  withCloudflareGatewayAuth(request.model, options),
+                  withCloudflareGatewayAuth(request.model, {
+                    ...options,
+                    onResponse: (response, model) => {
+                      reviewHttpStatus = [401, 402, 429].includes(response.status)
+                        ? response.status
+                        : undefined;
+                      return options?.onResponse?.(response, model);
+                    },
+                  }),
                   request.model.maxTokens,
                   () => selectedModel.credentials?.accessToken ?? apiKey,
                   (preparedOptions) =>
@@ -715,7 +725,15 @@ export class PiAgentRuntime implements AgentRuntime {
         queue.push(streamed.trim() ? { type: "done", text: streamed } : { type: "done" });
       } catch (error) {
         const message = sanitizeError(error instanceof Error ? error.message : String(error));
-        queue.fail(new Error(message));
+        queue.fail(
+          Object.assign(
+            new Error(message),
+            reviewFailureFacts(error),
+            ...(request.runId.includes(":auto-review") && reviewHttpStatus
+              ? [{ status: reviewHttpStatus }]
+              : []),
+          ),
+        );
       } finally {
         queue.close();
         if (trackedBudget) {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type {
   AdapterContext,
   AgentContextStrategy,
@@ -59,7 +59,6 @@ import type { ActionApprovalRule, ToolCallStreak } from "@rakazo/core";
 import {
   appendTextSegment,
   appendToolCallSegment,
-  applyJudgeDecision,
   assertTransition,
   blocksToAgentHistoryText,
   botMessageAllowsSilence,
@@ -175,8 +174,8 @@ import {
   isAutoReviewCheckerConfigured,
   redactToolArgsForReview,
   resolveAutoReviewChecker,
-  resolveAutoReviewProviderKind,
 } from "./auto-review.js";
+import { readReviewHead, runReviewAttempts } from "./auto-review-attempts.js";
 import { createAutoReviewProvider } from "./auto-review-factory.js";
 import { attachedImageArtifactIds, resolveUpdateBotAvatar } from "./bot-avatar.js";
 import {
@@ -345,6 +344,7 @@ import {
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
 import { withRuntimeCleanup } from "./runtime-stream.js";
+import { SandboxCapacityProbe } from "./sandbox-capacity.js";
 import {
   cancelScheduleFromTool,
   compactScheduleInput,
@@ -375,6 +375,8 @@ import {
   skillReadFromTool,
   skillUpdateFromTool,
 } from "./skill-tools.js";
+import { CapacityCache } from "./storage-capacity-cache.js";
+import { StorageGuard } from "./storage-guard.js";
 import type { TakeoverResumeCheckpoint } from "./takeover-resume.js";
 import {
   continueRunClaimFence,
@@ -2986,6 +2988,7 @@ export function isTerminalModelSetupError(error: unknown): boolean {
 }
 
 export function createRunExecutor(deps: ExecutorDeps) {
+  const storageCapacityCache = new CapacityCache();
   const contextStrategy = deps.contextStrategy ?? DEFAULT_CONTEXT_STRATEGY;
   const web = deps.web ?? createWebProvider();
   const browser = deps.browser ?? createBrowserProvider(undefined, { sandbox: deps.sandbox });
@@ -3403,6 +3406,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       let leaseValid = true;
       let lastLeaseCheckAt = 0;
       let retainComputerLease = false;
+      let storageGuard: StorageGuard | undefined;
       let screenRelease: { computer: ComputerRef; context: AdapterContext } | undefined;
       let runAbortController: AbortController | null = null;
       let detachShutdown: (() => void) | undefined;
@@ -3823,29 +3827,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const workspaceCheckpoint = createRunWorkspaceCheckpoint(() =>
           checkpointRunComputerWorkspace(deps, storedComputer, computer, context),
         );
-        let currentTurnFiles: Awaited<ReturnType<typeof materializeCurrentTurnFiles>>;
-        try {
-          currentTurnFiles = deps.artifacts
-            ? await materializeCurrentTurnFiles(
-                {
-                  prisma: deps.prisma,
-                  artifacts: deps.artifacts,
-                  sandbox: deps.sandbox,
-                },
-                turnBlocks,
-                {
-                  context,
-                  computer,
-                  computerMode,
-                  markWorkspaceDirty: workspaceCheckpoint.markDirty,
-                },
-              )
-            : [];
-        } catch (error) {
-          await workspaceCheckpoint.flush().catch(() => undefined);
-          throw error;
-        }
-        const attachedFilesPrompt = currentTurnFilesInstruction(currentTurnFiles);
         const graphical =
           computer.kind !== "desktop" && deps.sandbox.describe().capabilities.graphical;
         // Gate on the model this run will actually call — the pair written to the run row
@@ -3922,6 +3903,72 @@ export function createRunExecutor(deps: ExecutorDeps) {
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
+        storageGuard = new StorageGuard({
+          host: `${computer.kind}:${computer.id}`,
+          home: ".",
+          tmp: "/tmp",
+          probe: new SandboxCapacityProbe(deps.sandbox, computer, context),
+          cache: storageCapacityCache,
+          signal: context.signal,
+          // Replace this sink with the shared fenced publisher after RAK-46 merges.
+          events: {
+            publish: async (type, decision) => {
+              const event = await deps.prisma.$transaction(async (tx) => {
+                // Match finalizeRun and clearThread: lock Thread before Run.
+                await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
+                const owned = await tx.run.updateMany({
+                  where: {
+                    id: runId,
+                    status: "running",
+                    leaseOwner: workerId,
+                    leaseFence: fence,
+                    leaseExpiresAt: { gt: new Date() },
+                  },
+                  data: { leaseFence: fence },
+                });
+                if (owned.count !== 1) throw new Error("Storage event execution lease lost");
+                return appendEventInTransaction(tx, {
+                  spaceId: run.spaceId,
+                  threadId: thread.id,
+                  botId: bot.id,
+                  runId,
+                  type,
+                  payload: decision,
+                });
+              });
+              await deps.events.notify(thread.id, event.seq);
+            },
+          },
+          // Persistent pause/resume is deliberately deferred until RAK-42.
+        });
+        if (!(await storageGuard.admit())) {
+          await failRunBeforeModel("Storage admission refused: storage_low or capacity_unknown");
+          return;
+        }
+        storageGuard.start();
+        let currentTurnFiles: Awaited<ReturnType<typeof materializeCurrentTurnFiles>>;
+        try {
+          currentTurnFiles = deps.artifacts
+            ? await materializeCurrentTurnFiles(
+                {
+                  prisma: deps.prisma,
+                  artifacts: deps.artifacts,
+                  sandbox: deps.sandbox,
+                },
+                turnBlocks,
+                {
+                  context,
+                  computer,
+                  computerMode,
+                  markWorkspaceDirty: workspaceCheckpoint.markDirty,
+                },
+              )
+            : [];
+        } catch (error) {
+          await workspaceCheckpoint.flush().catch(() => undefined);
+          throw error;
+        }
+        const attachedFilesPrompt = currentTurnFilesInstruction(currentTurnFiles);
         const exposedConnectorTools = discovered.filter(
           (tool) => !builtinAgentTools.some((builtin) => builtin.name === tool.name),
         );
@@ -4140,6 +4187,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           observer?: AgentToolExecutionObserver,
         ) => {
           context.signal.throwIfAborted();
+          if (storageGuard && !(await storageGuard.beforeTool())) {
+            return { error: "Storage guard stopped this run segment." };
+          }
           if (handedOff) {
             return {
               error: "This stage was handed off. End the turn without more tool calls.",
@@ -4372,19 +4422,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : await loadAutoReviewPreference();
           const injectedReview = requiresMandatoryApproval ? undefined : deps.autoReview;
           const checker = requiresMandatoryApproval ? undefined : resolveAutoReviewChecker();
-          const checkerConfigured =
-            autoReviewPref &&
-            (Boolean(injectedReview) ||
-              (checker
-                ? isAutoReviewCheckerConfigured({}) ||
-                  Boolean(
-                    await findModelCredential(
-                      deps.prisma,
-                      { userId: run.userId, spaceId: run.spaceId },
-                      checker.provider,
-                    ),
-                  )
-                : false));
+          const checkerConfigured = autoReviewPref && (Boolean(injectedReview) || Boolean(checker));
           const plan = requiresMandatoryApproval
             ? "ask"
             : planActionGate({
@@ -4427,7 +4465,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
               );
 
           const runAutoReview = async () => {
-            if (!injectedReview && !checker) return;
+            if (!injectedReview && !checker) {
+              gateDecision = "ask";
+              return;
+            }
             try {
               const reviewRequest = {
                 toolName: name,
@@ -4452,87 +4493,156 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   AbortSignal.timeout(autoReviewTimeoutMs()),
                 ]),
               };
-              let provider = injectedReview;
-              if (!provider) {
-                const kind = resolveAutoReviewProviderKind();
-                if (kind === "jev" || kind === "scripted") {
-                  provider = createAutoReviewProvider(kind);
-                } else {
-                  const reviewCredential = await findModelCredential(
-                    deps.prisma,
-                    { userId: run.userId, spaceId: run.spaceId },
-                    checker!.provider,
-                    checker!.model,
-                  );
-                  const judgeKey = await resolveModelKey(
-                    deps,
-                    run.userId,
-                    run.spaceId,
-                    reviewCredential,
-                    checker!.provider,
-                    checker!.model,
-                    (values) => runSecrets.push(...values),
-                  );
-                  provider = createAutoReviewProvider("llm", {
-                    llm: {
-                      budgetScope: run.projectId
-                        ? {
-                            spaceId: run.spaceId,
-                            projectId: run.projectId,
-                            executionFence: run.executionFence,
-                          }
-                        : null,
-                      onUsage: (event) =>
-                        recordUsage(
-                          deps.prisma,
-                          event,
-                          {
-                            spaceId: run.spaceId,
-                            userId: run.userId,
-                            botId: bot.id,
-                            parentRunId: runId,
-                            projectId: run.projectId,
-                            rootRunId: run.rootRunId ?? runId,
-                            runId,
-                            operationId: `auto-review:${runId}`,
-                            operationKind: "setup",
-                          },
-                          { executionFence: { runId, leaseOwner: workerId, leaseFence: fence } },
-                        ),
-                      runtime: deps.runtime,
-                      checker: checker!,
-                      apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
-                      accountId: judgeKey.accountId,
-                      gatewayId: judgeKey.gatewayId,
-                      baseUrl: judgeKey.baseUrl,
-                      cacheCapabilities: judgeKey.cacheCapabilities,
-                      contextWindow: judgeKey.contextWindow,
-                      maxTokens: judgeKey.maxTokens,
-                      reasoning: judgeKey.reasoning,
-                      oauth: judgeKey.oauth
-                        ? {
-                            credential: judgeKey.oauth,
-                            persist: judgeKey.persistOAuth,
-                            retire: judgeKey.retireOAuth,
-                          }
-                        : undefined,
-                      runId,
-                      spaceId: run.spaceId,
+              const cwd = resolveBotWorkspaceCwd(
+                computerMode,
+                bot.id,
+                name === "shell" && args.cwd ? String(args.cwd) : undefined,
+              );
+              const backups =
+                run.userId === bot.userId
+                  ? await listEffectiveBotBackupModels(deps.prisma, {
                       userId: run.userId,
+                      spaceId: run.spaceId,
                       botId: bot.id,
-                      threadId: thread.id,
-                      timeoutMs: autoReviewTimeoutMs(),
+                    })
+                  : [];
+              const candidates = [
+                ...(checker ? [checker] : []),
+                ...backups.map(({ provider, modelId }) => ({
+                  provider,
+                  model: modelId,
+                })),
+              ].filter(({ provider }) => provider !== "jev" && provider !== "scripted");
+              const currentRunModel = await deps.prisma.run.findUnique({
+                where: { id: runId },
+                select: { modelProvider: true },
+              });
+              const judge = injectedReview
+                ? await injectedReview.review(reviewRequest, reviewContext)
+                : await runReviewAttempts({
+                    runId,
+                    toolCallId: executionId,
+                    requestHash: createHash("sha256")
+                      .update(JSON.stringify(reviewRequest))
+                      .digest("hex"),
+                    primaryProvider: currentRunModel?.modelProvider ?? runModelProvider,
+                    candidates,
+                    readHead: () =>
+                      readReviewHead(cwd, (command) =>
+                        deps.sandbox.execute(
+                          computer,
+                          {
+                            argv: ["bash", "-c", command],
+                            cwd,
+                            timeoutMs: 3000,
+                          },
+                          {
+                            ...context,
+                            signal: AbortSignal.any([context.signal, AbortSignal.timeout(3000)]),
+                          },
+                        ),
+                      ),
+                    onAttempt: (attempt) =>
+                      deps.events.append({
+                        executionFence: run.executionFence,
+                        spaceId: run.spaceId,
+                        threadId: thread.id,
+                        botId: bot.id,
+                        runId,
+                        type: "effect.recorded",
+                        payload: { kind: "auto_review.attempt", ...attempt },
+                      }),
+                    review: async (candidate, usageKey) => {
+                      const reviewCredential = await findModelCredential(
+                        deps.prisma,
+                        { userId: run.userId, spaceId: run.spaceId },
+                        candidate.provider,
+                        candidate.model,
+                      );
+                      if (
+                        !reviewCredential &&
+                        !(
+                          candidate.provider === checker?.provider &&
+                          isAutoReviewCheckerConfigured({})
+                        )
+                      ) {
+                        return {
+                          decision: "error" as const,
+                          model: candidate.model,
+                          failureClass: "no_credentials" as const,
+                        };
+                      }
+                      const judgeKey = await resolveModelKey(
+                        deps,
+                        run.userId,
+                        run.spaceId,
+                        reviewCredential,
+                        candidate.provider,
+                        candidate.model,
+                        (values) => runSecrets.push(...values),
+                      );
+                      const provider = createAutoReviewProvider("llm", {
+                        llm: {
+                          budgetScope: run.projectId
+                            ? {
+                                spaceId: run.spaceId,
+                                projectId: run.projectId,
+                                executionFence: run.executionFence,
+                              }
+                            : null,
+                          onUsage: (event) =>
+                            recordUsage(
+                              deps.prisma,
+                              event,
+                              {
+                                spaceId: run.spaceId,
+                                userId: run.userId,
+                                botId: bot.id,
+                                parentRunId: runId,
+                                projectId: run.projectId,
+                                rootRunId: run.rootRunId ?? runId,
+                                runId,
+                                operationId: usageKey,
+                                operationKind: "setup",
+                              },
+                              { executionFence: run.executionFence },
+                            ),
+                          runtime: deps.runtime,
+                          checker: candidate,
+                          apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
+                          accountId: judgeKey.accountId,
+                          gatewayId: judgeKey.gatewayId,
+                          baseUrl: judgeKey.baseUrl,
+                          cacheCapabilities: judgeKey.cacheCapabilities,
+                          contextWindow: judgeKey.contextWindow,
+                          maxTokens: judgeKey.maxTokens,
+                          reasoning: judgeKey.reasoning,
+                          oauth: judgeKey.oauth
+                            ? {
+                                credential: judgeKey.oauth,
+                                persist: judgeKey.persistOAuth,
+                                retire: judgeKey.retireOAuth,
+                              }
+                            : undefined,
+                          runId: usageKey,
+                          spaceId: run.spaceId,
+                          userId: run.userId,
+                          botId: bot.id,
+                          threadId: thread.id,
+                          timeoutMs: autoReviewTimeoutMs(),
+                        },
+                      });
+
+                      return provider.review(reviewRequest, {
+                        ...reviewContext,
+                        operationId: usageKey,
+                        traceId: usageKey,
+                      });
                     },
                   });
-                }
-              }
-              const judge = await provider.review(reviewRequest, reviewContext);
               if (context.signal.aborted) return;
               reviewReason = judge.reason;
-              gateDecision = applyJudgeDecision({
-                decision: judge.decision,
-                consequential: requiresApprovalByDefault,
-              });
+              gateDecision = judge.decision === "pass" ? "allow" : "ask";
               if (applied) {
                 await withExecutionFence(deps, run.executionFence, (tx) =>
                   tx.externalEffect.update({
@@ -4550,10 +4660,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               if (context.signal.aborted) return;
               // Auth/refresh failures must fail closed like a checker error, not fail the run.
               reviewReason = "Checker could not authenticate.";
-              gateDecision = applyJudgeDecision({
-                decision: "error",
-                consequential: requiresApprovalByDefault,
-              });
+              gateDecision = "ask";
               if (applied) {
                 await withExecutionFence(deps, run.executionFence, (tx) =>
                   tx.externalEffect.update({
@@ -5438,12 +5545,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
           if (name === "board_tickets") {
             return finish(
-              await listBoardTickets({ ...deps, executionFence: run.executionFence }, {
-                spaceId: run.spaceId,
-                status: args.status !== undefined ? String(args.status) : undefined,
-                assigneeBotId: args.ownerBotId !== undefined ? String(args.ownerBotId) : undefined,
-                cursor: args.cursor !== undefined ? String(args.cursor) : undefined,
-              }),
+              await listBoardTickets(
+                { ...deps, executionFence: run.executionFence },
+                {
+                  spaceId: run.spaceId,
+                  status: args.status !== undefined ? String(args.status) : undefined,
+                  assigneeBotId:
+                    args.ownerBotId !== undefined ? String(args.ownerBotId) : undefined,
+                  cursor: args.cursor !== undefined ? String(args.cursor) : undefined,
+                },
+              ),
             );
           }
           if (isDependencyToolName(name)) {
@@ -5468,10 +5579,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
           if (name === "ticket_get") {
             return finish(
-              await getTicket({ ...deps, executionFence: run.executionFence }, {
-                spaceId: run.spaceId,
-                ref: String(args.ref ?? ""),
-              }),
+              await getTicket(
+                { ...deps, executionFence: run.executionFence },
+                {
+                  spaceId: run.spaceId,
+                  ref: String(args.ref ?? ""),
+                },
+              ),
             );
           }
           if (name === "ticket_create") {
@@ -7684,6 +7798,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           throw new Error("Run setup failed; retrying");
         }
       } finally {
+        storageGuard?.stop();
         detachShutdown?.();
         clearInterval(heartbeat);
         if (!retainComputerLease) {

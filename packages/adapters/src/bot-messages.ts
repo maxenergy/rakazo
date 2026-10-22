@@ -21,6 +21,9 @@ import {
 import { getLogger } from "@rakazo/logging";
 import type { ExecutorDeps } from "./executor.js";
 
+/** An org bot is woken by colleagues' messages at most once per this interval. */
+const ORG_PEER_WAKE_INTERVAL_MS = 10 * 60_000;
+
 /**
  * The hop the current run sits at, read back from the message that woke this
  * bot. A run a person started carries no bot message, so it starts at 0.
@@ -159,6 +162,10 @@ export async function messageBot(
     | {
         ok: true;
         runId: string;
+        /** The message joined a wake that was already waiting; no new turn. */
+        joinedWake: boolean;
+        /** When the new wake may start, if the bot was woken by a colleague recently. */
+        wakeAt?: Date;
         targetEventSeq: number;
         senderEventSeq: number;
       }
@@ -255,29 +262,59 @@ export async function messageBot(
           clientNonce: deliveryKey,
           markUnread: options?.forceUnread === true,
         });
-        const task = await tx.task.create({
-          data: {
-            spaceId: run.spaceId,
-            botId: target.id,
-            threadId: targetThreadId,
-            userId: run.userId,
-            prompt: wakePrompt,
-            status: "queued",
-          },
-        });
-        const nextRun = await tx.run.create({
-          data: {
-            spaceId: run.spaceId,
-            botId: target.id,
-            threadId: targetThreadId,
-            taskId: task.id,
-            userId: run.userId,
-            status: "queued",
-            trigger: "bot_message",
-            sourceMessageId: inbound.id,
-          },
-          select: { id: true },
-        });
+        // Colleagues' messages to an org bot share one waiting wake: the turn reads
+        // every message in its thread, so another wake would only repeat the work.
+        const waitingWake = orgChain
+          ? await tx.run.findFirst({
+              where: {
+                botId: target.id,
+                threadId: targetThreadId,
+                trigger: "bot_message",
+                status: "queued",
+              },
+              select: { id: true },
+            })
+          : null;
+        const nextRun =
+          waitingWake ??
+          (await tx.run.create({
+            data: {
+              spaceId: run.spaceId,
+              botId: target.id,
+              threadId: targetThreadId,
+              taskId: (
+                await tx.task.create({
+                  data: {
+                    spaceId: run.spaceId,
+                    botId: target.id,
+                    threadId: targetThreadId,
+                    userId: run.userId,
+                    prompt: wakePrompt,
+                    status: "queued",
+                  },
+                })
+              ).id,
+              userId: run.userId,
+              status: "queued",
+              trigger: "bot_message",
+              sourceMessageId: inbound.id,
+            },
+            select: { id: true },
+          }));
+        // An org bot is woken by colleagues at most once per interval; messages that
+        // arrive sooner wait and are handled together in the next wake.
+        const lastWake =
+          orgChain && !waitingWake
+            ? await tx.run.findFirst({
+                where: {
+                  botId: target.id,
+                  trigger: "bot_message",
+                  startedAt: { gt: new Date(Date.now() - ORG_PEER_WAKE_INTERVAL_MS) },
+                },
+                orderBy: { startedAt: "desc" },
+                select: { startedAt: true },
+              })
+            : null;
         await tx.message.update({ where: { id: inbound.id }, data: { runId: nextRun.id } });
         const inboundEvent = await appendEventInTransaction(tx, {
           spaceId: run.spaceId,
@@ -299,6 +336,10 @@ export async function messageBot(
         return {
           ok: true as const,
           runId: nextRun.id,
+          joinedWake: Boolean(waitingWake),
+          wakeAt: lastWake?.startedAt
+            ? new Date(lastWake.startedAt.getTime() + ORG_PEER_WAKE_INTERVAL_MS)
+            : undefined,
           targetEventSeq: inboundEvent.seq,
           senderEventSeq: outboundEvent.seq,
         };
@@ -325,10 +366,16 @@ export async function messageBot(
   await deps.events.notify(run.threadId, committed.senderEventSeq).catch((error) => {
     getLogger().error("bot message sender echo notification", error);
   });
-  await deps.jobs.enqueue(runContinueJob(committed.runId)).catch((error) => {
-    // The queued run is durable; the job reconciler repairs a missed wake.
-    getLogger().error("bot message enqueue", error);
-  });
+  if (!committed.joinedWake)
+    await deps.jobs
+      .enqueue({
+        ...runContinueJob(committed.runId),
+        ...(committed.wakeAt ? { availableAt: committed.wakeAt } : {}),
+      })
+      .catch((error) => {
+        // The queued run is durable; the job reconciler repairs a missed wake.
+        getLogger().error("bot message enqueue", error);
+      });
   return {
     ok: true as const,
     botId: target.id,

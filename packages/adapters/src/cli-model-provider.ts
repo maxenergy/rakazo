@@ -21,6 +21,14 @@ import {
   runCliProcess,
   saveCliFailure,
 } from "./cli-model-process.js";
+import {
+  codexResumeDelta,
+  codexThreadId,
+  forgetCodexThread,
+  pruneCodexThreadFiles,
+  rememberCodexThread,
+} from "./codex-cli-sessions.js";
+import { residentCodexStep } from "./codex-resident.js";
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -41,7 +49,7 @@ const RESPONSE_SCHEMA = {
   },
 };
 
-type CliReply = { text: string; calls: { name: string; argumentsJson: string }[] };
+type CliReply = { text: string; calls: { id?: string; name: string; argumentsJson: string }[] };
 
 /**
  * A CLI answers only after the whole turn, so the streaming time-to-first-token
@@ -307,11 +315,24 @@ const CLI_CONTEXT_SHARE = 0.5;
 const CLI_CONTEXT_WINDOW_CAP: Partial<Record<CliModelProvider, number>> = {
   "claude-code": 200_000,
 };
+/**
+ * Every step of a CLI turn starts a fresh process that resends the whole prompt, and a
+ * subscription plan counts each resend in full. Keep the prompt well below even a large
+ * model window so a long turn does not drain the plan; older context is condensed instead.
+ */
+const CLI_USAGE_WINDOW = 100_000;
+
+/**
+ * Codex runs a whole turn in one process and calls Rakazo's tools over a local MCP bridge.
+ * Set RAKAZO_CLI_RESIDENT_TURNS=0 to go back to one CLI process per model step.
+ */
+function residentTurnsEnabled() {
+  return process.env.RAKAZO_CLI_RESIDENT_TURNS !== "0";
+}
 
 function cliContextWindow(provider: CliModelProvider, catalogWindow: number | undefined) {
-  const cap = CLI_CONTEXT_WINDOW_CAP[provider];
-  if (!catalogWindow) return cap;
-  return cap ? Math.min(cap, catalogWindow) : catalogWindow;
+  const cap = Math.min(CLI_CONTEXT_WINDOW_CAP[provider] ?? CLI_USAGE_WINDOW, CLI_USAGE_WINDOW);
+  return catalogWindow ? Math.min(cap, catalogWindow) : cap;
 }
 const CLI_RECENT_MESSAGES = 12;
 const CLI_OLD_TEXT_LIMIT = 2_000;
@@ -498,6 +519,8 @@ function cliPrompt(
   contextWindow?: number,
   /** Fraction of the usual context budget, lowered when a retry follows a failure. */
   budgetScale = 1,
+  /** The model calls tools itself through Rakazo's MCP bridge instead of returning JSON. */
+  bridged = false,
 ): { prompt: string; tools: Set<string> } {
   const tools = new Set<string>();
   for (const message of context.messages) {
@@ -513,7 +536,15 @@ function cliPrompt(
       throw new Error("This CLI connection accepts text. Choose a vision connection for images.");
     }
   }
-  const collapsed = collapseSystemMessages(context.messages.map(modelVisibleMessage));
+  const visible = collapseSystemMessages(context.messages.map(modelVisibleMessage));
+  // Bridged tools are listed by the MCP server; repeating their schemas costs tokens.
+  const collapsed = bridged
+    ? visible.map((message) => {
+        if (message.role !== "system") return message;
+        const { toolsAdded: _added, toolsRemoved: _removed, ...rest } = message;
+        return rest as TranscriptMessage;
+      })
+    : visible;
   const budgetChars = contextWindow
     ? Math.floor(contextWindow * CLI_CHARS_PER_TOKEN * CLI_CONTEXT_SHARE * budgetScale)
     : undefined;
@@ -526,29 +557,64 @@ function cliPrompt(
       ...conversationSizes(conversation),
     });
   }
+  if (bridged)
+    return {
+      tools,
+      prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.
+Act only through the tools of the "rakazo" MCP server. Rakazo runs them on its side, and their descriptions and results say what they can do, including writing files and running commands. Do not use the CLI's own tools, files, shell or other MCP servers. The CLI's own sandbox and approval settings only restrict this CLI process and do not describe your environment.
+When you are done, reply with your final message to the conversation as plain text.
+Conversation:
+${conversationText}`,
+    };
   return {
     tools,
     prompt: `You are the model for Rakazo. Follow the system messages in the supplied conversation.\nDo not use the CLI's own tools, files, shell, extensions, or MCP servers. Rakazo executes tools separately. If you call a tool directly, the CLI answers "No such tool available"; that does not mean the tool is missing, so request it in calls instead.\nThe CLI's own sandbox, approval, and escalation settings (for example a read-only sandbox) only restrict this CLI process. They do not describe your environment: the tools in the conversation run on Rakazo's side, and their own descriptions and results say what they can do, including writing files and running commands.\nTo request a tool defined in the conversation, return its name and JSON-encoded object arguments in calls. argumentsJson must parse as JSON: escape every double quote and backslash inside its strings. For a long or heavily quoted command, write the script to a file first, then run the file. Return user-visible text in text. After tool results, continue the conversation.\nReturn only one JSON object matching this schema: ${JSON.stringify(RESPONSE_SCHEMA)}\nConversation:\n${conversationText}`,
   };
 }
 
+/**
+ * A resident turn may end without a closing message, for example right after messaging a
+ * colleague. That is a silent completion, as an empty JSON reply is on the step path.
+ */
+function residentFinalText(output: string): string {
+  try {
+    return cliResponseText("codex-cli", output);
+  } catch (error) {
+    if (error instanceof CliReplyError && error.reason === "empty_response") return "";
+    throw error;
+  }
+}
+
+/** A resumed Codex thread already holds the instructions and earlier messages. */
+function cliResumePrompt(messages: TranscriptMessage[], updated: TranscriptMessage[]): string {
+  const added = JSON.stringify(collapseSystemMessages(messages.map(modelVisibleMessage)));
+  const revised = updated.length
+    ? `Earlier tool results, updated since you saw them (they replace the earlier versions):\n${JSON.stringify(updated.map(modelVisibleMessage))}\n`
+    : "";
+  return `${revised}New conversation messages since your last reply:\n${added}\nContinue the conversation. Return only one JSON object matching the schema.`;
+}
+
 export function cliInferenceArgs(
   provider: CliModelProvider,
   modelId: string,
   schemaPath: string,
+  /** Codex only: keep the thread so a later step can resume it, or resume this thread. */
+  codexThread?: { persist: true } | { resume: string },
+  /** Codex only: run the whole turn, calling Rakazo's tools through this MCP bridge. */
+  bridge?: { url: string; tokenEnv: string },
 ): string[] {
   if (provider === "codex-cli")
     return [
       "exec",
+      ...(codexThread && "resume" in codexThread ? ["resume"] : []),
       "--json",
-      "--ephemeral",
+      ...(codexThread ? [] : ["--ephemeral"]),
       "--ignore-user-config",
       "--ignore-rules",
       "--skip-git-repo-check",
-      "--sandbox",
-      "read-only",
-      "--color",
-      "never",
+      // `exec resume` takes no --sandbox or --color; the config key works for both.
+      "-c",
+      'sandbox_mode="read-only"',
       "-c",
       'model_provider="openai"',
       "-c",
@@ -557,6 +623,20 @@ export function cliInferenceArgs(
       'web_search="disabled"',
       "-c",
       "mcp_servers={}",
+      ...(bridge
+        ? [
+            "-c",
+            'approval_policy="never"',
+            "-c",
+            `mcp_servers.rakazo.url=${JSON.stringify(bridge.url)}`,
+            "-c",
+            `mcp_servers.rakazo.bearer_token_env_var=${JSON.stringify(bridge.tokenEnv)}`,
+            "-c",
+            'mcp_servers.rakazo.default_tools_approval_mode="approve"',
+            "-c",
+            "mcp_servers.rakazo.tool_timeout_sec=14400",
+          ]
+        : []),
       "-c",
       "project_doc_max_bytes=0",
       "-c",
@@ -582,11 +662,15 @@ export function cliInferenceArgs(
         "sleep_tool",
         "goals",
         "skill_search",
-      ].flatMap((feature) => ["--disable", feature]),
+      ]
+        // Codex routes MCP tool calls through the code-mode host and fails every call
+        // when it is disabled; code mode itself stays off above.
+        .filter((feature) => !(bridge && feature === "code_mode_host"))
+        .flatMap((feature) => ["--disable", feature]),
       "--model",
       modelId,
-      "--output-schema",
-      schemaPath,
+      ...(bridge ? [] : ["--output-schema", schemaPath]),
+      ...(codexThread && "resume" in codexThread ? [codexThread.resume] : []),
       "-",
     ];
   if (provider === "claude-code")
@@ -694,16 +778,70 @@ function streamCliModel(
       let reply: CliReply | undefined;
       let budgetScale = 1;
       const contextWindow = cliContextWindow(provider, model.contextWindow);
+      const profileId = options.apiKey;
+      const sessionId = provider === "codex-cli" ? options.sessionId : undefined;
+      if (sessionId) void pruneCodexThreadFiles(profileId).catch(() => undefined);
+      if (sessionId && residentTurnsEnabled()) {
+        try {
+          const step = await residentCodexStep({
+            profileId,
+            sessionId,
+            messages: context.messages,
+            startPrompt: () => cliPrompt(context, contextWindow, 1, true).prompt,
+            args: (url, tokenEnv) =>
+              cliInferenceArgs(provider, model.id, schemaPath, undefined, { url, tokenEnv }),
+            signal: options.signal,
+          });
+          if (step?.kind === "calls")
+            reply = {
+              text: step.narration,
+              calls: step.calls.map((call) => ({
+                id: call.id,
+                name: call.name,
+                argumentsJson: JSON.stringify(call.arguments),
+              })),
+            };
+          else if (step) reply = { text: residentFinalText(step.output), calls: [] };
+        } catch (error) {
+          if (options.signal?.aborted) throw error;
+          const reason = cliFailureReason(error);
+          getLogger().warn("cli.resident_failed", { "cli.reason": reason });
+          // A subscription limit fails the step path as well; do not spend a retry on it.
+          if (reason === "rate_limited") throw error;
+        }
+      }
       for (let attempt = 1; !reply; attempt += 1) {
-        const { prompt } = cliPrompt(context, contextWindow, budgetScale);
+        const resume = codexResumeDelta(
+          profileId,
+          sessionId,
+          context.messages,
+          (contextWindow ?? CLI_USAGE_WINDOW) * CLI_CHARS_PER_TOKEN,
+        );
+        const prompt = resume
+          ? cliResumePrompt(resume.messages, resume.updated)
+          : cliPrompt(context, contextWindow, budgetScale).prompt;
+        // Subscription CLIs report no token counts, so prompt size is the only usage signal.
+        getLogger().info("cli.request", {
+          "cli.provider": provider,
+          "cli.model": model.id,
+          "cli.chars": prompt.length,
+          "cli.context_window": contextWindow,
+          "cli.messages": context.messages.length,
+          "cli.resumed": Boolean(resume),
+        });
         // Grok CLI reads the prompt from this file instead of stdin.
         await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
         let responseText = "";
         try {
           const output = await runCliProcess({
             provider,
-            profileId: options.apiKey,
-            args: cliInferenceArgs(provider, model.id, schemaPath),
+            profileId,
+            args: cliInferenceArgs(
+              provider,
+              model.id,
+              schemaPath,
+              sessionId ? (resume ? { resume: resume.threadId } : { persist: true }) : undefined,
+            ),
             cwd: directory,
             input: prompt,
             signal: options.signal,
@@ -711,7 +849,13 @@ function streamCliModel(
           });
           responseText = cliResponseText(provider, output);
           reply = parseCliReply(responseText, tools);
+          const threadId = sessionId ? codexThreadId(output) : undefined;
+          if (threadId)
+            rememberCodexThread(profileId, sessionId, threadId, context.messages, prompt.length);
+          else forgetCodexThread(profileId, sessionId);
         } catch (error) {
+          // A failed step may have left the thread out of step with the conversation.
+          forgetCodexThread(profileId, sessionId);
           if (options.signal?.aborted) throw error;
           getLogger().warn("cli.inference_failed", {
             "cli.provider": provider,
@@ -755,7 +899,7 @@ function streamCliModel(
       for (const call of reply.calls) {
         const part = {
           type: "toolCall" as const,
-          id: randomUUID(),
+          id: call.id ?? randomUUID(),
           name: call.name,
           arguments: JSON.parse(call.argumentsJson),
         };

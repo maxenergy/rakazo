@@ -250,7 +250,24 @@ describe("subscription CLI provider conformance", () => {
     const codex = cliInferenceArgs("codex-cli", "model", "schema");
     expect(codex).toContain("--ignore-user-config");
     expect(codex).toContain("--ephemeral");
-    expect(codex).toContain("read-only");
+    expect(codex).toContain('sandbox_mode="read-only"');
+    const kept = cliInferenceArgs("codex-cli", "model", "schema", { persist: true });
+    expect(kept).not.toContain("--ephemeral");
+    expect(kept).toContain('sandbox_mode="read-only"');
+    const resumed = cliInferenceArgs("codex-cli", "model", "schema", { resume: "thread-1" });
+    expect(resumed.slice(0, 2)).toEqual(["exec", "resume"]);
+    expect(resumed.slice(-2)).toEqual(["thread-1", "-"]);
+    expect(resumed).not.toContain("--sandbox");
+    expect(resumed).toContain('sandbox_mode="read-only"');
+    const bridged = cliInferenceArgs("codex-cli", "model", "schema", undefined, {
+      url: "http://127.0.0.1:1/mcp",
+      tokenEnv: "TOKEN",
+    });
+    expect(bridged).not.toContain("--output-schema");
+    expect(bridged).not.toContain("code_mode_host");
+    expect(bridged.join(" ")).toContain("--disable code_mode ");
+    expect(bridged).toContain('mcp_servers.rakazo.default_tools_approval_mode="approve"');
+    expect(codex).toContain("code_mode_host");
     const claude = cliInferenceArgs("claude-code", "model", "schema");
     expect(claude.slice(claude.indexOf("--tools"), claude.indexOf("--tools") + 2)).toEqual([
       "--tools",
@@ -417,7 +434,9 @@ describe("subscription CLI provider conformance", () => {
       .mockResolvedValueOnce(output("codex-cli"));
     const models = registerCliModelProviders(builtinModels());
     const model = models.getProvider("codex-cli")!.getModels()[0]!;
-    const big = "x".repeat(Math.floor(model.contextWindow * 3 * 0.6 * 0.8));
+    // Sized against the usage window that caps every CLI prompt.
+    const window = Math.min(model.contextWindow, 100_000);
+    const big = "x".repeat(Math.floor(window * 3 * 0.6 * 0.8));
     const messages = [
       { role: "user" as const, content: "Start", timestamp: 0 },
       ...Array.from({ length: 30 }, (_, index) => ({

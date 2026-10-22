@@ -159,6 +159,8 @@ export type CliProcessOptions = {
   args: string[];
   cwd?: string;
   input?: string;
+  /** Extra variables for this process only, such as a per-run secret. */
+  env?: Record<string, string>;
   interactiveAuth?: boolean;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -263,7 +265,7 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
     );
   }
   const executable = cliExecutable(options.provider);
-  const env = cliEnvironment(options.provider, directory);
+  const env = { ...cliEnvironment(options.provider, directory), ...options.env };
   if (options.provider === "antigravity-cli" && options.interactiveAuth) {
     delete env.AGY_CLI_NONINTERACTIVE_HEADLESS;
     // Use the CLI's documented remote code flow; Rakazo opens the URL on the client.

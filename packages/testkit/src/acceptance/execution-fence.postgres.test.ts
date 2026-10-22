@@ -55,6 +55,27 @@ vi.mock("../../../adapters/src/computer-lifecycle.js", async (importOriginal) =>
   provisionComputer: async () => ({ id: "synthetic-computer", kind: "desktop" }),
 }));
 
+// Executor setup probes the synthetic computer before reaching the fence under test.
+const executionSandbox = {
+  describe: () => ({ capabilities: { graphical: false } }),
+  execute: async function* (_computer: unknown, request: { argv: string[] }) {
+    yield {
+      type: "stdout" as const,
+      data: JSON.stringify(
+        request.argv.slice(3).map((path) => ({
+          path,
+          fsId: "synthetic-filesystem",
+          bavail: "104857600",
+          frsize: "1024",
+          availBytes: "107374182400",
+          sampledAt: Date.now(),
+        })),
+      ),
+    };
+    yield { type: "exit" as const, code: 0 };
+  },
+};
+
 async function waitForConfirmedBlocking(
   prisma: any,
   holderPid: number,
@@ -416,7 +437,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         resolveCall: async () => undefined,
         execute: async function* () {},
       },
-      sandbox: { describe: () => ({ capabilities: { graphical: false } }) },
+      sandbox: executionSandbox,
       memory: {
         describe: () => ({ capabilities: {} }),
         read: async () => ({ documents: [] }),
@@ -575,7 +596,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         resolveCall: async () => undefined,
         execute: async function* () {},
       },
-      sandbox: { describe: () => ({ capabilities: { graphical: false } }) },
+      sandbox: executionSandbox,
       memory: {
         describe: () => ({ capabilities: {} }),
         read: async () => ({ documents: [] }),
@@ -762,7 +783,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         resolveCall: async () => undefined,
         execute: async function* () {},
       },
-      sandbox: { describe: () => ({ capabilities: { graphical: false } }) },
+      sandbox: executionSandbox,
       memory: {
         describe: () => ({ capabilities: {} }),
         read: async () => ({ documents: [] }),
@@ -933,7 +954,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         resolveCall: async () => undefined,
         execute: async function* () {},
       },
-      sandbox: { describe: () => ({ capabilities: { graphical: false } }) },
+      sandbox: executionSandbox,
       memory: {
         describe: () => ({ capabilities: {} }),
         read: async () => ({ documents: [] }),
@@ -1963,7 +1984,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
               resolveCall: async () => undefined,
               execute: async function* () {},
             },
-            sandbox: { describe: () => ({ capabilities: { graphical: false } }) },
+            sandbox: executionSandbox,
             memory: {
               describe: () => ({ capabilities: {} }),
               read: async () => ({ documents: [] }),

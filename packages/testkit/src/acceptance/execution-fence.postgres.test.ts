@@ -12,6 +12,8 @@ import {
   pauseRunForInput,
   recordUsage,
   reserveBudget,
+  runDeadline,
+  saveRunSegment,
   setProjectBudget,
   settleBudget,
 } from "@rakazo/db";
@@ -121,6 +123,116 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
     await db?.prisma.$disconnect();
     await db?.pool.end();
     await cluster?.stop();
+  });
+  it("persists segment progress under the current fence and retains the absolute deadline", async () => {
+    const id = `segments-${randomUUID()}`;
+    const org = await db.prisma.organization.create({
+      data: { id, slug: id, name: "Synthetic segments", createdAt: new Date() },
+    });
+    const space = await db.prisma.space.create({
+      data: { id: `${id}-space`, organizationId: org.id, name: "Synthetic segments" },
+    });
+    const bot = await db.prisma.bot.create({
+      data: { spaceId: space.id, userId: id, name: "Segments", color: "#123456" },
+    });
+    const thread = await db.prisma.thread.create({
+      data: { spaceId: space.id, botId: bot.id, userId: id },
+    });
+    const task = await db.prisma.task.create({
+      data: {
+        spaceId: space.id,
+        botId: bot.id,
+        threadId: thread.id,
+        userId: id,
+        prompt: "Synthetic segments",
+        status: "running",
+      },
+    });
+    const run = await db.prisma.run.create({
+      data: {
+        spaceId: space.id,
+        botId: bot.id,
+        threadId: thread.id,
+        taskId: task.id,
+        userId: id,
+        trigger: "user",
+        status: "queued",
+      },
+    });
+    const stop = new Error("claim reached");
+    const claimPrisma = new Proxy(db.prisma, {
+      get(target, key) {
+        if (key === "bot")
+          return {
+            findUniqueOrThrow: async () => {
+              throw stop;
+            },
+          };
+        const value = Reflect.get(target, key);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const executor = createRunExecutor({ prisma: claimPrisma } as Parameters<
+      typeof createRunExecutor
+    >[0]);
+    await expect(executor.continueRun(run.id, "segment-first")).rejects.toBe(stop);
+    const claimed = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+    expect(claimed.deadlineAt!.getTime() - claimed.createdAt.getTime()).toBeGreaterThan(7_190_000);
+    const firstFence = {
+      runId: run.id,
+      leaseOwner: "segment-first",
+      leaseFence: claimed.leaseFence,
+    };
+    await saveRunSegment(db.prisma, firstFence, "first-segment");
+    const persisted = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+    expect(persisted.segmentCheckpoint).toBe("first-segment");
+    expect(persisted.progressAt).toBeInstanceOf(Date);
+    await db.prisma.run.update({ where: { id: run.id }, data: { leaseExpiresAt: new Date(0) } });
+    await expect(executor.continueRun(run.id, "segment-next")).rejects.toBe(stop);
+    await expect(saveRunSegment(db.prisma, firstFence, "stale-segment")).rejects.toThrow(
+      "Run execution fence is no longer current",
+    );
+    const resumed = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+    expect(resumed.deadlineAt).toEqual(claimed.deadlineAt);
+    expect(resumed.segmentCheckpoint).toBe("first-segment");
+    expect(resumed.progressAt).toEqual(persisted.progressAt);
+    await saveRunSegment(
+      db.prisma,
+      {
+        runId: run.id,
+        leaseOwner: "segment-next",
+        leaseFence: resumed.leaseFence,
+      },
+      "next-segment",
+    );
+    expect(
+      (await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).segmentCheckpoint,
+    ).toBe("next-segment");
+    expect(runDeadline(new Date(0), 48 * 60 * 60_000).getTime()).toBe(24 * 60 * 60_000);
+    await db.prisma.run.update({
+      where: { id: run.id },
+      data: { leaseExpiresAt: new Date(0), deadlineAt: new Date(0) },
+    });
+    const runtimeRun = vi.fn(async function* () {
+      yield { type: "done", text: "unexpected" };
+    });
+    await createRunExecutor({
+      prisma: claimPrisma,
+      runtime: { run: runtimeRun },
+      events: {
+        finalizeRun: (input: Parameters<typeof finalizeRunInDb>[1]) =>
+          finalizeRunInDb(db.prisma, input),
+      },
+      jobs: { enqueue: vi.fn(async () => undefined) },
+    } as unknown as Parameters<typeof createRunExecutor>[0]).continueRun(
+      run.id,
+      "segment-deadline",
+    );
+    const terminal = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+    expect(terminal.status).toBe("failed");
+    expect(terminal.error).toBe("deadline_exceeded");
+    expect(terminal.completedAt).toBeInstanceOf(Date);
+    expect(runtimeRun).not.toHaveBeenCalled();
   });
   it("fences artifact metadata and cleans rejected stored bytes in PostgreSQL", async () => {
     const id = `dispatch-${randomUUID()}`;

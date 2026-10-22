@@ -1041,6 +1041,9 @@ export async function pauseRunForBudget(
         leaseOwner: null,
         leaseExpiresAt: null,
         checkpoint: input.checkpoint,
+        // Budget approval reconstructs history and replays completed effects.
+        // Runtime segments carry occurrence counters for crash recovery only.
+        segmentCheckpoint: null,
       },
     });
     if (paused.count !== 1) return null;

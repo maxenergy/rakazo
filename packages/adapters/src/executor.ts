@@ -123,8 +123,10 @@ import {
   readHistory,
   recordUsage,
   retireModelCredential,
+  runDeadline,
   SpaceLimitError,
   StaleExecutionFenceError,
+  saveRunSegment,
   searchHistory,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -2718,6 +2720,7 @@ export interface ExecutorDeps {
   codexCatalog?: CodexLiveCatalog;
   /** Aborted when createApp stop() begins so in-flight continueRun boot waits exit promptly. */
   shutdownSignal?: AbortSignal;
+  runDeadlineMs?: number;
 }
 
 function isAuditableToolResult(value: unknown): value is {
@@ -3314,6 +3317,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
           leaseExpiresAt: new Date(Date.now() + 5 * 60_000),
           error: null,
           checkpoint: null,
+          deadlineAt: run.deadlineAt ?? runDeadline(now, deps.runDeadlineMs),
+          // Input/takeover resume reconstructs fresh history with the new input.
+          ...(!["queued", "leased", "running"].includes(run.status) || run.checkpoint
+            ? { segmentCheckpoint: null }
+            : {}),
         },
       });
       if (leased.count !== 1) return;
@@ -3340,8 +3348,34 @@ export function createRunExecutor(deps: ExecutorDeps) {
         data: { status: "running", startedAt: current.startedAt ?? new Date() },
       });
       if (started.count !== 1) return;
+      run.deadlineAt = current.deadlineAt;
+      run.segmentCheckpoint = current.segmentCheckpoint;
       run.executionFence = { runId, leaseOwner: workerId, leaseFence: fence };
       await recoverUnfinishedEffects(deps, run, run.executionFence);
+      if (run.deadlineAt && Date.now() >= run.deadlineAt.getTime()) {
+        const attempt = await withExecutionFence(deps, run.executionFence, (tx) =>
+          tx.attempt.create({ data: { runId, fence, status: "running" } }),
+        );
+        const expired = await deps.events.finalizeRun({
+          spaceId: run.spaceId,
+          threadId: run.threadId,
+          botId: run.botId,
+          runId,
+          taskId: run.taskId,
+          attemptId: attempt.id,
+          leaseOwner: workerId,
+          leaseFence: fence,
+          outcome: "failed",
+          error: "deadline_exceeded",
+        });
+        if (!expired) return;
+        if (expired.continuationRunId) {
+          await deps.jobs
+            .enqueue(runContinueJob(expired.continuationRunId))
+            .catch((error) => getLogger().error("steering continuation enqueue", error));
+        }
+        return;
+      }
       // An org bot's later turn already had this message in its history. Settle it
       // before waiting for the bot's computer: while the bot works one long turn, its
       // colleagues' messages queue up, and each would otherwise wait for its own turn.
@@ -4170,8 +4204,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return secretPausedToolResult();
         };
 
-        const mutatingEffectOccurrences = new Map<string, number>();
-        const consumedEffectIds = new Set<string>();
+        const segmentState = run.segmentCheckpoint
+          ? (JSON.parse(run.segmentCheckpoint) as {
+              version: number;
+              runtime: string;
+              effectOccurrences: Array<[string, number]>;
+              consumedEffectIds: string[];
+            })
+          : undefined;
+        if (segmentState && segmentState.version !== 1) {
+          throw new Error("Invalid run segment checkpoint");
+        }
+        const mutatingEffectOccurrences = new Map<string, number>(segmentState?.effectOccurrences);
+        const consumedEffectIds = new Set<string>(segmentState?.consumedEffectIds);
         const nextMutatingEffectOccurrence = (toolName: string, args: Record<string, unknown>) => {
           const fingerprint = toolEffectIdempotencyKey(runId, toolName, args);
           const occurrence = mutatingEffectOccurrences.get(fingerprint) ?? 0;
@@ -4187,6 +4232,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           observer?: AgentToolExecutionObserver,
         ) => {
           context.signal.throwIfAborted();
+          if (run.deadlineAt && Date.now() >= run.deadlineAt.getTime()) {
+            throw new Error("deadline_exceeded");
+          }
           if (storageGuard && !(await storageGuard.beforeTool())) {
             return { error: "Storage guard stopped this run segment." };
           }
@@ -6958,6 +7006,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         );
 
         try {
+          if (run.deadlineAt && Date.now() >= run.deadlineAt.getTime()) {
+            throw new Error("deadline_exceeded");
+          }
           const runtimeEvents = deps.runtime.run(
             {
               budgetScope: run.projectId
@@ -7090,6 +7141,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 }
               },
               resumeFromCheckpoint: takeoverResume?.checkpoint,
+              deadlineAt: run.deadlineAt?.getTime(),
+              segmentCheckpoint: segmentState?.runtime,
+              onSegmentCheckpoint: (checkpoint) =>
+                saveRunSegment(
+                  deps.prisma,
+                  run.executionFence!,
+                  JSON.stringify({
+                    version: 1,
+                    runtime: checkpoint,
+                    effectOccurrences: [...mutatingEffectOccurrences],
+                    consumedEffectIds: [...consumedEffectIds],
+                  }),
+                ),
               script,
               allowSilentEmpty: allowSilentEmptyRun,
               shouldEndTurn: () => handedOff,

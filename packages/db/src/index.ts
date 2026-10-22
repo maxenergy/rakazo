@@ -30,6 +30,7 @@ export * from "./project-writes.js";
 export * from "./projects.js";
 export * from "./proposals.js";
 export * from "./repos.js";
+export * from "./run-segments.js";
 export * from "./scope.js";
 export * from "./sessions.js";
 export * from "./spaces.js";

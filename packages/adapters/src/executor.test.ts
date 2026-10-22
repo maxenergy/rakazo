@@ -2138,7 +2138,10 @@ description: Prepare standup notes
         updateMany,
       },
     } as unknown as PrismaClient;
-    const executor = createRunExecutor({ prisma } as Parameters<typeof createRunExecutor>[0]);
+    const executor = createRunExecutor({
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+      prisma,
+    } as Parameters<typeof createRunExecutor>[0]);
 
     await executor.continueRun("run-1", "worker-1");
 
@@ -2191,7 +2194,10 @@ description: Prepare standup notes
         updateMany,
       },
     } as unknown as PrismaClient;
-    const executor = createRunExecutor({ prisma } as Parameters<typeof createRunExecutor>[0]);
+    const executor = createRunExecutor({
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+      prisma,
+    } as Parameters<typeof createRunExecutor>[0]);
 
     await executor.continueRun("run-1", "worker-1");
 
@@ -2243,9 +2249,11 @@ description: Prepare standup notes
         })),
       },
     } as unknown as PrismaClient;
-    const executor = createRunExecutor({ prisma, jobs: { enqueue } } as unknown as Parameters<
-      typeof createRunExecutor
-    >[0]);
+    const executor = createRunExecutor({
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+      prisma,
+      jobs: { enqueue },
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
 
     await executor.continueRun("run-1", "worker-1");
 
@@ -2309,9 +2317,11 @@ description: Prepare standup notes
         })),
       },
     } as unknown as PrismaClient;
-    const executor = createRunExecutor({ prisma, jobs: { enqueue } } as unknown as Parameters<
-      typeof createRunExecutor
-    >[0]);
+    const executor = createRunExecutor({
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+      prisma,
+      jobs: { enqueue },
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
 
     await executor.continueRun("run-1", "worker-1");
 
@@ -2371,9 +2381,11 @@ description: Prepare standup notes
         })),
       },
     } as unknown as PrismaClient;
-    const executor = createRunExecutor({ prisma, jobs: { enqueue } } as unknown as Parameters<
-      typeof createRunExecutor
-    >[0]);
+    const executor = createRunExecutor({
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+      prisma,
+      jobs: { enqueue },
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
 
     await executor.continueRun("run-1", "worker-1");
 
@@ -3222,7 +3234,10 @@ describe("continuation lease fence", () => {
         findUniqueOrThrow,
       },
     } as unknown as PrismaClient;
-    const executor = createRunExecutor({ prisma } as Parameters<typeof createRunExecutor>[0]);
+    const executor = createRunExecutor({
+      prisma,
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+    } as Parameters<typeof createRunExecutor>[0]);
     await executor.continueRun("run-stale", "stale-worker");
     expect(updateMany).toHaveBeenCalledOnce();
     expect(updateMany).toHaveBeenCalledWith(

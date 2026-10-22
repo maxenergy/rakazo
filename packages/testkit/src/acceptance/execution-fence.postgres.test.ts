@@ -172,9 +172,10 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         return typeof value === "function" ? value.bind(target) : value;
       },
     });
-    const executor = createRunExecutor({ prisma: claimPrisma } as Parameters<
-      typeof createRunExecutor
-    >[0]);
+    const executor = createRunExecutor({
+      prisma: claimPrisma,
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+    } as Parameters<typeof createRunExecutor>[0]);
     await expect(executor.continueRun(run.id, "segment-first")).rejects.toBe(stop);
     const claimed = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
     expect(claimed.deadlineAt!.getTime() - claimed.createdAt.getTime()).toBeGreaterThan(7_190_000);
@@ -218,7 +219,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
     });
     await createRunExecutor({
       prisma: claimPrisma,
-      runtime: { run: runtimeRun },
+      runtime: { describe: () => ({ capabilities: { scripted: true } }), run: runtimeRun },
       events: {
         finalizeRun: (input: Parameters<typeof finalizeRunInDb>[1]) =>
           finalizeRunInDb(db.prisma, input),
@@ -339,9 +340,10 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         return typeof value === "function" ? value.bind(target) : value;
       },
     });
-    const executor = createRunExecutor({ prisma: claimPrisma } as unknown as Parameters<
-      typeof createRunExecutor
-    >[0]);
+    const executor = createRunExecutor({
+      prisma: claimPrisma,
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
     await db.prisma.run.update({ where: { id: run.id }, data: { leaseExpiresAt: new Date(0) } });
     await expect(executor.continueRun(run.id, "replacement-owner")).rejects.toBe(stopped);
     expect(await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
@@ -428,9 +430,10 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         return typeof value === "function" ? value.bind(target) : value;
       },
     });
-    const sourceExecutor = createRunExecutor({ prisma: claimPrisma } as unknown as Parameters<
-      typeof createRunExecutor
-    >[0]);
+    const sourceExecutor = createRunExecutor({
+      prisma: claimPrisma,
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
     await expect(sourceExecutor.continueRun(run.id, "source-old")).rejects.toBe(stop);
     const source = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
     const executionFence = {
@@ -799,6 +802,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
       });
       const takeover = createRunExecutor({
         prisma: takeoverPrisma,
+        runtime: { describe: () => ({ capabilities: { scripted: true } }) },
         sandbox: {},
       } as unknown as Parameters<typeof createRunExecutor>[0]);
       await expect(takeover.continueRun(run.id, "new-dispatch-owner")).rejects.toBe(stopped);
@@ -986,6 +990,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
       });
       const takeover = createRunExecutor({
         prisma: takeoverPrisma,
+        runtime: { describe: () => ({ capabilities: { scripted: true } }) },
         sandbox: {},
       } as unknown as Parameters<typeof createRunExecutor>[0]);
       await expect(takeover.continueRun(run.id, "new-dispatch-owner")).rejects.toBe(stopped);
@@ -1157,6 +1162,7 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
       });
       const takeover = createRunExecutor({
         prisma: takeoverPrisma,
+        runtime: { describe: () => ({ capabilities: { scripted: true } }) },
         sandbox: {},
       } as unknown as Parameters<typeof createRunExecutor>[0]);
       await expect(takeover.continueRun(run.id, "new-dispatch-owner")).rejects.toBe(stopped);
@@ -1227,9 +1233,11 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         return typeof value === "function" ? value.bind(target) : value;
       },
     });
-    const executor = createRunExecutor({ prisma, sandbox: {} } as unknown as Parameters<
-      typeof createRunExecutor
-    >[0]);
+    const executor = createRunExecutor({
+      prisma,
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+      sandbox: {},
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
     await expect(executor.continueRun(run.id, "old-owner")).rejects.toBe(stopped);
     const old = await db.prisma.run.findUniqueOrThrow({ where: { id: run.id } });
     expect(old).toMatchObject({ status: "running", leaseOwner: "old-owner" });

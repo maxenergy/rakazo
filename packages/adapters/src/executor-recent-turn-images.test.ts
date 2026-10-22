@@ -256,7 +256,14 @@ describe("recent turn images follow model vision", () => {
       where: { id: "bot-1", userId: "user-1", spaceId: "space-1" },
       select: { id: true },
     });
-    expect(prisma.botBackupModel.findMany).toHaveBeenCalledExactlyOnceWith({
+    // Pre-claim discovery and execution each check the effective backups.
+    expect(prisma.botBackupModel.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.botBackupModel.findMany).toHaveBeenNthCalledWith(1, {
+      where: { botId: "bot-1" },
+      orderBy: { position: "asc" },
+      select: { provider: true, modelId: true },
+    });
+    expect(prisma.botBackupModel.findMany).toHaveBeenNthCalledWith(2, {
       where: { botId: "bot-1" },
       orderBy: { position: "asc" },
       select: { provider: true, modelId: true },

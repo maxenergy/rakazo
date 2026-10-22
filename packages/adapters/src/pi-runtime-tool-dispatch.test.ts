@@ -602,6 +602,7 @@ describe("Pi connector tool dispatch", () => {
             },
           ];
     });
+    const onSteeringDelivered = vi.fn(async () => undefined);
     const runtime = new PiAgentRuntime();
 
     for await (const _event of runtime.run(
@@ -615,6 +616,7 @@ describe("Pi connector tool dispatch", () => {
         tools: [],
         model: { provider: "test", id: "dispatch-test-model" },
         claimSteering,
+        onSteeringDelivered,
       },
       { signal: new AbortController().signal },
     )) {
@@ -624,6 +626,7 @@ describe("Pi connector tool dispatch", () => {
     expect(claimSteering).toHaveBeenNthCalledWith(1, []);
     expect(claimSteering).toHaveBeenNthCalledWith(2, []);
     expect(claimSteering).toHaveBeenNthCalledWith(3, ["steering-1"]);
+    expect(onSteeringDelivered.mock.calls).toEqual([[["steering-1"]], [["steering-2"]]]);
     expect(fakeAgentState.preparedMessages).toEqual([
       expect.objectContaining({ content: "First boundary context." }),
       expect.objectContaining({ content: "Next boundary context." }),
@@ -645,6 +648,7 @@ describe("Pi connector tool dispatch", () => {
       },
     ];
     const claimSteering = vi.fn(async (seenIds: string[]) => (seenIds.length ? [] : steering));
+    const onSteeringDelivered = vi.fn(async () => undefined);
     const runtime = new PiAgentRuntime();
 
     for await (const _event of runtime.run(
@@ -670,18 +674,47 @@ describe("Pi connector tool dispatch", () => {
         tools: [],
         model: { provider: "test", id: "dispatch-test-model" },
         claimSteering,
+        onSteeringDelivered,
       },
       { signal: new AbortController().signal },
     )) {
       // Exhaust the runtime event stream.
     }
 
+    expect(onSteeringDelivered).toHaveBeenCalledExactlyOnceWith(["steering-1", "steering-2"]);
     expect(fakeAgentState.promptInputs).toHaveLength(1);
     for (const item of steering) {
       expect(fakeAgentState.promptInputs[0]?.split(item.text)).toHaveLength(2);
       expect(JSON.stringify(fakeAgentState.initialMessages)).not.toContain(item.text);
     }
     expect(fakeAgentState.steeredMessages).toEqual([]);
+  });
+
+  it("stops before prompting when the durable steering receipt fails", async () => {
+    fakeAgentState.mode = "empty";
+    const runtime = new PiAgentRuntime();
+    const consume = async () => {
+      for await (const _event of runtime.run(
+        {
+          botId: "b",
+          threadId: "t",
+          runId: "r",
+          prompt: "Continue",
+          history: [],
+          tools: [],
+          model: { provider: "test", id: "dispatch-test-model" },
+          claimSteering: async () => [{ id: "s", messageId: "m", text: "New context" }],
+          onSteeringDelivered: async () => {
+            throw new Error("Receipt unavailable");
+          },
+        },
+        { signal: new AbortController().signal },
+      )) {
+        /* Drain the runtime. */
+      }
+    };
+    await expect(consume()).rejects.toThrow("Receipt unavailable");
+    expect(fakeAgentState.promptInputs).toEqual([]);
   });
 
   it("delivers images attached to initial and boundary steering", async () => {

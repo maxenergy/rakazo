@@ -1,4 +1,3 @@
-import { reviewFailureFacts } from "./review-failure.js";
 import { randomUUID } from "node:crypto";
 import type { AgentMessage, AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Agent } from "@earendil-works/pi-agent-core";
@@ -70,6 +69,7 @@ import {
 import type { PiSessionHandle, PiSessionRecorder } from "./pi-session.js";
 import { PiJsonlSessionRecorder } from "./pi-session.js";
 import { observedPiStream } from "./pi-usage.js";
+import { reviewFailureFacts } from "./review-failure.js";
 import type { RuntimeContextDecision } from "./runtime-context.js";
 import { createRuntimeContextPolicy, VERBATIM_TOOL_RESULTS } from "./runtime-context.js";
 import type { FinishedShellCommand } from "./shell-command-stream.js";
@@ -432,7 +432,8 @@ export class PiAgentRuntime implements AgentRuntime {
                     ...options,
                     onResponse: (response, model) => {
                       reviewHttpStatus = [401, 402, 429].includes(response.status)
-                        ? response.status : undefined;
+                        ? response.status
+                        : undefined;
                       return options?.onResponse?.(response, model);
                     },
                   }),

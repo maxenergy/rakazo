@@ -1,4 +1,3 @@
-import { readReviewHead, runReviewAttempts } from "./auto-review-attempts.js";
 import { createHash, randomUUID } from "node:crypto";
 import type {
   AdapterContext,
@@ -60,7 +59,6 @@ import type { ActionApprovalRule, ToolCallStreak } from "@rakazo/core";
 import {
   appendTextSegment,
   appendToolCallSegment,
-  applyJudgeDecision,
   assertTransition,
   blocksToAgentHistoryText,
   botMessageAllowsSilence,
@@ -175,6 +173,7 @@ import {
   redactToolArgsForReview,
   resolveAutoReviewChecker,
 } from "./auto-review.js";
+import { readReviewHead, runReviewAttempts } from "./auto-review-attempts.js";
 import { createAutoReviewProvider } from "./auto-review-factory.js";
 import { attachedImageArtifactIds, resolveUpdateBotAvatar } from "./bot-avatar.js";
 import {
@@ -4442,7 +4441,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 })),
               ].filter(({ provider }) => provider !== "jev" && provider !== "scripted");
               const currentRunModel = await deps.prisma.run.findUnique({
-                where: { id: runId }, select: { modelProvider: true },
+                where: { id: runId },
+                select: { modelProvider: true },
               });
               const judge = injectedReview
                 ? await injectedReview.review(reviewRequest, reviewContext)
@@ -4485,7 +4485,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
                         candidate.provider,
                         candidate.model,
                       );
-                      if (!reviewCredential && !(candidate.provider === checker?.provider && isAutoReviewCheckerConfigured({}))) {
+                      if (
+                        !reviewCredential &&
+                        !(
+                          candidate.provider === checker?.provider &&
+                          isAutoReviewCheckerConfigured({})
+                        )
+                      ) {
                         return {
                           decision: "error" as const,
                           model: candidate.model,

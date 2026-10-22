@@ -1,7 +1,8 @@
-import { reviewFailureFacts } from "./review-failure.js";
-import { runAutoReviewJudge } from "./auto-review.js";
 import { expect, it, vi } from "vitest";
-import { readReviewHead, runReviewAttempts, type ReviewAttempt } from "./auto-review-attempts.js";
+import { runAutoReviewJudge } from "./auto-review.js";
+import type { ReviewAttempt } from "./auto-review-attempts.js";
+import { readReviewHead, runReviewAttempts } from "./auto-review-attempts.js";
+import { reviewFailureFacts } from "./review-failure.js";
 
 const candidates = [
   { provider: "a", model: "m1" },
@@ -137,6 +138,7 @@ it("passes only whitelisted failure facts without leaking the provider payload",
       }),
       abort: async () => {},
       async *run() {
+        yield* [];
         throw Object.assign(new Error("safe"), facts);
       },
     },

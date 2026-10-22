@@ -649,7 +649,11 @@ export function cliInferenceArgs(
         "sleep_tool",
         "goals",
         "skill_search",
-      ].flatMap((feature) => ["--disable", feature]),
+      ]
+        // Codex routes MCP tool calls through the code-mode host and fails every call
+        // when it is disabled; code mode itself stays off above.
+        .filter((feature) => !(bridge && feature === "code_mode_host"))
+        .flatMap((feature) => ["--disable", feature]),
       "--model",
       modelId,
       ...(bridge ? [] : ["--output-schema", schemaPath]),

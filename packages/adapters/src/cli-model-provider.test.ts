@@ -259,6 +259,15 @@ describe("subscription CLI provider conformance", () => {
     expect(resumed.slice(-2)).toEqual(["thread-1", "-"]);
     expect(resumed).not.toContain("--sandbox");
     expect(resumed).toContain('sandbox_mode="read-only"');
+    const bridged = cliInferenceArgs("codex-cli", "model", "schema", undefined, {
+      url: "http://127.0.0.1:1/mcp",
+      tokenEnv: "TOKEN",
+    });
+    expect(bridged).not.toContain("--output-schema");
+    expect(bridged).not.toContain("code_mode_host");
+    expect(bridged.join(" ")).toContain("--disable code_mode ");
+    expect(bridged).toContain('mcp_servers.rakazo.default_tools_approval_mode="approve"');
+    expect(codex).toContain("code_mode_host");
     const claude = cliInferenceArgs("claude-code", "model", "schema");
     expect(claude.slice(claude.indexOf("--tools"), claude.indexOf("--tools") + 2)).toEqual([
       "--tools",

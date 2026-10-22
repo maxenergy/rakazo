@@ -17,8 +17,8 @@ type CodexThread = {
   threadId: string;
   /** Messages of the Rakazo conversation already inside the thread. */
   sent: number;
-  /** Hash of those messages; a changed history (condensed, edited) starts a new thread. */
-  sentHash: string;
+  /** Hash of each of those messages; a changed history (condensed, edited) starts a new thread. */
+  sentHashes: string[];
   /** Characters sent into the thread so far; a thread is retired before it grows unbounded. */
   chars: number;
 };
@@ -30,14 +30,14 @@ const THREAD_FILE_MAX_AGE_MS = 24 * 60 * 60_000;
  * Only what the model reads counts: the runtime fills in usage, details and similar
  * bookkeeping on earlier messages after the step that sent them.
  */
-function hashMessages(messages: readonly TranscriptMessage[]): string {
-  const hash = createHash("sha256");
-  for (const message of messages) {
+function hashMessages(messages: readonly TranscriptMessage[]): string[] {
+  return messages.map((message) => {
     const { role, content } = message as { role: string; content: unknown };
     const toolCallId = (message as { toolCallId?: string }).toolCallId;
-    hash.update(JSON.stringify([role, toolCallId ?? null, content]));
-  }
-  return hash.digest("hex");
+    return createHash("sha256")
+      .update(JSON.stringify([role, toolCallId ?? null, content]))
+      .digest("hex");
+  });
 }
 
 function threadKey(profileId: string, sessionId: string) {
@@ -57,16 +57,29 @@ export function codexResumeDelta(
   if (!sessionId) return undefined;
   const thread = threads.get(threadKey(profileId, sessionId));
   if (!thread) return undefined;
+  const current = hashMessages(messages.slice(0, thread.sent));
+  const changed = thread.sentHashes.findIndex((hash, index) => current[index] !== hash);
   const reason =
     thread.chars >= maxChars
       ? "thread_full"
       : messages[thread.sent]?.role !== "assistant" || messages.length <= thread.sent + 1
         ? "not_extended"
-        : hashMessages(messages.slice(0, thread.sent)) !== thread.sentHash
+        : changed >= 0
           ? "history_changed"
           : undefined;
   if (reason) {
-    getLogger().info("cli.resume_skipped", { "cli.reason": reason });
+    getLogger().info("cli.resume_skipped", {
+      "cli.reason": reason,
+      ...(changed >= 0
+        ? {
+            "cli.changed_index": changed,
+            "cli.changed_from_end": thread.sent - changed,
+            "cli.changed_role": messages[changed]?.role ?? "missing",
+            "cli.messages_before": thread.sent,
+            "cli.messages_now": messages.length,
+          }
+        : {}),
+    });
     return undefined;
   }
   return { threadId: thread.threadId, messages: messages.slice(thread.sent + 1) };
@@ -86,7 +99,7 @@ export function rememberCodexThread(
   threads.set(key, {
     threadId,
     sent: messages.length,
-    sentHash: hashMessages(messages),
+    sentHashes: hashMessages(messages),
     chars: (previous?.threadId === threadId ? previous.chars : 0) + sentChars,
   });
 }

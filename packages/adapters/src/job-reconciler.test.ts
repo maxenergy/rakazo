@@ -12,6 +12,11 @@ import { loopGuardStopText } from "./tool-loop.js";
 
 vi.mock("./bot-messages.js", () => ({ returnBotMessageOutcome: vi.fn() }));
 
+const detectStuckWorkers = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("./stuck-worker.js", () => ({
+  createStuckWorkerDetector: () => detectStuckWorkers,
+}));
+
 function publisher() {
   const enqueue = vi.fn(async (_job: BackgroundJob) => undefined);
   const jobs: JobPublisher = {
@@ -57,6 +62,7 @@ describe("createJobReconciler", () => {
       reconcileCloudAgents,
       reconcileComputerUpdates,
     }).reconcileOnce();
+    expect(detectStuckWorkers).toHaveBeenCalledWith(expect.any(Date));
     expect(reconcileCloudAgents).toHaveBeenCalledOnce();
     expect(reconcileComputerUpdates).toHaveBeenCalledOnce();
     expect(prisma.run.findMany).toHaveBeenCalled();

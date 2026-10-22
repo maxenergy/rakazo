@@ -12,7 +12,7 @@ import {
   validateConnectedModelChoice,
 } from "./model-selection.js";
 import {
-  CODEX_DISCOVERED_TRANSPORT_LIMITS,
+  codexDiscoveredTransportLimits,
   modelsForRequest,
   resolveRuntimeModel,
 } from "./pi-runtime.js";
@@ -172,7 +172,7 @@ describe("discovered Codex admission paths", () => {
       id,
       provider: "codex-cli",
       api: "rakazo-cli",
-      ...CODEX_DISCOVERED_TRANSPORT_LIMITS,
+      ...codexDiscoveredTransportLimits(),
       input: ["text"],
       reasoning: false,
     });

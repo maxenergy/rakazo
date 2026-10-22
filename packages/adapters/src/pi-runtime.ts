@@ -773,7 +773,7 @@ function configuredOpenRouterModel(
 
 // Operational limits derived from all existing Codex CLI models. These are
 // transport safeguards, never evidence of a discovered model's price or context.
-export const CODEX_DISCOVERED_TRANSPORT_LIMITS = (() => {
+export function codexDiscoveredTransportLimits() {
   const entries = builtinRuntimeModels().getProvider("codex-cli")?.getModels() ?? [];
   if (!entries.length) throw new Error("Codex CLI transport limits are unavailable");
   return Object.freeze({
@@ -786,7 +786,7 @@ export const CODEX_DISCOVERED_TRANSPORT_LIMITS = (() => {
       cacheWrite: Math.max(...entries.map((model) => model.cost.cacheWrite)),
     }),
   });
-})();
+}
 
 export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   provider: string;
@@ -816,7 +816,7 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
       baseUrl: "",
       input: evidence.imageInput === true ? ["text", "image"] : ["text"],
       reasoning: evidence.reasoning === true,
-      ...CODEX_DISCOVERED_TRANSPORT_LIMITS,
+      ...codexDiscoveredTransportLimits(),
     };
   }
   if (

@@ -9,6 +9,7 @@ export const ProductEventType = z.enum([
   "run.storage_paused",
   "run.storage_resumed",
   "storage.capacity_warning",
+  "steering.delivered",
   "thread.message.created",
   "thread.cleared",
   "thread.message.updated",
@@ -333,6 +334,20 @@ export function foldComputerCommands<T extends ComputerCommand>(events: T[]): T[
   }
   return [...byId.values()];
 }
+
+/** First durable receipt of ordered steering at a safe runtime turn boundary.
+ * Event.createdAt is delivery time; receivedAt is the source thread.message.created event timestamp.
+ * Recovery can re-invoke context without creating another receipt.
+ */
+export const SteeringDeliveredPayload = z.object({
+  steeringId: Id,
+  receivedEventId: Id,
+  messageId: Id,
+  messageSeq: z.number().int().nonnegative(),
+  receivedAt: z.iso.datetime(),
+  leaseFence: z.number().int().nonnegative(),
+});
+export type SteeringDeliveredPayload = z.infer<typeof SteeringDeliveredPayload>;
 
 export const ProductEventSchema = z.object({
   id: Id,

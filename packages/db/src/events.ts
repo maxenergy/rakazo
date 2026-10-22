@@ -53,6 +53,7 @@ export interface ThreadEvents {
   answerRunInput(input: AnswerRunInput): Promise<boolean>;
   append(input: AppendEventInput): Promise<ProductEvent>;
   claimSteering(input: ClaimSteeringInput): Promise<ClaimedSteeringMessage[]>;
+  deliverSteering(input: DeliverSteeringInput): Promise<void>;
   clearThread(input: ClearThreadInput): Promise<ClearThreadResult>;
   finalizeComputerControlRelease(
     input: FinalizeComputerControlReleaseInput,
@@ -100,6 +101,10 @@ export interface ClaimSteeringInput {
   leaseOwner: string;
   leaseFence: number;
   seenIds: string[];
+}
+
+export interface DeliverSteeringInput extends Omit<ClaimSteeringInput, "seenIds"> {
+  ids: string[];
 }
 
 export interface ClaimedSteeringMessage {
@@ -259,6 +264,7 @@ export function createThreadEvents(
     answerRunInput: (input) => answerRunInput(prisma, input, realtime, options.runSecretWriter),
     append: (input) => appendEvent(prisma, input, realtime),
     claimSteering: (input) => claimSteering(prisma, input),
+    deliverSteering: (input) => deliverSteering(prisma, input, realtime),
     clearThread: (input) => clearThread(prisma, input, realtime),
     finalizeComputerControlRelease: (input) =>
       finalizeComputerControlRelease(prisma, input, realtime),
@@ -603,6 +609,83 @@ export async function claimSteering(
       blocks: item.message.blocks as MessageBlock[],
     }));
   });
+}
+
+/** Thread serialization makes receipts idempotent across retries and lease takeover. */
+export async function deliverSteering(
+  prisma: PrismaClient,
+  input: DeliverSteeringInput,
+  realtime?: RealtimeFanout,
+): Promise<void> {
+  if (input.ids.length === 0) return;
+  const seq = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
+    const fence = {
+      runId: input.runId,
+      leaseOwner: input.leaseOwner,
+      leaseFence: input.leaseFence,
+    };
+    await assertExecutionFence(tx, fence);
+    const run = await tx.run.findFirstOrThrow({
+      where: { id: input.runId, botId: input.botId, threadId: input.threadId },
+      select: { spaceId: true },
+    });
+    const steering = await tx.steeringMessage.findMany({
+      where: {
+        id: { in: input.ids },
+        runId: input.runId,
+        botId: input.botId,
+        claimedAt: { not: null },
+        message: { threadId: input.threadId },
+      },
+      include: { message: { select: { seq: true } } },
+      orderBy: [{ message: { seq: "asc" } }, { id: "asc" }],
+    });
+    if (steering.length !== new Set(input.ids).size) {
+      throw new Error("Steering delivery must acknowledge claimed messages from this run");
+    }
+    let lastSeq: number | undefined;
+    for (const item of steering) {
+      const existing = await tx.event.findFirst({
+        where: {
+          threadId: input.threadId,
+          botId: input.botId,
+          type: "steering.delivered",
+          payload: { path: ["steeringId"], equals: item.id },
+        },
+        select: { id: true },
+      });
+      if (existing) continue;
+      const received = await tx.event.findFirstOrThrow({
+        where: {
+          threadId: input.threadId,
+          type: "thread.message.created",
+          payload: { path: ["messageId"], equals: item.messageId },
+        },
+        orderBy: { seq: "asc" },
+        select: { id: true, createdAt: true },
+      });
+      const event = await appendEventInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: input.threadId,
+        botId: input.botId,
+        runId: input.runId,
+        executionFence: fence,
+        type: "steering.delivered",
+        payload: {
+          steeringId: item.id,
+          messageId: item.messageId,
+          messageSeq: item.message.seq,
+          receivedEventId: received.id,
+          receivedAt: received.createdAt.toISOString(),
+          leaseFence: input.leaseFence,
+        },
+      });
+      lastSeq = event.seq;
+    }
+    return lastSeq;
+  });
+  if (seq !== undefined) await notifyRealtime(realtime, input.threadId, seq);
 }
 
 async function findPendingAsk(

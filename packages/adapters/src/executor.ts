@@ -7177,6 +7177,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   completion,
                   runSecrets,
                 ),
+              onSteeringDelivered: async (ids) => {
+                await deps.events.deliverSteering({
+                  threadId: thread.id,
+                  botId: bot.id,
+                  runId,
+                  leaseOwner: workerId,
+                  leaseFence: fence,
+                  ids,
+                });
+              },
               claimSteering: scripted
                 ? undefined
                 : async (seenIds) => {

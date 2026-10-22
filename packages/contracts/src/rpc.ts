@@ -132,6 +132,7 @@ import {
 } from "./projects.js";
 import { DecideProposalInput, ListProposalsInput, ProposalSchema } from "./proposals.js";
 import { MessageReactionSchema } from "./reactions.js";
+import { RunDiagnosticsInputSchema, RunDiagnosticsOutputSchema } from "./run-diagnostics.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
 import { SearchQueryOutputSchema } from "./search.js";
 import { UiLocaleSchema } from "./ui-locale.js";
@@ -985,6 +986,7 @@ export const appContract = {
       .output(z.object({ icon: z.string().nullable(), retry: z.boolean().optional() })),
   },
   runs: {
+    diagnostics: oc.input(RunDiagnosticsInputSchema).output(RunDiagnosticsOutputSchema),
     list: oc.input(z.object({ filter: z.enum(["active", "recent"]) })).output(RunsListOutputSchema),
   },
   voice: {

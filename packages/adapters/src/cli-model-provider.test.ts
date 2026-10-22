@@ -250,7 +250,15 @@ describe("subscription CLI provider conformance", () => {
     const codex = cliInferenceArgs("codex-cli", "model", "schema");
     expect(codex).toContain("--ignore-user-config");
     expect(codex).toContain("--ephemeral");
-    expect(codex).toContain("read-only");
+    expect(codex).toContain('sandbox_mode="read-only"');
+    const kept = cliInferenceArgs("codex-cli", "model", "schema", { persist: true });
+    expect(kept).not.toContain("--ephemeral");
+    expect(kept).toContain('sandbox_mode="read-only"');
+    const resumed = cliInferenceArgs("codex-cli", "model", "schema", { resume: "thread-1" });
+    expect(resumed.slice(0, 2)).toEqual(["exec", "resume"]);
+    expect(resumed.slice(-2)).toEqual(["thread-1", "-"]);
+    expect(resumed).not.toContain("--sandbox");
+    expect(resumed).toContain('sandbox_mode="read-only"');
     const claude = cliInferenceArgs("claude-code", "model", "schema");
     expect(claude.slice(claude.indexOf("--tools"), claude.indexOf("--tools") + 2)).toEqual([
       "--tools",

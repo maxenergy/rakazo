@@ -21,6 +21,13 @@ import {
   runCliProcess,
   saveCliFailure,
 } from "./cli-model-process.js";
+import {
+  codexResumeDelta,
+  codexThreadId,
+  forgetCodexThread,
+  pruneCodexThreadFiles,
+  rememberCodexThread,
+} from "./codex-cli-sessions.js";
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -537,23 +544,31 @@ function cliPrompt(
   };
 }
 
+/** A resumed Codex thread already holds the instructions and earlier messages. */
+function cliResumePrompt(messages: TranscriptMessage[]): string {
+  const added = JSON.stringify(collapseSystemMessages(messages.map(modelVisibleMessage)));
+  return `New conversation messages since your last reply:\n${added}\nContinue the conversation. Return only one JSON object matching the schema.`;
+}
+
 export function cliInferenceArgs(
   provider: CliModelProvider,
   modelId: string,
   schemaPath: string,
+  /** Codex only: keep the thread so a later step can resume it, or resume this thread. */
+  codexThread?: { persist: true } | { resume: string },
 ): string[] {
   if (provider === "codex-cli")
     return [
       "exec",
+      ...(codexThread && "resume" in codexThread ? ["resume"] : []),
       "--json",
-      "--ephemeral",
+      ...(codexThread ? [] : ["--ephemeral"]),
       "--ignore-user-config",
       "--ignore-rules",
       "--skip-git-repo-check",
-      "--sandbox",
-      "read-only",
-      "--color",
-      "never",
+      // `exec resume` takes no --sandbox or --color; the config key works for both.
+      "-c",
+      'sandbox_mode="read-only"',
       "-c",
       'model_provider="openai"',
       "-c",
@@ -592,6 +607,7 @@ export function cliInferenceArgs(
       modelId,
       "--output-schema",
       schemaPath,
+      ...(codexThread && "resume" in codexThread ? [codexThread.resume] : []),
       "-",
     ];
   if (provider === "claude-code")
@@ -699,8 +715,19 @@ function streamCliModel(
       let reply: CliReply | undefined;
       let budgetScale = 1;
       const contextWindow = cliContextWindow(provider, model.contextWindow);
+      const profileId = options.apiKey;
+      const sessionId = provider === "codex-cli" ? options.sessionId : undefined;
+      if (sessionId) void pruneCodexThreadFiles(profileId).catch(() => undefined);
       for (let attempt = 1; !reply; attempt += 1) {
-        const { prompt } = cliPrompt(context, contextWindow, budgetScale);
+        const resume = codexResumeDelta(
+          profileId,
+          sessionId,
+          context.messages,
+          (contextWindow ?? CLI_USAGE_WINDOW) * CLI_CHARS_PER_TOKEN,
+        );
+        const prompt = resume
+          ? cliResumePrompt(resume.messages)
+          : cliPrompt(context, contextWindow, budgetScale).prompt;
         // Subscription CLIs report no token counts, so prompt size is the only usage signal.
         getLogger().info("cli.request", {
           "cli.provider": provider,
@@ -708,6 +735,7 @@ function streamCliModel(
           "cli.chars": prompt.length,
           "cli.context_window": contextWindow,
           "cli.messages": context.messages.length,
+          "cli.resumed": Boolean(resume),
         });
         // Grok CLI reads the prompt from this file instead of stdin.
         await writeFile(join(directory, "prompt.txt"), prompt, { mode: 0o600 });
@@ -715,8 +743,13 @@ function streamCliModel(
         try {
           const output = await runCliProcess({
             provider,
-            profileId: options.apiKey,
-            args: cliInferenceArgs(provider, model.id, schemaPath),
+            profileId,
+            args: cliInferenceArgs(
+              provider,
+              model.id,
+              schemaPath,
+              sessionId ? (resume ? { resume: resume.threadId } : { persist: true }) : undefined,
+            ),
             cwd: directory,
             input: prompt,
             signal: options.signal,
@@ -724,7 +757,13 @@ function streamCliModel(
           });
           responseText = cliResponseText(provider, output);
           reply = parseCliReply(responseText, tools);
+          const threadId = sessionId ? codexThreadId(output) : undefined;
+          if (threadId)
+            rememberCodexThread(profileId, sessionId, threadId, context.messages, prompt.length);
+          else forgetCodexThread(profileId, sessionId);
         } catch (error) {
+          // A failed step may have left the thread out of step with the conversation.
+          forgetCodexThread(profileId, sessionId);
           if (options.signal?.aborted) throw error;
           getLogger().warn("cli.inference_failed", {
             "cli.provider": provider,

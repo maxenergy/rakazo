@@ -3248,3 +3248,75 @@ describe("continuation lease fence", () => {
     expect(findUniqueOrThrow).not.toHaveBeenCalled();
   });
 });
+
+describe("run deadline resolution", () => {
+  it.each([
+    { deadlineMs: null, duration: 7200000 },
+    { deadlineMs: 86400000, duration: 86400000 },
+    { deadlineMs: 1, duration: 1 },
+  ])(
+    "measures $duration ms from first start rather than creation",
+    async ({ deadlineMs, duration }) => {
+      const run = {
+        id: "deadline-run",
+        botId: "bot-1",
+        status: "queued",
+        checkpoint: null,
+        leaseFence: 0,
+        startedAt: null,
+        deadlineAt: null,
+        deadlineMs,
+        createdAt: new Date("2020-01-01T00:00:00Z"),
+      };
+      const updateMany = vi
+        .fn()
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+      const prisma = {
+        run: {
+          findUnique: vi.fn().mockResolvedValue(run),
+          updateMany,
+          findUniqueOrThrow: vi.fn(async () => ({
+            ...run,
+            status: "leased",
+            deadlineAt: updateMany.mock.calls[0]![0].data.deadlineAt,
+          })),
+        },
+      } as unknown as PrismaClient;
+      const executor = createRunExecutor({
+        prisma,
+        runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+      } as Parameters<typeof createRunExecutor>[0]);
+      await executor.continueRun(run.id, "worker-1");
+      const deadline = updateMany.mock.calls[0]![0].data.deadlineAt as Date;
+      const started = updateMany.mock.calls[1]![0].data.startedAt as Date;
+      expect(deadline.getTime() - started.getTime()).toBe(duration);
+    },
+  );
+
+  it("preserves an existing deadline when the run resumes", async () => {
+    const deadlineAt = new Date("2026-10-24T00:00:00Z");
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const prisma = {
+      run: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "resume-run",
+          botId: "bot-1",
+          status: "queued",
+          checkpoint: null,
+          leaseFence: 2,
+          startedAt: new Date("2026-10-23T00:00:00Z"),
+          deadlineAt,
+          deadlineMs: 86400000,
+        }),
+        updateMany,
+      },
+    } as unknown as PrismaClient;
+    const executor = createRunExecutor({
+      prisma,
+      runtime: { describe: () => ({ capabilities: { scripted: true } }) },
+    } as Parameters<typeof createRunExecutor>[0]);
+    await executor.continueRun("resume-run", "worker-1");
+    expect(updateMany.mock.calls[0]![0].data.deadlineAt).toEqual(deadlineAt);
+  });
+});

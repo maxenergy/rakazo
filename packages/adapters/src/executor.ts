@@ -3394,7 +3394,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           leaseExpiresAt: new Date(Date.now() + 5 * 60_000),
           error: null,
           checkpoint: null,
-          deadlineAt: run.deadlineAt ?? runDeadline(now, deps.runDeadlineMs),
+          deadlineAt:
+            run.deadlineAt ??
+            runDeadline(run.startedAt ?? now, run.deadlineMs ?? deps.runDeadlineMs),
           // Input/takeover resume reconstructs fresh history with the new input.
           ...(!["queued", "leased", "running"].includes(run.status) || run.checkpoint
             ? { segmentCheckpoint: null }
@@ -3422,7 +3424,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           leaseFence: fence,
           leaseExpiresAt: { gt: new Date() },
         },
-        data: { status: "running", startedAt: current.startedAt ?? new Date() },
+        data: { status: "running", startedAt: current.startedAt ?? now },
       });
       if (started.count !== 1) return;
       run.deadlineAt = current.deadlineAt;

@@ -359,7 +359,8 @@ async function fencedScheduleWrite<T>(
   return deps.prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${scope.spaceId} FOR KEY SHARE`;
     await tx.$queryRaw`SELECT id FROM bots WHERE id = ${scope.botId} FOR KEY SHARE`;
-    if (scope.threadId) await tx.$queryRaw`SELECT id FROM threads WHERE id = ${scope.threadId} FOR KEY SHARE`;
+    if (scope.threadId)
+      await tx.$queryRaw`SELECT id FROM threads WHERE id = ${scope.threadId} FOR KEY SHARE`;
     await assertExecutionFence(tx, deps.executionFence!);
     return write(tx);
   });

@@ -2,9 +2,9 @@ import type { Actor, Bot, BotOrgRole, BotSection, MessageBlock, SpaceBot } from 
 import { BOT_COLORS, parseBotOrgRole } from "@rakazo/contracts";
 import { BACKGROUND_RUN_TRIGGERS, isBackgroundRunTrigger, userVisibleMessages } from "@rakazo/core";
 import type { PrismaClient } from "./client.js";
-import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import type { ComputerMode } from "./computers.js";
 import { ensureComputerRecord, parseComputerMode } from "./computers.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import { createThreadMessageInTransaction } from "./messages.js";
 import { BotSectionNameConflictError, IsolationError } from "./scope.js";
 import { lockSpaceForContentCreation } from "./spaces.js";
@@ -604,7 +604,12 @@ export function createRepos(prisma: PrismaClient) {
             await tx.$queryRaw`SELECT id FROM bots WHERE id = ${existing.id} AND "spaceId" = ${actor.spaceId} FOR UPDATE`;
             if (input.executionFence) await assertExecutionFence(tx, input.executionFence);
             await tx.bot.updateMany({
-              where: { id: existing.id, spaceId: actor.spaceId, spawnKey: input.spawnKey, archivedAt: { not: null } },
+              where: {
+                id: existing.id,
+                spaceId: actor.spaceId,
+                spawnKey: input.spawnKey,
+                archivedAt: { not: null },
+              },
               data: { spawnKey: null },
             });
           });

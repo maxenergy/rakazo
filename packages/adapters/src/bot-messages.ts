@@ -13,8 +13,8 @@ import {
 } from "@rakazo/core";
 import type { ExecutionFence, PrismaClient } from "@rakazo/db";
 import {
-  assertExecutionFence,
   appendEventInTransaction,
+  assertExecutionFence,
   createThreadMessageInTransaction,
   withTransactionRetry,
 } from "@rakazo/db";

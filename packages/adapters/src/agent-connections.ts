@@ -9,7 +9,11 @@ import {
   sanitizeMessagingLabel,
 } from "@rakazo/core";
 import type { ExecutionFence, PrismaClient, ThreadEvents } from "@rakazo/db";
-import { assertExecutionFence, appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
+import {
+  appendEventInTransaction,
+  assertExecutionFence,
+  createThreadMessageInTransaction,
+} from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { currentBotMessageHop } from "./bot-messages.js";
 

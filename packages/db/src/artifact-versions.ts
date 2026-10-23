@@ -60,7 +60,8 @@ export async function withResolvedArtifactVersion<T>(
         if (params.executionFence) {
           await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${params.spaceId} FOR KEY SHARE`;
           await tx.$queryRaw`SELECT id FROM bots WHERE id = ${params.botId} FOR KEY SHARE`;
-          if (params.groupId) await tx.$queryRaw`SELECT id FROM chat_groups WHERE id = ${params.groupId} FOR KEY SHARE`;
+          if (params.groupId)
+            await tx.$queryRaw`SELECT id FROM chat_groups WHERE id = ${params.groupId} FOR KEY SHARE`;
           await assertExecutionFence(tx, params.executionFence);
         }
         await tx.$queryRaw(Prisma.sql`

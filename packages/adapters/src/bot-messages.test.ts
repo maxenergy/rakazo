@@ -263,7 +263,9 @@ describe("messaging another bot", () => {
       { allowTerminalSource: true },
     );
     expect(sent.ok).toBe(true);
-    expect(harness.tx.$queryRaw.mock.calls.map(([sql, id]) => ({ sql: sql.join("?"), id }))).toEqual([
+    expect(
+      harness.tx.$queryRaw.mock.calls.map(([sql, id]) => ({ sql: sql.join("?"), id })),
+    ).toEqual([
       { sql: "SELECT id FROM spaces WHERE id = ? FOR KEY SHARE", id: run.spaceId },
       { sql: "SELECT id FROM bots WHERE id = ? FOR UPDATE", id: run.botId },
       { sql: "SELECT id FROM bots WHERE id = ? FOR UPDATE", id: "bot-target" },
@@ -732,15 +734,21 @@ describe("automatic outcome return", () => {
   });
 });
 
-
 describe("peer delivery execution fence", () => {
   it("rejects a stale worker before messages, tasks, events or wakeups", async () => {
     const harness = deps();
     harness.tx.run.updateMany.mockResolvedValue({ count: 0 });
-    await expect(messageBot(harness.deps, {
-      ...run, executionFence: { runId: run.id, leaseOwner: "old-worker", leaseFence: 1 },
-    }, sender, { bot_id: "bot-target", message: "stale delivery" }))
-      .rejects.toMatchObject({ name: "StaleExecutionFenceError" });
+    await expect(
+      messageBot(
+        harness.deps,
+        {
+          ...run,
+          executionFence: { runId: run.id, leaseOwner: "old-worker", leaseFence: 1 },
+        },
+        sender,
+        { bot_id: "bot-target", message: "stale delivery" },
+      ),
+    ).rejects.toMatchObject({ name: "StaleExecutionFenceError" });
     expect(harness.tx.message.create).not.toHaveBeenCalled();
     expect(harness.tx.task.create).not.toHaveBeenCalled();
     expect(harness.tx.run.create).not.toHaveBeenCalled();

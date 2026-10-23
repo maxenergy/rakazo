@@ -30,6 +30,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { DEFAULT_CONTEXT_STRATEGY } from "@rakazo/adapter-kit";
 import { responseLanguageInstruction, usableModelId } from "@rakazo/contracts";
+import { abortableDelay } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
 import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
@@ -101,6 +102,7 @@ function catalogModels(): Models {
   return catalogModelsCache;
 }
 const MAX_PARALLEL_SUBAGENTS = 4;
+const MODEL_PROVIDER_RETRY_DELAYS_MS = [2_000, 8_000, 20_000] as const;
 // Some OpenAI-compatible models return EOS immediately after a tool result
 // instead of taking another assistant turn. A bounded internal follow-up keeps
 // that provider quirk from making a long task look complete after one step.
@@ -376,7 +378,15 @@ export class PiAgentRuntime implements AgentRuntime {
               target.models,
               target.model,
               ctx,
-              withCloudflareGatewayAuth(target.config, options),
+              withCloudflareGatewayAuth(target.config, {
+                ...options,
+                onResponse: (response, model) => {
+                  reviewHttpStatus = [401, 402, 429].includes(response.status)
+                    ? response.status
+                    : undefined;
+                  return options?.onResponse?.(response, model);
+                },
+              }),
               target.config.maxTokens,
               () => target.credentials?.accessToken ?? target.apiKey,
               (preparedOptions) =>
@@ -426,37 +436,7 @@ export class PiAgentRuntime implements AgentRuntime {
         agent = new Agent({
           sessionId: conversationSessionId(request.threadId, request.botId),
           steeringMode: "all",
-          streamFn: (m, ctx, options) =>
-            hasBackups
-              ? fallbackAwareModelStream(fallbackState, ctx, options)
-              : reliableModelStream(
-                  models,
-                  m,
-                  ctx,
-                  withCloudflareGatewayAuth(request.model, {
-                    ...options,
-                    onResponse: (response, model) => {
-                      reviewHttpStatus = [401, 402, 429].includes(response.status)
-                        ? response.status
-                        : undefined;
-                      return options?.onResponse?.(response, model);
-                    },
-                  }),
-                  request.model.maxTokens,
-                  () => selectedModel.credentials?.accessToken ?? apiKey,
-                  (preparedOptions) =>
-                    observedPiStream(
-                      models,
-                      m,
-                      ctx,
-                      preparedOptions,
-                      (event) => queue.push(event),
-                      this.modelCallObserver,
-                      { operationKind: request.usageOperationKind ?? "answer" },
-                      usageHooks,
-                    ),
-                  request.model.cacheCapabilities?.retentionMode,
-                ),
+          streamFn: (_m, ctx, options) => fallbackAwareModelStream(fallbackState, ctx, options),
           getApiKey: hasBackups
             ? async () => activeStreamTarget.credentials?.accessToken ?? activeStreamTarget.apiKey
             : async () => apiKey,
@@ -1588,6 +1568,55 @@ async function executeSubagent(host: ToolHost, executionId: string, args: Record
     { credentialScope: selectedModel.apiKey, imageTokens: estimatePiImageTokens },
   );
   let nested!: Agent;
+  const providerFailures = new WeakSet<AssistantMessage["content"]>();
+  const retryState: FallbackStreamState = {
+    isCooling: () => false,
+    recordCooldown: () => undefined,
+    request: { ...host.request, model: requestModel, fallbackModels: [] },
+    getActive: () => nestedHost.activeModel,
+    signal: host.signal,
+    attempted: new Set(),
+    nextIndex: 0,
+    onSwitch: async () => undefined,
+    isProviderFailure: (message) => providerFailures.has(message.content),
+    stream: (target, ctx, options) =>
+      reliableModelStream(
+        target.models,
+        target.model,
+        ctx,
+        withCloudflareGatewayAuth(requestModel, options),
+        requestModel.maxTokens,
+        () => selectedModel.credentials?.accessToken ?? selectedModel.apiKey,
+        (preparedOptions) =>
+          observedPiStream(
+            target.models,
+            target.model,
+            ctx,
+            preparedOptions,
+            (event) => host.queue.push(event),
+            host.modelCallObserver,
+            { operationKind: "subagent", agentId },
+            {
+              prepareContext: contextPolicy.prepareContext,
+              imageTokens: estimatePiImageTokens,
+              recordUsage: host.request.onUsage,
+              onProviderError: (message) => providerFailures.add(message.content),
+              onUsage: (usage) => {
+                contextPolicy.onUsage(usage);
+                const decision = contextPolicy.getDecision();
+                if (decision)
+                  host.onContextDecision?.({
+                    ...decision,
+                    runId: host.request.runId,
+                    agentId,
+                    usage,
+                  });
+              },
+            },
+          ),
+        requestModel.cacheCapabilities?.retentionMode,
+      ),
+  };
   nested = new Agent({
     finishTurn: async (turn, turnSignal) => {
       await deliverFinishedShells(
@@ -1604,42 +1633,7 @@ async function executeSubagent(host: ToolHost, executionId: string, args: Record
       );
     },
     sessionId: conversationSessionId(host.request.threadId, host.request.botId, agentId),
-    streamFn: (m, ctx, options) =>
-      reliableModelStream(
-        selectedModel.models,
-        m,
-        ctx,
-        withCloudflareGatewayAuth(requestModel, options),
-        requestModel.maxTokens,
-        () => selectedModel.credentials?.accessToken ?? selectedModel.apiKey,
-        (preparedOptions) =>
-          observedPiStream(
-            selectedModel.models,
-            m,
-            ctx,
-            preparedOptions,
-            (event) => host.queue.push(event),
-            host.modelCallObserver,
-            { operationKind: "subagent", agentId },
-            {
-              prepareContext: contextPolicy.prepareContext,
-              imageTokens: estimatePiImageTokens,
-              recordUsage: host.request.onUsage,
-              onUsage: (usage) => {
-                contextPolicy.onUsage(usage);
-                const decision = contextPolicy.getDecision();
-                if (decision)
-                  host.onContextDecision?.({
-                    ...decision,
-                    runId: host.request.runId,
-                    agentId,
-                    usage,
-                  });
-              },
-            },
-          ),
-        requestModel.cacheCapabilities?.retentionMode,
-      ),
+    streamFn: (_m, ctx, options) => fallbackAwareModelStream(retryState, ctx, options),
     getApiKey: async () =>
       hasBackups
         ? (selectedModel.credentials?.accessToken ?? selectedModel.apiKey)
@@ -2498,6 +2492,10 @@ function errorFacts(value: unknown) {
   return { text: text.join(" ").toLowerCase(), statuses };
 }
 
+function isProviderTimeout(error: unknown): boolean {
+  return /timed? out|timeout/.test(errorFacts(error).text);
+}
+
 /** Only provider availability failures may advance the user's explicit chain. */
 export function isRetryableProviderUnavailable(error: unknown): boolean {
   const { text, statuses } = errorFacts(error);
@@ -2531,7 +2529,7 @@ export function isRetryableProviderUnavailable(error: unknown): boolean {
   )
     return true;
   if ([...statuses].some((status) => status >= 400 && status < 600)) return false;
-  return /rate.?limit|too many requests|quota|overload|capacity|temporarily unavailable|service unavailable|retry[- ](?:after|delay)|server error|upstream error|gateway timeout|timed? out|timeout|connection reset|connection refused|network error|max retries exceeded/.test(
+  return /rate.?limit|too many requests|quota|overload|capacity|temporarily unavailable|service unavailable|retry[- ](?:after|delay)|server error|upstream error|gateway timeout|timed? out|timeout|connection reset|connection refused|network error|max retries exceeded|\bterminated\b/.test(
     text,
   );
 }
@@ -2568,6 +2566,19 @@ function contextImageCount(context: Context): number {
   }, 0);
 }
 
+/**
+ * Same rule as the primary model (modelAcceptsImageInput): the catalog's input
+ * modalities decide for native providers, and the connection's acceptsImages flag
+ * only applies to OpenAI-compatible models, whose runtime model is built from it.
+ */
+function fallbackSeesImages(candidate: RuntimeModelTarget): boolean {
+  if (!candidate.model.input.includes("image")) return false;
+  return (
+    candidate.config.provider !== OPENAI_COMPATIBLE_PROVIDER_ID ||
+    candidate.config.acceptsImages !== false
+  );
+}
+
 function fallbackSupportsContext(
   candidate: RuntimeModelTarget,
   context: TranscriptContext,
@@ -2592,7 +2603,7 @@ function fallbackSupportsContext(
   const imageCount = contextImageCount(context);
   if (
     (imageCount > 0 || tools.some((tool) => IMAGE_RETURNING_COMPUTER_TOOLS.has(tool.name))) &&
-    (!candidate.model.input.includes("image") || candidate.config.acceptsImages === false)
+    !fallbackSeesImages(candidate)
   ) {
     return false;
   }
@@ -2618,7 +2629,8 @@ function fallbackAwareModelStream(
 ): AssistantMessageEventStream {
   const output = new AssistantMessageEventStream();
   let lastPartial: AssistantMessage | undefined;
-  const signalAborted = () => state.signal.aborted || Boolean(options?.signal?.aborted);
+  const signal = options?.signal ? AbortSignal.any([state.signal, options.signal]) : state.signal;
+  const signalAborted = () => signal.aborted;
   const finishWithThrownError = (target: RuntimeModelTarget, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     const aborted = signalAborted() || /abort|cancel/i.test(message);
@@ -2707,6 +2719,8 @@ function fallbackAwareModelStream(
   };
   const run = async () => {
     let buffered: AssistantMessageEvent[] = [];
+    let retries = 0;
+    let firstRetryableError: Extract<AssistantMessageEvent, { type: "error" }> | undefined;
     while (!signalAborted()) {
       const target = state.getActive();
       if (state.isCooling(target)) {
@@ -2720,7 +2734,7 @@ function fallbackAwareModelStream(
       }
       lastPartial = undefined;
       let sawPartialOutput = false;
-      let switched = false;
+      let restart = false;
       let stream: AssistantMessageEventStream;
       try {
         const apiKey = target.credentials?.accessToken ?? target.apiKey;
@@ -2733,7 +2747,11 @@ function fallbackAwareModelStream(
             )
           : "off";
         const reasoning = thinkingLevel === "off" ? undefined : thinkingLevel;
-        stream = state.stream(target, context, { ...options, apiKey, reasoning });
+        stream = state.stream(
+          target,
+          context,
+          state.request.fallbackModels?.length ? { ...options, apiKey, reasoning } : options,
+        );
       } catch (error) {
         finishWithThrownError(target, error);
         return;
@@ -2742,6 +2760,7 @@ function fallbackAwareModelStream(
         for await (const event of stream) {
           if (event.type === "error") {
             if (state.isProviderFailure(event.error)) state.recordCooldown(target, event.error);
+            let terminalEvent = event;
             const hasTerminalPartialOutput = assistantHasPartialOutput(event.error);
             if (
               !sawPartialOutput &&
@@ -2757,16 +2776,29 @@ function fallbackAwareModelStream(
                 await state.onSwitch(next);
                 if (failIfAborted(target)) return;
                 buffered = [];
-                switched = true;
+                restart = true;
                 break;
               }
+              firstRetryableError ??= event;
+              const delay = isProviderTimeout(event.error)
+                ? undefined
+                : MODEL_PROVIDER_RETRY_DELAYS_MS[retries];
+              if (delay !== undefined) {
+                retries += 1;
+                await abortableDelay(delay, signal);
+                if (failIfAborted(target)) return;
+                buffered = [];
+                restart = true;
+                break;
+              }
+              terminalEvent = firstRetryableError;
             }
             for (const pending of buffered) output.push(pending);
             buffered = [];
             const terminal =
               sawPartialOutput && event.error.content.length === 0 && lastPartial
                 ? { ...event, error: { ...event.error, content: lastPartial.content } }
-                : event;
+                : terminalEvent;
             output.push(terminal);
             output.end(terminal.error);
             return;
@@ -2798,7 +2830,7 @@ function fallbackAwareModelStream(
         finishWithThrownError(target, error);
         return;
       }
-      if (switched) continue;
+      if (restart) continue;
       for (const pending of buffered) output.push(pending);
       finishWithThrownError(target, new Error("Model stream ended without a terminal event"));
       return;

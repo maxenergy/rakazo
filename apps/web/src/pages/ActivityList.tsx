@@ -363,34 +363,40 @@ function ActivityRow({ run, onOpen }: { run: RunActivityRow; onOpen: () => void 
   const tone = statusTone(run.status, run.updatedAt);
   return (
     <div>
-    <button
-      type="button"
-      aria-label={activityLabel}
-      onClick={onOpen}
-      className="flex w-full gap-3 rounded-xl px-2.5 py-[9px] text-left hover:bg-accent"
-    >
-      <span
-        className={`mt-1.5 size-2 shrink-0 rounded-full bg-current ${tone}`}
-        aria-hidden="true"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-medium text-foreground">{title}</span>
-          <span className="shrink-0 text-xs text-muted-foreground/80">
-            {formatRelativeTime(run.updatedAt)}
-          </span>
-        </div>
-        <div className="mt-0.5 flex items-baseline gap-2">
-          {run.promptSnippet ? (
-            <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
-              {run.promptSnippet}
+      <button
+        type="button"
+        aria-label={activityLabel}
+        onClick={onOpen}
+        className="flex w-full gap-3 rounded-xl px-2.5 py-[9px] text-left hover:bg-accent"
+      >
+        <span
+          className={`mt-1.5 size-2 shrink-0 rounded-full bg-current ${tone}`}
+          aria-hidden="true"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-sm font-medium text-foreground">{title}</span>
+            <span className="shrink-0 text-xs text-muted-foreground/80">
+              {formatRelativeTime(run.updatedAt)}
             </span>
-          ) : null}
-          <span className={`ms-auto shrink-0 text-xs ${tone}`}>{label}</span>
+          </div>
+          <div className="mt-0.5 flex items-baseline gap-2">
+            {run.promptSnippet ? (
+              <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+                {run.promptSnippet}
+              </span>
+            ) : null}
+            <span className={`ms-auto shrink-0 text-xs ${tone}`}>{label}</span>
+          </div>
         </div>
-      </div>
-    </button>
-    <details className="mx-3 mb-2" onToggle={(event) => setDiagnosticsOpen(event.currentTarget.open)}><summary className="cursor-pointer text-xs text-muted-foreground">Run diagnostics</summary>{diagnosticsOpen ? <RunDiagnostics runId={run.runId} /> : null}</details>
+      </button>
+      <details
+        className="mx-3 mb-2"
+        onToggle={(event) => setDiagnosticsOpen(event.currentTarget.open)}
+      >
+        <summary className="cursor-pointer text-xs text-muted-foreground">Run diagnostics</summary>
+        {diagnosticsOpen ? <RunDiagnostics runId={run.runId} /> : null}
+      </details>
     </div>
   );
 }

@@ -77,7 +77,8 @@ export class MarkdownMemoryStore implements MemoryStore {
         async (tx) => {
           if (context.executionFence) {
             await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${context.spaceId} FOR KEY SHARE`;
-            if (request.botId) await tx.$queryRaw`SELECT id FROM bots WHERE id = ${request.botId} FOR KEY SHARE`;
+            if (request.botId)
+              await tx.$queryRaw`SELECT id FROM bots WHERE id = ${request.botId} FOR KEY SHARE`;
             await assertExecutionFence(tx, context.executionFence);
           }
           const existing = await tx.memoryDocument.findFirst({

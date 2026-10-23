@@ -18,7 +18,7 @@ import {
   messageBlockForArtifact,
   validateAttachmentMimeType,
 } from "@rakazo/core";
-import type { PrismaClient, ExecutionFence } from "@rakazo/db";
+import type { ExecutionFence, PrismaClient } from "@rakazo/db";
 import { withResolvedArtifactVersion } from "@rakazo/db";
 import { resolveBotWorkspacePath } from "./computer-support.js";
 

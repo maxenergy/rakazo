@@ -19,15 +19,15 @@ import {
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
 import {
   assertExecutionFence,
-  StaleExecutionFenceError,
-  type ExecutionFence,
   cancelRunsInTransaction,
   computerScopeKey,
   createRepos,
   createThreadMessageInTransaction,
+  type ExecutionFence,
   expireComputerExecutionLeases,
   type Prisma,
   type PrismaClient,
+  StaleExecutionFenceError,
   withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";

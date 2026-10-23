@@ -19,18 +19,37 @@ describe("current-turn thread files", () => {
     const artifact = { findFirst: vi.fn(), create: vi.fn() };
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const tx = { artifact, run: { updateMany }, $queryRaw: vi.fn().mockResolvedValue([]) };
-    await expect(attachWorkspaceFileToThread({
-      prisma: { $transaction: async (run: (client: typeof tx) => Promise<unknown>) => run(tx) } as unknown as PrismaClient,
-      artifacts: { put: vi.fn().mockResolvedValue({ id: "stale-stored", hash: "hash" }), remove } as unknown as ArtifactStore,
-    }, {
-      spaceId: "workspace-1", userId: "user-1", botId: "bot-1", groupId: "group-1",
-      runId: "run-1", filePath: "report.pdf", bytes: new Uint8Array([1]), operationId: "attach-stale",
-      executionFence: { runId: "run-1", leaseOwner: "old-owner", leaseFence: 1 },
-    })).rejects.toThrow("Run execution fence is no longer current");
+    await expect(
+      attachWorkspaceFileToThread(
+        {
+          prisma: {
+            $transaction: async (run: (client: typeof tx) => Promise<unknown>) => run(tx),
+          } as unknown as PrismaClient,
+          artifacts: {
+            put: vi.fn().mockResolvedValue({ id: "stale-stored", hash: "hash" }),
+            remove,
+          } as unknown as ArtifactStore,
+        },
+        {
+          spaceId: "workspace-1",
+          userId: "user-1",
+          botId: "bot-1",
+          groupId: "group-1",
+          runId: "run-1",
+          filePath: "report.pdf",
+          bytes: new Uint8Array([1]),
+          operationId: "attach-stale",
+          executionFence: { runId: "run-1", leaseOwner: "old-owner", leaseFence: 1 },
+        },
+      ),
+    ).rejects.toThrow("Run execution fence is no longer current");
     expect(updateMany).toHaveBeenCalledOnce();
     expect(artifact.findFirst).not.toHaveBeenCalled();
     expect(artifact.create).not.toHaveBeenCalled();
-    expect(remove).toHaveBeenCalledWith("stale-stored", expect.objectContaining({ spaceId: "workspace-1" }));
+    expect(remove).toHaveBeenCalledWith(
+      "stale-stored",
+      expect.objectContaining({ spaceId: "workspace-1" }),
+    );
   });
 
   it("removes stored bytes when artifact metadata cannot be created", async () => {

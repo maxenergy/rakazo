@@ -24,18 +24,51 @@ export const RunDiagnosticEntrySchema = z.object({
   callId: Id.nullable(),
   inputTokens: z.number().int().nullable(),
   outputTokens: z.number().int().nullable(),
-  costMicroUsd: z.string().regex(/^-?\d+$/).nullable(),
+  costMicroUsd: z
+    .string()
+    .regex(/^-?\d+$/)
+    .nullable(),
   derived: z.enum(["model_changed", "lease_takeover"]).nullable().optional(),
-  recovery: z.object({
-    match: z.enum(["matched", "unmatched"]),
-    legacy: z.boolean(),
-    effect: z.object({ id: Id, kind: z.string(), status: z.string(), reviewDecision: z.string().nullable(), createdAt: IsoDate }).nullable(),
-  }).optional(),
-  evidence: z.object({ runId: Id, threadId: Id, eventSeq: z.number().int().nullable(), sourceHref: z.string().nullable().optional() }),
+  steering: z
+    .object({
+      messageId: Id,
+      receivedAt: IsoDate,
+      deliveredAt: IsoDate,
+      usage: z.object({ runId: Id, section: z.literal("usage"), attribution: z.literal("run") }),
+    })
+    .optional(),
+  recovery: z
+    .object({
+      match: z.enum(["matched", "unmatched"]),
+      legacy: z.boolean(),
+      effect: z
+        .object({
+          id: Id,
+          kind: z.string(),
+          status: z.string(),
+          reviewDecision: z.string().nullable(),
+          createdAt: IsoDate,
+        })
+        .nullable(),
+    })
+    .optional(),
+  evidence: z.object({
+    runId: Id,
+    threadId: Id,
+    eventSeq: z.number().int().nullable(),
+    sourceHref: z.string().nullable().optional(),
+  }),
 });
 export const RunDiagnosticsOutputSchema = z.object({
   runId: Id,
-  runContext: z.object({ modelProvider: z.string().nullable(), modelId: z.string().nullable(), modelPinned: z.boolean(), leaseFence: z.number().int() }).optional(),
+  runContext: z
+    .object({
+      modelProvider: z.string().nullable(),
+      modelId: z.string().nullable(),
+      modelPinned: z.boolean(),
+      leaseFence: z.number().int(),
+    })
+    .optional(),
   status: z.string(),
   section: RunDiagnosticSectionSchema,
   entries: z.array(RunDiagnosticEntrySchema).max(100),

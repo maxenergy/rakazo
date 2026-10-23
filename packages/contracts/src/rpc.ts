@@ -164,8 +164,15 @@ const structuredMentionTarget = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("connector"), id: Id }),
 ]);
 
+export const RunDeadlineMsSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(24 * 60 * 60_000, "Run deadline must not exceed 24 hours");
+
 const threadSendInput = threadTarget
   .safeExtend({
+    deadlineMs: RunDeadlineMsSchema.optional(),
     text: z.string().optional(),
     artifactIds: z.array(Id).max(ATTACHMENT_MAX_COUNT).optional(),
     /** Bare bot ids (legacy) or typed mention chips from the composer. */

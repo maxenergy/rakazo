@@ -11,7 +11,11 @@ import type {
   RunStatus,
   ThreadSnapshot,
 } from "@rakazo/contracts";
-import { GROUP_MEMBER_MIN, MessageBlock as MessageBlockSchema } from "@rakazo/contracts";
+import {
+  GROUP_MEMBER_MIN,
+  MessageBlock as MessageBlockSchema,
+  RunDeadlineMsSchema,
+} from "@rakazo/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   BACKGROUND_RUN_TRIGGERS,
@@ -627,6 +631,7 @@ export async function sendThreadMessage(
   actor: Actor,
   target: ThreadTarget,
   input: {
+    deadlineMs?: number;
     text?: string;
     artifactIds?: string[];
     mentions?: MentionTargetInput[];
@@ -635,6 +640,7 @@ export async function sendThreadMessage(
     clientNonce?: string;
   },
 ) {
+  const deadlineMs = RunDeadlineMsSchema.optional().parse(input.deadlineMs);
   const existing = await replayExistingSend(deps, target.threadId, input.clientNonce);
   if (existing) return existing;
   // Live events carry the call id so a spoken turn joins the call card on first
@@ -827,6 +833,7 @@ export async function sendThreadMessage(
             trigger: "user",
             clientNonce: sendRunClientNonce(input.clientNonce, message.id),
             sourceMessageId: message.id,
+            ...(deadlineMs !== undefined ? { deadlineMs } : {}),
           },
         });
         await tx.message.update({ where: { id: message.id }, data: { runId: run.id } });
@@ -975,6 +982,7 @@ export async function sendThreadMessage(
             trigger: "user",
             clientNonce: sendRunClientNonce(input.clientNonce, message.id, botId),
             sourceMessageId: message.id,
+            ...(deadlineMs !== undefined ? { deadlineMs } : {}),
           },
         });
         runs.push(run);

@@ -84,24 +84,20 @@ describe("run diagnostics", () => {
   ])("safely correlates reconciliation $matched/$legacy", async ({ matched, legacy }) => {
     const { prisma, rows } = fixture();
     rows.mockResolvedValue([{ id: "event-1", createdAt: now, type: "effect.reconciled", seq: 7 }]);
-    const payload = vi
-      .fn()
-      .mockResolvedValue({
-        payload: { executionId: "PRIVATE_KEY", kind: "tool", legacy, extra: "PRIVATE_EXTRA" },
-      });
-    const effect = vi
-      .fn()
-      .mockResolvedValue(
-        matched
-          ? {
-              id: "effect-1",
-              kind: "tool",
-              status: "completed",
-              reviewDecision: "approved",
-              createdAt: now,
-            }
-          : null,
-      );
+    const payload = vi.fn().mockResolvedValue({
+      payload: { executionId: "PRIVATE_KEY", kind: "tool", legacy, extra: "PRIVATE_EXTRA" },
+    });
+    const effect = vi.fn().mockResolvedValue(
+      matched
+        ? {
+            id: "effect-1",
+            kind: "tool",
+            status: "completed",
+            reviewDecision: "approved",
+            createdAt: now,
+          }
+        : null,
+    );
     Object.assign(prisma.event, { findFirst: payload });
     Object.assign(prisma.externalEffect, { findFirst: effect });
     const result = await getRunDiagnostics(
@@ -283,5 +279,78 @@ describe("run diagnostics", () => {
     await expect(
       getRunDiagnostics(prisma, actor, { runId: "run-1", section: "events", limit: 25 }, now),
     ).rejects.toThrow("database unavailable");
+  });
+});
+
+describe("steering diagnostics", () => {
+  it("pages 50 receipts with run-level usage links and safe timing metadata", async () => {
+    const { prisma, run } = fixture();
+    run.mockResolvedValue({
+      id: "run-1",
+      threadId: "thread-1",
+      status: "running",
+      modelProvider: "fixture",
+      modelId: "model",
+    });
+    const all = Array.from({ length: 50 }, (_, i) => ({
+      id: `event-${String(50 - i).padStart(3, "0")}`,
+      type: "steering.delivered",
+      seq: 50 - i,
+      createdAt: new Date(now.getTime() - i * 1000),
+    }));
+    const findMany = vi.fn(async (args) => {
+      const cursor = args.where.OR?.[1]?.id?.lt;
+      return all.filter((row) => !cursor || row.id < cursor).slice(0, args.take);
+    });
+    const findFirst = vi.fn().mockResolvedValue({
+      payload: {
+        messageId: "message-1",
+        receivedAt: new Date(now.getTime() - 60000).toISOString(),
+        secret: "PRIVATE_PAYLOAD",
+      },
+    });
+    Object.assign(prisma.event, { findMany, findFirst });
+    const first = await getRunDiagnostics(
+      prisma,
+      actor,
+      { runId: "run-1", section: "events", limit: 25 },
+      now,
+    );
+    const second = await getRunDiagnostics(
+      prisma,
+      actor,
+      { runId: "run-1", section: "events", limit: 25, before: first.nextCursor! },
+      now,
+    );
+    const entries = [...first.entries, ...second.entries];
+    expect(entries).toHaveLength(50);
+    expect(new Set(entries.map((entry) => entry.id)).size).toBe(50);
+    expect(second.nextCursor).toBeNull();
+    for (const entry of entries) {
+      expect(entry).toMatchObject({
+        kind: "steering.delivered",
+        provider: "fixture",
+        model: "model",
+        evidence: { runId: "run-1" },
+        steering: {
+          messageId: "message-1",
+          deliveredAt: entry.at,
+          usage: { runId: "run-1", section: "usage", attribution: "run" },
+        },
+      });
+    }
+    expect(findMany.mock.calls[0][0].where).toMatchObject({
+      runId: "run-1",
+      spaceId: actor.spaceId,
+      threadId: "thread-1",
+    });
+    expect(findFirst.mock.calls[0][0].where).toMatchObject({
+      runId: "run-1",
+      spaceId: actor.spaceId,
+      threadId: "thread-1",
+      type: "steering.delivered",
+    });
+    expect(JSON.stringify(entries)).not.toContain("PRIVATE_PAYLOAD");
+    expect(RunDiagnosticsOutputSchema.safeParse(first).success).toBe(true);
   });
 });

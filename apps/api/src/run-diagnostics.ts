@@ -117,6 +117,7 @@ export async function getRunDiagnostics(
           threadId: run.threadId,
           type: {
             in: [
+              "steering.delivered",
               "run.started",
               "run.checkpointed",
               "run.waiting_budget",
@@ -140,6 +141,40 @@ export async function getRunDiagnostics(
             kind: row.type,
             evidence: { ...base.evidence, eventSeq: row.seq },
           };
+          if (row.type === "steering.delivered") {
+            const record = await prisma.event.findFirst({
+              where: {
+                id: row.id,
+                runId: run.id,
+                spaceId: actor.spaceId,
+                threadId: run.threadId,
+                type: "steering.delivered",
+              },
+              select: { payload: true },
+            });
+            const payload = record?.payload;
+            const data =
+              payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+            if (
+              !("messageId" in data) ||
+              typeof data.messageId !== "string" ||
+              !("receivedAt" in data) ||
+              typeof data.receivedAt !== "string" ||
+              !Number.isFinite(Date.parse(data.receivedAt))
+            )
+              return entry;
+            return {
+              ...entry,
+              provider: run.modelProvider ?? null,
+              model: run.modelId ?? null,
+              steering: {
+                messageId: data.messageId,
+                receivedAt: new Date(data.receivedAt).toISOString(),
+                deliveredAt: entry.at,
+                usage: { runId: run.id, section: "usage" as const, attribution: "run" as const },
+              },
+            };
+          }
           if (row.type !== "effect.reconciled") return entry;
           // Only reconciliation events may have their payload read. Never return the correlation key.
           const record = await prisma.event.findFirst({

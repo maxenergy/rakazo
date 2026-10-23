@@ -664,6 +664,7 @@ model Run {
   leaseFence           Int               @default(0)
   leaseExpiresAt       DateTime?
   checkpoint           String?
+  deadlineMs           Int?
   deadlineAt           DateTime?
   progressAt           DateTime?
   segmentCheckpoint    String?

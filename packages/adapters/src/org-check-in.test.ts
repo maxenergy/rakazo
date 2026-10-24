@@ -65,3 +65,28 @@ describe("orgCheckInPrompt", () => {
     expect(prompt).toContain("message_bot");
   });
 });
+
+describe("ready tickets left unstarted", () => {
+  const busy = { now, activeRuns: 2, checkInsToday: 0, lastRun: idle(), ceoActive: false };
+
+  it("wakes the CEO while others work when a ready ticket sits unstarted", () => {
+    expect(orgNeedsCheckIn({ ...busy, readyTickets: ["RAK-65 (blocked, owner Delivery)"] })).toBe(
+      true,
+    );
+    expect(orgNeedsCheckIn(busy)).toBe(false);
+  });
+
+  it("does not repeat within the check-in interval or while the CEO works", () => {
+    const recent = new Date(now.getTime() - 60_000);
+    expect(orgNeedsCheckIn({ ...busy, readyTickets: ["RAK-65"], lastCheckInAt: recent })).toBe(
+      false,
+    );
+    expect(orgNeedsCheckIn({ ...busy, readyTickets: ["RAK-65"], ceoActive: true })).toBe(false);
+  });
+
+  it("names the ready tickets in the prompt", () => {
+    expect(orgCheckInPrompt(0, [], ["RAK-65 (blocked, owner Delivery)"])).toContain(
+      "RAK-65 (blocked, owner Delivery)",
+    );
+  });
+});

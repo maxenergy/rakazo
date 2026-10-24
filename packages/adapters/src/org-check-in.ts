@@ -13,11 +13,20 @@ export const ORG_CHECK_IN_IDLE_MS = 10 * 60_000;
 export const ORG_CHECK_IN_REPEAT_MS = 60 * 60_000;
 /** How long a member may sit without work, while others work, before the CEO is asked. */
 export const ORG_MEMBER_IDLE_MS = 30 * 60_000;
+/** How long a ticket whose prerequisites are done may sit unstarted before the CEO is asked. */
+export const ORG_READY_TICKET_STALL_MS = 15 * 60_000;
 /** Check-ins per org per day, so an org that keeps stalling cannot burn its subscriptions. */
 export const ORG_CHECK_IN_DAILY_LIMIT = 24;
 
-export function orgCheckInPrompt(idleMinutes: number, idleMembers: readonly string[] = []) {
+export function orgCheckInPrompt(
+  idleMinutes: number,
+  idleMembers: readonly string[] = [],
+  readyTickets: readonly string[] = [],
+) {
   return [
+    readyTickets.length
+      ? `Team check-in (automatic, not from the user): these tickets have every recorded prerequisite done but have not started: ${readyTickets.join("; ")}. Tell each owner to start now with message_bot, or record on the ticket why it still has to wait.`
+      : undefined,
     idleMembers.length
       ? `Team check-in (automatic, not from the user): these colleagues have had no work for at least ${Math.round(ORG_MEMBER_IDLE_MS / 60_000)} minutes while others work: ${idleMembers.join(", ")}. Find what blocks each of them and give them work.`
       : `Team check-in (automatic, not from the user): no bot in your org has worked for ${idleMinutes} minutes and nothing is queued.`,
@@ -25,7 +34,9 @@ export function orgCheckInPrompt(idleMinutes: number, idleMembers: readonly stri
     "A colleague whose turns failed on a CLI or subscription limit is usually available again after the limit resets, so try them again instead of waiting.",
     "A proposal waiting on the user holds back only the work that depends on it; keep the rest of the plan moving.",
     "If the team is waiting on the user, say what for in one sentence. If the agreed work is done, report that to the user. Do not start work outside the agreed plan.",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export type OrgCheckInState = {
@@ -36,6 +47,8 @@ export type OrgCheckInState = {
   /** While some of the org works: whether the CEO has a run, and who has had none for a while. */
   ceoActive?: boolean;
   idleMembers?: readonly string[];
+  /** Tickets whose recorded prerequisites are all done but which nobody has started. */
+  readyTickets?: readonly string[];
   lastCheckInAt?: Date | null;
 };
 
@@ -45,6 +58,12 @@ export type OrgCheckInState = {
  */
 export function orgNeedsCheckIn(state: OrgCheckInState) {
   if (state.checkInsToday >= ORG_CHECK_IN_DAILY_LIMIT) return false;
+  const sinceCheckIn = state.lastCheckInAt
+    ? state.now.getTime() - state.lastCheckInAt.getTime()
+    : Number.POSITIVE_INFINITY;
+  // Ready work left unstarted is a stall even while other bots are busy.
+  if (state.readyTickets?.length && !state.ceoActive && sinceCheckIn >= ORG_CHECK_IN_REPEAT_MS)
+    return true;
   if (state.activeRuns > 0) {
     // Part of a larger org can sit idle behind a blocker while the rest works.
     if (state.ceoActive || !state.idleMembers?.length) return false;
@@ -92,6 +111,46 @@ async function idleOrgMembers(
     .map((member) => member.name);
 }
 
+/**
+ * Tickets owned by an org bot that wait in todo or blocked although every prerequisite
+ * recorded for them is done, and whose owner has no active run: work that is ready but
+ * that nobody picked up after the dependency wake.
+ */
+async function readyStalledTickets(
+  prisma: PrismaClient,
+  ceo: { spaceId: string; userId: string },
+  now: Date,
+) {
+  const tickets = await prisma.ticket.findMany({
+    where: {
+      spaceId: ceo.spaceId,
+      status: { in: ["todo", "blocked"] },
+      updatedAt: { lt: new Date(now.getTime() - ORG_READY_TICKET_STALL_MS) },
+      dependencies: {
+        some: {},
+        every: { prerequisite: { status: { in: ["done", "closed"] } } },
+      },
+      assigneeBot: {
+        userId: ceo.userId,
+        archivedAt: null,
+        orgRole: { not: null },
+        runs: { none: { status: { in: [...ACTIVE_RUN_STATUSES] } } },
+      },
+    },
+    select: {
+      number: true,
+      status: true,
+      board: { select: { ticketPrefix: true } },
+      assigneeBot: { select: { name: true } },
+    },
+    take: 10,
+  });
+  return tickets.map(
+    (ticket) =>
+      `${ticket.board.ticketPrefix}-${ticket.number} (${ticket.status}, owner ${ticket.assigneeBot?.name ?? "none"})`,
+  );
+}
+
 /** Wake the CEO of each org whose bots have all gone quiet with work possibly left open. */
 export async function reconcileOrgCheckIns(
   deps: { prisma: PrismaClient; jobs: JobPublisher },
@@ -128,6 +187,8 @@ export async function reconcileOrgCheckIns(
     ]);
     const idleMembers =
       activeRuns > 0 && ceoActiveRuns === 0 ? await idleOrgMembers(deps.prisma, ceo, now) : [];
+    const readyTickets =
+      ceoActiveRuns === 0 ? await readyStalledTickets(deps.prisma, ceo, now) : [];
     const state = {
       now,
       activeRuns,
@@ -135,6 +196,7 @@ export async function reconcileOrgCheckIns(
       lastRun,
       ceoActive: ceoActiveRuns > 0,
       idleMembers,
+      readyTickets,
       lastCheckInAt: lastCheckIn?.createdAt ?? null,
     };
     if (!orgNeedsCheckIn(state)) continue;
@@ -149,7 +211,7 @@ export async function reconcileOrgCheckIns(
           botId: ceo.id,
           threadId,
           userId: ceo.userId,
-          prompt: orgCheckInPrompt(idleMinutes, activeRuns > 0 ? idleMembers : []),
+          prompt: orgCheckInPrompt(idleMinutes, activeRuns > 0 ? idleMembers : [], readyTickets),
           status: "queued",
         },
       });

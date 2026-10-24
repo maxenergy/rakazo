@@ -233,6 +233,23 @@ describe("ticket mutations", () => {
       }),
     );
   });
+  it("asks the bot that finishes a ticket for a proven lesson", async () => {
+    const s = mutationDeps();
+    const done = await updateTicket(s.deps, {
+      spaceId: "ws",
+      botId: "bot-1",
+      id: "t1",
+      status: "done",
+    });
+    expect(done).toHaveProperty("note", expect.stringContaining("team-lessons"));
+    const doing = await updateTicket(s.deps, {
+      spaceId: "ws",
+      botId: "bot-1",
+      id: "t1",
+      status: "doing",
+    });
+    expect(doing).not.toHaveProperty("note");
+  });
   it("does not wake a bot creating or assigning a ticket to itself", async () => {
     const s = mutationDeps();
     await createTicket(s.deps, { spaceId: "ws", botId: "bot-1", title: "Ship" });

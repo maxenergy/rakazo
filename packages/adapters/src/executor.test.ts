@@ -3211,6 +3211,11 @@ describe("ticket board tool capability", () => {
     expect(orgTicketNames).toContain("message_bot");
     for (const name of ["message_user", "handoff_to_bot", "message_agent"])
       expect(orgTicketNames).not.toContain(name);
+    expect(orgTicketNames).toEqual(expect.arrayContaining(["run_failures", "model_scorecard"]));
+    const soloNames = selectBuiltinToolsForRun({ ...options, ticketBoardEnabled: true }).map(
+      (tool) => tool.name,
+    );
+    for (const name of ["run_failures", "model_scorecard"]) expect(soloNames).not.toContain(name);
   });
 });
 

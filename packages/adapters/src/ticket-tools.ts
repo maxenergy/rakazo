@@ -277,7 +277,20 @@ export async function updateTicket(
     assigneeBotId: result.row.assigneeBotId,
     wakeAssignee: result.reassigned && result.row.assigneeBotId !== input.botId,
   });
-  return { ticket: toTicketDto(result.row, board.ticketPrefix) };
+  const finishedNow =
+    input.botId !== undefined &&
+    data.status !== undefined &&
+    isTicketCompletedStatus(data.status) &&
+    result.row.completedAt !== null;
+  return {
+    ticket: toTicketDto(result.row, board.ticketPrefix),
+    // The moment a lesson is proven: ask for it while the work is fresh.
+    ...(finishedNow
+      ? {
+          note: "If this work proved something reusable (a workaround, a pitfall, a working command), add it in at most three lines to the team-lessons skill with skill_update.",
+        }
+      : {}),
+  };
 }
 
 export async function commentTicket(

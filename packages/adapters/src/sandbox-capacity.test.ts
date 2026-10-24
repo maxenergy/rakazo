@@ -1,6 +1,7 @@
 import type { AdapterContext, ComputerRef, SandboxProvider } from "@rakazo/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { SandboxCapacityProbe } from "./sandbox-capacity.js";
+import { CAPACITY_TIMEOUT_MS } from "./storage-capacity.js";
 
 function setup(events: unknown[]) {
   const execute = vi.fn(async function* () {
@@ -37,7 +38,7 @@ describe("sandbox capacity probe", () => {
       s.computer,
       expect.objectContaining({
         argv: expect.arrayContaining(["python3", "/tmp"]),
-        timeoutMs: 5000,
+        timeoutMs: CAPACITY_TIMEOUT_MS,
       }),
       expect.objectContaining({ signal: s.controller.signal }),
     );

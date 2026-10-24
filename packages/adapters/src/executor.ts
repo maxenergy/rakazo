@@ -396,6 +396,7 @@ import {
 } from "./takeover-resume.js";
 import { TASK_CATALOG_GUIDANCE, taskCatalogFromTool } from "./task-catalog.js";
 import { getActiveTeachingSession, parsePlaybook } from "./teaching-session.js";
+import { executeTeamInsightTool, isTeamInsightToolName } from "./team-insight-tools.js";
 import {
   attachWorkspaceFileToThread,
   currentTurnFilesInstruction,
@@ -425,6 +426,8 @@ import { createWebProvider } from "./web-provider-factory.js";
 import { webFetchFromTool, webSearchFromTool } from "./web-tools.js";
 
 const READ_ONLY_AGENT_TOOLS = new Set([
+  "run_failures",
+  "model_scorecard",
   "computer_observe",
   "list_files",
   "read_file",
@@ -5727,6 +5730,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
               ),
             );
           }
+          if (isTeamInsightToolName(name)) {
+            return finish(
+              await executeTeamInsightTool(
+                deps.prisma,
+                { spaceId: run.spaceId, userId: run.userId, botId: bot.id },
+                name,
+                args,
+              ),
+            );
+          }
           if (name === "ticket_get") {
             return finish(
               await getTicket(
@@ -8200,6 +8213,8 @@ export function selectBuiltinToolsForRun(options: {
   ).filter(
     (tool) =>
       !disabled.has(tool.name) &&
+      // Org insight tools read the whole org's runs; only org members get them.
+      (options.orgMessaging || !isTeamInsightToolName(tool.name)) &&
       (options.ticketBoardEnabled ||
         (tool.name !== "board_tickets" &&
           !tool.name.startsWith("ticket_") &&

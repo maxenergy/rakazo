@@ -43,6 +43,8 @@ export const BUILTIN_TOOL_NAMES = [
   "scratchpad_complete",
   "scratchpad_remove",
   "board_tickets",
+  "run_failures",
+  "model_scorecard",
   "ticket_get",
   "ticket_dependency_list",
   "ticket_dependency_add",

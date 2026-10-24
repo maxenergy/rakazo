@@ -801,7 +801,17 @@ function streamCliModel(
                 argumentsJson: JSON.stringify(call.arguments),
               })),
             };
-          else if (step) reply = { text: residentFinalText(step.output), calls: [] };
+          else if (step) {
+            reply = { text: residentFinalText(step.output), calls: [] };
+            // Record the whole turn's tokens on its last step, so usage records and the
+            // model scorecard see what a subscription CLI turn actually cost.
+            if (step.usage) {
+              message.usage.input = Math.max(0, step.usage.input - step.usage.cachedInput);
+              message.usage.cacheRead = step.usage.cachedInput;
+              message.usage.output = step.usage.output;
+              message.usage.totalTokens = step.usage.input + step.usage.output;
+            }
+          }
         } catch (error) {
           if (options.signal?.aborted) throw error;
           const reason = cliFailureReason(error);

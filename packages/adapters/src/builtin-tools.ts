@@ -871,6 +871,29 @@ export const builtinAgentTools: ConnectorTool[] = [
     readOnly: false,
   },
   {
+    name: "run_failures",
+    description:
+      "List your recent failed or cancelled runs (last 72 hours) with their error, deadline, duration and failure events, or a named colleague's. Use it to find why work stopped before retrying or asking for help.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot: { type: "string", description: "A colleague's name; omit for your own runs." },
+        limit: { type: "integer", minimum: 1, maximum: 10 },
+      },
+    },
+    readOnly: true,
+  },
+  {
+    name: "model_scorecard",
+    description:
+      "Per org member over recent days: model, finished and failed runs, tickets done and tokens used. Use it to choose models and staffing from results.",
+    inputSchema: {
+      type: "object",
+      properties: { days: { type: "integer", minimum: 1, maximum: 30 } },
+    },
+    readOnly: true,
+  },
+  {
     name: "ticket_get",
     description: "Read a ticket by reference or id, with comments.",
     inputSchema: {

@@ -16,7 +16,10 @@ const TOKEN_ENV = "RAKAZO_TOOL_TOKEN";
 
 export type ResidentStep =
   | { kind: "calls"; calls: BridgeCall[]; narration: string }
-  | { kind: "done"; output: string };
+  | { kind: "done"; output: string; usage?: ResidentUsage };
+
+/** Token usage Codex reported for the whole turn. */
+export type ResidentUsage = { input: number; cachedInput: number; output: number };
 
 type Outcome = ResidentStep | { kind: "failed"; error: unknown };
 
@@ -36,6 +39,8 @@ class ResidentTurn {
   /** Tool call ids Codex is waiting on, in the order they were handed to Rakazo. */
   waiting: string[] = [];
   stopped = false;
+  /** Token usage from Codex's turn.completed event. */
+  usage: ResidentUsage | undefined;
 
   constructor(
     readonly bridge: CodexToolBridge,
@@ -43,7 +48,7 @@ class ResidentTurn {
     private readonly onEnd: () => void,
   ) {
     this.finished = run(this.controller.signal, (text) => this.receive(text)).then(
-      (output): Outcome => ({ kind: "done", output }),
+      (output): Outcome => ({ kind: "done", output, usage: this.usage }),
       (error): Outcome => ({ kind: "failed", error }),
     );
     void this.finished.then(() => this.stop());
@@ -94,6 +99,12 @@ class ResidentTurn {
           usage?: Record<string, number>;
         };
         // The subscription's real cost: Codex reports the whole turn's tokens once.
+        if (event.type === "turn.completed" && event.usage)
+          this.usage = {
+            input: event.usage.input_tokens ?? 0,
+            cachedInput: event.usage.cached_input_tokens ?? 0,
+            output: event.usage.output_tokens ?? 0,
+          };
         if (event.type === "turn.completed" && event.usage)
           getLogger().info("cli.resident_usage", {
             "cli.usage.input": event.usage.input_tokens ?? 0,

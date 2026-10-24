@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 
 export const HOME_MIN_BYTES = 20n * 1024n ** 3n;
 export const TMP_MIN_BYTES = 50n * 1024n ** 3n;
-export const CAPACITY_TIMEOUT_MS = 5_000;
+export const CAPACITY_TIMEOUT_MS = 30_000;
 export const CAPACITY_CACHE_MS = 60_000;
 export const CAPACITY_INTERVAL_MS = 300_000;
 

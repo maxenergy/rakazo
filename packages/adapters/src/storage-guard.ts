@@ -41,6 +41,15 @@ export class StorageGuard {
     if (this.stopped || this.options.signal.aborted) return false;
     const decision = await this.sample();
     if (this.stopped || this.options.signal.aborted) return false;
+    // A probe that could not answer in time says nothing about the disk; refusing on it
+    // turned a busy computer into failed runs. Warn and admit; refuse only real low space.
+    if (decision.reason === "capacity_unknown") {
+      if (!this.warning) {
+        await this.options.events.publish("storage.capacity_warning", decision);
+        this.warning = true;
+      }
+      return true;
+    }
     if (!decision.allowed && !this.refused) {
       await this.options.events.publish("run.storage_refused", decision);
       this.refused = true;

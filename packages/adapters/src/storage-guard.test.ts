@@ -50,9 +50,17 @@ function setup() {
   };
 }
 describe("storage guard contract", () => {
-  it("refuses unknown admission and publishes once", async () => {
+  it("admits with one warning when capacity is unknown", async () => {
     const s = setup();
     s.setMode("error");
+    expect(await s.guard.admit()).toBe(true);
+    expect(await s.guard.admit()).toBe(true);
+    expect(s.events.publish).toHaveBeenCalledTimes(1);
+    expect(s.events.publish.mock.calls[0]?.[0]).toBe("storage.capacity_warning");
+  });
+  it("refuses admission when space is low and publishes once", async () => {
+    const s = setup();
+    s.setMode("low");
     expect(await s.guard.admit()).toBe(false);
     expect(await s.guard.admit()).toBe(false);
     expect(s.events.publish).toHaveBeenCalledTimes(1);

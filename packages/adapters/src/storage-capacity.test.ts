@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assessCapacity,
+  CAPACITY_TIMEOUT_MS,
   type CapacitySample,
   HOME_MIN_BYTES,
   LocalCapacityProbe,
@@ -84,7 +85,7 @@ describe("storage capacity admission", () => {
     await cache.sample("a", ["/tmp"], probe);
     expect(probe.sample).toHaveBeenCalledTimes(3);
   });
-  it("bounds unresponsive probes to five seconds and aborts the channel", async () => {
+  it("bounds unresponsive probes to the capacity timeout and aborts the channel", async () => {
     vi.useFakeTimers();
     let signal: AbortSignal | undefined;
     const probe = {
@@ -94,7 +95,7 @@ describe("storage capacity admission", () => {
       },
     };
     const pending = new CapacityCache().sample("host", ["/tmp"], probe);
-    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(CAPACITY_TIMEOUT_MS);
     expect(await pending).toEqual([{ path: "/tmp", error: "capacity_timeout" }]);
     expect(signal?.aborted).toBe(true);
   });

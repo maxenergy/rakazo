@@ -27,6 +27,13 @@ const DECISION_RULE = [
   "Only these go to the user with submit_proposal: changing the user's goal or scope, any new paid spending, irreversible or outward-facing actions (production data, deleting data, public releases, payments), and anything the CEO and CTO cannot agree on. For these, only a decision the user records on the Approvals page counts; a chat reply does not, so ask the user to decide there and wait for the decision message.",
 ].join(" ");
 
+/**
+ * Org bots mostly read each other, tools and English system text, so without this they
+ * drift into English even when the user writes in another language.
+ */
+const LANGUAGE_RULE =
+  "Language: write everything (replies, group reports, messages to colleagues, ticket comments, decisions and proposals) in the language the user writes to the team, even when colleagues, tickets or tools use another language. Keep code, commands, paths, identifiers and commit messages as they are.";
+
 function label(member: OrgMember) {
   return `${member.name} (${member.orgRole}, id ${member.id})`;
 }
@@ -41,6 +48,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
   const cto = org.find((member) => member.orgRole === "cto" && member.id !== self.id);
 
   const lines = [
+    LANGUAGE_RULE,
     DECISION_RULE,
     `Org: you are the ${self.orgRole}${self.team ? ` on team ${self.team}` : ""}. ${ROLE_DUTIES[self.orgRole]}`,
     `You report to ${manager ? label(manager) : "the user"}.`,

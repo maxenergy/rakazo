@@ -261,9 +261,11 @@ import type { RoutineDraftState } from "./RoutineEditor";
 import {
   draftFromRoutine,
   emptyRoutineDraft,
+  FinishedRoutines,
   RoutineEditor,
   RoutineListHeader,
   RoutineListRow,
+  routineFinished,
   routineNeedsOneShotArm,
 } from "./RoutineEditor";
 import type { SettingsSection } from "./SettingsOverlay";
@@ -3931,14 +3933,14 @@ export function ShellPage() {
                     setPanel("routine");
                   }}
                 />
-                {activeRoutines.map((routine) => {
-                  const routineRunning =
-                    snapshot?.run?.routineId === routine.id && isActive(snapshot.run.status);
-                  return (
+                {(() => {
+                  const row = (routine: Routine) => (
                     <RoutineListRow
                       key={routine.id}
                       routine={routine}
-                      running={routineRunning}
+                      running={
+                        snapshot?.run?.routineId === routine.id && isActive(snapshot.run.status)
+                      }
                       onOpen={() => {
                         setRoutineDraft(draftFromRoutine(routine));
                         setRoutineWebhookSecret(null);
@@ -3949,7 +3951,16 @@ export function ShellPage() {
                       onStop={() => void stopRun()}
                     />
                   );
-                })}
+                  const finished = activeRoutines.filter(routineFinished);
+                  return (
+                    <>
+                      {activeRoutines.filter((routine) => !routineFinished(routine)).map(row)}
+                      <FinishedRoutines count={finished.length}>
+                        {finished.map(row)}
+                      </FinishedRoutines>
+                    </>
+                  );
+                })()}
               </div>
             ) : null}
             {panel === "create-group" ? (

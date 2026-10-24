@@ -1193,6 +1193,14 @@ msgstr "촘촘하게"
 msgid "Complete"
 msgstr "완료"
 
+#: src/pages/RoutineEditor.tsx
+msgid "Completed"
+msgstr "완료됨"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Completed ({count})"
+msgstr "완료됨 ({count})"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-panel.tsx

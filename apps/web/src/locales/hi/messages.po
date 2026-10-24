@@ -1193,6 +1193,14 @@ msgstr "सघन"
 msgid "Complete"
 msgstr "पूर्ण"
 
+#: src/pages/RoutineEditor.tsx
+msgid "Completed"
+msgstr "पूर्ण"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Completed ({count})"
+msgstr "पूर्ण ({count})"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-panel.tsx

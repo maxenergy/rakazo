@@ -28,7 +28,10 @@ import {
   Textarea,
 } from "@rakazo/ui-web";
 import {
+  Check,
+  ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Clock,
   GitBranch,
   Globe,
@@ -38,6 +41,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useId, useState } from "react";
 import {
   connectedModelOptions,
@@ -129,7 +133,25 @@ export function draftFromRoutine(routine: Routine): RoutineDraftState {
   };
 }
 
+/** A one-time routine that already ran; it deactivates itself and has nothing left to do. */
+export function routineFinished(
+  routine: Pick<
+    Routine,
+    "active" | "crons" | "lastRunAt" | "webhookEnabled" | "githubEnabled" | "messageProvider"
+  >,
+) {
+  return (
+    !routine.active &&
+    isOneShotRoutineCrons(routine.crons) &&
+    routine.lastRunAt != null &&
+    !routine.webhookEnabled &&
+    !routine.githubEnabled &&
+    !routine.messageProvider
+  );
+}
+
 export function routineTriggerSummary(routine: Routine): string {
+  if (routineFinished(routine)) return t`Completed`;
   if (!routine.active) return t`Paused`;
   const parts: string[] = [];
   if (routine.webhookEnabled) parts.push(t`When a webhook fires`);
@@ -183,6 +205,8 @@ export function RoutineListRow({
         <span className="grid h-5 w-5 place-items-center">
           {routine.active ? (
             <Clock size={16} strokeWidth={1.6} className="text-success" aria-hidden />
+          ) : routineFinished(routine) ? (
+            <Check size={15} strokeWidth={1.8} className="text-muted-foreground" aria-hidden />
           ) : (
             <Pause size={14} className="text-muted-foreground" />
           )}
@@ -206,6 +230,26 @@ export function RoutineListRow({
           <Trans>Running · Stop</Trans>
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+/** Finished one-time routines, folded away so they do not crowd the live ones. */
+export function FinishedRoutines({ count, children }: { count: number; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  if (count === 0) return null;
+  return (
+    <div data-testid="finished-routines">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-start text-[13px] text-muted-foreground hover:bg-accent"
+      >
+        {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+        <Trans>Completed ({count})</Trans>
+      </button>
+      {open ? children : null}
     </div>
   );
 }

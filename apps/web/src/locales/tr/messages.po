@@ -1193,6 +1193,14 @@ msgstr "Sık"
 msgid "Complete"
 msgstr "Tamamlandı"
 
+#: src/pages/RoutineEditor.tsx
+msgid "Completed"
+msgstr "Tamamlandı"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Completed ({count})"
+msgstr "Tamamlandı ({count})"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-panel.tsx

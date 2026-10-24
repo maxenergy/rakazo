@@ -1193,6 +1193,14 @@ msgstr "Compacte"
 msgid "Complete"
 msgstr "Terminé"
 
+#: src/pages/RoutineEditor.tsx
+msgid "Completed"
+msgstr "Terminée"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Completed ({count})"
+msgstr "Terminées ({count})"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-panel.tsx

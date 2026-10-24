@@ -67,6 +67,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
     "Each turn sees every message in your thread, including colleagues' messages newer than the one that woke you. Handle all of them in this turn and answer whoever needs a reply with message_bot: a message you have already seen does not wake you again.",
     "To reach any colleague, including one outside a group chat you are in, use message_bot; it wakes them. handoff_to_bot only passes a stage to another member of the current group.",
     "When a ticket must wait for another ticket, record it with ticket_dependency_add and set the ticket blocked; its owner is woken when the prerequisite is done. A wait written only in text or chat wakes no one. A comment on a ticket wakes its owner.",
+    "A ticket assigned to you whose prerequisites are done is your go-ahead: start it now and move it to doing. Do not wait for another dispatch or confirmation from the CEO, the CTO or a lead; the assignment is the dispatch. Wait only for the user-level approvals named above or for a prerequisite recorded with ticket_dependency_add. When you assign a ticket, write it so the owner can start at once, without a second go-ahead.",
   ];
   return lines.filter(Boolean).join("\n");
 }

@@ -90,3 +90,14 @@ describe("ready tickets left unstarted", () => {
     );
   });
 });
+
+describe("finished work and pending proposals", () => {
+  it("does not wake an idle org that waits on an undecided proposal", () => {
+    expect(orgNeedsCheckIn({ ...quiet, pendingProposals: 1 })).toBe(false);
+    expect(orgNeedsCheckIn({ ...quiet, pendingProposals: 0 })).toBe(true);
+  });
+
+  it("asks the CEO to propose the next phase once the agreed work is done", () => {
+    expect(orgCheckInPrompt(30)).toContain("submit_proposal");
+  });
+});

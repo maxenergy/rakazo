@@ -33,7 +33,8 @@ export function orgCheckInPrompt(
     "Review the open work: tickets, your latest decisions, and your team's last reports. If a next step is ready, assign it now with message_bot.",
     "A colleague whose turns failed on a CLI or subscription limit is usually available again after the limit resets, so try them again instead of waiting.",
     "A proposal waiting on the user holds back only the work that depends on it; keep the rest of the plan moving.",
-    "If the team is waiting on the user, say what for in one sentence. If the agreed work is done, report that to the user. Do not start work outside the agreed plan.",
+    "If the team is waiting on the user, say what for in one sentence. Do not start work outside the agreed plan.",
+    "If all the agreed work is done, do not stop there: agree the next phase with the CTO (goal, scope, milestones, staffing and models, cost within existing subscriptions, acceptance) and send it to the user with submit_proposal. Start it only after the user approves it on the Approvals page, and do not send another while one is waiting.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -49,6 +50,8 @@ export type OrgCheckInState = {
   idleMembers?: readonly string[];
   /** Tickets whose recorded prerequisites are all done but which nobody has started. */
   readyTickets?: readonly string[];
+  /** Proposals the org sent the user that are still undecided. */
+  pendingProposals?: number;
   lastCheckInAt?: Date | null;
 };
 
@@ -73,6 +76,8 @@ export function orgNeedsCheckIn(state: OrgCheckInState) {
     );
   }
   if (!state.lastRun) return false;
+  // A whole org idle on an undecided proposal is waiting on the user, not stalled.
+  if (state.pendingProposals) return false;
   const wait =
     state.lastRun.trigger === "org_check_in" ? ORG_CHECK_IN_REPEAT_MS : ORG_CHECK_IN_IDLE_MS;
   return state.now.getTime() - state.lastRun.updatedAt.getTime() >= wait;
@@ -189,6 +194,12 @@ export async function reconcileOrgCheckIns(
       activeRuns > 0 && ceoActiveRuns === 0 ? await idleOrgMembers(deps.prisma, ceo, now) : [];
     const readyTickets =
       ceoActiveRuns === 0 ? await readyStalledTickets(deps.prisma, ceo, now) : [];
+    const pendingProposals =
+      activeRuns === 0
+        ? await deps.prisma.proposal.count({
+            where: { spaceId: ceo.spaceId, userId: ceo.userId, status: "pending" },
+          })
+        : 0;
     const state = {
       now,
       activeRuns,
@@ -197,6 +208,7 @@ export async function reconcileOrgCheckIns(
       ceoActive: ceoActiveRuns > 0,
       idleMembers,
       readyTickets,
+      pendingProposals,
       lastCheckInAt: lastCheckIn?.createdAt ?? null,
     };
     if (!orgNeedsCheckIn(state)) continue;

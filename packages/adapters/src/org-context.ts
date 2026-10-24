@@ -91,7 +91,27 @@ export async function loadOrgContext(
     const orgRole = parseBotOrgRole(row.orgRole);
     return orgRole ? [{ ...row, orgRole }] : [];
   });
-  return renderOrgContext(org.find((member) => member.id === bot.id) ?? null, org);
+  const self = org.find((member) => member.id === bot.id) ?? null;
+  const rendered = renderOrgContext(self, org);
+  // The CEO and CTO submit proposals and must not duplicate one the user has not decided.
+  if (!rendered || (self?.orgRole !== "ceo" && self?.orgRole !== "cto")) return rendered;
+  const pending = await prisma.proposal.findMany({
+    where: { spaceId: bot.spaceId, userId: bot.userId, status: "pending" },
+    select: { title: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+    take: 10,
+  });
+  return `${rendered}
+${pendingProposalsLine(pending)}`;
+}
+
+/** What waits on the user in the Approvals page, so bots never have to ask to see it. */
+export function pendingProposalsLine(pending: readonly { title: string; createdAt: Date }[]) {
+  if (pending.length === 0)
+    return "Proposals waiting on the user's decision: none. You can submit a new one without checking the Approvals page.";
+  return `Proposals waiting on the user's decision (do not submit a duplicate): ${pending
+    .map((proposal) => `"${proposal.title}" (${proposal.createdAt.toISOString().slice(0, 16)}Z)`)
+    .join("; ")}.`;
 }
 
 /** The active CEO or CTO in this bot's space, if the org has one. */

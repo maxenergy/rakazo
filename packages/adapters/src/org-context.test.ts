@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type OrgMember, renderOrgContext } from "./org-context.js";
+import { type OrgMember, pendingProposalsLine, renderOrgContext } from "./org-context.js";
 
 const ceo: OrgMember = {
   id: "ceo-1",
@@ -72,5 +72,19 @@ describe("org context", () => {
     const text = renderOrgContext(cto, org) ?? "";
     expect(text).not.toContain("to the CTO,");
     expect(text).toContain("escalate it (kind decision) to the CEO");
+  });
+});
+
+describe("pendingProposalsLine", () => {
+  it("says when nothing waits on the user", () => {
+    expect(pendingProposalsLine([])).toContain("none");
+  });
+
+  it("lists undecided proposals so they are not submitted twice", () => {
+    const line = pendingProposalsLine([
+      { title: "Next phase", createdAt: new Date("2026-10-25T01:00:00Z") },
+    ]);
+    expect(line).toContain('"Next phase" (2026-10-25T01:00Z)');
+    expect(line).toContain("do not submit a duplicate");
   });
 });

@@ -62,13 +62,13 @@ export default function ProjectsScreen() {
       const rows = await rpc<Membership[]>("projects/members", { projectId: project.id });
       const summaries = await Promise.all(
         rows.map(async (row) => {
-          const bot = await rpc<{ id: string; name: string }>("bots/get", { id: row.botId });
+          const bot = await rpc<{ id: string; name: string }>("bots/get", { botId: row.botId });
           return { botId: row.botId, name: bot.name, role: row.role };
         }),
       );
       setMembers(summaries);
       if (project.owner) {
-        const owner = await rpc<{ name: string }>("bots/get", { id: project.owner.botId });
+        const owner = await rpc<{ name: string }>("bots/get", { botId: project.owner.botId });
         setOwnerName(owner.name);
       } else setOwnerName(t("No project owner assigned."));
     } catch (cause) {

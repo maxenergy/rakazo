@@ -33,6 +33,7 @@ import {
 } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ErrorBoundary, SectionLoadFailed } from "../../components/ErrorBoundary";
 import { botProfilePatch } from "../../lib/bot-profile-patch";
 import { thinkingLevelLabel } from "../../lib/model-catalog";
@@ -253,6 +254,28 @@ export function BotSettings({
   const [disabledBuiltinTools, setDisabledBuiltinTools] = useState<string[]>(
     bot.disabledBuiltinTools ?? [],
   );
+  const [projects, setProjects] = useState<
+    Array<{
+      projectId: string;
+      name: string;
+      role: "owner" | "member";
+      status: "active" | "paused";
+    }>
+  >([]);
+  useEffect(() => {
+    let active = true;
+    void rpc.bots
+      .get({ botId: bot.id })
+      .then((result) => {
+        if (active) setProjects(result.projects);
+      })
+      .catch(() => {
+        if (active) setProjects([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [bot.id]);
   // The list on screen is updated before the save returns. This stays on the
   // last list the server accepted so a rejection can undo that preview.
   const persistedDisabledToolsRef = useRef(disabledBuiltinTools);
@@ -470,6 +493,35 @@ export function BotSettings({
 
   return (
     <div data-testid="bot-settings">
+      <section className="space-y-2 rounded-md border p-3" aria-label={t`Projects`}>
+        <h3 className="text-sm font-medium">
+          <Trans>Projects</Trans>
+        </h3>
+        {projects.length ? (
+          <ul className="space-y-1">
+            {projects.map((project) => (
+              <li key={project.projectId} className="flex flex-wrap items-center gap-2 text-sm">
+                <Link
+                  className="min-w-0 flex-1 break-words underline-offset-4 hover:underline"
+                  to={`/app/projects/\${encodeURIComponent(project.projectId)}`}
+                >
+                  {project.name}
+                </Link>
+                <span className="text-muted-foreground">
+                  {project.status === "paused" ? <Trans>Paused</Trans> : <Trans>Active</Trans>}
+                </span>
+                <span className="text-muted-foreground">
+                  {project.role === "owner" ? <Trans>Owner</Trans> : <Trans>Member</Trans>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            <Trans>No projects assigned.</Trans>
+          </p>
+        )}
+      </section>
       <div className="flex justify-center py-4">
         <AvatarStudioPopover
           value={color}

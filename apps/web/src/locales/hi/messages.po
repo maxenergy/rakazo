@@ -275,6 +275,7 @@ msgstr "स्पेस की कार्रवाइयाँ"
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Active"
 msgstr "सक्रिय"
 
@@ -3009,6 +3010,10 @@ msgstr "मध्यम"
 msgid "Medium"
 msgstr "मध्यम"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Member"
+msgstr ""
+
 #: src/components/ProjectMembers.tsx
 msgid "Members"
 msgstr ""
@@ -3386,6 +3391,10 @@ msgstr "कोई प्रोजेक्ट बजट कॉन्फ़िग
 msgid "No project owner assigned."
 msgstr ""
 
+#: src/pages/shell/bot-panel.tsx
+msgid "No projects assigned."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "कोई प्रोवाइडर नहीं मिला।"
@@ -3629,6 +3638,7 @@ msgstr "समय सीमा बीत गई"
 
 #: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Owner"
 msgstr "ज़िम्मेदार"
 
@@ -3684,6 +3694,7 @@ msgstr "अपनी API कुंजी पेस्ट करें, फिर
 
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Paused"
 msgstr "रुका हुआ"
 
@@ -3775,6 +3786,7 @@ msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Projects"
 msgstr "परियोजनाएँ"
 

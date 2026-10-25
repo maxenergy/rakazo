@@ -275,6 +275,7 @@ msgstr "Ações do espaço"
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Active"
 msgstr "Ativo"
 
@@ -3009,6 +3010,10 @@ msgstr "Médio"
 msgid "Medium"
 msgstr "Médio"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Member"
+msgstr ""
+
 #: src/components/ProjectMembers.tsx
 msgid "Members"
 msgstr ""
@@ -3386,6 +3391,10 @@ msgstr "Nenhum orçamento de projeto está configurado."
 msgid "No project owner assigned."
 msgstr ""
 
+#: src/pages/shell/bot-panel.tsx
+msgid "No projects assigned."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "Nenhum provedor encontrado"
@@ -3629,6 +3638,7 @@ msgstr "Atrasado"
 
 #: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Owner"
 msgstr "Responsável"
 
@@ -3684,6 +3694,7 @@ msgstr "Cole sua chave de API e teste novamente."
 
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Paused"
 msgstr "Pausado"
 
@@ -3775,6 +3786,7 @@ msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Projects"
 msgstr "Projetos"
 

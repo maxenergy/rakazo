@@ -15,6 +15,7 @@ vi.mock("../../lib/rpc", () => ({
       list: vi.fn().mockResolvedValue([]),
     },
     me: vi.fn().mockResolvedValue(null),
+    bots: { get: vi.fn().mockResolvedValue({ projects: [] }) },
   },
 }));
 vi.mock("@lingui/react/macro", () => {

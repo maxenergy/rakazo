@@ -275,6 +275,7 @@ msgstr "Alan işlemleri"
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Active"
 msgstr "Etkin"
 
@@ -3009,6 +3010,10 @@ msgstr "Orta"
 msgid "Medium"
 msgstr "Orta"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Member"
+msgstr ""
+
 #: src/components/ProjectMembers.tsx
 msgid "Members"
 msgstr ""
@@ -3386,6 +3391,10 @@ msgstr "Proje bütçesi yapılandırılmamış."
 msgid "No project owner assigned."
 msgstr ""
 
+#: src/pages/shell/bot-panel.tsx
+msgid "No projects assigned."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "Sağlayıcı bulunamadı."
@@ -3629,6 +3638,7 @@ msgstr "Gecikmiş"
 
 #: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Owner"
 msgstr "Sorumlu"
 
@@ -3684,6 +3694,7 @@ msgstr "API anahtarını yapıştır, sonra yeniden test et."
 
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Paused"
 msgstr "Duraklatıldı"
 
@@ -3775,6 +3786,7 @@ msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Projects"
 msgstr "Projeler"
 

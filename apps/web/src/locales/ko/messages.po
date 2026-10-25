@@ -275,6 +275,7 @@ msgstr "공간 작업"
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Active"
 msgstr "활성"
 
@@ -3009,6 +3010,10 @@ msgstr "보통"
 msgid "Medium"
 msgstr "보통"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Member"
+msgstr ""
+
 #: src/components/ProjectMembers.tsx
 msgid "Members"
 msgstr ""
@@ -3386,6 +3391,10 @@ msgstr "프로젝트 예산이 설정되지 않았습니다."
 msgid "No project owner assigned."
 msgstr ""
 
+#: src/pages/shell/bot-panel.tsx
+msgid "No projects assigned."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
 msgstr "검색된 AI 서비스가 없습니다."
@@ -3629,6 +3638,7 @@ msgstr "기한 초과"
 
 #: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Owner"
 msgstr "담당자"
 
@@ -3684,6 +3694,7 @@ msgstr "API 키를 붙여넣은 뒤 다시 테스트하세요."
 
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Paused"
 msgstr "일시 중지됨"
 
@@ -3775,6 +3786,7 @@ msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Projects"
 msgstr "프로젝트"
 

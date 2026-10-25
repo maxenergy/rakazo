@@ -271,8 +271,11 @@ msgstr "{0} के लिए कार्रवाइयां"
 msgid "Actions for space"
 msgstr "स्पेस की कार्रवाइयाँ"
 
+#: src/components/BotRestorePreview.tsx
 #: src/components/GoalEditor.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "सक्रिय"
@@ -286,6 +289,7 @@ msgstr "सक्रिय मॉडल"
 msgid "Activity"
 msgstr "गतिविधि"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +368,10 @@ msgstr "मुख्य परिणाम जोड़ें"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP सर्वर जोड़ें"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr "सदस्य जोड़ें"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -594,6 +602,7 @@ msgstr "मुख्य परिणाम संग्रहित करें
 msgid "archived"
 msgstr "आर्काइव किया गया"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
@@ -892,6 +901,7 @@ msgid "Can't reach the server."
 msgstr "सर्वर तक नहीं पहुंचा जा सका।"
 
 #: src/components/AskCard.tsx
+#: src/components/BotRestorePreview.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
@@ -1051,6 +1061,10 @@ msgstr "{label} फ़िल्टर हटाएँ"
 msgid "Clear or replace the archived milestone before saving."
 msgstr "सहेजने से पहले संग्रहित माइलस्टोन हटाएँ या बदलें।"
 
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr "मालिक हटाएँ"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "साफ़ किया जा रहा है…"
@@ -1072,6 +1086,7 @@ msgstr "क्लाइंट सीक्रेट"
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/WindowChrome.tsx
 msgid "Close"
@@ -2132,6 +2147,10 @@ msgstr "डेस्कटॉप अपडेट"
 msgid "Direct MCP"
 msgstr "सीधा MCP"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Disabled routines"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr "अक्षम टूल"
@@ -2283,6 +2302,14 @@ msgstr "इस ईमेल को पंजीकरण की अनुमत�
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "ईमेल सत्यापन आवश्यक है"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enable"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enabled"
+msgstr ""
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2621,6 +2648,11 @@ msgstr "उच्च"
 #: src/lib/model-catalog.ts
 msgid "High"
 msgstr "उच्च"
+
+#: src/components/BotRestorePreview.tsx
+#: src/components/ProjectMembers.tsx
+msgid "Historical runs stay with their original project."
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2999,6 +3031,14 @@ msgstr "मध्यम"
 msgid "Medium"
 msgstr "मध्यम"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Member"
+msgstr "सदस्य"
+
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr "सदस्य"
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "सदस्य ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3308,6 +3348,10 @@ msgstr "इस बॉट के लिए कोई क्रेडेंशि�
 msgid "No data"
 msgstr "कोई डेटा नहीं"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No disabled routines."
+msgstr ""
+
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
 msgstr "कोई लक्ष्य नहीं"
@@ -3344,6 +3388,10 @@ msgstr "अभी तक कोई MCP या API टूल स्रोत इ�
 msgid "No MCP servers yet."
 msgstr "अभी तक कोई MCP सर्वर नहीं।"
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr "अभी कोई सदस्य नहीं है।"
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "{peerBotName} के साथ अभी कोई संदेश नहीं."
@@ -3360,9 +3408,18 @@ msgstr "मॉडल का कोई शुल्क नहीं। टेस�
 msgid "No models listed."
 msgstr "कोई मॉडल सूचीबद्ध नहीं।"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No project"
+msgstr ""
+
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "कोई प्रोजेक्ट बजट कॉन्फ़िगर नहीं है।"
+
+#: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
+msgid "No project owner assigned."
+msgstr "कोई प्रोजेक्ट मालिक नियुक्त नहीं है।"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3406,6 +3463,10 @@ msgstr "कोई टूल उपलब्ध नहीं है।"
 msgid "No trigger"
 msgstr "कोई ट्रिगर नहीं"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No unfinished tickets."
+msgstr ""
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "कोई नहीं"
@@ -3417,6 +3478,10 @@ msgstr "अभी तक कोई नहीं"
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "सामान्य"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Not a member"
+msgstr ""
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3605,6 +3670,7 @@ msgstr "आउटपुट: {price}"
 msgid "Overdue"
 msgstr "समय सीमा बीत गई"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "ज़िम्मेदार"
@@ -3659,6 +3725,8 @@ msgstr "अपनी API कुंजी पेस्ट करें"
 msgid "Paste your API key, then test again."
 msgstr "अपनी API कुंजी पेस्ट करें, फिर फिर से परीक्षण करें।"
 
+#: src/components/BotRestorePreview.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "रुका हुआ"
@@ -3745,6 +3813,15 @@ msgstr "प्रोजेक्ट बजट"
 msgid "Project ID"
 msgstr "प्रोजेक्ट ID"
 
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr "प्रोजेक्ट सदस्य"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Project paused"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
@@ -3909,6 +3986,7 @@ msgid "Release interrupted computer?"
 msgstr "बाधित कंप्यूटर मुक्त करें?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4062,6 +4140,14 @@ msgstr "अपडेट के लिए फिर शुरू करें"
 msgid "Restore"
 msgstr "बहाल करें"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Restore employee"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
+msgid "Restore preview"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
 msgstr "अंतिम सहेजे गए कार्यक्षेत्र को पुनर्स्थापित करें।"
@@ -4126,6 +4212,10 @@ msgstr "रूटीन"
 #: src/pages/RoutineEditor.tsx
 msgid "Routines"
 msgstr "रूटीन्स"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Routines stay disabled until enabled individually."
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -4317,6 +4407,10 @@ msgstr "एक बॉट चुनें"
 msgid "Select a connected model"
 msgstr "जुड़ा मॉडल चुनें"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr "व्यक्ति चुनें"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "टिकट चुनें"
@@ -4373,6 +4467,10 @@ msgstr "सर्वर का नाम"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "सर्वर URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr "मालिक सेट करें"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4975,6 +5073,10 @@ msgstr "असंबद्ध"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"
 msgstr "अनुपलब्ध"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Unfinished tickets"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

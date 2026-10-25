@@ -1,4 +1,13 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Back to projects": "Zurück zu den Projekten",
+  Home: "Startseite",
+  Loading: "Wird geladen",
+  "Manage project members on web.": "Projektmitglieder im Web verwalten.",
+  Member: "Mitglied",
+  "No members yet.": "Noch keine Mitglieder.",
+  "No project owner assigned.": "Keine Projektleitung festgelegt.",
+  Owner: "Projektleitung",
+  Projects: "Projekte",
   "Sort by cost": "Nach Kosten sortieren",
   "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
     "CLI-Anfrage fehlgeschlagen. Prüfe die Anmeldung, das ausgewählte Modell und die Abonnementlimits. Es wurde nicht auf die API ausgewichen.",

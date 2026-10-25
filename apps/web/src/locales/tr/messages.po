@@ -271,8 +271,11 @@ msgstr "{0} için işlemler"
 msgid "Actions for space"
 msgstr "Alan işlemleri"
 
+#: src/components/BotRestorePreview.tsx
 #: src/components/GoalEditor.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "Etkin"
@@ -286,6 +289,7 @@ msgstr "Etkin model"
 msgid "Activity"
 msgstr "Etkinlik"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +368,10 @@ msgstr "Anahtar sonuç ekle"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP sunucusu ekle"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr "Üye ekle"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -594,6 +602,7 @@ msgstr "Anahtar sonucu arşivle"
 msgid "archived"
 msgstr "arşivlendi"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
@@ -892,6 +901,7 @@ msgid "Can't reach the server."
 msgstr "Sunucuya ulaşılamıyor."
 
 #: src/components/AskCard.tsx
+#: src/components/BotRestorePreview.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
@@ -1051,6 +1061,10 @@ msgstr "{label} filtresini temizle"
 msgid "Clear or replace the archived milestone before saving."
 msgstr "Kaydetmeden önce arşivlenmiş kilometre taşını kaldırın veya değiştirin."
 
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr "Sahibi temizle"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "Temizleniyor…"
@@ -1072,6 +1086,7 @@ msgstr "İstemci sırrı"
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/WindowChrome.tsx
 msgid "Close"
@@ -2132,6 +2147,10 @@ msgstr "Masaüstü güncellemesi"
 msgid "Direct MCP"
 msgstr "Doğrudan MCP"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Disabled routines"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr "Devre dışı araçlar"
@@ -2283,6 +2302,14 @@ msgstr "Bu e-posta adresinin kaydolmasına izin verilmiyor"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "E-posta doğrulaması gerekiyor"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enable"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enabled"
+msgstr ""
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2621,6 +2648,11 @@ msgstr "Yüksek"
 #: src/lib/model-catalog.ts
 msgid "High"
 msgstr "Yüksek"
+
+#: src/components/BotRestorePreview.tsx
+#: src/components/ProjectMembers.tsx
+msgid "Historical runs stay with their original project."
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2999,6 +3031,14 @@ msgstr "Orta"
 msgid "Medium"
 msgstr "Orta"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Member"
+msgstr "Üye"
+
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr "Üyeler"
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "Üyeler ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3308,6 +3348,10 @@ msgstr "Bu bot için kayıtlı kimlik bilgisi yok."
 msgid "No data"
 msgstr "Veri yok"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No disabled routines."
+msgstr ""
+
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
 msgstr "Hedef yok"
@@ -3344,6 +3388,10 @@ msgstr "Henüz MCP veya API araç kaynağı kurulmadı."
 msgid "No MCP servers yet."
 msgstr "Henüz MCP sunucusu yok."
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr "Henüz üye yok."
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "{peerBotName} ile henüz mesaj yok."
@@ -3360,9 +3408,18 @@ msgstr "Model ücreti yok. Testler için deterministik simülasyon."
 msgid "No models listed."
 msgstr "Listelenen model yok."
 
+#: src/components/BotRestorePreview.tsx
+msgid "No project"
+msgstr ""
+
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "Proje bütçesi yapılandırılmamış."
+
+#: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
+msgid "No project owner assigned."
+msgstr "Projeye sahip atanmadı."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3406,6 +3463,10 @@ msgstr "Kullanılabilir araç yok."
 msgid "No trigger"
 msgstr "Tetikleyici yok"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No unfinished tickets."
+msgstr ""
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "Yok"
@@ -3417,6 +3478,10 @@ msgstr "Henüz yok"
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "Normal"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Not a member"
+msgstr ""
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3605,6 +3670,7 @@ msgstr "Çıktı: {price}"
 msgid "Overdue"
 msgstr "Gecikmiş"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Sorumlu"
@@ -3659,6 +3725,8 @@ msgstr "API anahtarını yapıştır"
 msgid "Paste your API key, then test again."
 msgstr "API anahtarını yapıştır, sonra yeniden test et."
 
+#: src/components/BotRestorePreview.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Duraklatıldı"
@@ -3745,6 +3813,15 @@ msgstr "Proje bütçesi"
 msgid "Project ID"
 msgstr "Proje kimliği"
 
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr "Proje üyeleri"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Project paused"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
@@ -3909,6 +3986,7 @@ msgid "Release interrupted computer?"
 msgstr "Kesintiye uğrayan bilgisayar serbest bırakılsın mı?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4062,6 +4140,14 @@ msgstr "Güncellemek için yeniden başlat"
 msgid "Restore"
 msgstr "Geri yükle"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Restore employee"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
+msgid "Restore preview"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
 msgstr "Son kaydedilen çalışma alanını geri yükleyin."
@@ -4126,6 +4212,10 @@ msgstr "Rutin"
 #: src/pages/RoutineEditor.tsx
 msgid "Routines"
 msgstr "Rutinler"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Routines stay disabled until enabled individually."
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -4317,6 +4407,10 @@ msgstr "Bir bot seç"
 msgid "Select a connected model"
 msgstr "Bağlı bir model seçin"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr "Bir kişi seçin"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Bir iş kaydı seç"
@@ -4373,6 +4467,10 @@ msgstr "Sunucu adı"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "Sunucu URL'si"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr "Sahip ata"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4975,6 +5073,10 @@ msgstr "İlişkilendirilmemiş"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"
 msgstr "Kullanılamıyor"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Unfinished tickets"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

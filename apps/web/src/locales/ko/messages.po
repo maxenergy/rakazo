@@ -271,8 +271,11 @@ msgstr "{0} 작업 메뉴"
 msgid "Actions for space"
 msgstr "공간 작업"
 
+#: src/components/BotRestorePreview.tsx
 #: src/components/GoalEditor.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "활성"
@@ -286,6 +289,7 @@ msgstr "현재 모델"
 msgid "Activity"
 msgstr "활동"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +368,10 @@ msgstr "핵심 결과 추가"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP 서버 추가"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr "멤버 추가"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -594,6 +602,7 @@ msgstr "핵심 결과 보관"
 msgid "archived"
 msgstr "보관됨"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
@@ -892,6 +901,7 @@ msgid "Can't reach the server."
 msgstr "서버에 연결할 수 없습니다."
 
 #: src/components/AskCard.tsx
+#: src/components/BotRestorePreview.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
@@ -1051,6 +1061,10 @@ msgstr "{label} 필터 지우기"
 msgid "Clear or replace the archived milestone before saving."
 msgstr "저장하기 전에 보관된 마일스톤을 지우거나 교체하세요."
 
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr "소유자 지우기"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "비우는 중…"
@@ -1072,6 +1086,7 @@ msgstr "클라이언트 시크릿"
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/WindowChrome.tsx
 msgid "Close"
@@ -2132,6 +2147,10 @@ msgstr "데스크톱 업데이트"
 msgid "Direct MCP"
 msgstr "직접 MCP 연결"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Disabled routines"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr "비활성화된 도구"
@@ -2283,6 +2302,14 @@ msgstr "이 이메일은 가입이 허용되지 않습니다"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "이메일 인증이 필요합니다"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enable"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enabled"
+msgstr ""
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2621,6 +2648,11 @@ msgstr "높음"
 #: src/lib/model-catalog.ts
 msgid "High"
 msgstr "높음"
+
+#: src/components/BotRestorePreview.tsx
+#: src/components/ProjectMembers.tsx
+msgid "Historical runs stay with their original project."
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2999,6 +3031,14 @@ msgstr "보통"
 msgid "Medium"
 msgstr "보통"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Member"
+msgstr "멤버"
+
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr "멤버"
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "참여 Bot ({GROUP_MEMBER_MIN}~{GROUP_MEMBER_MAX}개)"
@@ -3308,6 +3348,10 @@ msgstr "이 봇에 저장된 인증 정보가 없습니다."
 msgid "No data"
 msgstr "데이터 없음"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No disabled routines."
+msgstr ""
+
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
 msgstr "목표 없음"
@@ -3344,6 +3388,10 @@ msgstr "아직 추가된 MCP 또는 API 도구가 없습니다."
 msgid "No MCP servers yet."
 msgstr "아직 연결된 MCP 서버가 없습니다."
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr "아직 멤버가 없습니다."
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "{peerBotName}와의 메시지가 아직 없습니다."
@@ -3360,9 +3408,18 @@ msgstr "모델 요금이 없습니다. 테스트용 결정론적 시뮬레이션
 msgid "No models listed."
 msgstr "나열된 모델이 없습니다."
 
+#: src/components/BotRestorePreview.tsx
+msgid "No project"
+msgstr ""
+
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "프로젝트 예산이 설정되지 않았습니다."
+
+#: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
+msgid "No project owner assigned."
+msgstr "프로젝트 소유자가 지정되지 않았습니다."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3406,6 +3463,10 @@ msgstr "사용 가능한 도구가 없습니다."
 msgid "No trigger"
 msgstr "트리거 없음"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No unfinished tickets."
+msgstr ""
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "없음"
@@ -3417,6 +3478,10 @@ msgstr "아직 없음"
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "보통"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Not a member"
+msgstr ""
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3605,6 +3670,7 @@ msgstr "출력: {price}"
 msgid "Overdue"
 msgstr "기한 초과"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "담당자"
@@ -3659,6 +3725,8 @@ msgstr "API 키를 붙여넣으세요"
 msgid "Paste your API key, then test again."
 msgstr "API 키를 붙여넣은 뒤 다시 테스트하세요."
 
+#: src/components/BotRestorePreview.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "일시 중지됨"
@@ -3745,6 +3813,15 @@ msgstr "프로젝트 예산"
 msgid "Project ID"
 msgstr "프로젝트 ID"
 
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr "프로젝트 멤버"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Project paused"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
@@ -3909,6 +3986,7 @@ msgid "Release interrupted computer?"
 msgstr "중단된 컴퓨터를 해제할까요?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4062,6 +4140,14 @@ msgstr "다시 시작하여 업데이트"
 msgid "Restore"
 msgstr "복원"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Restore employee"
+msgstr ""
+
+#: src/components/BotRestorePreview.tsx
+msgid "Restore preview"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
 msgstr "마지막으로 저장한 작업 공간을 복원합니다."
@@ -4126,6 +4212,10 @@ msgstr "자동 실행"
 #: src/pages/RoutineEditor.tsx
 msgid "Routines"
 msgstr "자동 실행"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Routines stay disabled until enabled individually."
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -4317,6 +4407,10 @@ msgstr "대화할 Bot을 선택하세요"
 msgid "Select a connected model"
 msgstr "연결된 모델 선택"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr "사람 선택"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "티켓 선택"
@@ -4373,6 +4467,10 @@ msgstr "서버 이름"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "서버 URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr "소유자 설정"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4975,6 +5073,10 @@ msgstr "연결되지 않음"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"
 msgstr "사용할 수 없음"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Unfinished tickets"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

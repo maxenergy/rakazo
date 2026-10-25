@@ -59,7 +59,15 @@ describePostgres("project and milestone API isolation", () => {
       ],
     });
     botId = (
-      await prisma.bot.create({ data: { spaceId, userId, name: "Assignee", color: "blue" } })
+      await prisma.bot.create({
+        data: {
+          spaceId,
+          userId,
+          name: "Assignee",
+          color: "blue",
+          thread: { create: { spaceId, userId } },
+        },
+      })
     ).id;
     projectId = (await prisma.project.create({ data: { spaceId, name: "Local project" } })).id;
     milestoneId = (

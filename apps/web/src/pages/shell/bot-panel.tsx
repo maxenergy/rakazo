@@ -493,7 +493,10 @@ export function BotSettings({
 
   return (
     <div data-testid="bot-settings">
-      <section className="space-y-2 rounded-md border p-3" aria-labelledby={`${ids}-projects-heading`}>
+      <section
+        className="space-y-2 rounded-md border p-3"
+        aria-labelledby={`${ids}-projects-heading`}
+      >
         <h3 id={`${ids}-projects-heading`} className="text-sm font-medium">
           <Trans>Projects</Trans>
         </h3>

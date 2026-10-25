@@ -370,7 +370,7 @@ msgstr "MCP sunucusu ekle"
 
 #: src/components/ProjectMembers.tsx
 msgid "Add member"
-msgstr ""
+msgstr "Üye ekle"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -1060,7 +1060,7 @@ msgstr "Kaydetmeden önce arşivlenmiş kilometre taşını kaldırın veya değ
 
 #: src/components/ProjectMembers.tsx
 msgid "Clear owner"
-msgstr ""
+msgstr "Sahibi temizle"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -3012,11 +3012,11 @@ msgstr "Orta"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Member"
-msgstr ""
+msgstr "Üye"
 
 #: src/components/ProjectMembers.tsx
 msgid "Members"
-msgstr ""
+msgstr "Üyeler"
 
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3365,7 +3365,7 @@ msgstr "Henüz MCP sunucusu yok."
 
 #: src/components/ProjectMembers.tsx
 msgid "No members yet."
-msgstr ""
+msgstr "Henüz üye yok."
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -3390,11 +3390,11 @@ msgstr "Proje bütçesi yapılandırılmamış."
 #: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 msgid "No project owner assigned."
-msgstr ""
+msgstr "Projeye sahip atanmadı."
 
 #: src/pages/shell/bot-panel.tsx
 msgid "No projects assigned."
-msgstr ""
+msgstr "Atanmış proje yok."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3783,7 +3783,7 @@ msgstr "Proje kimliği"
 
 #: src/components/ProjectMembers.tsx
 msgid "Project members"
-msgstr ""
+msgstr "Proje üyeleri"
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
@@ -4361,7 +4361,7 @@ msgstr "Bağlı bir model seçin"
 
 #: src/components/ProjectMembers.tsx
 msgid "Select a person"
-msgstr ""
+msgstr "Bir kişi seçin"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -4422,7 +4422,7 @@ msgstr "Sunucu URL'si"
 
 #: src/components/ProjectMembers.tsx
 msgid "Set owner"
-msgstr ""
+msgstr "Sahip ata"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

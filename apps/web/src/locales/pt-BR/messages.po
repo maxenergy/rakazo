@@ -370,7 +370,7 @@ msgstr "Adicionar servidor MCP"
 
 #: src/components/ProjectMembers.tsx
 msgid "Add member"
-msgstr ""
+msgstr "Adicionar membro"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -1060,7 +1060,7 @@ msgstr "Remova ou substitua o marco arquivado antes de salvar."
 
 #: src/components/ProjectMembers.tsx
 msgid "Clear owner"
-msgstr ""
+msgstr "Remover responsável"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -3012,11 +3012,11 @@ msgstr "Médio"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Member"
-msgstr ""
+msgstr "Membro"
 
 #: src/components/ProjectMembers.tsx
 msgid "Members"
-msgstr ""
+msgstr "Membros"
 
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3365,7 +3365,7 @@ msgstr "Ainda não há servidores MCP."
 
 #: src/components/ProjectMembers.tsx
 msgid "No members yet."
-msgstr ""
+msgstr "Ainda não há membros."
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -3390,11 +3390,11 @@ msgstr "Nenhum orçamento de projeto está configurado."
 #: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 msgid "No project owner assigned."
-msgstr ""
+msgstr "Nenhum responsável atribuído ao projeto."
 
 #: src/pages/shell/bot-panel.tsx
 msgid "No projects assigned."
-msgstr ""
+msgstr "Nenhum projeto atribuído."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3783,7 +3783,7 @@ msgstr "ID do projeto"
 
 #: src/components/ProjectMembers.tsx
 msgid "Project members"
-msgstr ""
+msgstr "Membros do projeto"
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
@@ -4361,7 +4361,7 @@ msgstr "Selecione um modelo conectado"
 
 #: src/components/ProjectMembers.tsx
 msgid "Select a person"
-msgstr ""
+msgstr "Selecione uma pessoa"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -4422,7 +4422,7 @@ msgstr "URL do servidor"
 
 #: src/components/ProjectMembers.tsx
 msgid "Set owner"
-msgstr ""
+msgstr "Definir responsável"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

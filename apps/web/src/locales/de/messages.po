@@ -370,7 +370,7 @@ msgstr "MCP-Server hinzufügen"
 
 #: src/components/ProjectMembers.tsx
 msgid "Add member"
-msgstr ""
+msgstr "Mitglied hinzufügen"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -1060,7 +1060,7 @@ msgstr "Entfernen oder ersetzen Sie den archivierten Meilenstein vor dem Speiche
 
 #: src/components/ProjectMembers.tsx
 msgid "Clear owner"
-msgstr ""
+msgstr "Verantwortliche Person entfernen"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -3012,11 +3012,11 @@ msgstr "Mittel"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Member"
-msgstr ""
+msgstr "Mitglied"
 
 #: src/components/ProjectMembers.tsx
 msgid "Members"
-msgstr ""
+msgstr "Mitglieder"
 
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3365,7 +3365,7 @@ msgstr "Noch keine MCP-Server."
 
 #: src/components/ProjectMembers.tsx
 msgid "No members yet."
-msgstr ""
+msgstr "Noch keine Mitglieder."
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -3390,11 +3390,11 @@ msgstr "Es ist kein Projektbudget konfiguriert."
 #: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 msgid "No project owner assigned."
-msgstr ""
+msgstr "Kein Projektverantwortlicher zugewiesen."
 
 #: src/pages/shell/bot-panel.tsx
 msgid "No projects assigned."
-msgstr ""
+msgstr "Keine Projekte zugewiesen."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3783,7 +3783,7 @@ msgstr "Projekt-ID"
 
 #: src/components/ProjectMembers.tsx
 msgid "Project members"
-msgstr ""
+msgstr "Projektmitglieder"
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
@@ -4361,7 +4361,7 @@ msgstr "Verbundenes Modell auswählen"
 
 #: src/components/ProjectMembers.tsx
 msgid "Select a person"
-msgstr ""
+msgstr "Person auswählen"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -4422,7 +4422,7 @@ msgstr "Server-URL"
 
 #: src/components/ProjectMembers.tsx
 msgid "Set owner"
-msgstr ""
+msgstr "Verantwortliche Person festlegen"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

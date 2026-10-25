@@ -370,7 +370,7 @@ msgstr "添加 MCP 服务器"
 
 #: src/components/ProjectMembers.tsx
 msgid "Add member"
-msgstr ""
+msgstr "添加成员"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -1060,7 +1060,7 @@ msgstr "保存前请清除或替换已归档的里程碑。"
 
 #: src/components/ProjectMembers.tsx
 msgid "Clear owner"
-msgstr ""
+msgstr "清除负责人"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -3012,11 +3012,11 @@ msgstr "中"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Member"
-msgstr ""
+msgstr "成员"
 
 #: src/components/ProjectMembers.tsx
 msgid "Members"
-msgstr ""
+msgstr "成员"
 
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3365,7 +3365,7 @@ msgstr "还没有 MCP 服务器。"
 
 #: src/components/ProjectMembers.tsx
 msgid "No members yet."
-msgstr ""
+msgstr "还没有成员。"
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -3390,11 +3390,11 @@ msgstr "尚未配置项目预算。"
 #: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 msgid "No project owner assigned."
-msgstr ""
+msgstr "尚未分配项目负责人。"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "No projects assigned."
-msgstr ""
+msgstr "尚未分配项目。"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3783,7 +3783,7 @@ msgstr "项目 ID"
 
 #: src/components/ProjectMembers.tsx
 msgid "Project members"
-msgstr ""
+msgstr "项目成员"
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
@@ -4361,7 +4361,7 @@ msgstr "选择已连接的模型"
 
 #: src/components/ProjectMembers.tsx
 msgid "Select a person"
-msgstr ""
+msgstr "选择人员"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -4422,7 +4422,7 @@ msgstr "服务器 URL"
 
 #: src/components/ProjectMembers.tsx
 msgid "Set owner"
-msgstr ""
+msgstr "设置负责人"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

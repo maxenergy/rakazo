@@ -50,6 +50,8 @@ describe("ProjectMembersReadOnly", () => {
       ),
     );
     expect(container?.textContent).toContain("Owner Bot");
+    expect(container?.textContent).toContain("Archived");
+    expect(container?.textContent).toContain("anthropic/claude");
     expect(container?.textContent).toContain("Member");
     expect(container?.textContent).toContain("Manage project members on web.");
   });

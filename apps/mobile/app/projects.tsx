@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   type ProjectMemberSummary,
   ProjectMembersReadOnly,
@@ -14,6 +14,10 @@ type Project = {
   name: string;
   status: "active" | "paused";
   owner: { botId: string } | null;
+  pausedAt: string | null;
+  archived?: boolean;
+  inFlightRuns?: { id: string; status: string; externalProcessState: "needs_confirmation" }[];
+  cancellationRequests?: { id: string; externalProcessState: "needs_confirmation" }[];
 };
 type Membership = { botId: string; role: "owner" | "member" };
 
@@ -55,9 +59,27 @@ export default function ProjectsScreen() {
     void loadProjects();
   }, [loadProjects]);
 
+  async function toggleProject(project: Project) {
+    const status = project.status === "paused" ? "active" : "paused";
+    Alert.alert(
+      status === "paused" ? t("Pause project?") : t("Resume project?"),
+      status === "paused" ? t("In flight work will finish safely.") : undefined,
+      [
+        { text: t("Cancel"), style: "cancel" },
+        { text: status === "paused" ? t("Pause") : t("Resume"), onPress: () => {
+          void rpc<Project>("projects/update", { id: project.id, status }).then(async (updated) => {
+            setSelected(updated);
+            await loadProjects();
+          }).catch((cause: unknown) => setError(String(cause)));
+        } },
+      ],
+    );
+  }
+
   async function openProject(project: Project) {
     setSelected(project);
     setLoading(true);
+    try { const detail = await rpc<Project>("projects/get", { id: project.id }); setSelected(detail); project = detail; } catch (cause) { setError(String(cause)); }
     try {
       const rows = await rpc<Membership[]>("projects/members", { projectId: project.id });
       const summaries = await Promise.all(
@@ -135,7 +157,17 @@ export default function ProjectsScreen() {
           <View style={[styles.card, { backgroundColor: tokens.card }]}>
             <Text style={{ color: tokens.foreground }}>
               {selected.status === "paused" ? t("Paused") : t("Active")}
+              {selected.pausedAt ? " · " + new Date(selected.pausedAt).toLocaleString() : ""}
             </Text>
+            <Pressable accessibilityRole="button" disabled={selected.archived} onPress={() => toggleProject(selected)} style={styles.back}>
+              <Text style={{ color: tokens.primary }}>{selected.status === "paused" ? t("Resume project") : t("Pause project")}</Text>
+            </Pressable>
+            {selected.status === "paused" ? selected.inFlightRuns?.map((run) => (
+              <Text key={run.id} style={[styles.muted, { color: tokens.mutedForeground }]}>{t("Finishing safely")}: {run.id} ({run.status})</Text>
+            )) : null}
+            {selected.cancellationRequests?.map((run) => (
+              <Text key={run.id} style={[styles.muted, { color: tokens.mutedForeground }]}>{t("Cancellation requested; external process needs manual confirmation and is not shown as stopped.")} ({run.id})</Text>
+            ))}
             <Text style={[styles.muted, { color: tokens.mutedForeground }]}>
               {t("Owner")}: {ownerName || t("Loading")}
             </Text>

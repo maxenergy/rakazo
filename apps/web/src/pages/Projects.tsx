@@ -6,15 +6,17 @@ import { ProjectBudget } from "../components/ProjectBudget";
 import { ProjectGoals } from "../components/ProjectGoals";
 import { ProjectMembers } from "../components/ProjectMembers";
 import { ProjectProgress } from "../components/ProjectProgress";
-import { rpc } from "../lib/rpc";
+import { rpc, selectedSpaceId } from "../lib/rpc";
 import { useBoardRefresh } from "../lib/use-board-refresh";
 import { errorText } from "../lib/user-error";
+import { nextProjectPauseStatus } from "../lib/project-pause";
 import { WindowChrome } from "./WindowChrome";
 
 export function ProjectsPage() {
   const { t } = useLingui();
   const { projectId, milestoneId } = useParams();
   const [archived, setArchived] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
   const load = useCallback(
     async (spaceId: string | null) => {
       const options = { context: { spaceId } };
@@ -48,6 +50,18 @@ export function ProjectsPage() {
   );
   const { data, error } = useBoardRefresh(load);
   const detail = data?.milestone ?? data?.project;
+  async function changeProjectStatus() {
+    if (!data?.project || savingStatus) return;
+    const status = nextProjectPauseStatus(data.project.status);
+    if (!window.confirm(status === "paused" ? "Pause this project? In flight work will finish safely." : "Resume this project?")) return;
+    setSavingStatus(true);
+    try {
+      const input = { id: data.project.id, status } as Parameters<typeof rpc.projects.update>[0] & { status: "active" | "paused" };
+      await rpc.projects.update(input, { context: { spaceId: selectedSpaceId() } });
+    }
+    catch (cause) { window.alert(errorText(cause)); }
+    finally { setSavingStatus(false); }
+  }
 
   return (
     <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-background text-foreground">
@@ -80,17 +94,33 @@ export function ProjectsPage() {
               <p className="whitespace-pre-wrap break-words">{detail.description}</p>
             ) : null}
             {data?.project && !milestoneId ? (
-              <p className="text-sm text-muted-foreground">
-                {data.project.status === "paused" ? <Trans>Paused</Trans> : <Trans>Active</Trans>}
-                {data.project.owner ? (
-                  ` | ${data.bots?.find((bot) => bot.id === data.project?.owner?.botId)?.name ?? data.project.owner.botId}`
-                ) : (
-                  <>
-                    <span> | </span>
-                    <Trans>No project owner assigned.</Trans>
-                  </>
-                )}
-              </p>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                {(() => {
+                  const project = data.project as typeof data.project & {
+                    inFlightRuns?: { id: string; status: string }[];
+                    cancellationRequests?: { id: string }[];
+                  };
+                  return <>
+
+                <p>
+                  {data.project.status === "paused" ? <Trans>Paused</Trans> : <Trans>Active</Trans>}
+                  {data.project.pausedAt ? <> · <Trans>Paused at</Trans> {new Date(data.project.pausedAt).toLocaleString()}</> : null}
+                  {data.project.owner ? (
+                    ` | ${data.bots?.find((bot) => bot.id === data.project?.owner?.botId)?.name ?? data.project.owner.botId}`
+                  ) : (
+                    <> | <Trans>No project owner assigned.</Trans></>
+                  )}
+                </p>
+                <Button variant="outline" disabled={savingStatus || data.project.archived} onClick={() => void changeProjectStatus()}>
+                  {data.project.status === "paused" ? <Trans>Resume project</Trans> : <Trans>Pause project</Trans>}
+                </Button>
+                {data.project.status === "paused" && project.inFlightRuns?.length ? (
+                  <div><p><Trans>In flight work will finish safely</Trans></p><ul className="list-disc pl-5">{project.inFlightRuns.map((run) => <li key={run.id}>{run.id}: {run.status}</li>)}</ul></div>
+                ) : null}
+                {project.cancellationRequests?.map((run) => <p role="status" key={run.id}><Trans>Cancellation requested; external process needs manual confirmation and is not shown as stopped.</Trans> ({run.id})</p>)}
+                  </>;
+                })()}
+              </div>
             ) : null}
             {detail.archived ? (
               <p className="text-sm text-muted-foreground">

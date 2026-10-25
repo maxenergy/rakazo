@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@lingui/react/macro", () => ({
+  Trans: ({ children }: { children: ReactNode }) => children,
+  useLingui: () => ({ t: (parts: TemplateStringsArray) => parts.join("") }),
+}));
+
 import { routineFinished } from "./RoutineEditor";
 
 const oneShot = {

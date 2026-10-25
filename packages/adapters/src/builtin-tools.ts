@@ -149,9 +149,11 @@ export const builtinAgentTools: ConnectorTool[] = [
   ...Object.entries(goalToolInputs).map(
     ([name, schema]): ConnectorTool => ({
       name,
-      description: `${name.replaceAll("_", " ")}. Goal/KR values and state require explicit updates; calculationRule describes how values are measured. Project progress never automatically achieves a KR.`,
+      description: name.startsWith("project_")
+        ? "管理项目成员与唯一负责人；同一员工可参与多个项目，所有操作限制在当前空间。"
+        : `${name.replaceAll("_", " ")}. Goal/KR values and state require explicit updates; calculationRule describes how values are measured. Project progress never automatically achieves a KR.`,
       inputSchema: z.toJSONSchema(schema, { io: "input" }),
-      readOnly: name.endsWith("_list") || name.endsWith("_get"),
+      readOnly: name === "project_members" || name.endsWith("_list") || name.endsWith("_get"),
     }),
   ),
 

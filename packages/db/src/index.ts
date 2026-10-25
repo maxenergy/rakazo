@@ -26,6 +26,7 @@ export * from "./org.js";
 export * from "./project-budgets.js";
 export * from "./project-costs.js";
 export * from "./project-links.js";
+export * from "./project-members.js";
 export * from "./project-writes.js";
 export * from "./projects.js";
 export * from "./proposals.js";

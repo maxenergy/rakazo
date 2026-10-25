@@ -25,6 +25,7 @@ export async function readProjects(
           }
         : {}),
     },
+    include: { members: { where: { role: "owner" } } },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
   });
   if (input.id !== undefined && rows.length === 0)
@@ -42,6 +43,10 @@ export async function readProjects(
     const groups = counts.filter((group) => group.projectId === row.id);
     return {
       ...row,
+      pausedAt: row.pausedAt?.toISOString() ?? null,
+      owner: row.members[0]
+        ? { ...row.members[0], createdAt: row.members[0].createdAt.toISOString() }
+        : null,
       archived: isProjectItemArchived(row),
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

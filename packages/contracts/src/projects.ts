@@ -27,6 +27,20 @@ export const ProjectMemberSchema = z.object({
 });
 export const ProjectStatusSchema = z.enum(["active", "paused"]);
 export const ProjectSchema = ProjectBaseSchema.extend({
+  cancellationRequests: z
+    .array(z.object({ id: Id, externalProcessState: z.literal("needs_confirmation") }))
+    .optional(),
+  inFlightRuns: z
+    .array(
+      z.object({
+        id: Id,
+        botId: Id,
+        threadId: Id,
+        status: z.string(),
+        externalProcessState: z.literal("needs_confirmation"),
+      }),
+    )
+    .optional(),
   status: ProjectStatusSchema,
   pausedAt: IsoDate.nullable(),
   owner: ProjectMemberSchema.nullable(),
@@ -47,6 +61,8 @@ export const MilestoneSchema = ProjectBaseSchema.extend({
 });
 export const CreateProjectInput = z.object({ name, description: description.optional() });
 export const UpdateProjectInput = z.object({
+  status: ProjectStatusSchema.optional(),
+  cancelRunIds: z.array(Id).max(100).optional(),
   id: Id,
   name: name.optional(),
   description: description.nullable().optional(),
@@ -59,7 +75,10 @@ export const CreateMilestoneInput = CreateProjectInput.extend({
   projectId: Id,
   dueAt: IsoDate.nullable().optional(),
 });
-export const UpdateMilestoneInput = UpdateProjectInput.extend({
+export const UpdateMilestoneInput = UpdateProjectInput.omit({
+  status: true,
+  cancelRunIds: true,
+}).extend({
   dueAt: IsoDate.nullable().optional(),
 });
 export const ListMilestonesInput = ListProjectsInput.extend({ projectId: Id });

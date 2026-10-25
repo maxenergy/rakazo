@@ -39,10 +39,39 @@ export async function readProjects(
     where: { spaceId, projectId: { in: visible.map((row) => row.id) } },
     _count: { _all: true },
   });
+  const inFlightRuns =
+    input.id !== undefined
+      ? await tx.run.findMany({
+          where: {
+            spaceId,
+            projectId: input.id,
+            status: {
+              in: [
+                "queued",
+                "leased",
+                "running",
+                "waiting_input",
+                "waiting_takeover",
+                "waiting_budget",
+              ],
+            },
+          },
+          select: { id: true, botId: true, threadId: true, status: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : undefined;
   return visible.map((row) => {
     const groups = counts.filter((group) => group.projectId === row.id);
     return {
       ...row,
+      ...(inFlightRuns
+        ? {
+            inFlightRuns: inFlightRuns.map((run) => ({
+              ...run,
+              externalProcessState: "needs_confirmation" as const,
+            })),
+          }
+        : {}),
       pausedAt: row.pausedAt?.toISOString() ?? null,
       owner: row.members[0]
         ? { ...row.members[0], createdAt: row.members[0].createdAt.toISOString() }

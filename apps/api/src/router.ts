@@ -177,6 +177,7 @@ import {
   archiveKeyResult,
   archiveMilestone,
   archiveProject,
+  assertProjectExecutionAllowed,
   BotSectionNameConflictError,
   CannotDeleteDefaultSpaceError,
   CannotDeleteLastSpaceError,
@@ -3542,6 +3543,9 @@ export function createRouter(deps: RouterDeps) {
           });
         }
         const bot = await repos.getBot(context.actor, input.botId);
+        await validateProjectFilter(deps.prisma, context.actor.spaceId, {
+          projectId: input.projectId,
+        });
         await assertRoutineModel(deps, context.actor, input);
         // Validate every recurring cron even when inactive; @once and webhook-only have no next date.
         let nextRunAt: Date | null = null;
@@ -3554,6 +3558,7 @@ export function createRouter(deps: RouterDeps) {
             spaceId: context.actor.spaceId,
             botId: input.botId,
             userId: context.actor.userId,
+            projectId: input.projectId,
             name: input.name,
             prompt: input.prompt,
             crons: input.crons,
@@ -3594,6 +3599,9 @@ export function createRouter(deps: RouterDeps) {
           },
         });
         if (!existing) throw new ORPCError("NOT_FOUND");
+        await validateProjectFilter(deps.prisma, context.actor.spaceId, {
+          projectId: input.projectId,
+        });
         const bot = await repos.getBot(context.actor, existing.botId);
         const active = input.active ?? existing.active;
         const crons = input.crons ?? existing.crons;
@@ -3706,6 +3714,7 @@ export function createRouter(deps: RouterDeps) {
                 : {}),
             },
             data: {
+              projectId: input.projectId,
               name: input.name,
               prompt: input.prompt,
               crons: input.crons,
@@ -3803,6 +3812,7 @@ export function createRouter(deps: RouterDeps) {
               });
               if (existing) return existing;
             }
+            await assertProjectExecutionAllowed(tx, context.actor.spaceId, routine.projectId);
             const task = await tx.task.create({
               data: {
                 spaceId: context.actor.spaceId,
@@ -3828,6 +3838,7 @@ export function createRouter(deps: RouterDeps) {
                 status: "queued",
                 trigger: "routine",
                 routineId: routine.id,
+                projectId: routine.projectId,
                 ...routineRunModelPin(currentModel),
                 clientNonce: nonce,
               },
@@ -4265,7 +4276,13 @@ export function createRouter(deps: RouterDeps) {
           deps.prisma.$transaction(
             async (tx) => {
               const row = await updateProject(tx, spaceId, input);
-              return (await readProjects(tx, spaceId, { id: row.id }))[0]!;
+              return {
+                ...(await readProjects(tx, spaceId, { id: row.id }))[0]!,
+                cancellationRequests: (input.cancelRunIds ?? []).map((id) => ({
+                  id,
+                  externalProcessState: "needs_confirmation" as const,
+                })),
+              };
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
           ),
@@ -7674,6 +7691,7 @@ async function assertRoutineModel(
 }
 
 function mapRoutine(row: {
+  projectId?: string | null;
   id: string;
   botId: string;
   name: string;
@@ -7694,6 +7712,7 @@ function mapRoutine(row: {
 }): Routine {
   return {
     id: row.id,
+    projectId: row.projectId ?? null,
     botId: row.botId,
     name: row.name,
     prompt: row.prompt,

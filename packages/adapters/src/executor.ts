@@ -172,6 +172,7 @@ import {
   settleUncertainEffect,
   uncertainEffectResult,
 } from "./approval-effect.js";
+import { executeArchivedBotTool, isArchivedBotToolName } from "./archived-bot-tools.js";
 import {
   autoReviewTimeoutMs,
   deploymentAutoReviewDefault,
@@ -339,6 +340,8 @@ import {
   searchChartCatalog,
 } from "./plot-tool.js";
 import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
+import { loadProjectContext } from "./project-context.js";
+import { projectRunMessages } from "./project-run-context.js";
 import { parseProposalArgs } from "./proposal-tools.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
@@ -3752,10 +3755,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const discoveredPromise = deps.connector
           ? deps.connector.discoverTools(context)
           : Promise.resolve([]);
+        // Shared employees keep their workspace, but project prompt history is isolated.
+        const projectMessages = run.projectId
+          ? projectRunMessages(
+              messages,
+              await deps.prisma.run.findMany({
+                where: { spaceId: run.spaceId, threadId: thread.id, projectId: run.projectId },
+                select: { id: true, sourceMessageId: true },
+              }),
+              run.sourceMessageId,
+            )
+          : messages;
         const threadContext = threadContextForRun(
           run.trigger,
           {
-            messages: [...messages].reverse().map((m) => ({
+            messages: [...projectMessages].reverse().map((m) => ({
               id: m.id,
               createdAt: m.createdAt?.toISOString(),
               seq: m.seq,
@@ -3765,8 +3779,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 | "system",
               content: messageToAgentHistoryText(m),
             })),
-            summary: thread.historyCompactionSummary,
-            historyCompactedUpToSeq: thread.historyCompactedUpToSeq,
+            summary: run.projectId ? null : thread.historyCompactionSummary,
+            historyCompactedUpToSeq: run.projectId ? null : thread.historyCompactedUpToSeq,
           },
           messagingChannelRun,
         );
@@ -3781,7 +3795,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           role,
           content,
         }));
-        const historyMessages = messages.map((message) => ({
+        const historyMessages = projectMessages.map((message) => ({
           id: message.id,
           role: message.role,
           runId: message.runId,
@@ -3809,6 +3823,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : DELEGATED_EMPTY_NOTICE
           : undefined;
         const recallPromise =
+          !run.projectId &&
           threadContext.includeSemanticRecall &&
           semanticMemory &&
           memoryScope &&
@@ -3834,10 +3849,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
         ] = await Promise.all([
           discoveredPromise,
           loadCurrentTurnImages(deps, turnBlocks, context),
-          messagingChannelRun
+          messagingChannelRun || run.projectId
             ? Promise.resolve("")
             : loadAgentMemoryContext(deps.memory, bot.id, context),
-          messagingChannelRun
+          messagingChannelRun || run.projectId
             ? Promise.resolve("")
             : loadAgentScratchpadContext(deps, {
                 spaceId: run.spaceId,
@@ -3848,6 +3863,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : loadAgentTicketContext(deps, {
                 spaceId: run.spaceId,
                 text: task.prompt,
+                projectId: run.projectId ?? undefined,
               }),
           recallPromise,
         ]);
@@ -4073,6 +4089,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             voiceCall,
             disabledBuiltinTools: bot.disabledBuiltinTools,
             orgMessaging: parseBotOrgRole(bot.orgRole) !== null,
+            orgRole: bot.orgRole,
           }),
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity && !isBackgroundRunTrigger(run.trigger)
@@ -5764,6 +5781,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
               ),
             );
           }
+          if (isArchivedBotToolName(name)) {
+            return finish(
+              await executeArchivedBotTool(
+                { prisma: deps.prisma, executionFence: run.executionFence },
+                { spaceId: run.spaceId, botId: bot.id },
+                name,
+                args,
+              ),
+            );
+          }
           if (isGoalToolName(name)) {
             return finish(
               await executeGoalTool(
@@ -7048,7 +7075,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           (request) => redactSecrets(JSON.stringify(request), runSecrets),
           { exposedToolNames: new Set(tools.map((tool) => tool.name)) },
         );
-        const replyContext = await loadReplyContext(deps.prisma, thread.id, run.sourceMessageId);
+        const replyContext = run.projectId
+          ? undefined
+          : await loadReplyContext(deps.prisma, thread.id, run.sourceMessageId);
         const prompt = [
           replyContext,
           basePrompt,
@@ -7090,7 +7119,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
             })
           : history;
         const runtimeHistory = [...historicalContext, ...historyWithImages];
-        const orgContext = await loadOrgContext(deps.prisma, bot);
+        const projectContext = run.projectId
+          ? await loadProjectContext(deps.prisma, {
+              spaceId: run.spaceId,
+              projectId: run.projectId,
+            })
+          : undefined;
+        const orgContext = await loadOrgContext(deps.prisma, bot, run.projectId);
         // Without a roster a bot only knows the bots it spawned itself.
         const botDirectory = thread.groupId
           ? undefined
@@ -7102,6 +7137,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                     userId: run.userId,
                     archivedAt: null,
                     id: { not: bot.id },
+                    ...(run.projectId
+                      ? { projectMemberships: { some: { projectId: run.projectId } } }
+                      : {}),
                     thread: { isNot: null },
                   },
                   select: {
@@ -7242,7 +7280,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 workspaceInstruction,
                 agentEnvironmentInstruction,
                 botDirectory,
-                orgContext,
+                orgContext: [orgContext, projectContext].filter(Boolean).join("\n"),
                 pluginLine,
                 agentSkillsLine,
                 taughtSkillsLine,
@@ -8251,6 +8289,7 @@ export function selectBuiltinToolsForRun(options: {
   disabledBuiltinTools?: readonly string[];
   /** The bot has an org role: it may message any colleague, even from a group. */
   orgMessaging?: boolean;
+  orgRole?: string | null;
 }) {
   const disabled = disabledBuiltinToolSet(options.disabledBuiltinTools);
   return selectCloudAgentTools(
@@ -8272,6 +8311,7 @@ export function selectBuiltinToolsForRun(options: {
   ).filter(
     (tool) =>
       !disabled.has(tool.name) &&
+      (!isArchivedBotToolName(tool.name) || ["ceo", "cto"].includes(options.orgRole ?? "")) &&
       // Org insight tools read the whole org's runs; only org members get them.
       (options.orgMessaging || !isTeamInsightToolName(tool.name)) &&
       (options.ticketBoardEnabled ||

@@ -3,6 +3,7 @@ export * from "./billing.js";
 export * from "./board.js";
 export * from "./board-live.js";
 export * from "./bootstrap-user.js";
+export * from "./bot-continuation.js";
 export * from "./budget-overrun-approvals.js";
 export * from "./budget-port.js";
 export * from "./cancel-runs.js";

@@ -8,6 +8,7 @@ import {
   TICKET_STATUSES,
 } from "@rakazo/contracts";
 import { z } from "zod";
+import { archivedBotToolInputs } from "./archived-bot-tools.js";
 import { allowPrivateHttpSecretOrigins } from "./bot-secrets.js";
 import { goalToolInputs } from "./goal-tools.js";
 
@@ -147,6 +148,19 @@ const scheduleCreateInputSchema = {
 };
 
 export const builtinAgentTools: ConnectorTool[] = [
+  ...Object.entries(archivedBotToolInputs).map(
+    ([name, schema]): ConnectorTool => ({
+      name,
+      description:
+        name === "list_archived_bots"
+          ? "仅本空间 CEO/CTO：列出归档员工、原项目及最近工单（默认 5 张）。"
+          : name === "preview_restore_bot"
+            ? "仅本空间 CEO/CTO：只读预览员工恢复接续信息及目标项目暂停状态，不修改数据。恢复后不会自动派工，也不会启用定时任务。"
+            : "仅本空间 CEO/CTO：恢复员工并可加入目标项目，保留身份、记忆和文件，返回接续预览。暂停项目也可恢复；不会自动派工，也不会启用定时任务。",
+      inputSchema: z.toJSONSchema(schema, { io: "input" }),
+      readOnly: name !== "restore_bot",
+    }),
+  ),
   ...Object.entries(goalToolInputs).map(
     ([name, schema]): ConnectorTool => ({
       name,

@@ -71,7 +71,7 @@ export function renderTicketContext(
 
 export async function loadAgentTicketContext(
   deps: { prisma: PrismaClient; ticketBoardEnabled?: boolean },
-  input: { spaceId: string; text: string },
+  input: { spaceId: string; text: string; projectId?: string | null },
   maxBytes = MAX_TICKET_CONTEXT_BYTES,
 ): Promise<string | undefined> {
   if (!deps.ticketBoardEnabled || !TICKET_REF_HINT.test(input.text)) return undefined;
@@ -92,6 +92,7 @@ export async function loadAgentTicketContext(
     where: {
       spaceId: input.spaceId,
       boardId: board.id,
+      ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
       number: { in: wanted.map((item) => item.number) },
     },
   });

@@ -226,6 +226,7 @@ import {
   ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
+  readBotContinuation,
   readBotProjects,
   readGoals,
   readKeyResults,
@@ -2123,6 +2124,15 @@ export function createRouter(deps: RouterDeps) {
         );
         return { ok: true as const };
       }),
+      continuationPreview: authed.bots.continuationPreview.handler(async ({ context, input }) => {
+        const bot = await repos.getBot(context.actor, input.botId, { includeArchived: true });
+        const preview = await readBotContinuation(deps.prisma, {
+          spaceId: context.actor.spaceId,
+          userId: context.actor.userId,
+          botId: bot.id,
+        });
+        return { ...preview, routines: preview.routines.map(mapRoutine) };
+      }),
       restore: authed.bots.restore.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId, { includeArchived: true });
         if (!bot.archivedAt) return { ok: true as const };
@@ -3604,6 +3614,19 @@ export function createRouter(deps: RouterDeps) {
         });
         const bot = await repos.getBot(context.actor, existing.botId);
         const active = input.active ?? existing.active;
+        if (active) {
+          try {
+            await assertProjectExecutionAllowed(
+              deps.prisma,
+              context.actor.spaceId,
+              input.projectId === undefined ? existing.projectId : input.projectId,
+            );
+          } catch (error) {
+            if (error instanceof ProjectLinkError)
+              throw new ORPCError(error.code, { message: error.message });
+            throw error;
+          }
+        }
         const crons = input.crons ?? existing.crons;
         const timezone = input.timezone ?? existing.timezone;
         const webhookEnabled = input.webhookEnabled ?? existing.webhookEnabled;

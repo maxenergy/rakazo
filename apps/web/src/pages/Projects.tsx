@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ProjectBudget } from "../components/ProjectBudget";
 import { ProjectGoals } from "../components/ProjectGoals";
+import { ProjectMembers } from "../components/ProjectMembers";
 import { ProjectProgress } from "../components/ProjectProgress";
 import { rpc } from "../lib/rpc";
 import { useBoardRefresh } from "../lib/use-board-refresh";
@@ -18,20 +19,30 @@ export function ProjectsPage() {
     async (spaceId: string | null) => {
       const options = { context: { spaceId } };
       if (projectId) {
-        const [project, milestones, milestone] = await Promise.all([
-          rpc.projects.get({ id: projectId }, options),
-          rpc.milestones.list({ projectId, archived }, options),
-          milestoneId ? rpc.milestones.get({ id: milestoneId }, options) : Promise.resolve(null),
-        ]);
+        const [project, milestones, milestone, members, activeBots, archivedBots] =
+          await Promise.all([
+            rpc.projects.get({ id: projectId }, options),
+            rpc.milestones.list({ projectId, archived }, options),
+            milestoneId ? rpc.milestones.get({ id: milestoneId }, options) : Promise.resolve(null),
+            rpc.projects.members({ projectId }, options),
+            rpc.bots.list(undefined, options),
+            rpc.bots.listArchived(undefined, options),
+          ]);
         if (milestone && milestone.projectId !== projectId) throw new Error("Resource not found.");
-        return { projects: [], project, milestones, milestone };
+        return {
+          projects: [],
+          project,
+          milestones,
+          milestone,
+          members,
+          bots: [...activeBots, ...archivedBots],
+        };
       }
-      return {
-        projects: await rpc.projects.list({ archived }, options),
-        project: null,
-        milestones: [],
-        milestone: null,
-      };
+      const [projects, bots] = await Promise.all([
+        rpc.projects.list({ archived }, options),
+        rpc.bots.list(undefined, options),
+      ]);
+      return { projects, bots, project: null, milestones: [], milestone: null, members: [] };
     },
     [projectId, milestoneId, archived],
   );
@@ -68,6 +79,19 @@ export function ProjectsPage() {
             {detail.description ? (
               <p className="whitespace-pre-wrap break-words">{detail.description}</p>
             ) : null}
+            {data?.project && !milestoneId ? (
+              <p className="text-sm text-muted-foreground">
+                {data.project.status === "paused" ? <Trans>Paused</Trans> : <Trans>Active</Trans>}
+                {data.project.owner ? (
+                  ` | ${data.bots?.find((bot) => bot.id === data.project?.owner?.botId)?.name ?? data.project.owner.botId}`
+                ) : (
+                  <>
+                    <span> | </span>
+                    <Trans>No project owner assigned.</Trans>
+                  </>
+                )}
+              </p>
+            ) : null}
             {detail.archived ? (
               <p className="text-sm text-muted-foreground">
                 <Trans>Archived</Trans>
@@ -78,7 +102,11 @@ export function ProjectsPage() {
               variant="outline"
               render={
                 <Link
-                  to={`/app/tickets?projectId=${encodeURIComponent(projectId!)}${milestoneId ? `&milestoneId=${encodeURIComponent(milestoneId)}` : ""}`}
+                  to={
+                    "/app/tickets?projectId=" +
+                    encodeURIComponent(projectId!) +
+                    (milestoneId ? `&milestoneId=${encodeURIComponent(milestoneId)}` : "")
+                  }
                 />
               }
             >
@@ -88,6 +116,38 @@ export function ProjectsPage() {
         ) : null}
         {projectId && !milestoneId && data?.project?.id === projectId && !error ? (
           <ProjectBudget key={`budget:${projectId}`} projectId={projectId} />
+        ) : null}
+        {projectId && data?.project && !milestoneId && data.members && data.bots ? (
+          <ProjectMembers
+            members={data.members.map((member) => ({
+              botId: member.botId,
+              role: member.role,
+              name: data.bots.find((bot) => bot.id === member.botId)?.name ?? member.botId,
+              status: data.bots.find((bot) => bot.id === member.botId)?.archivedAt
+                ? "archived"
+                : "active",
+              model:
+                data.bots.find((bot) => bot.id === member.botId)?.modelProvider &&
+                data.bots.find((bot) => bot.id === member.botId)?.modelId
+                  ? String(data.bots.find((bot) => bot.id === member.botId)?.modelProvider) +
+                    "/" +
+                    String(data.bots.find((bot) => bot.id === member.botId)?.modelId)
+                  : null,
+            }))}
+            people={data.bots
+              .filter((bot) => !bot.archivedAt)
+              .map((bot) => ({ botId: bot.id, name: bot.name }))}
+            pending={data.project.archived}
+            onAdd={async (botId) => {
+              await rpc.projects.addMember({ projectId, botId });
+            }}
+            onRemove={async (botId) => {
+              await rpc.projects.removeMember({ projectId, botId });
+            }}
+            onSetOwner={async (botId) => {
+              await rpc.projects.setOwner({ projectId, botId });
+            }}
+          />
         ) : null}
         {projectId && data?.project && !milestoneId ? (
           <ProjectGoals
@@ -124,6 +184,19 @@ export function ProjectsPage() {
                   >
                     {item.name}
                   </Link>
+                  {"status" in item ? (
+                    <p className="text-sm text-muted-foreground">
+                      {item.status === "paused" ? <Trans>Paused</Trans> : <Trans>Active</Trans>}
+                      {item.owner ? (
+                        ` | ${data?.bots?.find((bot) => bot.id === item.owner?.botId)?.name ?? item.owner.botId}`
+                      ) : (
+                        <>
+                          <span> | </span>
+                          <Trans>No project owner assigned.</Trans>
+                        </>
+                      )}
+                    </p>
+                  ) : null}
                   <ProjectProgress progress={item.progress} />
                 </li>
               ))}

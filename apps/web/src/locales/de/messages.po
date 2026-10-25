@@ -271,8 +271,11 @@ msgstr "Aktionen für {0}"
 msgid "Actions for space"
 msgstr "Aktionen für den Bereich"
 
+#: src/components/BotRestorePreview.tsx
 #: src/components/GoalEditor.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "Aktiv"
@@ -286,6 +289,7 @@ msgstr "Aktives Modell"
 msgid "Activity"
 msgstr "Aktivität"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +368,10 @@ msgstr "Schlüsselergebnis hinzufügen"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP-Server hinzufügen"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr "Mitglied hinzufügen"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -594,6 +602,7 @@ msgstr "Schlüsselergebnis archivieren"
 msgid "archived"
 msgstr "archiviert"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
@@ -892,6 +901,7 @@ msgid "Can't reach the server."
 msgstr "Server nicht erreichbar."
 
 #: src/components/AskCard.tsx
+#: src/components/BotRestorePreview.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
@@ -1051,6 +1061,10 @@ msgstr "Filter {label} entfernen"
 msgid "Clear or replace the archived milestone before saving."
 msgstr "Entfernen oder ersetzen Sie den archivierten Meilenstein vor dem Speichern."
 
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr "Verantwortliche Person entfernen"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "Wird geleert…"
@@ -1072,6 +1086,7 @@ msgstr "Client-Secret"
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/WindowChrome.tsx
 msgid "Close"
@@ -2132,6 +2147,10 @@ msgstr "Desktop-Update"
 msgid "Direct MCP"
 msgstr "Direktes MCP"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Disabled routines"
+msgstr "Deaktivierte Routinen"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr "Deaktivierte Werkzeuge"
@@ -2283,6 +2302,14 @@ msgstr "Diese E-Mail-Adresse ist nicht zur Registrierung zugelassen"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "E-Mail-Verifizierung erforderlich"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enable"
+msgstr "Aktivieren"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enabled"
+msgstr "Aktiviert"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2621,6 +2648,11 @@ msgstr "Hoch"
 #: src/lib/model-catalog.ts
 msgid "High"
 msgstr "Hoch"
+
+#: src/components/BotRestorePreview.tsx
+#: src/components/ProjectMembers.tsx
+msgid "Historical runs stay with their original project."
+msgstr "Frühere Ausführungen bleiben ihrem ursprünglichen Projekt zugeordnet."
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2999,6 +3031,14 @@ msgstr "Mittel"
 msgid "Medium"
 msgstr "Mittel"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Member"
+msgstr "Mitglied"
+
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr "Mitglieder"
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "Mitglieder ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3308,6 +3348,10 @@ msgstr "Für diesen Bot sind keine Zugangsdaten gespeichert."
 msgid "No data"
 msgstr "Keine Daten"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No disabled routines."
+msgstr "Keine deaktivierten Routinen."
+
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
 msgstr "Keine Ziele"
@@ -3344,6 +3388,10 @@ msgstr "Noch keine MCP- oder API-Toolquellen installiert."
 msgid "No MCP servers yet."
 msgstr "Noch keine MCP-Server."
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr "Noch keine Mitglieder."
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "Noch keine Nachrichten mit {peerBotName}."
@@ -3360,9 +3408,18 @@ msgstr "Keine Modellkosten. Deterministische Testsimulation."
 msgid "No models listed."
 msgstr "Keine Modelle aufgelistet."
 
+#: src/components/BotRestorePreview.tsx
+msgid "No project"
+msgstr "Kein Projekt"
+
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "Es ist kein Projektbudget konfiguriert."
+
+#: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
+msgid "No project owner assigned."
+msgstr "Kein Projektverantwortlicher zugewiesen."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3406,6 +3463,10 @@ msgstr "Keine Tools verfügbar."
 msgid "No trigger"
 msgstr "Kein Auslöser"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No unfinished tickets."
+msgstr "Keine offenen Tickets."
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "Keine"
@@ -3417,6 +3478,10 @@ msgstr "Noch keine"
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "Normal"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Not a member"
+msgstr "Kein Mitglied"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3605,6 +3670,7 @@ msgstr "Ausgabe: {price}"
 msgid "Overdue"
 msgstr "Überfällig"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Verantwortlich"
@@ -3659,6 +3725,8 @@ msgstr "Füge deinen API-Schlüssel ein"
 msgid "Paste your API key, then test again."
 msgstr "Füge deinen API-Schlüssel ein und teste erneut."
 
+#: src/components/BotRestorePreview.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Pausiert"
@@ -3745,6 +3813,15 @@ msgstr "Projektbudget"
 msgid "Project ID"
 msgstr "Projekt-ID"
 
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr "Projektmitglieder"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Project paused"
+msgstr "Projekt pausiert"
+
+#: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
@@ -3909,6 +3986,7 @@ msgid "Release interrupted computer?"
 msgstr "Unterbrochenen Computer freigeben?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4062,6 +4140,14 @@ msgstr "Zum Aktualisieren neu starten"
 msgid "Restore"
 msgstr "Wiederherstellen"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Restore employee"
+msgstr "Mitarbeiter wiederherstellen"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Restore preview"
+msgstr "Wiederherstellungsvorschau"
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
 msgstr "Den zuletzt gespeicherten Arbeitsbereich wiederherstellen."
@@ -4126,6 +4212,10 @@ msgstr "Routine"
 #: src/pages/RoutineEditor.tsx
 msgid "Routines"
 msgstr "Routinen"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Routines stay disabled until enabled individually."
+msgstr "Routinen bleiben deaktiviert, bis sie einzeln aktiviert werden."
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -4317,6 +4407,10 @@ msgstr "Bot auswählen"
 msgid "Select a connected model"
 msgstr "Verbundenes Modell auswählen"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr "Person auswählen"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Ticket auswählen"
@@ -4373,6 +4467,10 @@ msgstr "Servername"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "Server-URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr "Verantwortliche Person festlegen"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4975,6 +5073,10 @@ msgstr "Nicht zugeordnet"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"
 msgstr "Nicht verfügbar"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Unfinished tickets"
+msgstr "Offene Tickets"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

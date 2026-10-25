@@ -271,8 +271,11 @@ msgstr "Actions for {0}"
 msgid "Actions for space"
 msgstr "Actions for space"
 
+#: src/components/BotRestorePreview.tsx
 #: src/components/GoalEditor.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "Active"
@@ -286,6 +289,7 @@ msgstr "Active model"
 msgid "Activity"
 msgstr "Activity"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +368,10 @@ msgstr "Add key result"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "Add MCP server"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr "Add member"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -594,6 +602,7 @@ msgstr "Archive key result"
 msgid "archived"
 msgstr "archived"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
@@ -892,6 +901,7 @@ msgid "Can't reach the server."
 msgstr "Can't reach the server."
 
 #: src/components/AskCard.tsx
+#: src/components/BotRestorePreview.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
@@ -1051,6 +1061,10 @@ msgstr "Clear filter {label}"
 msgid "Clear or replace the archived milestone before saving."
 msgstr "Clear or replace the archived milestone before saving."
 
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr "Clear owner"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "Clearing…"
@@ -1072,6 +1086,7 @@ msgstr "Client secret"
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/WindowChrome.tsx
 msgid "Close"
@@ -2132,6 +2147,10 @@ msgstr "Desktop update"
 msgid "Direct MCP"
 msgstr "Direct MCP"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Disabled routines"
+msgstr "Disabled routines"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr "Disabled tools"
@@ -2283,6 +2302,14 @@ msgstr "Email is not allowed to register"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "Email verification required"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enable"
+msgstr "Enable"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enabled"
+msgstr "Enabled"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2621,6 +2648,11 @@ msgstr "High"
 #: src/lib/model-catalog.ts
 msgid "High"
 msgstr "High"
+
+#: src/components/BotRestorePreview.tsx
+#: src/components/ProjectMembers.tsx
+msgid "Historical runs stay with their original project."
+msgstr "Historical runs stay with their original project."
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2999,6 +3031,14 @@ msgstr "Medium"
 msgid "Medium"
 msgstr "Medium"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Member"
+msgstr "Member"
+
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr "Members"
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3308,6 +3348,10 @@ msgstr "No credentials saved for this bot."
 msgid "No data"
 msgstr "No data"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No disabled routines."
+msgstr "No disabled routines."
+
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
 msgstr "No goals"
@@ -3344,6 +3388,10 @@ msgstr "No MCP or API tool sources installed yet."
 msgid "No MCP servers yet."
 msgstr "No MCP servers yet."
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr "No members yet."
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "No messages with {peerBotName} yet."
@@ -3360,9 +3408,18 @@ msgstr "No model charges. Deterministic fixture for tests."
 msgid "No models listed."
 msgstr "No models listed."
 
+#: src/components/BotRestorePreview.tsx
+msgid "No project"
+msgstr "No project"
+
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "No project budget is configured."
+
+#: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
+msgid "No project owner assigned."
+msgstr "No project owner assigned."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3406,6 +3463,10 @@ msgstr "No tools available."
 msgid "No trigger"
 msgstr "No trigger"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No unfinished tickets."
+msgstr "No unfinished tickets."
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "None"
@@ -3417,6 +3478,10 @@ msgstr "None yet"
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "Normal"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Not a member"
+msgstr "Not a member"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3605,6 +3670,7 @@ msgstr "Output: {price}"
 msgid "Overdue"
 msgstr "Overdue"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Owner"
@@ -3659,6 +3725,8 @@ msgstr "Paste your API key"
 msgid "Paste your API key, then test again."
 msgstr "Paste your API key, then test again."
 
+#: src/components/BotRestorePreview.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Paused"
@@ -3745,6 +3813,15 @@ msgstr "Project budget"
 msgid "Project ID"
 msgstr "Project ID"
 
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr "Project members"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Project paused"
+msgstr "Project paused"
+
+#: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
@@ -3909,6 +3986,7 @@ msgid "Release interrupted computer?"
 msgstr "Release interrupted computer?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4062,6 +4140,14 @@ msgstr "Restart to update"
 msgid "Restore"
 msgstr "Restore"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Restore employee"
+msgstr "Restore employee"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Restore preview"
+msgstr "Restore preview"
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
 msgstr "Restore the last saved workspace."
@@ -4126,6 +4212,10 @@ msgstr "Routine"
 #: src/pages/RoutineEditor.tsx
 msgid "Routines"
 msgstr "Routines"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Routines stay disabled until enabled individually."
+msgstr "Routines stay disabled until enabled individually."
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -4317,6 +4407,10 @@ msgstr "Select a bot"
 msgid "Select a connected model"
 msgstr "Select a connected model"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr "Select a person"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Select a ticket"
@@ -4373,6 +4467,10 @@ msgstr "Server name"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "Server URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr "Set owner"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4975,6 +5073,10 @@ msgstr "Unassociated"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"
 msgstr "Unavailable"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Unfinished tickets"
+msgstr "Unfinished tickets"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

@@ -818,6 +818,12 @@ function Home() {
             >
               <NativeSymbol ios="square.stack.3d.up" android="layers-outline" size={17} />
             </HeaderButton>
+            <HeaderButton
+              accessibilityLabel={t("Projects")}
+              onPress={() => router.push("/projects")}
+            >
+              <NativeSymbol ios="folder" android="folder-open" size={17} />
+            </HeaderButton>
             <MenuView
               actions={[
                 { id: "bot", title: t("New bot"), image: "person.crop.circle.badge.plus" },

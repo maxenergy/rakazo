@@ -271,8 +271,11 @@ msgstr "{0} 的操作"
 msgid "Actions for space"
 msgstr "工作区操作"
 
+#: src/components/BotRestorePreview.tsx
 #: src/components/GoalEditor.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "启用"
@@ -286,6 +289,7 @@ msgstr "当前模型"
 msgid "Activity"
 msgstr "动态"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +368,10 @@ msgstr "添加关键结果"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "添加 MCP 服务器"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr "添加成员"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -594,6 +602,7 @@ msgstr "归档关键结果"
 msgid "archived"
 msgstr "已归档"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
@@ -892,6 +901,7 @@ msgid "Can't reach the server."
 msgstr "无法连接服务器。"
 
 #: src/components/AskCard.tsx
+#: src/components/BotRestorePreview.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
@@ -1051,6 +1061,10 @@ msgstr "清除筛选条件 {label}"
 msgid "Clear or replace the archived milestone before saving."
 msgstr "保存前请清除或替换已归档的里程碑。"
 
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr "清除负责人"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "正在清空…"
@@ -1072,6 +1086,7 @@ msgstr "客户端密钥"
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/WindowChrome.tsx
 msgid "Close"
@@ -2132,6 +2147,10 @@ msgstr "桌面端更新"
 msgid "Direct MCP"
 msgstr "直接连接 MCP"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Disabled routines"
+msgstr "已停用的定时任务"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr "已禁用的工具"
@@ -2283,6 +2302,14 @@ msgstr "该邮箱不允许注册"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "需要验证邮箱"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enable"
+msgstr "启用"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enabled"
+msgstr "已启用"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2621,6 +2648,11 @@ msgstr "高"
 #: src/lib/model-catalog.ts
 msgid "High"
 msgstr "高"
+
+#: src/components/BotRestorePreview.tsx
+#: src/components/ProjectMembers.tsx
+msgid "Historical runs stay with their original project."
+msgstr "历史运行仍归属原项目。"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2999,6 +3031,14 @@ msgstr "中"
 msgid "Medium"
 msgstr "中"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Member"
+msgstr "成员"
+
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr "成员"
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "成员（{GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX}）"
@@ -3308,6 +3348,10 @@ msgstr "此机器人尚未保存凭据。"
 msgid "No data"
 msgstr "暂无数据"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No disabled routines."
+msgstr "没有已停用的定时任务。"
+
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
 msgstr "暂无目标"
@@ -3344,6 +3388,10 @@ msgstr "还没有安装 MCP 或 API 工具源。"
 msgid "No MCP servers yet."
 msgstr "还没有 MCP 服务器。"
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr "还没有成员。"
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "还没有与 {peerBotName} 的消息。"
@@ -3360,9 +3408,18 @@ msgstr "不产生模型费用。用于测试的确定性模拟。"
 msgid "No models listed."
 msgstr "未列出模型。"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No project"
+msgstr "没有项目"
+
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "尚未配置项目预算。"
+
+#: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
+msgid "No project owner assigned."
+msgstr "尚未分配项目负责人。"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3406,6 +3463,10 @@ msgstr "暂无可用工具。"
 msgid "No trigger"
 msgstr "无触发器"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No unfinished tickets."
+msgstr "没有未完成工单。"
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "无"
@@ -3417,6 +3478,10 @@ msgstr "暂无"
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "普通"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Not a member"
+msgstr "不是成员"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3605,6 +3670,7 @@ msgstr "输出：{price}"
 msgid "Overdue"
 msgstr "已逾期"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "负责人"
@@ -3659,6 +3725,8 @@ msgstr "粘贴你的 API 密钥"
 msgid "Paste your API key, then test again."
 msgstr "请粘贴你的 API 密钥，然后重新测试。"
 
+#: src/components/BotRestorePreview.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "已暂停"
@@ -3745,6 +3813,15 @@ msgstr "项目预算"
 msgid "Project ID"
 msgstr "项目 ID"
 
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr "项目成员"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Project paused"
+msgstr "项目已暂停"
+
+#: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
@@ -3909,6 +3986,7 @@ msgid "Release interrupted computer?"
 msgstr "释放已中断的电脑？"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4062,6 +4140,14 @@ msgstr "重启并更新"
 msgid "Restore"
 msgstr "恢复"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Restore employee"
+msgstr "恢复员工"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Restore preview"
+msgstr "恢复预览"
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
 msgstr "恢复上次保存的工作区。"
@@ -4126,6 +4212,10 @@ msgstr "例行任务"
 #: src/pages/RoutineEditor.tsx
 msgid "Routines"
 msgstr "例行任务"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Routines stay disabled until enabled individually."
+msgstr "定时任务会保持停用，直到逐条启用。"
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -4317,6 +4407,10 @@ msgstr "选择 Bot"
 msgid "Select a connected model"
 msgstr "选择已连接的模型"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr "选择人员"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "选择工单"
@@ -4373,6 +4467,10 @@ msgstr "服务器名称"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "服务器 URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr "设置负责人"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4975,6 +5073,10 @@ msgstr "未关联"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"
 msgstr "不可用"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Unfinished tickets"
+msgstr "未完成工单"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

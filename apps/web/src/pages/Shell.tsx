@@ -141,6 +141,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArtifactFileCard } from "../components/ArtifactFileCard";
 import { AskCard } from "../components/AskCard";
 import { ActiveBotGlyph, CollaborationMarker } from "../components/ai/CollaborationMarker";
+import { BotRestorePreview, type RestorePreview } from "../components/BotRestorePreview";
 import { CloudAgentCard } from "../components/CloudAgentCard";
 import { ComputerMaintenanceActions } from "../components/ComputerMaintenanceActions";
 import {
@@ -428,6 +429,12 @@ export function ShellPage() {
   const [archivedBots, setArchivedBots] = useState<Bot[]>([]);
   const [archivedGroups, setArchivedGroups] = useState<Group[]>([]);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [restorePreview, setRestorePreview] = useState<{
+    bot: Bot;
+    preview: RestorePreview;
+  } | null>(null);
+  const [restorePreviewLoading, setRestorePreviewLoading] = useState(false);
+  const [restorePreviewError, setRestorePreviewError] = useState<string | null>(null);
   const [collapsedSidebarSections, setCollapsedSidebarSections] = useState(() => new Set<string>());
   const [collapsedRosterParents, setCollapsedRosterParents] = useState(() => new Set<string>());
 
@@ -3377,9 +3384,20 @@ export function ShellPage() {
                       <Button
                         variant="ghost"
                         size="xs"
-                        onClick={() =>
-                          void rpc.bots.restore({ botId: bot.id }).then(() => refreshBots(true))
-                        }
+                        disabled={restorePreviewLoading}
+                        onClick={() => {
+                          setRestorePreviewLoading(true);
+                          setRestorePreviewError(null);
+                          void rpc.bots
+                            .continuationPreview({ botId: bot.id })
+                            .then((preview) => {
+                              setRestorePreview({ bot, preview });
+                            })
+                            .catch((cause: unknown) => {
+                              setRestorePreviewError(String(cause));
+                            })
+                            .finally(() => setRestorePreviewLoading(false));
+                        }}
                       >
                         <Trans>Restore</Trans>
                       </Button>
@@ -4371,6 +4389,35 @@ export function ShellPage() {
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : null}
+
+        {restorePreview ? (
+          <BotRestorePreview
+            botName={restorePreview.bot.name}
+            preview={restorePreview.preview}
+            onCancel={() => setRestorePreview(null)}
+            onEnableRoutine={async (routineId) => {
+              await rpc.routines.update({ routineId, active: true });
+            }}
+            onConfirmRestore={async () => {
+              await rpc.bots.restore({ botId: restorePreview.bot.id });
+              setRestorePreview(null);
+              await refreshBots(true);
+            }}
+          />
+        ) : restorePreviewError ? (
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+          >
+            <div className="space-y-3 rounded-lg border bg-background p-5 text-foreground shadow-lg">
+              <p>{restorePreviewError}</p>
+              <Button type="button" onClick={() => setRestorePreviewError(null)}>
+                <Trans>Close</Trans>
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {deleteTarget ? (

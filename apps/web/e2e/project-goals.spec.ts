@@ -14,6 +14,9 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("heading", { name: "Goal acceptance project", exact: true }),
     ).toBeVisible();
+    const members = page.getByRole("region", { name: "Project members" });
+    await expect(members).toBeVisible();
+    await expect(members.getByRole("heading", { name: "Members", exact: true })).toBeVisible();
     if (width === 390) {
       await expect(
         page.getByRole("button", { name: "Board", exact: true }).filter({ visible: true }),

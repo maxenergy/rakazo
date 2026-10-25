@@ -271,8 +271,11 @@ msgstr "Действия для {0}"
 msgid "Actions for space"
 msgstr "Действия для пространства"
 
+#: src/components/BotRestorePreview.tsx
 #: src/components/GoalEditor.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "Активный"
@@ -286,6 +289,7 @@ msgstr "Активная модель"
 msgid "Activity"
 msgstr "Активность"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +368,10 @@ msgstr "Добавить ключевой результат"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "Добавить MCP-сервер"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr "Добавить участника"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -594,6 +602,7 @@ msgstr "Архивировать ключевой результат"
 msgid "archived"
 msgstr "в архиве"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Archived"
@@ -892,6 +901,7 @@ msgid "Can't reach the server."
 msgstr "Не удаётся связаться с сервером."
 
 #: src/components/AskCard.tsx
+#: src/components/BotRestorePreview.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
@@ -1051,6 +1061,10 @@ msgstr "Сбросить фильтр {label}"
 msgid "Clear or replace the archived milestone before saving."
 msgstr "Перед сохранением удалите или замените архивный этап."
 
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr "Снять владельца"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "Очистка…"
@@ -1072,6 +1086,7 @@ msgstr "Секрет клиента"
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/WindowChrome.tsx
 msgid "Close"
@@ -2132,6 +2147,10 @@ msgstr "Обновление настольного приложения"
 msgid "Direct MCP"
 msgstr "Прямой MCP"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Disabled routines"
+msgstr "Отключённые сценарии"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr "Отключённые инструменты"
@@ -2283,6 +2302,14 @@ msgstr "Регистрация с этим адресом электронной
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "Требуется подтверждение электронной почты"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enable"
+msgstr "Включить"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Enabled"
+msgstr "Включено"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2621,6 +2648,11 @@ msgstr "Высокий"
 #: src/lib/model-catalog.ts
 msgid "High"
 msgstr "Высокий"
+
+#: src/components/BotRestorePreview.tsx
+#: src/components/ProjectMembers.tsx
+msgid "Historical runs stay with their original project."
+msgstr "История запусков остаётся в исходном проекте."
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2999,6 +3031,14 @@ msgstr "Средний"
 msgid "Medium"
 msgstr "Средний"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Member"
+msgstr "Участник"
+
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr "Участники"
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "Участники ({GROUP_MEMBER_MIN} – {GROUP_MEMBER_MAX})"
@@ -3308,6 +3348,10 @@ msgstr "Для этого бота нет сохранённых учётных 
 msgid "No data"
 msgstr "Нет данных"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No disabled routines."
+msgstr "Нет отключённых сценариев."
+
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
 msgstr "Нет целей"
@@ -3344,6 +3388,10 @@ msgstr "Источники инструментов MCP или API пока не
 msgid "No MCP servers yet."
 msgstr "Серверов MCP пока нет."
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr "Участников пока нет."
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "Сообщений с {peerBotName} пока нет."
@@ -3360,9 +3408,18 @@ msgstr "Без платы за модель. Детерминированная 
 msgid "No models listed."
 msgstr "Модели не перечислены."
 
+#: src/components/BotRestorePreview.tsx
+msgid "No project"
+msgstr "Нет проекта"
+
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "Бюджет проекта не настроен."
+
+#: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
+msgid "No project owner assigned."
+msgstr "У проекта нет назначенного владельца."
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3406,6 +3463,10 @@ msgstr "Нет доступных инструментов."
 msgid "No trigger"
 msgstr "Нет триггера"
 
+#: src/components/BotRestorePreview.tsx
+msgid "No unfinished tickets."
+msgstr "Нет незавершённых задач."
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "Нет"
@@ -3417,6 +3478,10 @@ msgstr "Пока нет"
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "Обычный"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Not a member"
+msgstr "Не участник"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3605,6 +3670,7 @@ msgstr "Вывод: {price}"
 msgid "Overdue"
 msgstr "Просрочено"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Ответственный"
@@ -3659,6 +3725,8 @@ msgstr "Вставьте свой ключ API"
 msgid "Paste your API key, then test again."
 msgstr "Вставьте API-ключ и повторите тест."
 
+#: src/components/BotRestorePreview.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Приостановлено"
@@ -3745,6 +3813,15 @@ msgstr "Бюджет проекта"
 msgid "Project ID"
 msgstr "ID проекта"
 
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr "Участники проекта"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Project paused"
+msgstr "Проект приостановлен"
+
+#: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
 msgid "Projects"
@@ -3909,6 +3986,7 @@ msgid "Release interrupted computer?"
 msgstr "Освободить прерванный компьютер?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4062,6 +4140,14 @@ msgstr "Перезапустить для обновления"
 msgid "Restore"
 msgstr "Восстановить"
 
+#: src/components/BotRestorePreview.tsx
+msgid "Restore employee"
+msgstr "Восстановить сотрудника"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Restore preview"
+msgstr "Предпросмотр восстановления"
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
 msgstr "Восстановить последнее сохранённое рабочее пространство."
@@ -4126,6 +4212,10 @@ msgstr "Задача"
 #: src/pages/RoutineEditor.tsx
 msgid "Routines"
 msgstr "Задачи"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Routines stay disabled until enabled individually."
+msgstr "Сценарии остаются отключёнными, пока не будут включены по одному."
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -4317,6 +4407,10 @@ msgstr "Выберите бота"
 msgid "Select a connected model"
 msgstr "Выберите подключённую модель"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr "Выберите человека"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Выберите задачу"
@@ -4373,6 +4467,10 @@ msgstr "Имя сервера"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "URL-адрес сервера"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr "Назначить владельца"
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4975,6 +5073,10 @@ msgstr "Без связи"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Unavailable"
 msgstr "Недоступно"
+
+#: src/components/BotRestorePreview.tsx
+msgid "Unfinished tickets"
+msgstr "Незавершённые задачи"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

@@ -69,7 +69,7 @@ const enabled = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATAB
   });
   it("reassigns membership without changing historical runs or the employee workspace", async () => {
     const before = await prisma.bot.findUniqueOrThrow({ where: { id: botId } });
-    const thread = await prisma.thread.create({ data: { spaceId: id, userId: id } });
+    const thread = await prisma.thread.create({ data: { spaceId: id, userId: id, botId } });
     const task = await prisma.task.create({
       data: {
         spaceId: id,

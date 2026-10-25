@@ -119,14 +119,19 @@ import {
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
 import {
+  BotProjectSchema,
   CreateMilestoneInput,
   CreateProjectInput,
+  EditProjectMemberInput,
   ListMilestonesInput,
   ListProjectsInput,
   MilestoneSchema,
   ProjectBudgetSchema,
+  ProjectMemberSchema,
+  ProjectMembersInput,
   ProjectSchema,
   SetProjectBudgetInput,
+  SetProjectOwnerInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
 } from "./projects.js";
@@ -339,7 +344,7 @@ export const appContract = {
       .output(ModelBackupListSchema),
     list: oc.output(z.array(BotSchema)),
     listArchived: oc.output(z.array(BotSchema)),
-    get: oc.input(botId).output(BotSchema),
+    get: oc.input(botId).output(BotSchema.extend({ projects: z.array(BotProjectSchema) })),
     create: oc.input(CreateBotInput).output(BotSchema),
     duplicate: oc.input(botId).output(BotSchema),
     /** Create (or return) the CEO and CTO launch team and their group chat. */
@@ -656,6 +661,10 @@ export const appContract = {
     delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
   },
   projects: {
+    members: oc.input(ProjectMembersInput).output(z.array(ProjectMemberSchema)),
+    addMember: oc.input(EditProjectMemberInput).output(z.array(ProjectMemberSchema)),
+    removeMember: oc.input(EditProjectMemberInput).output(z.array(ProjectMemberSchema)),
+    setOwner: oc.input(SetProjectOwnerInput).output(z.array(ProjectMemberSchema)),
     budget: oc.input(z.object({ projectId: Id })).output(ProjectBudgetSchema.nullable()),
     setBudget: oc.input(SetProjectBudgetInput).output(ProjectBudgetSchema),
     list: oc.input(ListProjectsInput).output(z.array(ProjectSchema)),

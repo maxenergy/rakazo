@@ -201,6 +201,7 @@ import {
   deleteMilestone,
   deleteProject,
   deleteUnreferencedCredentialSecret,
+  editProjectMember,
   ensureBoard,
   findDefaultModelCredential,
   findDefaultVoiceCredential,
@@ -224,9 +225,11 @@ import {
   ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
+  readBotProjects,
   readGoals,
   readKeyResults,
   readMilestones,
+  readProjectMembers,
   readProjects,
   readTicketDependencies,
   releaseSpaceDeletionClaim,
@@ -1746,7 +1749,10 @@ export function createRouter(deps: RouterDeps) {
       get: authed.bots.get.handler(async ({ context, input }) => {
         const found = (await repos.listBots(context.actor)).find((bot) => bot.id === input.botId);
         if (!found) throw new IsolationError();
-        return found;
+        const projects = await deps.prisma.$transaction((tx) =>
+          readBotProjects(tx, context.actor.spaceId, input.botId),
+        );
+        return { ...found, projects };
       }),
       create: authed.bots.create.handler(async ({ context, input }) => {
         let bot: Bot;
@@ -4131,6 +4137,46 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     projects: {
+      members: boardEnabled.projects.members.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => readProjectMembers(tx, context.actor.spaceId, input.projectId),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      addMember: boardEnabled.projects.addMember.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "add", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+      removeMember: boardEnabled.projects.removeMember.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "remove", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+      setOwner: boardEnabled.projects.setOwner.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "owner", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+
       budget: boardEnabled.projects.budget.handler(async ({ context, input }) => {
         const spaceId = context.actor.spaceId;
         const project = await deps.prisma.project.findFirst({

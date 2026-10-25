@@ -77,4 +77,33 @@ const enabled = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATAB
       archived: true,
     });
   });
+  it("manages project members using the same scoped persistence rules", async () => {
+    const userId = id + "-member-user";
+    await prisma.user.create({
+      data: { id: userId, email: userId + "@example.test", name: "Fixture" },
+    });
+    try {
+      const bot = await prisma.bot.create({
+        data: { spaceId: id, userId, name: "Member", color: "blue" },
+      });
+      const deps = { prisma, ticketBoardEnabled: true };
+      expect(
+        await executeGoalTool(deps, id, "project_set_owner", { projectId, botId: bot.id }),
+      ).toMatchObject([{ botId: bot.id, role: "owner" }]);
+      expect(
+        await executeGoalTool(deps, id, "project_add_member", { projectId, botId: bot.id }),
+      ).toMatchObject([{ role: "owner" }]);
+      expect(await executeGoalTool(deps, foreign, "project_members", { projectId })).toEqual({
+        error: "Resource not found.",
+      });
+      expect(
+        await executeGoalTool(deps, id, "project_set_owner", { projectId, botId: null }),
+      ).toMatchObject([{ role: "member" }]);
+      expect(
+        await executeGoalTool(deps, id, "project_remove_member", { projectId, botId: bot.id }),
+      ).toEqual([]);
+    } finally {
+      await prisma.user.delete({ where: { id: userId } });
+    }
+  });
 });

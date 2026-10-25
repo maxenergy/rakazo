@@ -75,6 +75,7 @@ export const DELEGATION_TOOL_NAMES = new Set([
 ]);
 
 const scheduleCreateProperties = {
+  projectId: { type: ["string", "null"], description: "所属项目 ID；为空时不归属项目。" },
   name: { type: "string", description: "Short label shown in Routines." },
   prompt: {
     type: "string",
@@ -149,9 +150,11 @@ export const builtinAgentTools: ConnectorTool[] = [
   ...Object.entries(goalToolInputs).map(
     ([name, schema]): ConnectorTool => ({
       name,
-      description: `${name.replaceAll("_", " ")}. Goal/KR values and state require explicit updates; calculationRule describes how values are measured. Project progress never automatically achieves a KR.`,
+      description: name.startsWith("project_")
+        ? "管理项目状态、成员与唯一负责人。project_update 设置 status 暂停/恢复，返回在途运行；默认安全收尾，cancelRunIds 仅请求取消所选运行，外部进程仍待人工确认。所有操作限制在当前空间。"
+        : `${name.replaceAll("_", " ")}. Goal/KR values and state require explicit updates; calculationRule describes how values are measured. Project progress never automatically achieves a KR.`,
       inputSchema: z.toJSONSchema(schema, { io: "input" }),
-      readOnly: name.endsWith("_list") || name.endsWith("_get"),
+      readOnly: name === "project_members" || name.endsWith("_list") || name.endsWith("_get"),
     }),
   ),
 
@@ -959,6 +962,15 @@ export const builtinAgentTools: ConnectorTool[] = [
     description:
       'Create a reminder or recurring job for this bot. Use for "remind me in 10 minutes" or "every morning send a joke". Repeats: cron or every/unit (min 1 minute). One-shot: runAt, delayMinutes, or delaySeconds.',
     inputSchema: scheduleCreateInputSchema,
+  },
+  {
+    name: "schedule_update",
+    description: "编辑当前员工定时任务的项目归属；projectId 为空时清除归属，不启用停用的任务。",
+    inputSchema: {
+      type: "object",
+      properties: { routineId: { type: "string" }, projectId: { type: ["string", "null"] } },
+      required: ["routineId", "projectId"],
+    },
   },
   {
     name: "schedule_list",

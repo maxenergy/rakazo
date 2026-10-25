@@ -214,6 +214,11 @@ describe("builtin tools", () => {
       voiceCall: true,
     };
     const ticketNames = [
+      "project_update",
+      "project_members",
+      "project_add_member",
+      "project_remove_member",
+      "project_set_owner",
       "board_tickets",
       "ticket_dependency_list",
       "ticket_dependency_add",

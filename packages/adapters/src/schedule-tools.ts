@@ -13,11 +13,17 @@ import {
   type Prisma,
   type PrismaClient,
   type ThreadEvents,
+  validateProjectFilter,
 } from "@rakazo/db";
 
 export { isOneShotRoutineCron, ONCE_ROUTINE_CRON };
 
-export const SCHEDULE_TOOL_NAMES = new Set(["schedule_create", "schedule_list", "schedule_cancel"]);
+export const SCHEDULE_TOOL_NAMES = new Set([
+  "schedule_create",
+  "schedule_update",
+  "schedule_list",
+  "schedule_cancel",
+]);
 
 export function filterBuiltinToolsForRun<T extends { name: string }>(
   tools: T[],
@@ -216,6 +222,7 @@ export async function createScheduleFromTool(
     botId: string;
     userId: string;
     threadId: string;
+    projectId?: string | null;
     name: string;
     prompt: string;
     timezone?: string;
@@ -231,10 +238,12 @@ export async function createScheduleFromTool(
   const resolved = resolveScheduleTiming(input.schedule, timezone);
   if (!resolved.ok) return { error: resolved.error };
 
-  const row = await fencedScheduleWrite(deps, input, (tx) =>
-    tx.routine.create({
+  const row = await fencedScheduleWrite(deps, input, async (tx) => {
+    await validateProjectFilter(tx, input.spaceId, { projectId: input.projectId });
+    return tx.routine.create({
       data: {
         spaceId: input.spaceId,
+        projectId: input.projectId,
         botId: input.botId,
         userId: input.userId,
         threadId: input.threadId,
@@ -246,8 +255,8 @@ export async function createScheduleFromTool(
         active: true,
         nextRunAt: resolved.nextRunAt,
       },
-    }),
-  );
+    });
+  });
 
   try {
     await deps.jobs.enqueue(routineWakeupJob(row.id, resolved.nextRunAt));
@@ -306,6 +315,7 @@ export async function listSchedulesFromTool(
   return {
     routines: rows.map((row) => ({
       routineId: row.id,
+      projectId: row.projectId ?? null,
       name: row.name,
       prompt: row.prompt,
       crons: row.crons,
@@ -363,5 +373,33 @@ async function fencedScheduleWrite<T>(
       await tx.$queryRaw`SELECT id FROM threads WHERE id = ${scope.threadId} FOR KEY SHARE`;
     await assertExecutionFence(tx, deps.executionFence!);
     return write(tx);
+  });
+}
+
+/** Edit project attribution without enabling a disabled routine. */
+export async function updateScheduleProjectFromTool(
+  deps: ScheduleToolDeps,
+  input: {
+    spaceId: string;
+    botId: string;
+    userId: string;
+    routineId: string;
+    projectId: string | null;
+  },
+) {
+  return fencedScheduleWrite(deps, input, async (tx) => {
+    const routine = await tx.routine.findFirst({
+      where: {
+        id: input.routineId,
+        spaceId: input.spaceId,
+        botId: input.botId,
+        userId: input.userId,
+        bot: { archivedAt: null },
+      },
+    });
+    if (!routine) return { error: "Routine not found." };
+    await validateProjectFilter(tx, input.spaceId, { projectId: input.projectId });
+    await tx.routine.update({ where: { id: routine.id }, data: { projectId: input.projectId } });
+    return { routineId: routine.id, projectId: input.projectId };
   });
 }

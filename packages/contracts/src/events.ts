@@ -39,6 +39,7 @@ export const ProductEventType = z.enum([
   "routine.created",
   "routine.updated",
   "routine.fired",
+  "routine.skipped",
   "skill.teaching.started",
   "skill.teaching.stopped",
   "skill.draft.created",

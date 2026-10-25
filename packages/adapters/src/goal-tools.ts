@@ -1,10 +1,14 @@
 import {
   CreateGoalInput,
   CreateKeyResultInput,
+  EditProjectMemberInput,
   ListGoalsInput,
   ListKeyResultsInput,
+  ProjectMembersInput,
+  SetProjectOwnerInput,
   UpdateGoalInput,
   UpdateKeyResultInput,
+  UpdateProjectInput,
 } from "@rakazo/contracts";
 import {
   archiveKeyResult,
@@ -14,20 +18,29 @@ import {
   deleteGoal,
   deleteKeyResult,
   type ExecutionFence,
+  editProjectMember,
   lockTicketSpace,
   Prisma,
   type PrismaClient,
   ProjectLinkError,
   readGoals,
   readKeyResults,
+  readProjectMembers,
+  readProjects,
   updateGoal,
   updateKeyResult,
+  updateProject,
   withTransactionRetry,
 } from "@rakazo/db";
 import { z } from "zod";
 
 const idInput = z.object({ id: z.string().min(1) });
 export const goalToolInputs = {
+  project_update: UpdateProjectInput,
+  project_members: ProjectMembersInput,
+  project_add_member: EditProjectMemberInput,
+  project_remove_member: EditProjectMemberInput,
+  project_set_owner: SetProjectOwnerInput,
   goal_list: ListGoalsInput,
   goal_get: idInput,
   goal_create: CreateGoalInput,
@@ -63,6 +76,23 @@ export async function executeGoalTool(
             await assertExecutionFence(tx, deps.executionFence);
           }
           switch (name) {
+            case "project_update": {
+              const row = await updateProject(tx, spaceId, UpdateProjectInput.parse(args));
+              return {
+                ...(await readProjects(tx, spaceId, { id: row.id }))[0]!,
+                cancellationRequests: (UpdateProjectInput.parse(args).cancelRunIds ?? []).map(
+                  (id) => ({ id, externalProcessState: "needs_confirmation" as const }),
+                ),
+              };
+            }
+            case "project_members":
+              return readProjectMembers(tx, spaceId, ProjectMembersInput.parse(args).projectId);
+            case "project_add_member":
+              return editProjectMember(tx, spaceId, "add", EditProjectMemberInput.parse(args));
+            case "project_remove_member":
+              return editProjectMember(tx, spaceId, "remove", EditProjectMemberInput.parse(args));
+            case "project_set_owner":
+              return editProjectMember(tx, spaceId, "owner", SetProjectOwnerInput.parse(args));
             case "goal_list":
               return readGoals(tx, spaceId, ListGoalsInput.parse(args));
             case "goal_get":

@@ -177,6 +177,7 @@ import {
   archiveKeyResult,
   archiveMilestone,
   archiveProject,
+  assertProjectExecutionAllowed,
   BotSectionNameConflictError,
   CannotDeleteDefaultSpaceError,
   CannotDeleteLastSpaceError,
@@ -201,6 +202,7 @@ import {
   deleteMilestone,
   deleteProject,
   deleteUnreferencedCredentialSecret,
+  editProjectMember,
   ensureBoard,
   findDefaultModelCredential,
   findDefaultVoiceCredential,
@@ -224,9 +226,11 @@ import {
   ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
+  readBotProjects,
   readGoals,
   readKeyResults,
   readMilestones,
+  readProjectMembers,
   readProjects,
   readTicketDependencies,
   releaseSpaceDeletionClaim,
@@ -1746,7 +1750,10 @@ export function createRouter(deps: RouterDeps) {
       get: authed.bots.get.handler(async ({ context, input }) => {
         const found = (await repos.listBots(context.actor)).find((bot) => bot.id === input.botId);
         if (!found) throw new IsolationError();
-        return found;
+        const projects = await deps.prisma.$transaction((tx) =>
+          readBotProjects(tx, context.actor.spaceId, input.botId),
+        );
+        return { ...found, projects };
       }),
       create: authed.bots.create.handler(async ({ context, input }) => {
         let bot: Bot;
@@ -3536,6 +3543,9 @@ export function createRouter(deps: RouterDeps) {
           });
         }
         const bot = await repos.getBot(context.actor, input.botId);
+        await validateProjectFilter(deps.prisma, context.actor.spaceId, {
+          projectId: input.projectId,
+        });
         await assertRoutineModel(deps, context.actor, input);
         // Validate every recurring cron even when inactive; @once and webhook-only have no next date.
         let nextRunAt: Date | null = null;
@@ -3548,6 +3558,7 @@ export function createRouter(deps: RouterDeps) {
             spaceId: context.actor.spaceId,
             botId: input.botId,
             userId: context.actor.userId,
+            projectId: input.projectId,
             name: input.name,
             prompt: input.prompt,
             crons: input.crons,
@@ -3588,6 +3599,9 @@ export function createRouter(deps: RouterDeps) {
           },
         });
         if (!existing) throw new ORPCError("NOT_FOUND");
+        await validateProjectFilter(deps.prisma, context.actor.spaceId, {
+          projectId: input.projectId,
+        });
         const bot = await repos.getBot(context.actor, existing.botId);
         const active = input.active ?? existing.active;
         const crons = input.crons ?? existing.crons;
@@ -3700,6 +3714,7 @@ export function createRouter(deps: RouterDeps) {
                 : {}),
             },
             data: {
+              projectId: input.projectId,
               name: input.name,
               prompt: input.prompt,
               crons: input.crons,
@@ -3797,6 +3812,7 @@ export function createRouter(deps: RouterDeps) {
               });
               if (existing) return existing;
             }
+            await assertProjectExecutionAllowed(tx, context.actor.spaceId, routine.projectId);
             const task = await tx.task.create({
               data: {
                 spaceId: context.actor.spaceId,
@@ -3822,6 +3838,7 @@ export function createRouter(deps: RouterDeps) {
                 status: "queued",
                 trigger: "routine",
                 routineId: routine.id,
+                projectId: routine.projectId,
                 ...routineRunModelPin(currentModel),
                 clientNonce: nonce,
               },
@@ -4131,6 +4148,46 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     projects: {
+      members: boardEnabled.projects.members.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => readProjectMembers(tx, context.actor.spaceId, input.projectId),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      addMember: boardEnabled.projects.addMember.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "add", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+      removeMember: boardEnabled.projects.removeMember.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "remove", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+      setOwner: boardEnabled.projects.setOwner.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "owner", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+
       budget: boardEnabled.projects.budget.handler(async ({ context, input }) => {
         const spaceId = context.actor.spaceId;
         const project = await deps.prisma.project.findFirst({
@@ -4219,7 +4276,13 @@ export function createRouter(deps: RouterDeps) {
           deps.prisma.$transaction(
             async (tx) => {
               const row = await updateProject(tx, spaceId, input);
-              return (await readProjects(tx, spaceId, { id: row.id }))[0]!;
+              return {
+                ...(await readProjects(tx, spaceId, { id: row.id }))[0]!,
+                cancellationRequests: (input.cancelRunIds ?? []).map((id) => ({
+                  id,
+                  externalProcessState: "needs_confirmation" as const,
+                })),
+              };
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
           ),
@@ -7628,6 +7691,7 @@ async function assertRoutineModel(
 }
 
 function mapRoutine(row: {
+  projectId?: string | null;
   id: string;
   botId: string;
   name: string;
@@ -7648,6 +7712,7 @@ function mapRoutine(row: {
 }): Routine {
   return {
     id: row.id,
+    projectId: row.projectId ?? null,
     botId: row.botId,
     name: row.name,
     prompt: row.prompt,

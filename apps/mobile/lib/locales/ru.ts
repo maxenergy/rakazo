@@ -2,6 +2,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Back to projects": "Назад к проектам",
   Home: "Главная",
   "Manage project members on web.": "Управляйте участниками проекта в веб-версии.",
+  Archived: "В архиве",
   Member: "Участник",
   "No members yet.": "Участников пока нет.",
   "No project owner assigned.": "Руководитель проекта не назначен.",

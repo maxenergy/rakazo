@@ -2,6 +2,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Back to projects": "返回项目列表",
   Home: "首页",
   "Manage project members on web.": "请前往 Web 管理项目成员。",
+  Archived: "已归档",
   Member: "成员",
   "No members yet.": "暂无成员。",
   "No project owner assigned.": "尚未指定项目负责人。",

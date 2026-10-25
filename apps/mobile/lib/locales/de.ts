@@ -3,6 +3,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Home: "Startseite",
   Loading: "Wird geladen",
   "Manage project members on web.": "Projektmitglieder im Web verwalten.",
+  Archived: "Archiviert",
   Member: "Mitglied",
   "No members yet.": "Noch keine Mitglieder.",
   "No project owner assigned.": "Keine Projektleitung festgelegt.",

@@ -67,6 +67,39 @@ const enabled = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATAB
     await edit("owner", botId);
     expect((await edit("remove", botId)).some((row) => row.role === "owner")).toBe(false);
   });
+  it("reassigns membership without changing historical runs or the employee workspace", async () => {
+    const before = await prisma.bot.findUniqueOrThrow({ where: { id: botId } });
+    const thread = await prisma.thread.create({ data: { spaceId: id, userId: id } });
+    const task = await prisma.task.create({
+      data: {
+        spaceId: id,
+        userId: id,
+        botId,
+        threadId: thread.id,
+        prompt: "Fixture",
+        status: "done",
+      },
+    });
+    const run = await prisma.run.create({
+      data: {
+        spaceId: id,
+        userId: id,
+        botId,
+        threadId: thread.id,
+        taskId: task.id,
+        projectId,
+        status: "done",
+        trigger: "ticket",
+      },
+    });
+    await edit("add", botId);
+    await edit("remove", botId);
+    await edit("add", botId, secondProjectId);
+    expect((await prisma.run.findUniqueOrThrow({ where: { id: run.id } })).projectId).toBe(
+      projectId,
+    );
+    expect(await prisma.bot.findUniqueOrThrow({ where: { id: botId } })).toEqual(before);
+  });
   it("rejects cross-space projects and bots without modifying membership", async () => {
     await expect(edit("add", foreignBotId)).rejects.toThrow("Resource not found.");
     await expect(

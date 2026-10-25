@@ -339,6 +339,7 @@ import {
   searchChartCatalog,
 } from "./plot-tool.js";
 import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
+import { projectRunMessages } from "./project-run-context.js";
 import { parseProposalArgs } from "./proposal-tools.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
@@ -3752,10 +3753,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const discoveredPromise = deps.connector
           ? deps.connector.discoverTools(context)
           : Promise.resolve([]);
+        // Shared employees keep their workspace, but project prompt history is isolated.
+        const projectMessages = run.projectId
+          ? projectRunMessages(
+              messages,
+              await deps.prisma.run.findMany({
+                where: { spaceId: run.spaceId, threadId: thread.id, projectId: run.projectId },
+                select: { id: true, sourceMessageId: true },
+              }),
+              run.sourceMessageId,
+            )
+          : messages;
         const threadContext = threadContextForRun(
           run.trigger,
           {
-            messages: [...messages].reverse().map((m) => ({
+            messages: [...projectMessages].reverse().map((m) => ({
               id: m.id,
               createdAt: m.createdAt?.toISOString(),
               seq: m.seq,
@@ -3765,8 +3777,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 | "system",
               content: messageToAgentHistoryText(m),
             })),
-            summary: thread.historyCompactionSummary,
-            historyCompactedUpToSeq: thread.historyCompactedUpToSeq,
+            summary: run.projectId ? null : thread.historyCompactionSummary,
+            historyCompactedUpToSeq: run.projectId ? null : thread.historyCompactedUpToSeq,
           },
           messagingChannelRun,
         );
@@ -3781,7 +3793,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           role,
           content,
         }));
-        const historyMessages = messages.map((message) => ({
+        const historyMessages = projectMessages.map((message) => ({
           id: message.id,
           role: message.role,
           runId: message.runId,
@@ -3809,6 +3821,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : DELEGATED_EMPTY_NOTICE
           : undefined;
         const recallPromise =
+          !run.projectId &&
           threadContext.includeSemanticRecall &&
           semanticMemory &&
           memoryScope &&
@@ -3834,10 +3847,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
         ] = await Promise.all([
           discoveredPromise,
           loadCurrentTurnImages(deps, turnBlocks, context),
-          messagingChannelRun
+          messagingChannelRun || run.projectId
             ? Promise.resolve("")
             : loadAgentMemoryContext(deps.memory, bot.id, context),
-          messagingChannelRun
+          messagingChannelRun || run.projectId
             ? Promise.resolve("")
             : loadAgentScratchpadContext(deps, {
                 spaceId: run.spaceId,
@@ -3848,6 +3861,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : loadAgentTicketContext(deps, {
                 spaceId: run.spaceId,
                 text: task.prompt,
+                projectId: run.projectId ?? undefined,
               }),
           recallPromise,
         ]);
@@ -7048,7 +7062,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           (request) => redactSecrets(JSON.stringify(request), runSecrets),
           { exposedToolNames: new Set(tools.map((tool) => tool.name)) },
         );
-        const replyContext = await loadReplyContext(deps.prisma, thread.id, run.sourceMessageId);
+        const replyContext = run.projectId
+          ? undefined
+          : await loadReplyContext(deps.prisma, thread.id, run.sourceMessageId);
         const prompt = [
           replyContext,
           basePrompt,

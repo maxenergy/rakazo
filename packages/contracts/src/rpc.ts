@@ -355,6 +355,24 @@ export const appContract = {
     update: oc.input(UpdateBotInput).output(BotSchema),
     setComputer: oc.input(z.object({ botId: Id, mode: ComputerModeSchema })).output(BotSchema),
     archive: oc.input(botId).output(z.object({ ok: z.literal(true) })),
+    continuationPreview: oc.input(botId).output(
+      z.object({
+        botId: Id,
+        projects: z.array(
+          z.object({
+            id: Id,
+            name: z.string(),
+            status: z.enum(["active", "paused"]),
+            archivedAt: IsoDate.nullable(),
+            member: z.boolean(),
+          }),
+        ),
+        tickets: z.array(
+          z.object({ id: Id, projectId: Id.nullable(), title: z.string(), status: z.string() }),
+        ),
+        routines: z.array(RoutineSchema),
+      }),
+    ),
     restore: oc.input(botId).output(z.object({ ok: z.literal(true) })),
     remove: oc
       .input(z.object({ botId: Id, deleteMemories: z.boolean().default(false) }))

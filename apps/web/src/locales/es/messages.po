@@ -932,6 +932,14 @@ msgstr "Cancelar respuesta"
 msgid "Canceled"
 msgstr "Cancelado"
 
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation and is not shown as stopped."
+msgstr "Cancelación solicitada; el proceso externo requiere confirmación manual y no se muestra como detenido."
+
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation."
+msgstr "Cancelación solicitada; los procesos externos requieren confirmación manual."
+
 #: src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "cancelado"
@@ -2691,6 +2699,10 @@ msgstr "Área de carga de imagen"
 msgid "Import OpenAPI JSON"
 msgstr "Importar JSON de OpenAPI"
 
+#: src/pages/Projects.tsx
+msgid "In flight work will finish safely"
+msgstr "El trabajo en curso finalizará de forma segura"
+
 #: src/lib/ticket-status.ts
 msgid "In progress"
 msgstr "En curso"
@@ -3725,11 +3737,19 @@ msgstr "Pega tu clave de API"
 msgid "Paste your API key, then test again."
 msgstr "Pega tu clave de API y vuelve a probar."
 
+#: src/pages/Projects.tsx
+msgid "Pause project"
+msgstr "Pausar proyecto"
+
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "En pausa"
+
+#: src/pages/Projects.tsx
+msgid "Paused at"
+msgstr "En pausa desde"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "personal"
@@ -4095,6 +4115,14 @@ msgstr "Respuesta cancelada"
 msgid "Replying to {0}"
 msgstr "Respondiendo a {0}"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation"
+msgstr "Solicitar cancelación"
+
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "¿Solicitar la cancelación de esta ejecución? Los procesos externos aún requieren confirmación manual."
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "Reservado"
@@ -4159,6 +4187,10 @@ msgstr "Restaura el último espacio de trabajo guardado. Se pierde el trabajo si
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Restoring your workspace"
 msgstr "Restaurando tu espacio de trabajo"
+
+#: src/pages/Projects.tsx
+msgid "Resume project"
+msgstr "Reanudar proyecto"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/Auth.tsx

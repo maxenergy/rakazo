@@ -932,6 +932,14 @@ msgstr "उत्तर रद्द करें"
 msgid "Canceled"
 msgstr "रद्द"
 
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation and is not shown as stopped."
+msgstr "रद्द करने का अनुरोध किया गया; बाहरी प्रक्रिया को मैन्युअल पुष्टि चाहिए और उसे रुका हुआ नहीं दिखाया जाएगा।"
+
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation."
+msgstr "रद्द करने का अनुरोध किया गया; बाहरी प्रक्रिया को मैन्युअल पुष्टि चाहिए।"
+
 #: src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "रद्द"
@@ -2691,6 +2699,10 @@ msgstr "छवि अपलोड क्षेत्र"
 msgid "Import OpenAPI JSON"
 msgstr "OpenAPI JSON इम्पोर्ट करें"
 
+#: src/pages/Projects.tsx
+msgid "In flight work will finish safely"
+msgstr "चल रहा काम सुरक्षित रूप से पूरा होगा"
+
 #: src/lib/ticket-status.ts
 msgid "In progress"
 msgstr "प्रगति में"
@@ -3725,11 +3737,19 @@ msgstr "अपनी API कुंजी पेस्ट करें"
 msgid "Paste your API key, then test again."
 msgstr "अपनी API कुंजी पेस्ट करें, फिर फिर से परीक्षण करें।"
 
+#: src/pages/Projects.tsx
+msgid "Pause project"
+msgstr "प्रोजेक्ट रोकें"
+
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "रुका हुआ"
+
+#: src/pages/Projects.tsx
+msgid "Paused at"
+msgstr "रोकने का समय"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "personal"
@@ -4095,6 +4115,14 @@ msgstr "जवाब रद्द किया गया"
 msgid "Replying to {0}"
 msgstr "{0} को जवाब"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation"
+msgstr "रद्द करने का अनुरोध करें"
+
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "इस रन को रद्द करने का अनुरोध करें? बाहरी प्रक्रियाओं के लिए अब भी मैन्युअल पुष्टि आवश्यक है।"
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "आरक्षित"
@@ -4159,6 +4187,10 @@ msgstr "अंतिम सहेजे गए वर्कस्पेस क�
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Restoring your workspace"
 msgstr "आपका कार्यक्षेत्र बहाल हो रहा है"
+
+#: src/pages/Projects.tsx
+msgid "Resume project"
+msgstr "प्रोजेक्ट फिर शुरू करें"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/Auth.tsx

@@ -932,6 +932,14 @@ msgstr "取消回复"
 msgid "Canceled"
 msgstr "已取消"
 
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation and is not shown as stopped."
+msgstr "已请求取消；外部进程需要人工确认，不会显示为已停止。"
+
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation."
+msgstr "已请求取消；外部进程需要人工确认。"
+
 #: src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "已取消"
@@ -2691,6 +2699,10 @@ msgstr "图片上传区域"
 msgid "Import OpenAPI JSON"
 msgstr "导入 OpenAPI JSON"
 
+#: src/pages/Projects.tsx
+msgid "In flight work will finish safely"
+msgstr "正在进行的工作会安全收尾"
+
 #: src/lib/ticket-status.ts
 msgid "In progress"
 msgstr "进行中"
@@ -3725,11 +3737,19 @@ msgstr "粘贴你的 API 密钥"
 msgid "Paste your API key, then test again."
 msgstr "请粘贴你的 API 密钥，然后重新测试。"
 
+#: src/pages/Projects.tsx
+msgid "Pause project"
+msgstr "暂停项目"
+
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "已暂停"
+
+#: src/pages/Projects.tsx
+msgid "Paused at"
+msgstr "暂停时间"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "personal"
@@ -4095,6 +4115,14 @@ msgstr "已取消回复"
 msgid "Replying to {0}"
 msgstr "正在回复 {0}"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation"
+msgstr "请求取消"
+
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "要请求取消此运行吗？外部进程仍需人工确认。"
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "已预留"
@@ -4159,6 +4187,10 @@ msgstr "还原上次保存的工作区。电脑上未保存的工作会丢失。
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Restoring your workspace"
 msgstr "正在还原工作区"
+
+#: src/pages/Projects.tsx
+msgid "Resume project"
+msgstr "恢复项目"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/Auth.tsx

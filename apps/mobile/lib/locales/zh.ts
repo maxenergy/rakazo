@@ -656,6 +656,15 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Opened its thread.": "已打开其对话。",
   "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed.":
     "粘贴你服务器的 OpenAI 兼容地址。如有需要，Rakazo 会自动补上 /v1。",
+  "Cancellation requested; external process needs manual confirmation and is not shown as stopped.":
+    "已请求取消；外部进程需要人工确认，不会显示为已停止。",
+  "Finishing safely": "正在安全收尾",
+  "In flight work will finish safely.": "正在进行的工作会安全收尾。",
+  "Pause project": "暂停项目",
+  "Pause project?": "要暂停项目吗？",
+  Resume: "恢复",
+  "Resume project": "恢复项目",
+  "Resume project?": "要恢复项目吗？",
   Paused: "已暂停",
   Prompt: "提示词",
   "Recording a live demonstration needs desktop or web with the full computer view. You can still ask this bot to run saved skills from chat.":

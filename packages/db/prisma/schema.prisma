@@ -462,6 +462,7 @@ model Bot {
   mcpServers             BotMcpServer[]
   groupMembers           ChatGroupMember[]
   botSecrets             BotSecret[]
+  projectMemberships     ProjectMember[]
   assignedTickets        Ticket[]          @relation("TicketAssigneeBot")
   createdTickets         Ticket[]          @relation("TicketCreatorBot")
   ticketComments         TicketComment[]   @relation("TicketCommentAuthorBot")
@@ -1472,6 +1473,29 @@ model Board {
   @@map("boards")
 }
 
+enum ProjectStatus {
+  active
+  paused
+}
+
+enum ProjectMemberRole {
+  owner
+  member
+}
+
+model ProjectMember {
+  projectId String
+  botId     String
+  role      ProjectMemberRole @default(member)
+  createdAt DateTime          @default(now())
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bot       Bot               @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, botId])
+  @@index([botId])
+  @@map("project_members")
+}
+
 model Project {
   id          String      @id @default(cuid())
   spaceId     String
@@ -1481,6 +1505,9 @@ model Project {
   archivedAt  DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  status      ProjectStatus   @default(active)
+  pausedAt    DateTime?
+  members     ProjectMember[]
   milestones  Milestone[]
   goals       Goal[]
   keyResults  KeyResult[]

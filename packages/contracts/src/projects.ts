@@ -8,7 +8,7 @@ export const ProjectProgressSchema = z.object({
   completed: z.number().int().nonnegative(),
   ratio: z.number().min(0).max(1).nullable(),
 });
-export const ProjectSchema = z.object({
+const ProjectBaseSchema = z.object({
   id: Id,
   spaceId: Id,
   name: z.string(),
@@ -19,7 +19,32 @@ export const ProjectSchema = z.object({
   updatedAt: IsoDate,
   progress: ProjectProgressSchema,
 });
-export const MilestoneSchema = ProjectSchema.extend({ projectId: Id, dueAt: IsoDate.nullable() });
+export const ProjectMemberSchema = z.object({
+  projectId: Id,
+  botId: Id,
+  role: z.enum(["owner", "member"]),
+  createdAt: IsoDate,
+});
+export const ProjectStatusSchema = z.enum(["active", "paused"]);
+export const ProjectSchema = ProjectBaseSchema.extend({
+  status: ProjectStatusSchema,
+  pausedAt: IsoDate.nullable(),
+  owner: ProjectMemberSchema.nullable(),
+});
+export const BotProjectSchema = z.object({
+  projectId: Id,
+  name: z.string(),
+  role: z.enum(["owner", "member"]),
+  status: ProjectStatusSchema,
+});
+export const ProjectMembersInput = z.object({ projectId: Id });
+export const EditProjectMemberInput = ProjectMembersInput.extend({ botId: Id });
+export const SetProjectOwnerInput = ProjectMembersInput.extend({ botId: Id.nullable() });
+export type ProjectMember = z.infer<typeof ProjectMemberSchema>;
+export const MilestoneSchema = ProjectBaseSchema.extend({
+  projectId: Id,
+  dueAt: IsoDate.nullable(),
+});
 export const CreateProjectInput = z.object({ name, description: description.optional() });
 export const UpdateProjectInput = z.object({
   id: Id,

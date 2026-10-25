@@ -513,4 +513,31 @@ describePostgres("project and milestone API isolation", () => {
       await api.tickets.removeDependency({ ticketId: a.id, prerequisiteId: b.id }),
     ).toMatchObject({ prerequisites: [], blockedByDependency: false });
   });
+  it("exposes membership and owner through the API and rejects foreign projects", async () => {
+    const api = client();
+    const project = await api.projects.create({ name: "Members" });
+    expect(project).toMatchObject({ status: "active", pausedAt: null, owner: null });
+    await api.projects.setOwner({ projectId: project.id, botId });
+    expect(await api.projects.get({ id: project.id })).toMatchObject({
+      owner: { botId, role: "owner" },
+    });
+    expect((await api.bots.get({ botId })).projects).toContainEqual({
+      projectId: project.id,
+      name: "Members",
+      role: "owner",
+      status: "active",
+    });
+    expect(await api.projects.addMember({ projectId: project.id, botId })).toHaveLength(1);
+    expect(await api.projects.members({ projectId: project.id })).toMatchObject([
+      { botId, role: "owner" },
+    ]);
+    await expect(api.projects.members({ projectId: foreignProjectId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(
+      api.projects.setOwner({ projectId: foreignProjectId, botId }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await api.projects.removeMember({ projectId: project.id, botId })).toEqual([]);
+    expect((await api.projects.get({ id: project.id })).owner).toBeNull();
+  });
 });

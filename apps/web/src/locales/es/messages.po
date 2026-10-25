@@ -4119,6 +4119,10 @@ msgstr "Respondiendo a {0}"
 msgid "Request cancellation"
 msgstr "Solicitar cancelación"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "¿Solicitar la cancelación de esta ejecución? Los procesos externos aún requieren confirmación manual."
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "Reservado"

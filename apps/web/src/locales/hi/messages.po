@@ -4119,6 +4119,10 @@ msgstr "{0} को जवाब"
 msgid "Request cancellation"
 msgstr "रद्द करने का अनुरोध करें"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "इस रन को रद्द करने का अनुरोध करें? बाहरी प्रक्रियाओं के लिए अब भी मैन्युअल पुष्टि आवश्यक है।"
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "आरक्षित"

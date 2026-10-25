@@ -4119,6 +4119,10 @@ msgstr "{0} yanıtlanıyor"
 msgid "Request cancellation"
 msgstr "İptal iste"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "Bu çalıştırma için iptal isteği gönderilsin mi? Harici süreçler için yine de manuel onay gerekir."
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "Ayrılmış"

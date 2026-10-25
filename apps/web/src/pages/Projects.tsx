@@ -79,7 +79,7 @@ export function ProjectsPage() {
     if (
       !data?.project ||
       !window.confirm(
-        "Request cancellation for this run? External processes still need manual confirmation.",
+        t`Request cancellation for this run? External processes still need manual confirmation.`,
       )
     )
       return;

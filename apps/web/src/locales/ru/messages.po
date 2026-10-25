@@ -4119,6 +4119,10 @@ msgstr "Ответ на {0}"
 msgid "Request cancellation"
 msgstr "Запросить отмену"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "Запросить отмену этого запуска? Для внешних процессов по-прежнему требуется подтверждение вручную."
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "Зарезервировано"

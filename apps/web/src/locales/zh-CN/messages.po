@@ -4119,6 +4119,10 @@ msgstr "正在回复 {0}"
 msgid "Request cancellation"
 msgstr "请求取消"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation for this run? External processes still need manual confirmation."
+msgstr "要请求取消此运行吗？外部进程仍需人工确认。"
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "已预留"

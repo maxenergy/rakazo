@@ -1,6 +1,14 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import {
   type ProjectMemberSummary,
   ProjectMembersReadOnly,
@@ -66,12 +74,17 @@ export default function ProjectsScreen() {
       status === "paused" ? t("In flight work will finish safely.") : undefined,
       [
         { text: t("Cancel"), style: "cancel" },
-        { text: status === "paused" ? t("Pause") : t("Resume"), onPress: () => {
-          void rpc<Project>("projects/update", { id: project.id, status }).then(async (updated) => {
-            setSelected(updated);
-            await loadProjects();
-          }).catch((cause: unknown) => setError(String(cause)));
-        } },
+        {
+          text: status === "paused" ? t("Pause") : t("Resume"),
+          onPress: () => {
+            void rpc<Project>("projects/update", { id: project.id, status })
+              .then(async (updated) => {
+                setSelected(updated);
+                await loadProjects();
+              })
+              .catch((cause: unknown) => setError(String(cause)));
+          },
+        },
       ],
     );
   }
@@ -79,7 +92,13 @@ export default function ProjectsScreen() {
   async function openProject(project: Project) {
     setSelected(project);
     setLoading(true);
-    try { const detail = await rpc<Project>("projects/get", { id: project.id }); setSelected(detail); project = detail; } catch (cause) { setError(String(cause)); }
+    try {
+      const detail = await rpc<Project>("projects/get", { id: project.id });
+      setSelected(detail);
+      project = detail;
+    } catch (cause) {
+      setError(String(cause));
+    }
     try {
       const rows = await rpc<Membership[]>("projects/members", { projectId: project.id });
       const summaries = await Promise.all(
@@ -159,14 +178,30 @@ export default function ProjectsScreen() {
               {selected.status === "paused" ? t("Paused") : t("Active")}
               {selected.pausedAt ? " · " + new Date(selected.pausedAt).toLocaleString() : ""}
             </Text>
-            <Pressable accessibilityRole="button" disabled={selected.archived} onPress={() => toggleProject(selected)} style={styles.back}>
-              <Text style={{ color: tokens.primary }}>{selected.status === "paused" ? t("Resume project") : t("Pause project")}</Text>
+            <Pressable
+              accessibilityRole="button"
+              disabled={selected.archived}
+              onPress={() => toggleProject(selected)}
+              style={styles.back}
+            >
+              <Text style={{ color: tokens.primary }}>
+                {selected.status === "paused" ? t("Resume project") : t("Pause project")}
+              </Text>
             </Pressable>
-            {selected.status === "paused" ? selected.inFlightRuns?.map((run) => (
-              <Text key={run.id} style={[styles.muted, { color: tokens.mutedForeground }]}>{t("Finishing safely")}: {run.id} ({run.status})</Text>
-            )) : null}
+            {selected.status === "paused"
+              ? selected.inFlightRuns?.map((run) => (
+                  <Text key={run.id} style={[styles.muted, { color: tokens.mutedForeground }]}>
+                    {t("Finishing safely")}: {run.id} ({run.status})
+                  </Text>
+                ))
+              : null}
             {selected.cancellationRequests?.map((run) => (
-              <Text key={run.id} style={[styles.muted, { color: tokens.mutedForeground }]}>{t("Cancellation requested; external process needs manual confirmation and is not shown as stopped.")} ({run.id})</Text>
+              <Text key={run.id} style={[styles.muted, { color: tokens.mutedForeground }]}>
+                {t(
+                  "Cancellation requested; external process needs manual confirmation and is not shown as stopped.",
+                )}{" "}
+                ({run.id})
+              </Text>
             ))}
             <Text style={[styles.muted, { color: tokens.mutedForeground }]}>
               {t("Owner")}: {ownerName || t("Loading")}

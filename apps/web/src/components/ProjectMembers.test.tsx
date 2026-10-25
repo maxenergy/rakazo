@@ -34,7 +34,13 @@ async function mount(props: Partial<ComponentProps<typeof ProjectMembers>> = {})
       <ProjectMembers
         members={[
           { botId: "bot-owner", name: "Owner Bot", role: "owner", status: "active", model: null },
-          { botId: "bot-member", name: "Member Bot", role: "member", status: "archived", model: "openai/model" },
+          {
+            botId: "bot-member",
+            name: "Member Bot",
+            role: "member",
+            status: "archived",
+            model: "openai/model",
+          },
         ]}
         people={[
           { botId: "bot-owner", name: "Owner Bot" },
@@ -79,7 +85,9 @@ it("allows clearing the current owner", async () => {
 
 it("shows the unassigned state", async () => {
   const { container } = await mount({
-    members: [{ botId: "bot-member", name: "Member Bot", role: "member", status: "active", model: null }],
+    members: [
+      { botId: "bot-member", name: "Member Bot", role: "member", status: "active", model: null },
+    ],
   });
   expect(container.textContent).toContain("No project owner assigned.");
 });

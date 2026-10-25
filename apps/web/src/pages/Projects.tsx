@@ -19,16 +19,24 @@ export function ProjectsPage() {
     async (spaceId: string | null) => {
       const options = { context: { spaceId } };
       if (projectId) {
-        const [project, milestones, milestone, members, activeBots, archivedBots] = await Promise.all([
-          rpc.projects.get({ id: projectId }, options),
-          rpc.milestones.list({ projectId, archived }, options),
-          milestoneId ? rpc.milestones.get({ id: milestoneId }, options) : Promise.resolve(null),
-          rpc.projects.members({ projectId }, options),
-          rpc.bots.list(undefined, options),
-          rpc.bots.listArchived(undefined, options),
-        ]);
+        const [project, milestones, milestone, members, activeBots, archivedBots] =
+          await Promise.all([
+            rpc.projects.get({ id: projectId }, options),
+            rpc.milestones.list({ projectId, archived }, options),
+            milestoneId ? rpc.milestones.get({ id: milestoneId }, options) : Promise.resolve(null),
+            rpc.projects.members({ projectId }, options),
+            rpc.bots.list(undefined, options),
+            rpc.bots.listArchived(undefined, options),
+          ]);
         if (milestone && milestone.projectId !== projectId) throw new Error("Resource not found.");
-        return { projects: [], project, milestones, milestone, members, bots: [...activeBots, ...archivedBots] };
+        return {
+          projects: [],
+          project,
+          milestones,
+          milestone,
+          members,
+          bots: [...activeBots, ...archivedBots],
+        };
       }
       const [projects, bots] = await Promise.all([
         rpc.projects.list({ archived }, options),
@@ -94,7 +102,11 @@ export function ProjectsPage() {
               variant="outline"
               render={
                 <Link
-                  to={"/app/tickets?projectId=" + encodeURIComponent(projectId!) + (milestoneId ? "&milestoneId=" + encodeURIComponent(milestoneId) : "")}
+                  to={
+                    "/app/tickets?projectId=" +
+                    encodeURIComponent(projectId!) +
+                    (milestoneId ? `&milestoneId=${encodeURIComponent(milestoneId)}` : "")
+                  }
                 />
               }
             >
@@ -111,12 +123,20 @@ export function ProjectsPage() {
               botId: member.botId,
               role: member.role,
               name: data.bots.find((bot) => bot.id === member.botId)?.name ?? member.botId,
-              status: data.bots.find((bot) => bot.id === member.botId)?.archivedAt ? "archived" : "active",
-              model: data.bots.find((bot) => bot.id === member.botId)?.modelProvider && data.bots.find((bot) => bot.id === member.botId)?.modelId
-                ? String(data.bots.find((bot) => bot.id === member.botId)?.modelProvider) + "/" + String(data.bots.find((bot) => bot.id === member.botId)?.modelId)
-                : null,
+              status: data.bots.find((bot) => bot.id === member.botId)?.archivedAt
+                ? "archived"
+                : "active",
+              model:
+                data.bots.find((bot) => bot.id === member.botId)?.modelProvider &&
+                data.bots.find((bot) => bot.id === member.botId)?.modelId
+                  ? String(data.bots.find((bot) => bot.id === member.botId)?.modelProvider) +
+                    "/" +
+                    String(data.bots.find((bot) => bot.id === member.botId)?.modelId)
+                  : null,
             }))}
-            people={data.bots.filter((bot) => !bot.archivedAt).map((bot) => ({ botId: bot.id, name: bot.name }))}
+            people={data.bots
+              .filter((bot) => !bot.archivedAt)
+              .map((bot) => ({ botId: bot.id, name: bot.name }))}
             pending={data.project.archived}
             onAdd={async (botId) => {
               await rpc.projects.addMember({ projectId, botId });

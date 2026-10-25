@@ -43,7 +43,13 @@ describe("ProjectMembersReadOnly", () => {
       root?.render(
         <ProjectMembersReadOnly
           members={[
-            { botId: "owner", name: "Owner Bot", role: "owner", status: "archived", model: "anthropic/claude" },
+            {
+              botId: "owner",
+              name: "Owner Bot",
+              role: "owner",
+              status: "archived",
+              model: "anthropic/claude",
+            },
             { botId: "member", name: "Member Bot", role: "member", status: "active", model: null },
           ]}
         />,

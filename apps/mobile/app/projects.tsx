@@ -62,13 +62,19 @@ export default function ProjectsScreen() {
       const rows = await rpc<Membership[]>("projects/members", { projectId: project.id });
       const summaries = await Promise.all(
         rows.map(async (row) => {
-          const bot = await rpc<{ id: string; name: string; archivedAt: string | null; modelProvider: string | null; modelId: string | null }>("bots/get", { botId: row.botId });
+          const bot = await rpc<{
+            id: string;
+            name: string;
+            archivedAt: string | null;
+            modelProvider: string | null;
+            modelId: string | null;
+          }>("bots/get", { botId: row.botId });
           return {
             botId: row.botId,
             name: bot.name,
             role: row.role,
-            status: bot.archivedAt ? "archived" as const : "active" as const,
-            model: bot.modelProvider && bot.modelId ? bot.modelProvider + "/" + bot.modelId : null,
+            status: bot.archivedAt ? ("archived" as const) : ("active" as const),
+            model: bot.modelProvider && bot.modelId ? `${bot.modelProvider}/${bot.modelId}` : null,
           };
         }),
       );

@@ -63,8 +63,12 @@ export function ProjectMembers({
           {members.map((member) => (
             <li key={member.botId} className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1 break-words">{member.name}</span>
-              <span className="text-sm text-muted-foreground">{member.status === "archived" ? <Trans>Archived</Trans> : <Trans>Active</Trans>}</span>
-              {member.model ? <span className="text-sm text-muted-foreground">{member.model}</span> : null}
+              <span className="text-sm text-muted-foreground">
+                {member.status === "archived" ? <Trans>Archived</Trans> : <Trans>Active</Trans>}
+              </span>
+              {member.model ? (
+                <span className="text-sm text-muted-foreground">{member.model}</span>
+              ) : null}
               {member.role === "owner" ? (
                 <>
                   <span className="text-sm text-muted-foreground">
@@ -110,7 +114,9 @@ export function ProjectMembers({
           <Trans>No project owner assigned.</Trans>
         </p>
       ) : null}
-      <p className="text-sm text-muted-foreground"><Trans>Historical runs stay with their original project.</Trans></p>
+      <p className="text-sm text-muted-foreground">
+        <Trans>Historical runs stay with their original project.</Trans>
+      </p>
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {

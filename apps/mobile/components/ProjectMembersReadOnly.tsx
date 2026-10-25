@@ -36,7 +36,7 @@ export function ProjectMembersReadOnly({ members }: { members: ProjectMemberSumm
               </Text>
               <Text style={[styles.role, { color: tokens.mutedForeground }]}>
                 {member.status === "archived" ? t("Archived") : t("Active")}
-                {member.model ? " · " + member.model : ""}
+                {member.model ? ` · ${member.model}` : ""}
               </Text>
             </View>
           </View>

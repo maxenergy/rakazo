@@ -932,6 +932,14 @@ msgstr "답장 취소"
 msgid "Canceled"
 msgstr "취소됨"
 
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation and is not shown as stopped."
+msgstr "취소를 요청했습니다. 외부 프로세스는 수동 확인이 필요하며 중지된 것으로 표시되지 않습니다."
+
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation."
+msgstr "취소를 요청했습니다. 외부 프로세스는 수동 확인이 필요합니다."
+
 #: src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "취소됨"
@@ -2691,6 +2699,10 @@ msgstr "이미지 업로드 영역"
 msgid "Import OpenAPI JSON"
 msgstr "OpenAPI JSON 가져오기"
 
+#: src/pages/Projects.tsx
+msgid "In flight work will finish safely"
+msgstr "진행 중인 작업은 안전하게 마무리됩니다"
+
 #: src/lib/ticket-status.ts
 msgid "In progress"
 msgstr "진행 중"
@@ -3725,11 +3737,19 @@ msgstr "API 키를 붙여넣으세요"
 msgid "Paste your API key, then test again."
 msgstr "API 키를 붙여넣은 뒤 다시 테스트하세요."
 
+#: src/pages/Projects.tsx
+msgid "Pause project"
+msgstr "프로젝트 일시 중지"
+
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "일시 중지됨"
+
+#: src/pages/Projects.tsx
+msgid "Paused at"
+msgstr "일시 중지 시각"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "personal"
@@ -4095,6 +4115,10 @@ msgstr "답장 취소됨"
 msgid "Replying to {0}"
 msgstr "{0}에게 답장 중"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation"
+msgstr "취소 요청"
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "예약됨"
@@ -4159,6 +4183,10 @@ msgstr "마지막으로 저장된 작업 공간을 복원합니다. 컴퓨터에
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Restoring your workspace"
 msgstr "작업 공간 복원 중"
+
+#: src/pages/Projects.tsx
+msgid "Resume project"
+msgstr "프로젝트 재개"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/Auth.tsx

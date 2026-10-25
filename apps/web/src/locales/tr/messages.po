@@ -932,6 +932,14 @@ msgstr "Yanıtı iptal et"
 msgid "Canceled"
 msgstr "İptal edildi"
 
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation and is not shown as stopped."
+msgstr "İptal istendi; harici süreç için manuel onay gerekir ve durdurulmuş olarak gösterilmez."
+
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation."
+msgstr "İptal istendi; harici süreçler için manuel onay gerekir."
+
 #: src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "iptal edildi"
@@ -2691,6 +2699,10 @@ msgstr "Görüntü yükleme alanı"
 msgid "Import OpenAPI JSON"
 msgstr "OpenAPI JSON içe aktar"
 
+#: src/pages/Projects.tsx
+msgid "In flight work will finish safely"
+msgstr "Süren işler güvenli şekilde tamamlanır"
+
 #: src/lib/ticket-status.ts
 msgid "In progress"
 msgstr "Devam ediyor"
@@ -3725,11 +3737,19 @@ msgstr "API anahtarını yapıştır"
 msgid "Paste your API key, then test again."
 msgstr "API anahtarını yapıştır, sonra yeniden test et."
 
+#: src/pages/Projects.tsx
+msgid "Pause project"
+msgstr "Projeyi duraklat"
+
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Duraklatıldı"
+
+#: src/pages/Projects.tsx
+msgid "Paused at"
+msgstr "Duraklatılma zamanı"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "personal"
@@ -4095,6 +4115,10 @@ msgstr "Yanıt iptal edildi"
 msgid "Replying to {0}"
 msgstr "{0} yanıtlanıyor"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation"
+msgstr "İptal iste"
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "Ayrılmış"
@@ -4159,6 +4183,10 @@ msgstr "Son kaydedilen çalışma alanını geri yükle. Bilgisayardaki kaydedil
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Restoring your workspace"
 msgstr "Çalışma alanınız geri yükleniyor"
+
+#: src/pages/Projects.tsx
+msgid "Resume project"
+msgstr "Projeyi sürdür"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/Auth.tsx

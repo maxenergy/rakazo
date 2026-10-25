@@ -932,6 +932,14 @@ msgstr "Cancel reply"
 msgid "Canceled"
 msgstr "Canceled"
 
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation and is not shown as stopped."
+msgstr "Cancellation requested; external process needs manual confirmation and is not shown as stopped."
+
+#: src/pages/Projects.tsx
+msgid "Cancellation requested; external process needs manual confirmation."
+msgstr "Cancellation requested; external process needs manual confirmation."
+
 #: src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "cancelled"
@@ -2691,6 +2699,10 @@ msgstr "Image upload area"
 msgid "Import OpenAPI JSON"
 msgstr "Import OpenAPI JSON"
 
+#: src/pages/Projects.tsx
+msgid "In flight work will finish safely"
+msgstr "In flight work will finish safely"
+
 #: src/lib/ticket-status.ts
 msgid "In progress"
 msgstr "In progress"
@@ -3725,11 +3737,19 @@ msgstr "Paste your API key"
 msgid "Paste your API key, then test again."
 msgstr "Paste your API key, then test again."
 
+#: src/pages/Projects.tsx
+msgid "Pause project"
+msgstr "Pause project"
+
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Paused"
+
+#: src/pages/Projects.tsx
+msgid "Paused at"
+msgstr "Paused at"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "personal"
@@ -4095,6 +4115,10 @@ msgstr "Reply cancelled"
 msgid "Replying to {0}"
 msgstr "Replying to {0}"
 
+#: src/pages/Projects.tsx
+msgid "Request cancellation"
+msgstr "Request cancellation"
+
 #: src/components/ProjectBudget.tsx
 msgid "Reserved"
 msgstr "Reserved"
@@ -4159,6 +4183,10 @@ msgstr "Restore the last saved workspace. Unsaved work on the computer is lost."
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Restoring your workspace"
 msgstr "Restoring your workspace"
+
+#: src/pages/Projects.tsx
+msgid "Resume project"
+msgstr "Resume project"
 
 #: src/components/AccountAccess.tsx
 #: src/pages/Auth.tsx

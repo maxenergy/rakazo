@@ -73,9 +73,14 @@ export function ProjectsPage() {
             {data?.project && !milestoneId ? (
               <p className="text-sm text-muted-foreground">
                 {data.project.status === "paused" ? <Trans>Paused</Trans> : <Trans>Active</Trans>}
-                {data.project.owner
-                  ? ` | ${data.bots?.find((bot) => bot.id === data.project?.owner?.botId)?.name ?? data.project.owner.botId}`
-                  : ""}
+                {data.project.owner ? (
+                  ` | ${data.bots?.find((bot) => bot.id === data.project?.owner?.botId)?.name ?? data.project.owner.botId}`
+                ) : (
+                  <>
+                    <span> | </span>
+                    <Trans>No project owner assigned.</Trans>
+                  </>
+                )}
               </p>
             ) : null}
             {detail.archived ? (
@@ -88,7 +93,16 @@ export function ProjectsPage() {
               variant="outline"
               render={
                 <Link
-                  to={`/app/tickets?projectId=${encodeURIComponent(projectId!)}${milestoneId ? `&milestoneId=${encodeURIComponent(milestoneId)}` : ""}`}
+                  to={`/app/tickets?projectId=${encodeURIComponent(projectId!)}${
+                    milestoneId ? (
+                      `&milestoneId=${encodeURIComponent(milestoneId)}`
+                    ) : (
+                      <>
+                        <span> | </span>
+                        <Trans>No project owner assigned.</Trans>
+                      </>
+                    )
+                  }`}
                 />
               }
             >
@@ -157,9 +171,14 @@ export function ProjectsPage() {
                   {"status" in item ? (
                     <p className="text-sm text-muted-foreground">
                       {item.status === "paused" ? <Trans>Paused</Trans> : <Trans>Active</Trans>}
-                      {item.owner
-                        ? ` | ${data?.bots?.find((bot) => bot.id === item.owner?.botId)?.name ?? item.owner.botId}`
-                        : ""}
+                      {item.owner ? (
+                        ` | ${data?.bots?.find((bot) => bot.id === item.owner?.botId)?.name ?? item.owner.botId}`
+                      ) : (
+                        <>
+                          <span> | </span>
+                          <Trans>No project owner assigned.</Trans>
+                        </>
+                      )}
                     </p>
                   ) : null}
                   <ProjectProgress progress={item.progress} />

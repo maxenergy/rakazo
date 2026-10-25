@@ -2,7 +2,12 @@ import type { JobPublisher } from "@rakazo/adapter-kit";
 import { runContinueJob } from "@rakazo/adapter-kit";
 import { isTicketCompletedStatus, TicketStatusSchema } from "@rakazo/contracts";
 import type { Prisma, PrismaClient } from "@rakazo/db";
-import { claimTicketWakes, completeTicketWake } from "@rakazo/db";
+import {
+  assertProjectExecutionAllowed,
+  claimTicketWakes,
+  completeTicketWake,
+  ProjectLinkError,
+} from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 
 type WakeInput = { spaceId: string; ticketId: string; botId: string };
@@ -24,6 +29,14 @@ async function createTicketWakeRun(
   const status = TicketStatusSchema.safeParse(ticket.status);
   if (!status.success || isTicketCompletedStatus(status.data)) {
     noRun?.("ticket_not_actionable");
+    return null;
+  }
+  try {
+    await assertProjectExecutionAllowed(tx, input.spaceId, ticket.projectId);
+  } catch (error) {
+    if (!(error instanceof ProjectLinkError)) throw error;
+    if (!noRun) throw error;
+    noRun(error.message);
     return null;
   }
   const bot = await tx.bot.findFirst({

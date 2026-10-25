@@ -412,6 +412,7 @@ export function routineModelIssues(
 }
 
 export const RoutineSchema = z.object({
+  projectId: Id.nullable().optional(),
   id: Id,
   botId: Id,
   name: z.string(),
@@ -440,6 +441,7 @@ export type Routine = z.infer<typeof RoutineSchema>;
 
 export const CreateRoutineInput = z
   .object({
+    projectId: Id.nullable().optional(),
     botId: Id,
     name: z.string().min(1).max(80),
     prompt: z.string().min(1),

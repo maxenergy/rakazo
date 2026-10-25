@@ -107,6 +107,7 @@ import type { ExecutionFence, McpServer, Prisma, PrismaClient, ThreadEvents } fr
 import {
   appendEventInTransaction,
   assertExecutionFence,
+  assertProjectExecutionAllowed,
   createProposal,
   createSpaceForMember,
   createThreadMessageInTransaction,
@@ -118,6 +119,7 @@ import {
   isTooManyDatabaseConnections,
   listEffectiveBotBackupModels,
   loadRunHistoryMessages,
+  ProjectLinkError,
   parseComputerMode,
   pauseRunForBudget,
   readHistory,
@@ -360,6 +362,7 @@ import {
   filterBuiltinToolsForRun,
   filterBuiltinToolsForThread,
   listSchedulesFromTool,
+  updateScheduleProjectFromTool,
 } from "./schedule-tools.js";
 import { loadAgentScratchpadContext } from "./scratchpad-context.js";
 import {
@@ -3235,6 +3238,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
           },
         });
         if (updated.count !== 1) return null;
+        try {
+          await assertProjectExecutionAllowed(tx, routine.spaceId, routine.projectId);
+        } catch (error) {
+          if (!(error instanceof ProjectLinkError)) throw error;
+          const retryAt = nextRunAt ?? new Date(Date.now() + 60_000);
+          await tx.routine.update({
+            where: { id: routine.id },
+            data: { active: true, nextRunAt: retryAt, lastRunAt: previousLastRunAt },
+          });
+          return { blocked: error.message, retryAt };
+        }
         // The claim locks the row, so this is the model that was committed when it fired.
         const currentModel = await tx.routine.findUnique({
           where: { id: routine.id },
@@ -3261,11 +3275,23 @@ export function createRunExecutor(deps: ExecutorDeps) {
             status: "queued",
             trigger: "routine",
             routineId: routine.id,
+            projectId: routine.projectId,
             ...routineRunModelPin(currentModel),
           },
         });
       });
       if (!claimed) return;
+      if ("blocked" in claimed) {
+        await deps.events.append({
+          spaceId: routine.spaceId,
+          threadId: thread.id,
+          botId: bot.id,
+          type: "routine.skipped",
+          payload: { routineId: routine.id, reason: claimed.blocked },
+        });
+        await deps.jobs.enqueue(routineWakeupJob(routine.id, claimed.retryAt));
+        return;
+      }
       // Enqueue continuation first so a thread-signal failure cannot strand the run.
       try {
         await deps.jobs.enqueue(runContinueJob(claimed.id));
@@ -3323,6 +3349,24 @@ export function createRunExecutor(deps: ExecutorDeps) {
         : null;
       if (!run) return;
       if (isTerminal(run.status as RunStatus)) return;
+      if (!run.startedAt && run.projectId) {
+        try {
+          await assertProjectExecutionAllowed(deps.prisma, run.spaceId, run.projectId);
+        } catch (error) {
+          if (!(error instanceof ProjectLinkError)) throw error;
+          const refused = await deps.prisma.run.updateMany({
+            where: { id: run.id, status: "queued", startedAt: null },
+            data: { status: "failed", error: error.message, completedAt: new Date() },
+          });
+          if (refused.count === 1) {
+            await deps.prisma.task.updateMany({
+              where: { id: run.taskId, status: "queued" },
+              data: { status: "failed" },
+            });
+          }
+          return;
+        }
+      }
       // CLI discovery is read-only and must finish before claiming any lease.
       // Under a lease, all later model resolutions use valid cached evidence only.
       if (!deps.runtime.describe().capabilities.scripted) {
@@ -5808,6 +5852,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 botId: bot.id,
                 userId: run.userId,
                 threadId: thread.id,
+                projectId: args.projectId == null ? undefined : String(args.projectId),
                 name: String(args.name ?? ""),
                 prompt: String(args.prompt ?? ""),
                 timezone: args.timezone ? String(args.timezone) : undefined,
@@ -5822,6 +5867,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
               },
             );
             return finish(created);
+          }
+          if (name === "schedule_update") {
+            return finish(
+              await updateScheduleProjectFromTool(
+                { ...deps, executionFence: run.executionFence },
+                {
+                  spaceId: run.spaceId,
+                  botId: bot.id,
+                  userId: run.userId,
+                  routineId: String(args.routineId ?? ""),
+                  projectId: args.projectId == null ? null : String(args.projectId),
+                },
+              ),
+            );
           }
           if (name === "schedule_list") {
             return listSchedulesFromTool(deps, {

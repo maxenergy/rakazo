@@ -562,6 +562,7 @@ export const appContract = {
         z
           .object({
             routineId: Id,
+            projectId: Id.nullable().optional(),
             name: z.string().optional(),
             prompt: z.string().optional(),
             crons: z.array(z.string().min(1)).optional(),

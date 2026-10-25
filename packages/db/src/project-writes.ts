@@ -1,3 +1,4 @@
+import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { Prisma } from "./client.js";
 import { isProjectItemArchived, ProjectLinkError } from "./project-links.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
@@ -32,11 +33,55 @@ export async function createProject(
 export async function updateProject(
   tx: Prisma.TransactionClient,
   spaceId: string,
-  input: { id: string; name?: string; description?: string | null },
+  input: {
+    id: string;
+    name?: string;
+    description?: string | null;
+    status?: "active" | "paused";
+    cancelRunIds?: string[];
+  },
 ) {
   await lockProject(tx, spaceId, input.id);
-  const { id, ...data } = input;
-  return tx.project.update({ where: { id }, data });
+  const { id, cancelRunIds, ...data } = input;
+  if (cancelRunIds?.length) {
+    const runs = await tx.run.findMany({
+      where: {
+        spaceId,
+        projectId: id,
+        id: { in: cancelRunIds },
+        status: {
+          in: [
+            "queued",
+            "leased",
+            "running",
+            "waiting_input",
+            "waiting_takeover",
+            "waiting_budget",
+          ],
+        },
+      },
+      select: { id: true, taskId: true },
+    });
+    if (runs.length !== new Set(cancelRunIds).size)
+      throw new ProjectLinkError(
+        "BAD_REQUEST",
+        "Only active runs belonging to this project can be cancelled.",
+      );
+    await cancelRunsInTransaction(tx, runs, new Date());
+    await tx.cloudAgent.updateMany({
+      where: { spaceId, latestRunId: { in: runs.map((run) => run.id) }, status: "running" },
+      data: { cancelRequested: true, nextPollAt: new Date(), version: { increment: 1 } },
+    });
+  }
+  return tx.project.update({
+    where: { id },
+    data: {
+      ...data,
+      ...(data.status !== undefined
+        ? { pausedAt: data.status === "paused" ? new Date() : null }
+        : {}),
+    },
+  });
 }
 
 export async function createMilestone(

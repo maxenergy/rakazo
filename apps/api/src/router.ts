@@ -226,6 +226,7 @@ import {
   ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
+  readBotContinuation,
   readBotProjects,
   readGoals,
   readKeyResults,
@@ -2125,55 +2126,12 @@ export function createRouter(deps: RouterDeps) {
       }),
       continuationPreview: authed.bots.continuationPreview.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId, { includeArchived: true });
-        const [memberships, tickets, routines] = await Promise.all([
-          deps.prisma.projectMember.findMany({
-            where: { botId: bot.id, project: { spaceId: context.actor.spaceId } },
-          }),
-          deps.prisma.ticket.findMany({
-            where: {
-              spaceId: context.actor.spaceId,
-              assigneeBotId: bot.id,
-              status: { notIn: ["done", "closed"] },
-            },
-            select: { id: true, projectId: true, title: true, status: true },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-          }),
-          deps.prisma.routine.findMany({
-            where: {
-              spaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-              botId: bot.id,
-              active: false,
-            },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-          }),
-        ]);
-        const memberIds = new Set(memberships.map((row) => row.projectId));
-        const projectIds = [
-          ...new Set(
-            [
-              ...memberIds,
-              ...tickets.map((row) => row.projectId),
-              ...routines.map((row) => row.projectId),
-            ].filter((id): id is string => id != null),
-          ),
-        ];
-        const projects = await deps.prisma.project.findMany({
-          where: { spaceId: context.actor.spaceId, id: { in: projectIds } },
-          orderBy: [{ name: "asc" }, { id: "asc" }],
-        });
-        return {
+        const preview = await readBotContinuation(deps.prisma, {
+          spaceId: context.actor.spaceId,
+          userId: context.actor.userId,
           botId: bot.id,
-          tickets,
-          routines: routines.map(mapRoutine),
-          projects: projects.map((row) => ({
-            id: row.id,
-            name: row.name,
-            status: row.status,
-            archivedAt: row.archivedAt?.toISOString() ?? null,
-            member: memberIds.has(row.id),
-          })),
-        };
+        });
+        return { ...preview, routines: preview.routines.map(mapRoutine) };
       }),
       restore: authed.bots.restore.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId, { includeArchived: true });

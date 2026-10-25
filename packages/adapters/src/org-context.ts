@@ -77,6 +77,7 @@ export function renderOrgContext(self: OrgMember | null, org: readonly OrgMember
 export async function loadOrgContext(
   prisma: PrismaClient,
   bot: { id: string; spaceId: string; userId: string; orgRole: string | null },
+  projectId?: string | null,
 ) {
   if (!parseBotOrgRole(bot.orgRole)) return undefined;
   const rows = await prisma.bot.findMany({
@@ -85,6 +86,7 @@ export async function loadOrgContext(
       userId: bot.userId,
       archivedAt: null,
       orgRole: { not: null },
+      ...(projectId ? { projectMemberships: { some: { projectId } } } : {}),
     },
     select: { id: true, name: true, orgRole: true, team: true, reportsToBotId: true },
     orderBy: { createdAt: "asc" },

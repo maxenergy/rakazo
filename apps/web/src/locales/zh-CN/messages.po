@@ -273,6 +273,7 @@ msgstr "工作区操作"
 
 #: src/components/GoalEditor.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "启用"
@@ -286,6 +287,7 @@ msgstr "当前模型"
 msgid "Activity"
 msgstr "动态"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +366,10 @@ msgstr "添加关键结果"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "添加 MCP 服务器"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -1050,6 +1056,10 @@ msgstr "清除筛选条件 {label}"
 #: src/components/GoalEditor.tsx
 msgid "Clear or replace the archived milestone before saving."
 msgstr "保存前请清除或替换已归档的里程碑。"
+
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -2999,6 +3009,10 @@ msgstr "中"
 msgid "Medium"
 msgstr "中"
 
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr ""
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "成员（{GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX}）"
@@ -3344,6 +3358,10 @@ msgstr "还没有安装 MCP 或 API 工具源。"
 msgid "No MCP servers yet."
 msgstr "还没有 MCP 服务器。"
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr ""
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "还没有与 {peerBotName} 的消息。"
@@ -3363,6 +3381,10 @@ msgstr "未列出模型。"
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "尚未配置项目预算。"
+
+#: src/components/ProjectMembers.tsx
+msgid "No project owner assigned."
+msgstr ""
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3605,6 +3627,7 @@ msgstr "输出：{price}"
 msgid "Overdue"
 msgstr "已逾期"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "负责人"
@@ -3659,6 +3682,7 @@ msgstr "粘贴你的 API 密钥"
 msgid "Paste your API key, then test again."
 msgstr "请粘贴你的 API 密钥，然后重新测试。"
 
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "已暂停"
@@ -3744,6 +3768,10 @@ msgstr "项目预算"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "项目 ID"
+
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
@@ -3909,6 +3937,7 @@ msgid "Release interrupted computer?"
 msgstr "释放已中断的电脑？"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4317,6 +4346,10 @@ msgstr "选择 Bot"
 msgid "Select a connected model"
 msgstr "选择已连接的模型"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "选择工单"
@@ -4373,6 +4406,10 @@ msgstr "服务器名称"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "服务器 URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr ""
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

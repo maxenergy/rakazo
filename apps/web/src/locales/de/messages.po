@@ -273,6 +273,7 @@ msgstr "Aktionen für den Bereich"
 
 #: src/components/GoalEditor.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "Aktiv"
@@ -286,6 +287,7 @@ msgstr "Aktives Modell"
 msgid "Activity"
 msgstr "Aktivität"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +366,10 @@ msgstr "Schlüsselergebnis hinzufügen"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP-Server hinzufügen"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -1050,6 +1056,10 @@ msgstr "Filter {label} entfernen"
 #: src/components/GoalEditor.tsx
 msgid "Clear or replace the archived milestone before saving."
 msgstr "Entfernen oder ersetzen Sie den archivierten Meilenstein vor dem Speichern."
+
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -2999,6 +3009,10 @@ msgstr "Mittel"
 msgid "Medium"
 msgstr "Mittel"
 
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr ""
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "Mitglieder ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
@@ -3344,6 +3358,10 @@ msgstr "Noch keine MCP- oder API-Toolquellen installiert."
 msgid "No MCP servers yet."
 msgstr "Noch keine MCP-Server."
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr ""
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "Noch keine Nachrichten mit {peerBotName}."
@@ -3363,6 +3381,10 @@ msgstr "Keine Modelle aufgelistet."
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "Es ist kein Projektbudget konfiguriert."
+
+#: src/components/ProjectMembers.tsx
+msgid "No project owner assigned."
+msgstr ""
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3605,6 +3627,7 @@ msgstr "Ausgabe: {price}"
 msgid "Overdue"
 msgstr "Überfällig"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Verantwortlich"
@@ -3659,6 +3682,7 @@ msgstr "Füge deinen API-Schlüssel ein"
 msgid "Paste your API key, then test again."
 msgstr "Füge deinen API-Schlüssel ein und teste erneut."
 
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Pausiert"
@@ -3744,6 +3768,10 @@ msgstr "Projektbudget"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "Projekt-ID"
+
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
@@ -3909,6 +3937,7 @@ msgid "Release interrupted computer?"
 msgstr "Unterbrochenen Computer freigeben?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4317,6 +4346,10 @@ msgstr "Bot auswählen"
 msgid "Select a connected model"
 msgstr "Verbundenes Modell auswählen"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Ticket auswählen"
@@ -4373,6 +4406,10 @@ msgstr "Servername"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "Server-URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr ""
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

@@ -273,6 +273,7 @@ msgstr "공간 작업"
 
 #: src/components/GoalEditor.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Active"
 msgstr "활성"
@@ -286,6 +287,7 @@ msgstr "현재 모델"
 msgid "Activity"
 msgstr "활동"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -364,6 +366,10 @@ msgstr "핵심 결과 추가"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP 서버 추가"
+
+#: src/components/ProjectMembers.tsx
+msgid "Add member"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -1050,6 +1056,10 @@ msgstr "{label} 필터 지우기"
 #: src/components/GoalEditor.tsx
 msgid "Clear or replace the archived milestone before saving."
 msgstr "저장하기 전에 보관된 마일스톤을 지우거나 교체하세요."
+
+#: src/components/ProjectMembers.tsx
+msgid "Clear owner"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -2999,6 +3009,10 @@ msgstr "보통"
 msgid "Medium"
 msgstr "보통"
 
+#: src/components/ProjectMembers.tsx
+msgid "Members"
+msgstr ""
+
 #: src/pages/GroupPanel.tsx
 msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
 msgstr "참여 Bot ({GROUP_MEMBER_MIN}~{GROUP_MEMBER_MAX}개)"
@@ -3344,6 +3358,10 @@ msgstr "아직 추가된 MCP 또는 API 도구가 없습니다."
 msgid "No MCP servers yet."
 msgstr "아직 연결된 MCP 서버가 없습니다."
 
+#: src/components/ProjectMembers.tsx
+msgid "No members yet."
+msgstr ""
+
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
 msgstr "{peerBotName}와의 메시지가 아직 없습니다."
@@ -3363,6 +3381,10 @@ msgstr "나열된 모델이 없습니다."
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
 msgstr "프로젝트 예산이 설정되지 않았습니다."
+
+#: src/components/ProjectMembers.tsx
+msgid "No project owner assigned."
+msgstr ""
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "No providers found."
@@ -3605,6 +3627,7 @@ msgstr "출력: {price}"
 msgid "Overdue"
 msgstr "기한 초과"
 
+#: src/components/ProjectMembers.tsx
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "담당자"
@@ -3659,6 +3682,7 @@ msgstr "API 키를 붙여넣으세요"
 msgid "Paste your API key, then test again."
 msgstr "API 키를 붙여넣은 뒤 다시 테스트하세요."
 
+#: src/pages/Projects.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "일시 중지됨"
@@ -3744,6 +3768,10 @@ msgstr "프로젝트 예산"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "프로젝트 ID"
+
+#: src/components/ProjectMembers.tsx
+msgid "Project members"
+msgstr ""
 
 #: src/pages/Board.tsx
 #: src/pages/Projects.tsx
@@ -3909,6 +3937,7 @@ msgid "Release interrupted computer?"
 msgstr "중단된 컴퓨터를 해제할까요?"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/components/ProjectMembers.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -4317,6 +4346,10 @@ msgstr "대화할 Bot을 선택하세요"
 msgid "Select a connected model"
 msgstr "연결된 모델 선택"
 
+#: src/components/ProjectMembers.tsx
+msgid "Select a person"
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "티켓 선택"
@@ -4373,6 +4406,10 @@ msgstr "서버 이름"
 #: src/pages/Onboarding.tsx
 msgid "Server URL"
 msgstr "서버 URL"
+
+#: src/components/ProjectMembers.tsx
+msgid "Set owner"
+msgstr ""
 
 #: src/components/call/CallCard.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

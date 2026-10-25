@@ -26,6 +26,7 @@ export function BotRestorePreview({
 }) {
   const [routineError, setRoutineError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [enabledRoutineIds, setEnabledRoutineIds] = useState<Set<string>>(() => new Set());
   const pausedProjects = new Set(preview.projects.filter((project) => project.status === "paused").map((project) => project.id));
   return (
     <section role="dialog" aria-modal="true" aria-labelledby="restore-preview-title" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
@@ -57,12 +58,14 @@ export function BotRestorePreview({
                   {routine.name} · {preview.projects.find((project) => project.id === routine.projectId)?.name ?? <Trans>No project</Trans>}
                 </span>
                 {paused ? <span className="text-sm text-muted-foreground"><Trans>Project paused</Trans></span> : null}
-                <Button type="button" variant="outline" disabled={pending || busy || paused || routine.active} onClick={() => {
+                <Button type="button" variant="outline" disabled={pending || busy || paused || routine.active || enabledRoutineIds.has(routine.id)} onClick={() => {
                     setRoutineError(null);
                     setBusy(true);
-                    void onEnableRoutine(routine.id).catch((cause: unknown) => setRoutineError(String(cause))).finally(() => setBusy(false));
+                    void onEnableRoutine(routine.id).then(() => {
+                      setEnabledRoutineIds((current) => new Set(current).add(routine.id));
+                    }).catch((cause: unknown) => setRoutineError(String(cause))).finally(() => setBusy(false));
                   }}>
-                  {routine.active ? <Trans>Enabled</Trans> : <Trans>Enable</Trans>}
+                  {routine.active || enabledRoutineIds.has(routine.id) ? <Trans>Enabled</Trans> : <Trans>Enable</Trans>}
                 </Button>
               </div>
             );

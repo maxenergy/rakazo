@@ -3388,6 +3388,7 @@ msgid "No project budget is configured."
 msgstr "Aucun budget de projet n’est configuré."
 
 #: src/components/ProjectMembers.tsx
+#: src/pages/Projects.tsx
 msgid "No project owner assigned."
 msgstr ""
 

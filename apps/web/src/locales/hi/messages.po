@@ -2149,7 +2149,7 @@ msgstr "सीधा MCP"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Disabled routines"
-msgstr ""
+msgstr "अक्षम रूटीन"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -2305,11 +2305,11 @@ msgstr "ईमेल सत्यापन आवश्यक है"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Enable"
-msgstr ""
+msgstr "सक्षम करें"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Enabled"
-msgstr ""
+msgstr "सक्षम"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2652,7 +2652,7 @@ msgstr "उच्च"
 #: src/components/BotRestorePreview.tsx
 #: src/components/ProjectMembers.tsx
 msgid "Historical runs stay with their original project."
-msgstr ""
+msgstr "पुराने रन अपने मूल प्रोजेक्ट के साथ ही रहेंगे।"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -3350,7 +3350,7 @@ msgstr "कोई डेटा नहीं"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No disabled routines."
-msgstr ""
+msgstr "कोई अक्षम रूटीन नहीं।"
 
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
@@ -3410,7 +3410,7 @@ msgstr "कोई मॉडल सूचीबद्ध नहीं।"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No project"
-msgstr ""
+msgstr "कोई प्रोजेक्ट नहीं"
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
@@ -3465,7 +3465,7 @@ msgstr "कोई ट्रिगर नहीं"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No unfinished tickets."
-msgstr ""
+msgstr "कोई अधूरे टिकट नहीं।"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
@@ -3481,7 +3481,7 @@ msgstr "सामान्य"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Not a member"
-msgstr ""
+msgstr "सदस्य नहीं"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3819,7 +3819,7 @@ msgstr "प्रोजेक्ट सदस्य"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
-msgstr ""
+msgstr "प्रोजेक्ट रुका हुआ है"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4142,11 +4142,11 @@ msgstr "बहाल करें"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Restore employee"
-msgstr ""
+msgstr "कर्मचारी बहाल करें"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Restore preview"
-msgstr ""
+msgstr "बहाली का पूर्वावलोकन"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
@@ -4215,7 +4215,7 @@ msgstr "रूटीन्स"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Routines stay disabled until enabled individually."
-msgstr ""
+msgstr "रूटीन अलग-अलग सक्षम किए जाने तक अक्षम रहेंगे।"
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -5076,7 +5076,7 @@ msgstr "अनुपलब्ध"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Unfinished tickets"
-msgstr ""
+msgstr "अधूरे टिकट"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

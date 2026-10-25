@@ -2149,7 +2149,7 @@ msgstr "直接连接 MCP"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Disabled routines"
-msgstr ""
+msgstr "已停用的定时任务"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -2305,11 +2305,11 @@ msgstr "需要验证邮箱"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Enable"
-msgstr ""
+msgstr "启用"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Enabled"
-msgstr ""
+msgstr "已启用"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2652,7 +2652,7 @@ msgstr "高"
 #: src/components/BotRestorePreview.tsx
 #: src/components/ProjectMembers.tsx
 msgid "Historical runs stay with their original project."
-msgstr ""
+msgstr "历史运行仍归属原项目。"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -3350,7 +3350,7 @@ msgstr "暂无数据"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No disabled routines."
-msgstr ""
+msgstr "没有已停用的定时任务。"
 
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
@@ -3410,7 +3410,7 @@ msgstr "未列出模型。"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No project"
-msgstr ""
+msgstr "没有项目"
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
@@ -3465,7 +3465,7 @@ msgstr "无触发器"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No unfinished tickets."
-msgstr ""
+msgstr "没有未完成工单。"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
@@ -3481,7 +3481,7 @@ msgstr "普通"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Not a member"
-msgstr ""
+msgstr "不是成员"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3819,7 +3819,7 @@ msgstr "项目成员"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
-msgstr ""
+msgstr "项目已暂停"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4142,11 +4142,11 @@ msgstr "恢复"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Restore employee"
-msgstr ""
+msgstr "恢复员工"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Restore preview"
-msgstr ""
+msgstr "恢复预览"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
@@ -4215,7 +4215,7 @@ msgstr "例行任务"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Routines stay disabled until enabled individually."
-msgstr ""
+msgstr "定时任务会保持停用，直到逐条启用。"
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -5076,7 +5076,7 @@ msgstr "不可用"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Unfinished tickets"
-msgstr ""
+msgstr "未完成工单"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

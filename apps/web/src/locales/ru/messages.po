@@ -2149,7 +2149,7 @@ msgstr "Прямой MCP"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Disabled routines"
-msgstr ""
+msgstr "Отключённые сценарии"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -2305,11 +2305,11 @@ msgstr "Требуется подтверждение электронной п�
 
 #: src/components/BotRestorePreview.tsx
 msgid "Enable"
-msgstr ""
+msgstr "Включить"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Enabled"
-msgstr ""
+msgstr "Включено"
 
 #: src/components/ProjectProgress.tsx
 msgid "Ended"
@@ -2652,7 +2652,7 @@ msgstr "Высокий"
 #: src/components/BotRestorePreview.tsx
 #: src/components/ProjectMembers.tsx
 msgid "Historical runs stay with their original project."
-msgstr ""
+msgstr "История запусков остаётся в исходном проекте."
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -3350,7 +3350,7 @@ msgstr "Нет данных"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No disabled routines."
-msgstr ""
+msgstr "Нет отключённых сценариев."
 
 #: src/components/ProjectGoals.tsx
 msgid "No goals"
@@ -3410,7 +3410,7 @@ msgstr "Модели не перечислены."
 
 #: src/components/BotRestorePreview.tsx
 msgid "No project"
-msgstr ""
+msgstr "Нет проекта"
 
 #: src/components/ProjectBudget.tsx
 msgid "No project budget is configured."
@@ -3465,7 +3465,7 @@ msgstr "Нет триггера"
 
 #: src/components/BotRestorePreview.tsx
 msgid "No unfinished tickets."
-msgstr ""
+msgstr "Нет незавершённых задач."
 
 #: src/components/GoalEditor.tsx
 msgid "None"
@@ -3481,7 +3481,7 @@ msgstr "Обычный"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Not a member"
-msgstr ""
+msgstr "Не участник"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Not connected"
@@ -3819,7 +3819,7 @@ msgstr "Участники проекта"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
-msgstr ""
+msgstr "Проект приостановлен"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4142,11 +4142,11 @@ msgstr "Восстановить"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Restore employee"
-msgstr ""
+msgstr "Восстановить сотрудника"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Restore preview"
-msgstr ""
+msgstr "Предпросмотр восстановления"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace."
@@ -4215,7 +4215,7 @@ msgstr "Задачи"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Routines stay disabled until enabled individually."
-msgstr ""
+msgstr "Сценарии остаются отключёнными, пока не будут включены по одному."
 
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
@@ -5076,7 +5076,7 @@ msgstr "Недоступно"
 
 #: src/components/BotRestorePreview.tsx
 msgid "Unfinished tickets"
-msgstr ""
+msgstr "Незавершённые задачи"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"

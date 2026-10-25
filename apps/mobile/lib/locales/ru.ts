@@ -662,6 +662,15 @@ export const RU_MESSAGES: Record<string, string> = {
   "Opened its thread.": "Диалог открыт.",
   "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed.":
     "Вставьте OpenAI-совместимый адрес со своего сервера. При необходимости Rakazo добавляет /v1.",
+  "Cancellation requested; external process needs manual confirmation and is not shown as stopped.":
+    "Запрошена отмена; внешний процесс требует подтверждения вручную и не отображается как остановленный.",
+  "Finishing safely": "Безопасное завершение",
+  "In flight work will finish safely.": "Текущая работа безопасно завершится.",
+  "Pause project": "Приостановить проект",
+  "Pause project?": "Приостановить проект?",
+  Resume: "Возобновить",
+  "Resume project": "Возобновить проект",
+  "Resume project?": "Возобновить проект?",
   Paused: "Приостановлено",
   Prompt: "Промпт",
   "Recording a live demonstration needs desktop or web with the full computer view. You can still ask this bot to run saved skills from chat.":

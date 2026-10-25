@@ -1,4 +1,12 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Back to projects": "Назад к проектам",
+  Home: "Главная",
+  "Manage project members on web.": "Управляйте участниками проекта в веб-версии.",
+  Member: "Участник",
+  "No members yet.": "Участников пока нет.",
+  "No project owner assigned.": "Руководитель проекта не назначен.",
+  Owner: "Руководитель",
+  Projects: "Проекты",
   "Sort by cost": "Сортировать по стоимости",
   "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
     "Запрос CLI не выполнен. Проверьте вход, выбранную модель и лимиты подписки. Переход на API не использовался.",

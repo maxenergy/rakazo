@@ -128,6 +128,7 @@ async function render(description = "Billing") {
         bot={bot(description)}
         memoryProviderConfigured={false}
         onSkillsChange={() => undefined}
+        onRefresh={async () => undefined}
         onSave={onSave}
         onExport={async () => undefined}
         onClear={() => undefined}

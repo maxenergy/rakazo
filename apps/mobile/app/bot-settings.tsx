@@ -38,7 +38,6 @@ import { stopVoicePlayback } from "../lib/voice";
 
 type BotSettingsRecord = MobileBot & {
   description?: string;
-  workLocation?: "container" | "host";
 };
 
 export default function BotSettingsScreen() {

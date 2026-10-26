@@ -42,6 +42,23 @@ describe("BotAvatar", () => {
     expect(html).toContain('data-working="false"');
   });
 
+  it.each(["robot", "organic"] as const)("keeps decorative %s avatars still", (variant) => {
+    const html = renderToString(
+      <BotAvatar
+        color={DEFAULT_GROK_BOT_COLOR}
+        identity="member"
+        variant={variant}
+        status="running"
+        animated={false}
+      />,
+    );
+    expect(html).toContain('data-animated="false"');
+    expect(html).toContain('data-working="false"');
+    expect(html).not.toContain("<animate ");
+    expect(html).not.toContain("animate-pulse");
+    expect(html).not.toContain("hover:scale-");
+  });
+
   it("fits the robot eyes inside the visor at every rendered size", () => {
     for (const size of [14, 15, 16, 18, 20, 21, 22, 25, 26, 28, 32, 38, 72, 76, 78, 120]) {
       const html = renderToString(

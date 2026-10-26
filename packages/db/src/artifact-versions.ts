@@ -1,5 +1,6 @@
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 
 export async function resolveNextArtifactVersion(
   prisma: Pick<PrismaClient, "artifact">,
@@ -45,6 +46,7 @@ export async function withResolvedArtifactVersion<T>(
     botId: string;
     groupId?: string | null;
     name: string;
+    executionFence?: ExecutionFence;
   },
   attempt: (
     db: Pick<Prisma.TransactionClient, "artifact">,
@@ -55,6 +57,13 @@ export async function withResolvedArtifactVersion<T>(
   for (let i = 0; i < MAX_VERSION_ALLOCATION_ATTEMPTS; i++) {
     try {
       return await prisma.$transaction(async (tx) => {
+        if (params.executionFence) {
+          await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${params.spaceId} FOR KEY SHARE`;
+          await tx.$queryRaw`SELECT id FROM bots WHERE id = ${params.botId} FOR KEY SHARE`;
+          if (params.groupId)
+            await tx.$queryRaw`SELECT id FROM chat_groups WHERE id = ${params.groupId} FOR KEY SHARE`;
+          await assertExecutionFence(tx, params.executionFence);
+        }
         await tx.$queryRaw(Prisma.sql`
           SELECT pg_advisory_xact_lock(hashtextextended(${artifactVersionLockKey(params)}, 0))::text AS "lock"
         `);

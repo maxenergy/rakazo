@@ -26,6 +26,7 @@ import {
   getResponseStreamingPreference,
   setResponseStreamingPreference,
 } from "../lib/response-streaming";
+import { rpc } from "../lib/rpc";
 import {
   getToolActivityPreference,
   setToolActivityPreference,
@@ -90,6 +91,7 @@ export function GeneralSettingsPanels({
     void setUiLocale(next).then((activated) => {
       if (requestId !== localeRequestRef.current) return;
       setLocale(activated);
+      void rpc.preferences.update({ uiLocale: activated }).catch(() => undefined);
     });
   }
 

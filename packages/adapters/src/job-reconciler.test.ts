@@ -12,6 +12,11 @@ import { loopGuardStopText } from "./tool-loop.js";
 
 vi.mock("./bot-messages.js", () => ({ returnBotMessageOutcome: vi.fn() }));
 
+const detectStuckWorkers = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("./stuck-worker.js", () => ({
+  createStuckWorkerDetector: () => detectStuckWorkers,
+}));
+
 function publisher() {
   const enqueue = vi.fn(async (_job: BackgroundJob) => undefined);
   const jobs: JobPublisher = {
@@ -57,12 +62,41 @@ describe("createJobReconciler", () => {
       reconcileCloudAgents,
       reconcileComputerUpdates,
     }).reconcileOnce();
+    expect(detectStuckWorkers).toHaveBeenCalledWith(expect.any(Date));
     expect(reconcileCloudAgents).toHaveBeenCalledOnce();
     expect(reconcileComputerUpdates).toHaveBeenCalledOnce();
     expect(prisma.run.findMany).toHaveBeenCalled();
     expect(prisma.routine.findMany).toHaveBeenCalled();
     expect(prisma.computer.findMany).toHaveBeenCalled();
     expect(prisma.messagingOutbound.findFirst).toHaveBeenCalled();
+  });
+
+  it("runs the ticket wake reconciler and survives its failure", async () => {
+    const prisma = fakePrisma();
+    const { jobs } = publisher();
+    const reconcileTicketWakes = vi.fn(async () => {
+      throw new Error("wake store unavailable");
+    });
+    const reconcileOrgCheckIns = vi.fn(async () => undefined);
+    await createJobReconciler({
+      prisma,
+      jobs,
+      reconcileTicketWakes,
+      reconcileOrgCheckIns,
+    }).reconcileOnce();
+    expect(reconcileTicketWakes).toHaveBeenCalledOnce();
+    expect(reconcileOrgCheckIns).toHaveBeenCalledOnce();
+  });
+
+  it("continues recovery scans when budget approval expiry fails", async () => {
+    const prisma = fakePrisma();
+    const { jobs } = publisher();
+    const reconcileBudgetApprovals = vi.fn(async () => {
+      throw new Error("expiry unavailable");
+    });
+    await createJobReconciler({ prisma, jobs, reconcileBudgetApprovals }).reconcileOnce();
+    expect(reconcileBudgetApprovals).toHaveBeenCalledOnce();
+    expect(prisma.run.findMany).toHaveBeenCalled();
   });
 
   it("restores a due pending messaging outbox drain", async () => {

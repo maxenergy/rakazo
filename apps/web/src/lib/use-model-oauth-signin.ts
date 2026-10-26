@@ -1,5 +1,10 @@
+import { useLingui } from "@lingui/react/macro";
 import type { ModelOAuthBegin, ThinkingLevel } from "@rakazo/contracts";
-import { cancelModelOAuthAttempt, finishModelOAuthAttempt } from "@rakazo/core";
+import {
+  cancelModelOAuthAttempt,
+  finishModelOAuthAttempt,
+  modelOAuthErrorMessage,
+} from "@rakazo/core";
 import { useEffect, useRef, useState } from "react";
 import { desktopBridge, oauthStateOf, onDesktopOAuthCallback } from "./desktop";
 import { waitForModelOAuth } from "./model-auth";
@@ -24,9 +29,11 @@ export function useModelOAuthSignIn(options: {
   onClearError?: () => void;
 }) {
   const { onFinished, onError, onClearError } = options;
+  const { t } = useLingui();
   const [oauth, setOauth] = useState<ModelOAuthBegin | null>(null);
   const [pasteCode, setPasteCode] = useState("");
   const [oauthPending, setOauthPending] = useState(false);
+  const [oauthCodeSubmitting, setOauthCodeSubmitting] = useState(false);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const oauthAbortRef = useRef<AbortController | null>(null);
   const oauthLoginIdRef = useRef<string | null>(null);
@@ -38,6 +45,21 @@ export function useModelOAuthSignIn(options: {
   onFinishedRef.current = onFinished;
   onErrorRef.current = onError;
   onClearErrorRef.current = onClearError;
+
+  function signInErrorMessage(error: unknown) {
+    switch (modelOAuthErrorMessage(error)) {
+      case "Authorization timed out. Please try again.":
+        return t`Authorization timed out. Please try again.`;
+      case "Authorization code is invalid. Start sign-in again.":
+        return t`Authorization code is invalid. Start sign-in again.`;
+      case "Antigravity is not available in this account's region.":
+        return t`Antigravity is not available in this account's region.`;
+      case "This account is not eligible for Antigravity.":
+        return t`This account is not eligible for Antigravity.`;
+      default:
+        return t`Could not connect this provider`;
+    }
+  }
 
   function releaseOAuthCapture(expected?: (() => void) | null) {
     if (expected !== undefined && oauthCaptureRef.current !== expected) return;
@@ -54,6 +76,7 @@ export function useModelOAuthSignIn(options: {
       if (resetState) {
         setOauth(null);
         setOauthPending(false);
+        setOauthCodeSubmitting(false);
         setPopupBlocked(false);
       }
     });
@@ -85,6 +108,7 @@ export function useModelOAuthSignIn(options: {
     const code = (captured ?? pasteCode).trim();
     if (!controller || !code) return;
     oauthCodeSubmittingRef.current = true;
+    setOauthCodeSubmitting(true);
     setPasteCode("");
     onClearErrorRef.current?.();
     let submitted = false;
@@ -106,12 +130,13 @@ export function useModelOAuthSignIn(options: {
         retryable = true;
         setPasteCode(code);
       }
-      onErrorRef.current(errorText(err, "Could not finish sign-in"));
+      onErrorRef.current(signInErrorMessage(err));
     } finally {
       // A cancelled attempt may already have started another sign-in; do not clear
       // its submitting guard or the newer desktop callback is dropped.
       if (oauthAbortRef.current === controller) {
         oauthCodeSubmittingRef.current = false;
+        setOauthCodeSubmitting(false);
       }
       if (!retryable) {
         // Only drop this attempt's listener — a newer sign-in may already own the ref.
@@ -124,6 +149,7 @@ export function useModelOAuthSignIn(options: {
   async function startSubscriptionSignIn(begin: ModelOAuthSignInBegin) {
     onClearErrorRef.current?.();
     setOauthPending(true);
+    setOauthCodeSubmitting(false);
     setPopupBlocked(false);
     const controller = new AbortController();
     oauthAbortRef.current = controller;
@@ -162,7 +188,14 @@ export function useModelOAuthSignIn(options: {
           controller.signal.removeEventListener("abort", cancelBrowser);
           cancelBrowser();
         };
-        await browserAuth.open(started.verificationUri);
+        await browserAuth.open(started.verificationUri, {
+          callbackOwner:
+            started.mode === "browser"
+              ? "provider"
+              : started.mode === "auth-url"
+                ? (started.callbackOwner ?? "app")
+                : "app",
+        });
         if (controller.signal.aborted) return;
       } else {
         // null means the browser blocked the popup — the card keeps showing the
@@ -178,7 +211,7 @@ export function useModelOAuthSignIn(options: {
       const loginId = oauthLoginIdRef.current;
       oauthLoginIdRef.current = null;
       if (loginId) void rpc.models.cancelOAuth({ loginId }).catch(() => undefined);
-      onErrorRef.current(errorText(err, "Could not start sign-in"));
+      onErrorRef.current(signInErrorMessage(err));
       setOauth(null);
     } finally {
       if (!waitingForCode) {
@@ -195,6 +228,7 @@ export function useModelOAuthSignIn(options: {
     pasteCode,
     setPasteCode,
     oauthPending,
+    oauthCodeSubmitting,
     popupBlocked,
     cancelOAuthAttempt,
     startSubscriptionSignIn,

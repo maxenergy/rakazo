@@ -10,6 +10,7 @@ loadRootEnv();
 
 const integration = process.argv.includes("--integration");
 const e2e = process.argv.includes("--e2e");
+const desktopBoard = process.argv.includes("--desktop-board");
 const sandboxArg = process.argv.find((arg) => arg.startsWith("--sandbox="));
 const specArg = process.argv.find((arg) => arg.startsWith("--spec="));
 const grepArg = process.argv.find((arg) => arg.startsWith("--grep="));
@@ -88,8 +89,24 @@ async function main() {
 
     if (integration) {
       const suites = [
+        "apps/api/src/artifacts.postgres.test.ts",
+        "apps/api/src/board-app.postgres.test.ts",
+        "packages/adapters/src/goal-tools.postgres.test.ts",
+        "packages/db/src/board.postgres.test.ts",
+        "packages/db/src/budget-approval-expiry.postgres.test.ts",
+        "packages/db/src/budget-overrun-approvals.postgres.test.ts",
+        "packages/db/src/goals.postgres.test.ts",
+        "packages/db/src/ticket-dependencies.postgres.test.ts",
+        "packages/db/src/project-links.postgres.test.ts",
+        "packages/db/src/project-archive.postgres.test.ts",
+        "packages/db/src/project-members.postgres.test.ts",
+        "apps/api/src/project-links.postgres.test.ts",
+        "apps/api/src/projects.postgres.test.ts",
+        "apps/api/src/run-diagnostics.postgres.test.ts",
         "packages/testkit/src/pi-offline.postgres.test.ts",
         "packages/testkit/src/usage-accounting.postgres.test.ts",
+        "packages/testkit/src/fallback-billing.postgres.test.ts",
+        "packages/testkit/src/acceptance/worker-fault-harness.postgres.test.ts",
         "packages/db/src/history-retrieval.postgres.test.ts",
         "packages/testkit/src/history-retrieval.postgres.test.ts",
         "packages/testkit/src/history-short-product.postgres.test.ts",
@@ -111,6 +128,9 @@ async function main() {
         "packages/db/src/space-membership.postgres.test.ts",
         "packages/db/src/messaging.postgres.test.ts",
         "packages/db/src/billing.postgres.test.ts",
+        "packages/db/src/project-budgets.postgres.test.ts",
+        "packages/db/src/space-budget-cleanup.postgres.test.ts",
+        "packages/db/src/ticket-wakes.postgres.test.ts",
         "apps/api/src/billing.postgres.test.ts",
         "packages/memory/src/commit.postgres.test.ts",
         "packages/adapters/src/wakeup.postgres.test.ts",
@@ -221,10 +241,11 @@ async function main() {
           "pnpm",
           [
             "--filter",
-            "@rakazo/web",
+            desktopBoard ? "@rakazo/desktop" : "@rakazo/web",
             "exec",
             "playwright",
             "test",
+            ...(desktopBoard ? ["--config=e2e/board.config.ts"] : []),
             ...(e2eSpec ? [e2eSpec] : []),
             ...(e2eGrep ? ["--grep", e2eGrep] : []),
           ],

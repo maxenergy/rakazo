@@ -1,13 +1,19 @@
-import type { Actor, Bot, BotSection, MessageBlock, SpaceBot } from "@rakazo/contracts";
-import { BOT_COLORS } from "@rakazo/contracts";
+import type { Actor, Bot, BotOrgRole, BotSection, MessageBlock, SpaceBot } from "@rakazo/contracts";
+import { BOT_COLORS, parseBotOrgRole } from "@rakazo/contracts";
 import { BACKGROUND_RUN_TRIGGERS, isBackgroundRunTrigger, userVisibleMessages } from "@rakazo/core";
 import type { PrismaClient } from "./client.js";
 import type { ComputerMode } from "./computers.js";
 import { ensureComputerRecord, parseComputerMode } from "./computers.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import { createThreadMessageInTransaction } from "./messages.js";
 import { BotSectionNameConflictError, IsolationError } from "./scope.js";
 import { lockSpaceForContentCreation } from "./spaces.js";
-import { activeRunSelection, latestBotRunSelection, previewFromBlocks } from "./thread-listing.js";
+import {
+  activeRunSelection,
+  latestBotRunSelection,
+  previewFromBlocks,
+  rosterActiveRun,
+} from "./thread-listing.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 /** Newest messages loaded for sidebar preview; enough to skip a short peer-run tail. */
@@ -68,6 +74,9 @@ function mapBot(
     disabledBuiltinTools?: string[];
     webhookSecretId?: string | null;
     spawnKey?: string | null;
+    orgRole?: string | null;
+    team?: string;
+    reportsToBotId?: string | null;
   },
   preview = "",
   status = "idle",
@@ -108,6 +117,9 @@ function mapBot(
     disabledBuiltinTools: bot.disabledBuiltinTools ?? [],
     webhookConfigured: Boolean(bot.webhookSecretId),
     spawnKey: bot.spawnKey ?? null,
+    orgRole: parseBotOrgRole(bot.orgRole),
+    team: bot.team ?? "",
+    reportsToBotId: bot.reportsToBotId ?? null,
   };
 }
 
@@ -179,8 +191,8 @@ export function createRepos(prisma: PrismaClient) {
         unread: bot.thread.unread,
         parentBotId: bot.parentBotId,
         preview: previewFromBlocks(bot.thread.messages[0]?.blocks),
-        status: bot.runs[0]?.status ?? "idle",
-        runErrorId: rosterRunErrorId(bot.thread.runs[0], bot.runs[0]),
+        status: rosterActiveRun(bot.runs)?.status ?? "idle",
+        runErrorId: rosterRunErrorId(bot.thread.runs[0], rosterActiveRun(bot.runs)),
         updatedAt: bot.updatedAt.toISOString(),
       };
     });
@@ -381,8 +393,8 @@ export function createRepos(prisma: PrismaClient) {
           return mapBot(
             bot,
             preview,
-            bot.runs[0]?.status ?? "idle",
-            rosterRunErrorId(bot.thread?.runs[0], bot.runs[0]),
+            rosterActiveRun(bot.runs)?.status ?? "idle",
+            rosterRunErrorId(bot.thread?.runs[0], rosterActiveRun(bot.runs)),
           );
         }),
       );
@@ -420,6 +432,10 @@ export function createRepos(prisma: PrismaClient) {
         modelId?: string | null;
         thinkingLevel?: string | null;
         disabledBuiltinTools?: string[];
+        orgRole?: BotOrgRole | null;
+        team?: string;
+        reportsToBotId?: string | null;
+        executionFence?: ExecutionFence;
         initialMessage?: {
           role: "user" | "bot" | "system";
           blocks: MessageBlock[];
@@ -451,10 +467,22 @@ export function createRepos(prisma: PrismaClient) {
           modelProvider = parent.modelProvider ?? null;
           modelId = parent.modelId ?? null;
         }
-        if (thinkingLevel == null) thinkingLevel = parent.thinkingLevel ?? null;
+        if (
+          thinkingLevel == null &&
+          modelProvider === parent.modelProvider &&
+          modelId === parent.modelId
+        )
+          thinkingLevel = parent.thinkingLevel ?? null;
         if (input.disabledBuiltinTools === undefined) {
           disabledBuiltinTools = parent.disabledBuiltinTools;
         }
+      }
+      if (input.reportsToBotId) {
+        const manager = await prisma.bot.findFirst({
+          where: { id: input.reportsToBotId, spaceId: actor.spaceId, userId: actor.userId },
+          select: { id: true },
+        });
+        if (!manager) throw new IsolationError();
       }
       const settings = await prisma.deploymentSettings.findUnique({ where: { id: "default" } });
       const envKind = process.env.SANDBOX_PROVIDER ?? "docker";
@@ -494,6 +522,9 @@ export function createRepos(prisma: PrismaClient) {
               modelId,
               thinkingLevel,
               disabledBuiltinTools,
+              orgRole: input.orgRole ?? null,
+              team: input.team ?? "",
+              reportsToBotId: input.reportsToBotId ?? null,
             },
           });
           const thread = await tx.thread.create({
@@ -536,6 +567,8 @@ export function createRepos(prisma: PrismaClient) {
               content: `# ${input.name}\n\n`,
             },
           });
+          // Check after creation locks; a stale holder rolls back every inserted row.
+          if (input.executionFence) await assertExecutionFence(tx, input.executionFence);
           return tx.bot.findFirstOrThrow({
             where: { id: created.id },
             include: { thread: true, computer: true },
@@ -567,9 +600,18 @@ export function createRepos(prisma: PrismaClient) {
         } else {
           // Free the key from the archived bot so empty-space onboarding
           // creates a fresh first bot (stale thread/runtime must not return).
-          await prisma.bot.update({
-            where: { id: existing.id },
-            data: { spawnKey: null },
+          await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM bots WHERE id = ${existing.id} AND "spaceId" = ${actor.spaceId} FOR UPDATE`;
+            if (input.executionFence) await assertExecutionFence(tx, input.executionFence);
+            await tx.bot.updateMany({
+              where: {
+                id: existing.id,
+                spaceId: actor.spaceId,
+                spawnKey: input.spawnKey,
+                archivedAt: { not: null },
+              },
+              data: { spawnKey: null },
+            });
           });
           try {
             bot = await insertBot();

@@ -20,12 +20,15 @@ import {
 } from "@rakazo/contracts";
 import {
   COMPATIBLE_THINKING_LEVELS,
+  catalogMetadataLines,
   clampCatalogThinkingLevel,
   createModelProbe,
   featuredModelProviders,
   filterModelCatalog,
   initialModelProbeState,
+  modelOAuthErrorMessage,
   pickCatalogModelId,
+  sortModelCatalogByCost,
 } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
@@ -63,6 +66,7 @@ import {
   waitForModelOAuth,
 } from "../../lib/model-auth";
 import { mobileBackupScopeIsCurrent } from "../../lib/model-backups";
+import { modelSignInLabel } from "../../lib/model-catalog-copy";
 import { native, useResolvedAppearance, useThemedStyles } from "../../lib/native";
 import { errorText } from "../../lib/user-error";
 
@@ -114,6 +118,7 @@ export default function Models() {
   const [ownKeyProvider, setOwnKeyProvider] = useState<string | null>(null);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [modelId, setModelId] = useState("");
+  const [sortByCost, setSortByCost] = useState(false);
   const [modelSearch, setModelSearch] = useState({ provider: "", query: "" });
   const [apiKey, setApiKey] = useState("");
   const [accountId, setAccountId] = useState("");
@@ -136,6 +141,7 @@ export default function Models() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<"connect" | "default" | "disconnect" | null>(null);
   const [oauthPending, setOauthPending] = useState(false);
+  const [oauthCodeSubmitting, setOauthCodeSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backupModels, setBackupModels] = useState<ModelBackupChoice[]>([]);
   const [savedBackupModels, setSavedBackupModels] = useState<ModelBackupChoice[]>([]);
@@ -189,11 +195,13 @@ export default function Models() {
   }, []);
 
   const cancelOAuth = useCallback(() => {
+    oauthCodeSubmittingRef.current = false;
     const loginId = oauthLoginIdRef.current;
     oauthLoginIdRef.current = null;
     cancelModelOAuthAttempt(oauthAbortRef, () => {
       setOauth(null);
       setOauthPending(false);
+      setOauthCodeSubmitting(false);
     });
     if (loginId) void rpc("models/cancelOAuth", { loginId }).catch(() => undefined);
   }, []);
@@ -429,8 +437,14 @@ export default function Models() {
     selected !== undefined &&
     modelQuery.trim().length > 0 &&
     !matchedModels.some((entry) => entry.id === selected.id);
-  const visibleModels =
-    stagedModelHidden && selected ? [selected, ...matchedModels] : matchedModels;
+  const sortedModels = sortByCost
+    ? sortModelCatalogByCost(matchedModels, () =>
+        provider === me?.hostCredentialProvider
+          ? undefined
+          : credentials.find((entry) => entry.provider === provider)?.authKind,
+      )
+    : matchedModels;
+  const visibleModels = stagedModelHidden && selected ? [selected, ...sortedModels] : sortedModels;
   const noModelMatches = showModelSearch && matchedModels.length === 0;
 
   // The search field keeps focus, so tell screen readers once when the results run out.
@@ -483,7 +497,11 @@ export default function Models() {
     baseUrl: effectiveBaseUrl,
     modelId,
   });
-  const builtinLimitSave = !isOpenAiCompatible && Boolean(credential) && apiKey.trim().length === 0;
+  const builtinLimitSave =
+    !isOpenAiCompatible &&
+    selected?.supportsMaxTokens !== false &&
+    Boolean(credential) &&
+    apiKey.trim().length === 0;
 
   function updateBaseUrl(nextBaseUrl: string) {
     setBaseUrl(nextBaseUrl);
@@ -763,6 +781,7 @@ export default function Models() {
     if (!selected) return;
     clearFeedback();
     setOauthPending(true);
+    setOauthCodeSubmitting(false);
     const controller = new AbortController();
     oauthAbortRef.current = controller;
     let waitingForCode = false;
@@ -784,7 +803,7 @@ export default function Models() {
       oauthLoginIdRef.current = started.loginId;
       setPasteCode("");
       setOauth(started);
-      await Linking.openURL(started.verificationUri);
+      if (started.mode !== "browser") await Linking.openURL(started.verificationUri);
       waitingForCode = started.mode === "auth-url";
       if (!waitingForCode) await finishSubscriptionSignIn(started.loginId, controller);
     } catch (err) {
@@ -793,7 +812,7 @@ export default function Models() {
       oauthLoginIdRef.current = null;
       if (loginId) void rpc("models/cancelOAuth", { loginId }).catch(() => undefined);
       publishFeedback("connection", {
-        error: errorText(err, t("Could not start sign-in")),
+        error: t(modelOAuthErrorMessage(err)),
       });
       setOauth(null);
     } finally {
@@ -809,6 +828,7 @@ export default function Models() {
     const code = pasteCode.trim();
     if (!controller || !code) return;
     oauthCodeSubmittingRef.current = true;
+    setOauthCodeSubmitting(true);
     setPasteCode("");
     clearFeedback();
     let submitted = false;
@@ -834,10 +854,13 @@ export default function Models() {
         setPasteCode(code);
       }
       publishFeedback("connection", {
-        error: errorText(err, t("Could not finish sign-in")),
+        error: t(modelOAuthErrorMessage(err)),
       });
     } finally {
-      oauthCodeSubmittingRef.current = false;
+      if (oauthAbortRef.current === controller) {
+        oauthCodeSubmittingRef.current = false;
+        setOauthCodeSubmitting(false);
+      }
       if (!retryable) {
         finishModelOAuthAttempt(oauthAbortRef, controller, () => setOauthPending(false));
       }
@@ -1102,6 +1125,23 @@ export default function Models() {
   const catalogModelCard =
     !isOpenAiCompatible && selected ? (
       <>
+        <View style={styles.modelRow}>
+          <Text style={styles.modelLabel}>{t("Sort by cost")}</Text>
+          <NativeSwitch
+            accessibilityLabel={t("Sort by cost")}
+            value={sortByCost}
+            onValueChange={setSortByCost}
+          />
+        </View>
+        {catalogMetadataLines(
+          selected,
+          usingServerCredentials ? undefined : credential?.authKind,
+          t,
+        ).map((line) => (
+          <Text key={line} style={styles.mutedLabel}>
+            {line}
+          </Text>
+        ))}
         {showModelSearch ? (
           <TextInput
             accessibilityLabel={t("Search models")}
@@ -1189,8 +1229,16 @@ export default function Models() {
             </Pressable>
           ) : null}
         </View>
-        {disclosureRow(t("Advanced"), showAdvanced, () => setShowAdvanced((visible) => !visible))}
-        {showAdvanced ? limitField(t("Maximum output tokens"), maxTokens, setMaxTokens, 6) : null}
+        {selected.supportsMaxTokens !== false ? (
+          <>
+            {disclosureRow(t("Advanced"), showAdvanced, () =>
+              setShowAdvanced((visible) => !visible),
+            )}
+            {showAdvanced
+              ? limitField(t("Maximum output tokens"), maxTokens, setMaxTokens, 6)
+              : null}
+          </>
+        ) : null}
       </>
     ) : null;
 
@@ -1212,6 +1260,7 @@ export default function Models() {
                   <TextInput
                     accessibilityLabel={t("Authorization code")}
                     value={pasteCode}
+                    editable={!oauthCodeSubmitting}
                     onChangeText={setPasteCode}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -1220,9 +1269,10 @@ export default function Models() {
                     style={[styles.keyInput, styles.nestedInput]}
                   />
                   <NativeActionButton
-                    disabled={!pasteCode.trim()}
+                    disabled={oauthCodeSubmitting || !pasteCode.trim()}
+                    busy={oauthCodeSubmitting}
                     fill
-                    label={t("Submit")}
+                    label={t(oauthCodeSubmitting ? "Connecting…" : "Submit")}
                     onPress={() => void submitOAuthCode()}
                     prominence="secondary"
                     style={{ marginTop: 12 }}
@@ -1233,6 +1283,8 @@ export default function Models() {
                     })}
                   </Text>
                 </>
+              ) : oauth.mode === "browser" ? (
+                <Text style={styles.secondary}>{t("Complete sign-in on the server.")}</Text>
               ) : (
                 <>
                   <Text style={styles.secondary}>
@@ -1273,7 +1325,7 @@ export default function Models() {
                   ? t("Starting…")
                   : credential
                     ? t("Sign in again")
-                    : (selected.oauthLabel ?? t("Sign in"))
+                    : modelSignInLabel(selected.oauthLabel)
               }
               onPress={() => void startSubscriptionSignIn()}
               prominence="secondary"

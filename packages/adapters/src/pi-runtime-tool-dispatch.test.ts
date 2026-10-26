@@ -368,6 +368,10 @@ vi.mock("./pi-current-models.js", () => ({
   supplementPiModels: (models: unknown) => models,
 }));
 
+vi.mock("./cli-model-provider.js", () => ({
+  registerCliModelProviders: (models: unknown) => models,
+}));
+
 vi.mock("./pi-local-provider.js", () => ({
   registerLocalProvider: (models: unknown) => models,
 }));
@@ -378,6 +382,7 @@ vi.mock("./pi-openai-compatible-provider.js", () => ({
   registerOpenAiCompatibleRuntime: (models: unknown) => models,
 }));
 
+import { builtinAgentTools } from "./builtin-tools.js";
 import { toolCompletionAuditPayload } from "./executor.js";
 import {
   MISSING_TOOL_FINAL_RESPONSE_ERROR,
@@ -444,6 +449,82 @@ describe("Pi connector tool dispatch", () => {
       args: { collection: "notes", title: "Result", body: "Done" },
     };
     delete process.env.MAX_TOOL_CALLS_PER_TURN;
+  });
+
+  it.each([undefined, null, ""])(
+    "keeps a spawned bot's model and defaults an unused computer mode (%s)",
+    async (computerMode) => {
+      fakeAgentState.invoke = {
+        name: "spawn_bot",
+        args: {
+          name: "CTO",
+          model_provider: "claude-code",
+          model_id: "claude-opus-5-5",
+          ...(computerMode === undefined ? {} : { computer_mode: computerMode }),
+        },
+      };
+      const executeTool = vi.fn(async () => ({ ok: true }));
+      const runtime = new PiAgentRuntime();
+      for await (const _event of runtime.run(
+        {
+          botId: "parent-1",
+          threadId: "thread-1",
+          runId: "run-1",
+          prompt: "Create the CTO with the requested provider and model.",
+          instructions: "Use spawn_bot.",
+          history: [],
+          tools: [builtinAgentTools.find((tool) => tool.name === "spawn_bot")!],
+          model: { provider: "test", id: "dispatch-test-model" },
+          executeTool,
+        },
+        { signal: new AbortController().signal },
+      )) {
+        // Exhaust the runtime event stream.
+      }
+      expect(executeTool).toHaveBeenCalledWith(
+        "spawn_bot",
+        expect.objectContaining({
+          name: "CTO",
+          computer_mode: "team",
+          model_provider: "claude-code",
+          model_id: "claude-opus-5-5",
+        }),
+        JSON.stringify(["pi-tool", "main", "call-1"]),
+        undefined,
+        expect.any(Object),
+      );
+    },
+  );
+
+  it("preserves an existing bot's model selection while omitting an unused target", async () => {
+    fakeAgentState.invoke = {
+      name: "set_bot_model",
+      args: { bot_id: null, model_provider: "claude-code", model_id: "claude-opus-5-5" },
+    };
+    const executeTool = vi.fn(async () => ({ ok: true }));
+    for await (const _event of new PiAgentRuntime().run(
+      {
+        botId: "parent-1",
+        threadId: "thread-1",
+        runId: "run-1",
+        prompt: "Use the requested model.",
+        instructions: "Use set_bot_model.",
+        history: [],
+        tools: [builtinAgentTools.find((tool) => tool.name === "set_bot_model")!],
+        model: { provider: "test", id: "dispatch-test-model" },
+        executeTool,
+      },
+      { signal: new AbortController().signal },
+    )) {
+      // Exhaust the runtime event stream.
+    }
+    expect(executeTool).toHaveBeenCalledWith(
+      "set_bot_model",
+      { model_provider: "claude-code", model_id: "claude-opus-5-5" },
+      JSON.stringify(["pi-tool", "main", "call-1"]),
+      undefined,
+      expect.any(Object),
+    );
   });
 
   it("injects durable steering at Pi's next safe turn boundary", async () => {
@@ -521,6 +602,7 @@ describe("Pi connector tool dispatch", () => {
             },
           ];
     });
+    const onSteeringDelivered = vi.fn(async () => undefined);
     const runtime = new PiAgentRuntime();
 
     for await (const _event of runtime.run(
@@ -534,6 +616,7 @@ describe("Pi connector tool dispatch", () => {
         tools: [],
         model: { provider: "test", id: "dispatch-test-model" },
         claimSteering,
+        onSteeringDelivered,
       },
       { signal: new AbortController().signal },
     )) {
@@ -543,6 +626,7 @@ describe("Pi connector tool dispatch", () => {
     expect(claimSteering).toHaveBeenNthCalledWith(1, []);
     expect(claimSteering).toHaveBeenNthCalledWith(2, []);
     expect(claimSteering).toHaveBeenNthCalledWith(3, ["steering-1"]);
+    expect(onSteeringDelivered.mock.calls).toEqual([[["steering-1"]], [["steering-2"]]]);
     expect(fakeAgentState.preparedMessages).toEqual([
       expect.objectContaining({ content: "First boundary context." }),
       expect.objectContaining({ content: "Next boundary context." }),
@@ -564,6 +648,7 @@ describe("Pi connector tool dispatch", () => {
       },
     ];
     const claimSteering = vi.fn(async (seenIds: string[]) => (seenIds.length ? [] : steering));
+    const onSteeringDelivered = vi.fn(async () => undefined);
     const runtime = new PiAgentRuntime();
 
     for await (const _event of runtime.run(
@@ -589,18 +674,48 @@ describe("Pi connector tool dispatch", () => {
         tools: [],
         model: { provider: "test", id: "dispatch-test-model" },
         claimSteering,
+        onSteeringDelivered,
       },
       { signal: new AbortController().signal },
     )) {
       // Exhaust the runtime event stream.
     }
 
+    expect(onSteeringDelivered).toHaveBeenCalledExactlyOnceWith(["steering-1", "steering-2"]);
     expect(fakeAgentState.promptInputs).toHaveLength(1);
     for (const item of steering) {
       expect(fakeAgentState.promptInputs[0]?.split(item.text)).toHaveLength(2);
       expect(JSON.stringify(fakeAgentState.initialMessages)).not.toContain(item.text);
     }
     expect(fakeAgentState.steeredMessages).toEqual([]);
+  });
+
+  it("stops before prompting when the durable steering receipt fails", async () => {
+    fakeAgentState.mode = "empty";
+    const runtime = new PiAgentRuntime();
+    const consume = async () => {
+      for await (const _event of runtime.run(
+        {
+          botId: "b",
+          threadId: "t",
+          runId: "r",
+          prompt: "Continue",
+          instructions: "Follow the user instructions.",
+          history: [],
+          tools: [],
+          model: { provider: "test", id: "dispatch-test-model" },
+          claimSteering: async () => [{ id: "s", messageId: "m", text: "New context" }],
+          onSteeringDelivered: async () => {
+            throw new Error("Receipt unavailable");
+          },
+        },
+        { signal: new AbortController().signal },
+      )) {
+        /* Drain the runtime. */
+      }
+    };
+    await expect(consume()).rejects.toThrow("Receipt unavailable");
+    expect(fakeAgentState.promptInputs).toEqual([]);
   });
 
   it("delivers images attached to initial and boundary steering", async () => {

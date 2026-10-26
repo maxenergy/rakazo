@@ -2,9 +2,11 @@ import type {
   CacheCapabilities as ConnectionCacheCapabilities,
   ConnectionCatalogItem,
   SandboxKind,
+  UiLocale,
 } from "@rakazo/contracts";
 
 export interface AdapterContext {
+  executionFence?: { runId: string; leaseOwner: string; leaseFence: number };
   operationId: string;
   traceId: string;
   spaceId: string;
@@ -404,6 +406,13 @@ export interface AgentSteeringMessage {
 export type CacheCapabilities = ConnectionCacheCapabilities;
 
 export interface AgentRunModel {
+  /** Process-local CLI discovery evidence; never persisted or accepted from clients. */
+  cliDiscovery?: Readonly<{
+    modelId: string;
+    profileId: string;
+    imageInput: boolean | null;
+    reasoning: boolean | null;
+  }>;
   cacheCapabilities?: CacheCapabilities;
   provider: string;
   id: string;
@@ -442,6 +451,14 @@ export type AgentContextStrategy = "current" | "retrieval" | "snapshots" | "cach
 export const DEFAULT_CONTEXT_STRATEGY: AgentContextStrategy = "retrieval";
 
 export interface AgentRunRequest {
+  /** Immutable project attribution shared by reservation and accounting. */
+  budgetScope?: Readonly<{
+    spaceId: string;
+    projectId: string;
+    executionFence?: Readonly<{ runId: string; leaseOwner: string; leaseFence: number }>;
+  }> | null;
+  /** Selected product locale, inherited by helpers within this turn. */
+  uiLocale?: UiLocale;
   /** Awaited producer-side accounting, independent of event-consumer cancellation. */
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => void | Promise<void>;
   contextStrategy?: AgentContextStrategy;
@@ -473,12 +490,19 @@ export interface AgentRunRequest {
   /** Resolve an explicitly requested helper model within the active user and space scope. */
   resolveModel?: (provider: string, modelId: string) => Promise<AgentRunModel>;
   resumeFromCheckpoint?: string;
+  /** Backend-owned absolute deadline; checked only at safe tool boundaries. */
+  deadlineAt?: number;
+  /** Opaque, versioned runtime state from the last fully completed segment. */
+  segmentCheckpoint?: string;
+  onSegmentCheckpoint?: (checkpoint: string) => Promise<void>;
   script?: ScriptedTurn[];
   /**
    * FYI bot-message wakes and scheduled routines may finish with no text.
    * When set, skip synthetic empty-turn fallbacks (including after tools).
    */
   allowSilentEmpty?: boolean;
+  /** Backend-owned completion, such as a committed group ownership transfer. */
+  shouldEndTurn?: () => boolean;
   /** Contextual fallback when a non-silent run produces no written response. */
   emptyResponseText?: string;
   executeTool?: (
@@ -492,6 +516,8 @@ export interface AgentRunRequest {
   onToolCompleted?: (completion: AgentToolCompletion) => Promise<void> | void;
   /** Atomically claim durable user steering at the runtime's next safe turn boundary. */
   claimSteering?: (seenIds: string[]) => Promise<AgentSteeringMessage[]>;
+  /** Persist receipt of prepared steering at a safe turn boundary; failure stops the turn. */
+  onSteeringDelivered?: (ids: string[]) => Promise<void>;
 }
 
 export interface ScriptedTurn {
@@ -516,6 +542,9 @@ export interface AgentUsage {
   reasoningTokens?: number | null;
   totalTokens?: number | null;
   costUsd?: number | null;
+  /** Exact USD decimal; accounting must not derive this from a rounded number. */
+  costUsdDecimal?: string | null;
+  billingKind?: "api" | "subscription_included" | "unknown";
   costSource?: string | null;
   pricingVersion?: string | null;
   usageSource?: string | null;
@@ -525,6 +554,8 @@ export type UsageOperationKind = "answer" | "setup" | "retrieval" | "subagent" |
 
 export interface ModelCallObserver {
   beforeCall(call: {
+    /** Durable identity generated once per physical provider call. */
+    callId: string;
     provider: string;
     modelId: string;
     inputTokensEstimate: number;
@@ -532,10 +563,22 @@ export interface ModelCallObserver {
     /** Explicit adapter-known write bucket required by this request, not a billing prediction. */
     cacheWriteRetention?: "1h";
   }): string | Promise<string>;
-  afterCall(reservationId: string, usage: AgentUsage | null): void | Promise<void>;
+  /** Persist provider-start intent before making the physical call. */
+  startCall?(reservationId: string): void | Promise<void>;
+  afterCall(
+    reservationId: string,
+    usage: AgentUsage | null,
+    lifecycle?: { started: boolean },
+  ): void | Promise<void>;
 }
 
 export type AgentRuntimeEvent =
+  | {
+      type: "budget_pause";
+      reason: "no_budget" | "insufficient" | "reservation_closed";
+      availableMicroUsd: string;
+      call?: { spaceId: string; projectId: string; callId: string; amountMicroUsd: string };
+    }
   | { type: "text"; text: string }
   | {
       type: "progress";
@@ -631,7 +674,7 @@ export interface BackgroundJobPayloads {
   "computer.update": { updateId: string };
   "computer.control-expire": { computerId: string; leaseId: string };
   "skill.teaching-expire": { skillId: string };
-  "history.compact": { threadId: string };
+  "history.compact": { threadId: string; sourceRunId?: string };
   "messaging.deliver": { runId?: string };
   /** Reconcile durable remote-agent intent; scope is loaded from the database. */
   "cloud_agent.poll": { agentId: string };
@@ -1000,6 +1043,7 @@ export interface AutoReviewRequest {
 }
 
 export interface AutoReviewResult {
+  failureClass?: "quota" | "rate_limit" | "no_credentials";
   decision: AutoReviewDecision;
   reason?: string;
   model: string;

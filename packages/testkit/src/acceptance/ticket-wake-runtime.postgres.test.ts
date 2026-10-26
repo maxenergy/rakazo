@@ -1,0 +1,402 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { fileURLToPath } from "node:url";
+import type { JobPublisher } from "@rakazo/adapter-kit";
+import { reconcileTicketWakes } from "@rakazo/adapters";
+import {
+  addTicketDependency,
+  claimTicketWakes,
+  completeTicketWake,
+  createDb,
+  enqueueDependentWakes,
+  ensureBoard,
+} from "@rakazo/db";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { DisposableCluster } from "./disposable-postgres.js";
+import { postgresAvailable, startDisposableCluster } from "./disposable-postgres.js";
+import type { TrackedPool } from "./pool-lifecycle.js";
+import { endPool, trackPool } from "./pool-lifecycle.js";
+import { startRestartableRuntime } from "./runtime-restart.js";
+
+// Needs RAK_PG_BIN_DIR; skipped otherwise, unless RAK_REQUIRE_PG=1 (set in CI), where
+// missing binaries fail instead of skipping.
+const describeCluster = postgresAvailable() ? describe.sequential : describe.skip;
+
+if (process.env.RAK_REQUIRE_PG === "1" && !postgresAvailable()) {
+  describe("ticket wake runtime wiring (PostgreSQL required)", () => {
+    it("has PostgreSQL 16 binaries", () => {
+      throw new Error(
+        "RAK_REQUIRE_PG=1 but RAK_PG_BIN_DIR is not set; recovery tests must not skip",
+      );
+    });
+  });
+}
+
+function recordingJobs() {
+  const enqueued: unknown[] = [];
+  const jobs = {
+    enqueue: async (job: unknown) => {
+      enqueued.push(job);
+    },
+  } as unknown as JobPublisher;
+  return { jobs, enqueued };
+}
+
+describeCluster("ticket wake runtime wiring", () => {
+  let cluster: DisposableCluster;
+  beforeAll(async () => {
+    cluster = await startDisposableCluster();
+  }, 60_000);
+  afterAll(async () => {
+    await cluster?.stop();
+  });
+
+  it("delivers a crashed runtime's claimed wake exactly once and fences the stale owner", async () => {
+    const database = await cluster.createDatabase("wake_runtime");
+    await cluster.migrate(database);
+    const pools: TrackedPool[] = [];
+    const runtime = await startRestartableRuntime({
+      start: async () => {
+        const db = createDb(cluster.url(database));
+        pools.push(trackPool(db.pool));
+        return db;
+      },
+      stop: async (db) => {
+        await db.prisma.$disconnect();
+        await endPool(db.pool);
+      },
+    });
+    try {
+      const prisma = () => runtime.current().prisma;
+      const suffix = crypto.randomUUID();
+      const organizationId = `wake-runtime-${suffix}`;
+      await prisma().organization.create({
+        data: {
+          id: organizationId,
+          name: "Wake runtime",
+          slug: organizationId,
+          createdAt: new Date(),
+        },
+      });
+      const space = await prisma().space.create({
+        data: { id: `wake-space-${suffix}`, organizationId, name: "Wake runtime" },
+      });
+      const spaceId = space.id;
+      const user = await prisma().user.create({
+        data: { id: `wake-user-${suffix}`, name: "Wake", email: `wake-${suffix}@example.test` },
+      });
+      const bot = await prisma().bot.create({
+        data: { spaceId, userId: user.id, name: "Dependent owner", color: "#000000" },
+      });
+      await prisma().thread.create({ data: { spaceId, botId: bot.id, userId: user.id } });
+      const boardId = (await ensureBoard(prisma(), spaceId)).id;
+      const prerequisite = await prisma().ticket.create({
+        data: { spaceId, boardId, number: 1, title: "Prerequisite" },
+      });
+      const originalProject = await prisma().project.create({
+        data: { spaceId, name: "Original synthetic project" },
+      });
+      const reassignedProject = await prisma().project.create({
+        data: { spaceId, name: "Reassigned synthetic project" },
+      });
+      const dependent = await prisma().ticket.create({
+        data: {
+          spaceId,
+          boardId,
+          number: 2,
+          title: "Dependent",
+          assigneeBotId: bot.id,
+          projectId: originalProject.id,
+        },
+      });
+      await prisma().$transaction((tx) =>
+        addTicketDependency(tx, spaceId, dependent.id, prerequisite.id),
+      );
+      const completedAt = new Date();
+      await prisma().$transaction(async (tx) => {
+        await tx.ticket.update({
+          where: { id: prerequisite.id },
+          data: { status: "done", completedAt },
+        });
+        await enqueueDependentWakes(tx, spaceId, prerequisite.id, completedAt);
+      });
+
+      // runtime-1 claims the wake and dies before delivering it.
+      const t0 = new Date();
+      const child = spawn(
+        process.execPath,
+        ["--import", "tsx", fileURLToPath(new URL("./wake-crash-worker.ts", import.meta.url))],
+        {
+          env: { ...process.env, RAK_CRASH_TEST_DATABASE_URL: cluster.url(database) },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      let output = "";
+      let errors = "";
+      child.stdout.setEncoding("utf8");
+      child.stderr.setEncoding("utf8");
+      child.stdout.on("data", (chunk) => {
+        output += chunk;
+      });
+      child.stderr.on("data", (chunk) => {
+        errors += chunk;
+      });
+      try {
+        await expect
+          .poll(
+            () => {
+              if (child.exitCode !== null || child.signalCode !== null) {
+                throw new Error(`Crash worker exited: ${errors}`);
+              }
+              return output.includes("\n");
+            },
+            { timeout: 30_000 },
+          )
+          .toBe(true);
+        const message = JSON.parse(output.trim());
+        expect(message.pid).toBe(child.pid);
+        expect(message.claimed).toHaveLength(1);
+        const persisted = await prisma().ticketWake.findUniqueOrThrow({
+          where: { id: message.claimed[0].id },
+        });
+        expect(persisted.claimedBy).toBe("crashed-process");
+        const exited = once(child, "exit");
+        expect(child.kill("SIGKILL")).toBe(true);
+        expect(await exited).toEqual([null, "SIGKILL"]);
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) {
+          const exited = once(child, "exit");
+          child.kill("SIGKILL");
+          await exited;
+        }
+      }
+      const claimed = JSON.parse(output.trim()).claimed;
+      await runtime.restart("crash", async () => {
+        const offline = createDb(cluster.url(database));
+        try {
+          await offline.prisma.ticket.update({
+            where: { id: dependent.id },
+            data: { projectId: reassignedProject.id },
+          });
+        } finally {
+          await offline.prisma.$disconnect();
+          await endPool(offline.pool);
+        }
+      });
+
+      // While the lease is live, another runtime delivers nothing.
+      const { jobs, enqueued } = recordingJobs();
+      const deps = () => ({ prisma: prisma(), jobs, ticketBoardEnabled: true });
+      expect(await reconcileTicketWakes(deps(), { claimer: "runtime-2", now: t0 })).toBe(0);
+      expect(await prisma().run.count({ where: { botId: bot.id } })).toBe(0);
+
+      // runtime-2 reclaims the expired wake and holds a live claim; stale runtime-1 cannot complete it.
+      const late = new Date(t0.getTime() + 120_000);
+      const reclaimed = await claimTicketWakes(prisma(), "runtime-2", {
+        leaseMs: 1_000,
+        now: late,
+      });
+      expect(reclaimed).toHaveLength(1);
+      expect(
+        await completeTicketWake(
+          prisma(),
+          claimed[0]?.id ?? "",
+          claimed[0]?.spaceId ?? "",
+          "crashed-process",
+          late,
+        ),
+      ).toBe(false);
+      const liveRow = await prisma().ticketWake.findUniqueOrThrow({
+        where: { id: claimed[0]?.id ?? "" },
+      });
+      expect(liveRow.status).toBe("claimed");
+      expect(liveRow.claimedBy).toBe("runtime-2");
+      expect(await prisma().run.count({ where: { botId: bot.id } })).toBe(0);
+
+      // After runtime-2's lease expires it delivers exactly one run.
+      const delivered = new Date(late.getTime() + 5_000);
+      expect(await reconcileTicketWakes(deps(), { claimer: "runtime-2", now: delivered })).toBe(1);
+      expect(await prisma().run.count({ where: { botId: bot.id, trigger: "tickets" } })).toBe(1);
+      expect(await prisma().task.count({ where: { botId: bot.id } })).toBe(1);
+      const recoveredRun = await prisma().run.findFirstOrThrow({
+        where: { botId: bot.id, trigger: "tickets" },
+      });
+      expect(recoveredRun.projectId).toBe(reassignedProject.id);
+      expect(recoveredRun.projectId).not.toBe(originalProject.id);
+      expect(enqueued).toHaveLength(1);
+      const wakes = await prisma().ticketWake.findMany({ where: { ticketId: dependent.id } });
+      expect(wakes).toHaveLength(1);
+      expect(wakes[0]?.status).toBe("woken");
+
+      // The stale owner cannot complete, leaves the row untouched, and further reconciliation adds nothing.
+      const before = await prisma().ticketWake.findUniqueOrThrow({
+        where: { id: claimed[0]?.id ?? "" },
+      });
+      expect(
+        await completeTicketWake(
+          prisma(),
+          claimed[0]?.id ?? "",
+          claimed[0]?.spaceId ?? "",
+          "crashed-process",
+        ),
+      ).toBe(false);
+      const after = await prisma().ticketWake.findUniqueOrThrow({
+        where: { id: claimed[0]?.id ?? "" },
+      });
+      expect(after.status).toBe(before.status);
+      expect(after.claimedBy).toBe(before.claimedBy);
+      expect(after.wokenAt).toEqual(before.wokenAt);
+      expect(after.leaseExpiresAt).toEqual(before.leaseExpiresAt);
+      expect(after.attempts).toBe(before.attempts);
+      const afterDone = new Date(delivered.getTime() + 60_000);
+      expect(await reconcileTicketWakes(deps(), { claimer: "runtime-3", now: afterDone })).toBe(0);
+      expect(await prisma().run.count({ where: { botId: bot.id } })).toBe(1);
+      expect(enqueued).toHaveLength(1);
+
+      // Exhausted claims remain deliverable by their current owner until lease expiry.
+      const exhausted = await prisma().ticketWake.create({
+        data: {
+          spaceId,
+          ticketId: dependent.id,
+          prerequisiteId: prerequisite.id,
+          prerequisiteCompletedAt: new Date(completedAt.getTime() + 1),
+          status: "claimed",
+          claimedBy: "last-owner",
+          attempts: 2,
+          leaseExpiresAt: new Date(afterDone.getTime() + 1000),
+        },
+      });
+      expect(
+        await reconcileTicketWakes(deps(), {
+          claimer: "cap-check",
+          now: afterDone,
+          maxAttempts: 2,
+        }),
+      ).toBe(0);
+      expect(
+        (await prisma().ticketWake.findUniqueOrThrow({ where: { id: exhausted.id } })).status,
+      ).toBe("claimed");
+      const expired = new Date(afterDone.getTime() + 2000);
+      expect(
+        await reconcileTicketWakes(deps(), { claimer: "cap-check", now: expired, maxAttempts: 2 }),
+      ).toBe(0);
+      expect(
+        await prisma().ticketWake.findUniqueOrThrow({ where: { id: exhausted.id } }),
+      ).toMatchObject({
+        status: "failed",
+        attempts: 2,
+        outcomeReason: "retry_limit_exceeded",
+        leaseExpiresAt: null,
+      });
+      expect(await completeTicketWake(prisma(), exhausted.id, spaceId, "last-owner", expired)).toBe(
+        false,
+      );
+
+      // A pending wake gets exactly the configured number of claims across restarts.
+      const retrying = await prisma().ticketWake.create({
+        data: {
+          spaceId,
+          ticketId: dependent.id,
+          prerequisiteId: prerequisite.id,
+          prerequisiteCompletedAt: new Date(completedAt.getTime() + 2),
+        },
+      });
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const claimed = await claimTicketWakes(prisma(), `retry-${attempt}`, {
+          maxAttempts: 2,
+          leaseMs: 1000,
+          now: new Date(expired.getTime() + attempt * 2000),
+        });
+        expect(claimed.find((wake) => wake.id === retrying.id)?.attempts).toBe(attempt);
+      }
+      const afterRetries = new Date(expired.getTime() + 6000);
+      expect(
+        await claimTicketWakes(prisma(), "retry-3", { maxAttempts: 2, now: afterRetries }),
+      ).toEqual([]);
+      expect(
+        await prisma().ticketWake.findUniqueOrThrow({ where: { id: retrying.id } }),
+      ).toMatchObject({
+        status: "failed",
+        attempts: 2,
+        outcomeReason: "retry_limit_exceeded",
+      });
+      expect(
+        await completeTicketWake(prisma(), retrying.id, spaceId, "retry-2", afterRetries),
+      ).toBe(false);
+
+      // Each no-run outcome is durable and is excluded from the delivery count.
+      const cases = [
+        { reason: "unassigned", status: "todo", assigned: false, archived: false, thread: true },
+        {
+          reason: "ticket_not_actionable",
+          status: "done",
+          assigned: true,
+          archived: false,
+          thread: true,
+        },
+        {
+          reason: "assignee_unavailable",
+          status: "todo",
+          assigned: true,
+          archived: true,
+          thread: true,
+        },
+        {
+          reason: "assignee_thread_missing",
+          status: "todo",
+          assigned: true,
+          archived: false,
+          thread: false,
+        },
+      ];
+      let number = 10;
+      for (const scenario of cases) {
+        const owner = await prisma().bot.create({
+          data: {
+            spaceId,
+            userId: user.id,
+            name: "Outcome owner",
+            color: "#000000",
+            archivedAt: scenario.archived ? new Date() : null,
+          },
+        });
+        if (scenario.thread)
+          await prisma().thread.create({ data: { spaceId, botId: owner.id, userId: user.id } });
+        const target = await prisma().ticket.create({
+          data: {
+            spaceId,
+            boardId,
+            number: number++,
+            title: "Outcome test",
+            status: scenario.status,
+            assigneeBotId: scenario.assigned ? owner.id : null,
+          },
+        });
+        const wake = await prisma().ticketWake.create({
+          data: {
+            spaceId,
+            ticketId: target.id,
+            prerequisiteId: prerequisite.id,
+            prerequisiteCompletedAt: completedAt,
+          },
+        });
+        expect(await reconcileTicketWakes(deps(), { claimer: "outcome-check", now: expired })).toBe(
+          0,
+        );
+        expect(
+          await prisma().ticketWake.findUniqueOrThrow({ where: { id: wake.id } }),
+        ).toMatchObject({ status: "skipped", outcomeReason: scenario.reason, wokenAt: null });
+        expect(await prisma().run.count({ where: { botId: owner.id } })).toBe(0);
+        expect(await prisma().task.count({ where: { botId: owner.id } })).toBe(0);
+      }
+      expect(enqueued).toHaveLength(1);
+    } finally {
+      await runtime.shutdown();
+      for (const pool of pools) {
+        for (const error of pool.errors) {
+          expect(error).toHaveProperty("code", "57P01");
+        }
+      }
+    }
+  }, 120_000);
+});

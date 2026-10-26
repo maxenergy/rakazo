@@ -22,6 +22,9 @@ vi.mock("@lingui/react/macro", () => {
     parts.reduce((text, part, index) => `${text}${index > 0 ? values[index - 1] : ""}${part}`, "");
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
+vi.mock("@lingui/core/macro", () => ({
+  t: (strings: TemplateStringsArray, ...values: unknown[]) => String.raw(strings, ...values),
+}));
 vi.mock("@rakazo/ui-web", () => ({
   Button: ({
     variant: _variant,
@@ -102,6 +105,9 @@ function bot(description = "Billing"): Bot {
     disabledBuiltinTools: [],
     webhookConfigured: false,
     spawnKey: null,
+    orgRole: null,
+    team: "",
+    reportsToBotId: null,
   };
 }
 

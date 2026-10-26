@@ -8,7 +8,10 @@ describe("initial bootstrap target", () => {
   });
 
   it("primes browser app routes and decodes their selected bot", () => {
+    expect(initialBootstrapTarget("/app/projects/project-1", false)).toEqual({ botId: undefined });
+    expect(initialBootstrapTarget("/app/tickets", false)).toEqual({ botId: undefined });
     expect(initialBootstrapTarget("/app/board", false)).toEqual({ botId: undefined });
+    expect(initialBootstrapTarget("/app/approvals", false)).toEqual({ botId: undefined });
     expect(initialBootstrapTarget("/app", false)).toEqual({ botId: undefined });
     expect(initialBootstrapTarget("/app/research%20bot", false)).toEqual({
       botId: "research bot",

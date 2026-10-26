@@ -1,7 +1,10 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
-import type { ModelOAuthSignInMode, ThinkingLevel } from "@rakazo/contracts";
-import { supplementPiModels } from "./pi-current-models.js";
+import type { ModelCatalogEntry, ModelOAuthSignInMode, ThinkingLevel } from "@rakazo/contracts";
+import { isCliModelProvider } from "./cli-model-process.js";
+import { registerCliModelProviders } from "./cli-model-provider.js";
+import { catalogMetadata } from "./pi-catalog-metadata.js";
+import { supplementedCatalogMetadata, supplementPiModels } from "./pi-current-models.js";
 import { LOCAL_PROVIDER_ID, registerLocalProvider } from "./pi-local-provider.js";
 import { SUBSCRIPTION_SIGN_IN_PROVIDERS } from "./pi-oauth.js";
 import {
@@ -13,6 +16,8 @@ import {
 export type PiCatalogAuth = "api-key" | "oauth" | "both";
 
 export type PiCatalogEntry = {
+  discovery?: ModelCatalogEntry["discovery"];
+  capabilities?: ModelCatalogEntry["capabilities"];
   provider: string;
   providerName: string;
   id: string;
@@ -24,6 +29,11 @@ export type PiCatalogEntry = {
   subscription: boolean;
   signIn?: ModelOAuthSignInMode;
   reasoning?: boolean;
+  pricing?: ModelCatalogEntry["pricing"];
+  contextWindow?: number | null;
+  maxTokens?: number | null;
+  billingModes?: ModelCatalogEntry["billingModes"];
+  supportsMaxTokens?: boolean;
   thinkingLevels?: ThinkingLevel[];
   placeholder?: boolean;
   /** Provider models share one pinned HTTPS models-list base URL. */
@@ -94,18 +104,27 @@ let cachedCatalog: PiCatalogEntry[] | undefined;
 
 function buildPiCatalog(): PiCatalogEntry[] {
   catalogProbeBaseUrls.clear();
-  const models = registerOpenAiCompatibleCatalog(
-    registerLocalProvider(supplementPiModels(builtinModels())),
+  const models = registerCliModelProviders(
+    registerOpenAiCompatibleCatalog(registerLocalProvider(supplementPiModels(builtinModels()))),
   );
   const entries: PiCatalogEntry[] = [];
   for (const provider of models.getProviders()) {
     const apiKey = Boolean(provider.auth.apiKey);
-    const oauth = Boolean(provider.auth.oauth);
-    const auth: PiCatalogAuth = apiKey && oauth ? "both" : oauth ? "oauth" : "api-key";
+    const oauth = !["anthropic", "xai"].includes(provider.id) && Boolean(provider.auth.oauth);
+    const auth: PiCatalogAuth = isCliModelProvider(provider.id)
+      ? "oauth"
+      : apiKey && oauth
+        ? "both"
+        : oauth
+          ? "oauth"
+          : "api-key";
     const signInMeta = SUBSCRIPTION_SIGN_IN_PROVIDERS[provider.id];
     const oauthLabel =
-      signInMeta?.loginLabel ?? provider.auth.oauth?.loginLabel ?? provider.auth.oauth?.name;
-    const subscription = Boolean(provider.auth.oauth?.isSubscription);
+      oauth || isCliModelProvider(provider.id)
+        ? (signInMeta?.loginLabel ?? provider.auth.oauth?.loginLabel ?? provider.auth.oauth?.name)
+        : undefined;
+    const subscription =
+      isCliModelProvider(provider.id) || (oauth && Boolean(provider.auth.oauth?.isSubscription));
     const billing = catalogBilling(provider.id, provider.name, {
       apiKey,
       oauth,
@@ -116,6 +135,27 @@ function buildPiCatalog(): PiCatalogEntry[] {
     const modelIds = providerModels.map((model) => model.id);
     for (const model of providerModels) {
       const thinkingLevels = getSupportedThinkingLevels(model) as ThinkingLevel[];
+      const supplement = supplementedCatalogMetadata(models, provider.id, model.id);
+      const metadata = catalogMetadata(
+        provider.id === OPENAI_COMPATIBLE_PROVIDER_ID
+          ? {}
+          : provider.id === LOCAL_PROVIDER_ID
+            ? {
+                ...(process.env.RAKAZO_LOCAL_CONTEXT_WINDOW?.trim()
+                  ? { contextWindow: model.contextWindow }
+                  : {}),
+                ...(process.env.RAKAZO_LOCAL_MAX_TOKENS?.trim()
+                  ? { maxTokens: model.maxTokens }
+                  : {}),
+              }
+            : isCliModelProvider(provider.id)
+              ? provider.id === "antigravity-cli"
+                ? { contextWindow: model.contextWindow, maxTokens: model.maxTokens }
+                : {}
+              : (supplement ?? model),
+        supplement !== undefined,
+        supplement !== undefined ? "catalog-supplement" : "model-registry",
+      );
       entries.push({
         provider: provider.id,
         providerName: provider.name,
@@ -125,10 +165,21 @@ function buildPiCatalog(): PiCatalogEntry[] {
         auth,
         oauthLabel,
         authHint:
-          provider.id === OPENAI_COMPATIBLE_PROVIDER_ID ? "Custom server" : signInMeta?.hint,
+          provider.id === OPENAI_COMPATIBLE_PROVIDER_ID
+            ? "Custom server"
+            : ["anthropic", "xai"].includes(provider.id)
+              ? "API key"
+              : signInMeta?.hint,
         subscription,
-        signIn: signInMeta?.mode,
-        reasoning: Boolean(model.reasoning),
+        signIn: ["anthropic", "xai"].includes(provider.id) ? undefined : signInMeta?.mode,
+        ...metadata,
+        billingModes: isCliModelProvider(provider.id)
+          ? ["subscription"]
+          : [
+              ...(apiKey ? ["api-key" as const] : []),
+              ...(subscription ? ["subscription" as const] : []),
+            ],
+        ...(isCliModelProvider(provider.id) ? { supportsMaxTokens: false } : {}),
         thinkingLevels,
         // Compatibility metadata does not prove a model is served by a user's
         // endpoint. Keep each custom connection scoped to its entered model ID.
@@ -153,7 +204,10 @@ function buildPiCatalog(): PiCatalogEntry[] {
       billing: `Configured via PI_DEFAULT_MODEL (${envDefaultModel}).`,
       auth: "api-key",
       subscription: false,
-      reasoning: true,
+      pricing: null,
+      contextWindow: null,
+      maxTokens: null,
+      billingModes: ["api-key"],
       thinkingLevels: ["off", "minimal", "low", "medium", "high"],
       ...(catalogProbeBaseUrls.has("openrouter") ? { catalogProbe: true } : {}),
     });
@@ -203,7 +257,9 @@ function catalogBilling(
   name: string,
   opts: { apiKey: boolean; oauth: boolean },
 ) {
-  const signInMeta = SUBSCRIPTION_SIGN_IN_PROVIDERS[providerId];
+  const signInMeta = ["anthropic", "xai"].includes(providerId)
+    ? undefined
+    : SUBSCRIPTION_SIGN_IN_PROVIDERS[providerId];
   if (signInMeta) return signInMeta.billing;
   if (providerId === LOCAL_PROVIDER_ID) {
     return "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.";

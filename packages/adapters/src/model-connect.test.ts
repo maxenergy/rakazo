@@ -1,10 +1,40 @@
 import {
   CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE,
   CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
+  ModelCredentialSchema,
 } from "@rakazo/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildModelConnectPlaintext, modelCredentialDto } from "./model-connect.js";
 import { parseModelSecret, serializeModelSecret } from "./pi-oauth.js";
+
+describe("CLI connection settings", () => {
+  const previous = serializeModelSecret({
+    kind: "cli",
+    credential: { type: "cli", profileId: "11111111-1111-4111-8111-111111111111" },
+  });
+
+  it("returns a contract-valid CLI credential without leaking the profile or inventing API limits", () => {
+    const dto = modelCredentialDto(
+      { id: "credential-cli", provider: "codex-cli", label: "Codex", isDefault: false },
+      previous,
+    );
+    expect(ModelCredentialSchema.parse(dto)).toMatchObject({ authKind: "cli", hasKey: false });
+    expect(dto).not.toHaveProperty("cacheCapabilities");
+    expect(dto).not.toHaveProperty("contextWindow");
+    expect(JSON.stringify(dto)).not.toContain("11111111-1111-4111-8111-111111111111");
+  });
+
+  it("requires a signed-in profile and rejects API keys and unsupported output limits", () => {
+    expect(() => buildModelConnectPlaintext({ provider: "codex-cli" })).toThrow(/Sign in/);
+    expect(() =>
+      buildModelConnectPlaintext({ provider: "codex-cli", apiKey: "fake-key" }, previous),
+    ).toThrow(/Sign in/);
+    expect(() =>
+      buildModelConnectPlaintext({ provider: "codex-cli", maxTokens: 1024 }, previous),
+    ).toThrow(/managed by the official CLI/);
+    expect(buildModelConnectPlaintext({ provider: "codex-cli" }, previous)).toBe(previous);
+  });
+});
 
 describe("built-in provider output limits", () => {
   const row = {

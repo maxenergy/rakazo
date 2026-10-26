@@ -143,6 +143,11 @@ export async function handoffToGroupBot(
         status: "queued",
       },
     });
+    const attributionParent = await tx.run.findFirst({
+      where: { id: run.id, spaceId: run.spaceId },
+      select: { projectId: true, rootRunId: true },
+    });
+    if (!attributionParent) throw new Error("Handoff parent run is unavailable");
     const nextRun = await tx.run.create({
       data: {
         spaceId: run.spaceId,
@@ -153,6 +158,9 @@ export async function handoffToGroupBot(
         status: "queued",
         trigger: "follow_up",
         sourceMessageId: message.id,
+        projectId: attributionParent.projectId,
+        parentRunId: run.id,
+        rootRunId: attributionParent.rootRunId ?? run.id,
       },
     });
     const event = await appendEventInTransaction(tx, {

@@ -74,6 +74,7 @@ vi.mock("../components/native-symbol", () => ({
 }));
 
 import { ChoiceCard } from "../components/ChoiceCard";
+import { resetI18nForTests } from "./i18n";
 
 type ChoiceBlock = Extract<MessageBlock, { kind: "choice" }>;
 
@@ -97,6 +98,7 @@ describe("ChoiceCard", () => {
   let container: HTMLDivElement | undefined;
 
   beforeEach(() => {
+    resetI18nForTests("en");
     rpc.mockReset();
     alert.mockReset();
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -106,6 +108,7 @@ describe("ChoiceCard", () => {
     act(() => {
       root?.unmount();
     });
+    resetI18nForTests("en");
     container?.remove();
     root = undefined;
     container = undefined;
@@ -139,6 +142,23 @@ describe("ChoiceCard", () => {
     expect(button(view, "Inbox & email").disabled).toBe(true);
     expect(button(view, "Inbox & email").getAttribute("aria-selected")).toBe("true");
     expect(view.querySelector("[data-testid='choice-card-dismiss']")).toBeNull();
+  });
+
+  it("translates onboarding choices while preserving the server option id", async () => {
+    resetI18nForTests("zh-CN");
+    rpc.mockResolvedValue({});
+    const view = render();
+
+    expect(view.textContent).toContain("你想让我先做什么？");
+    await act(async () => {
+      button(view, "收件箱和邮件").click();
+      await Promise.resolve();
+    });
+
+    expect(rpc).toHaveBeenCalledWith("onboarding/choose", { botId: "bot-1", optionId: "inbox" });
+    expect(button(view, "收件箱和邮件").disabled).toBe(true);
+    expect(view.textContent).not.toContain("日常工作");
+    expect(choice.question).toBe("What do you want me on first?");
   });
 
   it("dismisses through onboarding/dismissFocus and hides the card", async () => {

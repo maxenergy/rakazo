@@ -1,5 +1,12 @@
 import type { ConnectorRegistry } from "@rakazo/adapters";
-import type { Actor, MessageBlock } from "@rakazo/contracts";
+import type {
+  Actor,
+  MessageBlock,
+  OnboardingApp,
+  OnboardingFocus,
+  OnboardingText,
+} from "@rakazo/contracts";
+import { normalizeUiLocale, ONBOARDING_COPY, onboardingText } from "@rakazo/contracts";
 import { featuredConnectorProvidersMatch } from "@rakazo/core";
 import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
@@ -22,52 +29,41 @@ type OnboardingDeps = {
 };
 
 type FocusOption = {
-  id: string;
+  id: OnboardingFocus;
   letter: string;
-  label: string;
-  summary: string;
-  apps: string[];
+  apps: OnboardingApp[];
 };
 
 const FOCUS_OPTIONS: FocusOption[] = [
   {
     id: "day",
     letter: "A",
-    label: "Day-to-day work",
-    summary: "Slack, calendar, and email",
     apps: ["slack", "gmail", "googlecalendar"],
   },
   {
     id: "inbox",
     letter: "B",
-    label: "Inbox & email",
-    summary: "email and calendar",
     apps: ["gmail", "googlecalendar", "slack"],
   },
   {
     id: "research",
     letter: "C",
-    label: "Research & writing",
-    summary: "the web, notes, and docs",
     apps: ["hackernews", "notion", "googledocs"],
   },
   {
     id: "everything",
     letter: "D",
-    label: "A bit of everything",
-    summary: "Slack, calendar, and email",
     apps: ["slack", "gmail", "googlecalendar"],
   },
 ];
 
-const APP_DESCRIPTIONS: Record<string, string> = {
-  slack: "Search, read, and send messages.",
-  gmail: "Search, read, draft, and send email.",
-  googlecalendar: "Search events and schedule meetings.",
-  notion: "Search and edit pages and databases.",
-  googledocs: "Draft and edit documents.",
-  hackernews: "Search stories and discussions.",
-};
+function textBlock(reference: OnboardingText, actor: Actor): MessageBlock {
+  return {
+    kind: "text",
+    text: onboardingText(reference, normalizeUiLocale(actor.uiLocale)),
+    onboarding: reference,
+  };
+}
 
 async function post(
   deps: OnboardingDeps,
@@ -127,8 +123,13 @@ export async function promptFocus(
   const blocks: MessageBlock[] = [
     {
       kind: "choice",
-      question: "What do you want me on first?",
-      options: FOCUS_OPTIONS.map(({ id, letter, label }) => ({ id, letter, label })),
+      onboarding: "focus",
+      question: ONBOARDING_COPY[normalizeUiLocale(actor.uiLocale)].question,
+      options: FOCUS_OPTIONS.map(({ id, letter }) => ({
+        id,
+        letter,
+        label: ONBOARDING_COPY[normalizeUiLocale(actor.uiLocale)].labels[id],
+      })),
     },
   ];
   // Check + insert + event in one transaction so concurrent promptFocus calls
@@ -236,12 +237,7 @@ export async function chooseFocus(
 
   // Keep the name and title the user chose when creating the bot; the focus
   // step only suggests apps, it must not rename the bot.
-  await post(deps, target, [
-    {
-      kind: "text",
-      text: `Got it. ${capitalize(option.summary)}. I’ll see what’s already connected so I don’t make you set something up twice.`,
-    },
-  ]);
+  await post(deps, target, [textBlock({ id: "focus.ack", focus: option.id }, actor)]);
 
   const providers = deps.connectors.managedProviders();
   const catalog = (
@@ -273,33 +269,23 @@ export async function chooseFocus(
         connectorId: entry.connectorId ?? "composio",
         provider: entry.slug,
         name: entry.name,
-        description: APP_DESCRIPTIONS[slug] ?? "",
+        description: ONBOARDING_COPY[normalizeUiLocale(actor.uiLocale)].apps[slug],
+        onboardingApp: slug,
         logo: entry.logo ?? null,
         status: entry.connected ? ("connected" as const) : ("pending" as const),
       },
     ];
   });
   if (!cards.length) {
-    await post(deps, target, [{ kind: "text", text: "What would you like to work on first?" }]);
+    await post(deps, target, [textBlock({ id: "focus.next" }, actor)]);
     return;
   }
   const cardNames = cards
     .map((card) => (card.kind === "app_connect" ? card.name : ""))
     .filter(Boolean);
-  const named = `${cardNames.slice(0, -1).join(", ")}${cardNames.length > 1 ? ", and " : ""}${cardNames.at(-1)}`;
-  await post(deps, target, [
-    {
-      kind: "text",
-      text: `${named} are a good place to start. Connect them here and I’ll use what you already have.`,
-    },
-  ]);
+  await post(deps, target, [textBlock({ id: "apps.suggest", names: cardNames }, actor)]);
   await post(deps, target, cards);
-  await post(deps, target, [
-    {
-      kind: "text",
-      text: `Hit those ${cards.length === 1 ? "one" : cards.length === 2 ? "two" : "three"} and I’ll start pulling the picture.`,
-    },
-  ]);
+  await post(deps, target, [textBlock({ id: "apps.ready", count: cards.length }, actor)]);
 }
 
 export async function markAppConnected(
@@ -338,8 +324,4 @@ export async function markAppConnected(
     );
     await updateBlocks(deps, target, message.id, next);
   }
-}
-
-function capitalize(value: string): string {
-  return value.length > 0 ? (value[0] ?? "").toUpperCase() + value.slice(1) : value;
 }

@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { UiLocaleSchema } from "./ui-locale.js";
 
 export const Id = z.string().min(1);
 export const IsoDate = z.string().datetime({ offset: true });
@@ -8,6 +9,7 @@ export const ActorSchema = z.object({
   spaceId: Id,
   email: z.string().email(),
   isDeploymentOwner: z.boolean(),
+  uiLocale: UiLocaleSchema.optional(),
 });
 export type Actor = z.infer<typeof ActorSchema>;
 
@@ -25,6 +27,7 @@ export const RunStatus = z.enum([
   "queued",
   "leased",
   "running",
+  "waiting_budget",
   "waiting_input",
   "waiting_takeover",
   "completed",

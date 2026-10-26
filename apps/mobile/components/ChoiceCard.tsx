@@ -1,4 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
+import { localizeOnboardingBlock } from "@rakazo/core";
 import { useRef, useState } from "react";
 import type { ViewProps } from "react-native";
 import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
@@ -60,7 +61,7 @@ export function ChoiceCard({
   accessibilityActions?: ViewProps["accessibilityActions"];
   onAccessibilityAction?: ViewProps["onAccessibilityAction"];
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const readOnly = useThreadReadOnly();
   const tokens = useMobileTokens();
   const { width: windowWidth } = useWindowDimensions();
@@ -69,8 +70,9 @@ export function ChoiceCard({
   const pending = useRef(false);
   // Shows the outcome before the thread stream delivers the updated block.
   const [localAnswerId, setLocalAnswerId] = useState<string>();
+  const localized = localizeOnboardingBlock(block, locale);
   const answerId = block.answerId ?? localAnswerId;
-  if (answerId === DISMISSED_CHOICE_ANSWER_ID) return null;
+  if (localized.kind !== "choice" || answerId === DISMISSED_CHOICE_ANSWER_ID) return null;
 
   // Dismissing records the server's dismissed answer id, so both outcomes share this path.
   async function submit(optionId: string) {
@@ -112,11 +114,11 @@ export function ChoiceCard({
             onAccessibilityAction={onAccessibilityAction}
             style={[styles.question, { color: tokens.foreground }]}
           >
-            {block.question}
+            {localized.question}
           </Text>
-          {block.subtitle ? (
+          {localized.subtitle ? (
             <Text style={[styles.subtitle, { color: tokens.mutedForeground }]}>
-              {block.subtitle}
+              {localized.subtitle}
             </Text>
           ) : null}
         </View>
@@ -136,7 +138,7 @@ export function ChoiceCard({
         ) : null}
       </View>
       <View style={styles.options}>
-        {choiceCardOptions({ ...block, answerId }).map((option) => {
+        {choiceCardOptions({ ...localized, answerId }).map((option) => {
           const chosen = option.id === answerId;
           return (
             <Pressable

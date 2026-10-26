@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { type Bot, GROUP_MEMBER_MAX, GROUP_MEMBER_MIN, type Group } from "@rakazo/contracts";
+import type { Bot, Group } from "@rakazo/contracts";
+import { GROUP_MEMBER_MAX, GROUP_MEMBER_MIN } from "@rakazo/contracts";
 import { BotAvatar, Button, Input } from "@rakazo/ui-web";
 import { Check, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -55,7 +56,7 @@ function MemberPicker({
               checked ? "bg-muted" : "hover:bg-accent"
             }`}
           >
-            <BotAvatar color={bot.color} identity={bot.id} size={32} status={bot.status} />
+            <BotAvatar color={bot.color} identity={bot.id} size={32} animated={false} />
             <span className="flex-1 text-[15px] text-foreground" dir="auto">
               {bot.name}
             </span>

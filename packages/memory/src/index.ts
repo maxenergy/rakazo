@@ -11,7 +11,7 @@ import type {
   PortableFile,
 } from "@rakazo/adapter-kit";
 import { MEMORY_REVISION_CONFLICT_ERROR } from "@rakazo/adapter-kit";
-import { Prisma, type PrismaClient, withTransactionRetry } from "@rakazo/db";
+import { assertExecutionFence, Prisma, type PrismaClient, withTransactionRetry } from "@rakazo/db";
 
 export class MarkdownMemoryStore implements MemoryStore {
   constructor(private readonly prisma: PrismaClient) {}
@@ -75,6 +75,12 @@ export class MarkdownMemoryStore implements MemoryStore {
     return withTransactionRetry(() =>
       this.prisma.$transaction(
         async (tx) => {
+          if (context.executionFence) {
+            await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${context.spaceId} FOR KEY SHARE`;
+            if (request.botId)
+              await tx.$queryRaw`SELECT id FROM bots WHERE id = ${request.botId} FOR KEY SHARE`;
+            await assertExecutionFence(tx, context.executionFence);
+          }
           const existing = await tx.memoryDocument.findFirst({
             where: {
               spaceId: context.spaceId,

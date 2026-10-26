@@ -104,9 +104,9 @@ export function measureCalls(
     "costUsd"
   >;
   const priced = unique.map((c) => {
-    if (c.costSource === "provider-reported" && typeof c.costUsd === "number") return c.costUsd;
+    if (c.costSource === "provider_reported" && typeof c.costUsd === "number") return c.costUsd;
     if (!pricing)
-      return c.costSource === "pi-catalog-estimate" && typeof c.costUsd === "number"
+      return c.costSource === "pi_catalog_estimate" && typeof c.costUsd === "number"
         ? c.costUsd
         : null; // Unknown catalog placeholders remain unavailable.
     if (
@@ -180,11 +180,11 @@ export function measureCalls(
           priced[index] === null
             ? []
             : [
-                call.costSource === "provider-reported"
-                  ? "provider-reported"
+                call.costSource === "provider_reported"
+                  ? "provider_reported"
                   : pricing
                     ? "explicit-pricing-estimate"
-                    : "pi-catalog-estimate",
+                    : "pi_catalog_estimate",
               ],
         ),
       ),

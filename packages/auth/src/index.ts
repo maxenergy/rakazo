@@ -9,7 +9,7 @@ import {
   signupPolicyFromEnv,
 } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
-import { bootstrapUserSpace } from "@rakazo/db";
+import { bootstrapUserSpace, cleanOrganizationSpaceBudgetEvidence } from "@rakazo/db";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
@@ -349,6 +349,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             await tx.messagingIdentity.deleteMany({
               where: { userId: user.id },
             });
+            await cleanOrganizationSpaceBudgetEvidence(tx, personalOrganizationIds);
             await tx.organization.deleteMany({
               where: { id: { in: personalOrganizationIds } },
             });

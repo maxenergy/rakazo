@@ -276,7 +276,7 @@ export class ModelTeamChatEngagementJudge implements TeamChatEngagementJudge {
     const parsed = auth.secret;
     const limit = parsed.maxTokens !== undefined ? { maxTokens: parsed.maxTokens } : {};
     const context =
-      parsed.kind === "oauth"
+      parsed.kind === "oauth" || parsed.kind === "cli"
         ? {}
         : {
             cacheCapabilities: parsed.cacheCapabilities,

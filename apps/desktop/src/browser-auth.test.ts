@@ -32,6 +32,21 @@ async function setup() {
 }
 
 describe("system browser authentication", () => {
+  it("leaves a vendor-owned callback port available to the official CLI", async () => {
+    const { authorization, callback, options } = await setup();
+    const reservation = createServer();
+    await new Promise<void>((resolve) =>
+      reservation.listen(Number(new URL(callback).port), "127.0.0.1", resolve),
+    );
+    try {
+      await openBrowserAuth(authorization.href, { ...options, callbackOwner: "provider" });
+      expect(options.openExternal).toHaveBeenCalledExactlyOnceWith(authorization.href);
+      expect(options.onCallback).not.toHaveBeenCalled();
+      expect(options.onClose).toHaveBeenCalledOnce();
+    } finally {
+      await new Promise<void>((resolve) => reservation.close(() => resolve()));
+    }
+  });
   it("starts listening before opening the browser and forwards a matching callback", async () => {
     const { authorization, callback, options } = await setup();
     options.openExternal.mockImplementation(async () => {

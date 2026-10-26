@@ -3,12 +3,13 @@ import { initialBootstrapTarget } from "./bootstrap-target";
 import { markOnce } from "./performance";
 import { rpc } from "./rpc";
 
-let ticketBoardEnabled = false;
+export type TicketBoardCapability = "pending" | "enabled" | "disabled";
+let ticketBoardCapability: TicketBoardCapability = "pending";
 const capabilityListeners = new Set<() => void>();
-export function getTicketBoardEnabled() {
-  return ticketBoardEnabled;
+export function getTicketBoardCapability() {
+  return ticketBoardCapability;
 }
-export function subscribeTicketBoardEnabled(listener: () => void) {
+export function subscribeTicketBoardCapability(listener: () => void) {
   capabilityListeners.add(listener);
   return () => {
     capabilityListeners.delete(listener);
@@ -44,10 +45,17 @@ export function takeInitialBootstrap(botId?: string) {
 
 function requestBootstrap(botId?: string) {
   markOnce("rk:renderer:bootstrap-request-start");
-  return rpc.bootstrap(botId ? { botId } : {}).then((bootstrap) => {
-    markOnce("rk:renderer:bootstrap-response");
-    ticketBoardEnabled = bootstrap.me.ticketBoardEnabled;
-    for (const listener of capabilityListeners) listener();
-    return bootstrap;
-  });
+  return rpc.bootstrap(botId ? { botId } : {}).then(
+    (bootstrap) => {
+      markOnce("rk:renderer:bootstrap-response");
+      ticketBoardCapability = bootstrap.me.ticketBoardEnabled ? "enabled" : "disabled";
+      for (const listener of capabilityListeners) listener();
+      return bootstrap;
+    },
+    (error: unknown) => {
+      ticketBoardCapability = "disabled";
+      for (const listener of capabilityListeners) listener();
+      throw error;
+    },
+  );
 }

@@ -5,6 +5,7 @@ import {
   connectedModelChoices,
   featuredModelProviders,
   filterModelCatalog,
+  modelChoiceLabel,
   pickCatalogModelId,
   resolveSelectableModelId,
   selectedProviderOutsideSearchResults,
@@ -20,6 +21,34 @@ function provider(provider: string): ModelCatalogEntry {
   };
 }
 
+describe("modelChoiceLabel", () => {
+  const catalog = [
+    {
+      provider: "claude-code",
+      providerName: "Claude Code",
+      id: "shared-model",
+      label: "Shared model",
+    },
+    { provider: "gateway", providerName: "Gateway", id: "shared-model", label: "Shared model" },
+  ];
+
+  it("distinguishes the same model id on different providers", () => {
+    expect(modelChoiceLabel(catalog, "claude-code", "shared-model")).toBe(
+      "Claude Code · Shared model",
+    );
+    expect(modelChoiceLabel(catalog, "gateway", "shared-model")).toBe("Gateway · Shared model");
+  });
+
+  it("keeps the provider visible when a saved model is outside the catalog", () => {
+    expect(modelChoiceLabel(catalog, "claude-code", "custom-model")).toBe(
+      "Claude Code · custom-model",
+    );
+    expect(modelChoiceLabel(catalog, "custom-provider", "custom-model")).toBe(
+      "custom-provider · custom-model",
+    );
+  });
+});
+
 describe("featuredModelProviders", () => {
   it("shows popular providers in a stable order", () => {
     const providers = [
@@ -30,15 +59,19 @@ describe("featuredModelProviders", () => {
       provider("anthropic"),
       provider("openai-codex"),
       provider("openrouter"),
+      provider("grok-cli"),
+      provider("antigravity-cli"),
+      provider("claude-code"),
+      provider("codex-cli"),
     ];
 
     expect(featuredModelProviders(providers, "openrouter").map((entry) => entry.provider)).toEqual([
-      "openrouter",
       "openai-codex",
-      "anthropic",
-      "openai",
-      "google",
-      "vercel-ai-gateway",
+      "codex-cli",
+      "claude-code",
+      "antigravity-cli",
+      "grok-cli",
+      "openrouter",
     ]);
   });
 
@@ -52,9 +85,9 @@ describe("featuredModelProviders", () => {
 
     expect(featuredModelProviders(providers, "openrouter").map((entry) => entry.provider)).toEqual([
       "openrouter",
-      "anthropic",
       "azure",
       "bedrock",
+      "anthropic",
     ]);
   });
 
@@ -70,8 +103,8 @@ describe("featuredModelProviders", () => {
     ];
 
     expect(featuredModelProviders(providers, "local").map((entry) => entry.provider)).toEqual([
-      "openrouter",
       "openai-codex",
+      "openrouter",
       "anthropic",
       "openai",
       "google",
@@ -223,6 +256,24 @@ describe("connected model choices", () => {
         modelId: "my-finetune",
         label: "DeepSeek · my-finetune",
       },
+    ]);
+  });
+
+  it("keeps custom provider identity when connections have the same user label", () => {
+    const choices = connectedModelChoices(
+      [
+        { provider: "deepseek", label: "Production", modelId: "custom-model" },
+        { provider: "custom-gateway", label: "Production", modelId: "custom-model" },
+      ],
+      deepseek,
+    );
+    expect(choices.map((choice) => choice.label)).toEqual([
+      "DeepSeek · custom-model",
+      "custom-gateway · custom-model",
+    ]);
+    expect(choices.map((choice) => choice.key)).toEqual([
+      "deepseek::custom-model",
+      "custom-gateway::custom-model",
     ]);
   });
 

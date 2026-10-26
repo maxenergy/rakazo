@@ -1,4 +1,52 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Back to projects": "返回项目列表",
+  Home: "首页",
+  "Manage project members on web.": "请前往 Web 管理项目成员。",
+  Archived: "已归档",
+  Member: "成员",
+  "No members yet.": "暂无成员。",
+  "No project owner assigned.": "尚未指定项目负责人。",
+  Owner: "负责人",
+  Projects: "项目",
+  "Sort by cost": "按成本排序",
+  "Subscription, cost unknown": "订阅，成本未知",
+  "Cost unknown": "成本未知",
+  Unknown: "未知",
+  "No charge": "不收费",
+  "{price} USD / million tokens": "{price} 美元 / 百万 token",
+  "Input: {price}": "输入：{price}",
+  "Output: {price}": "输出：{price}",
+  "Cache read: {price}": "缓存读取：{price}",
+  "Cache write: {price}": "缓存写入：{price}",
+  "Context window: {tokens}": "上下文窗口：{tokens}",
+  "Maximum output tokens: {tokens}": "最大输出 token：{tokens}",
+  "Supports reasoning": "支持推理",
+  "Does not support reasoning": "不支持推理",
+  "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
+    "CLI 调用失败。请检查登录状态、所选模型和订阅额度。未切换至 API 调用。",
+  "Connecting…": "正在连接…",
+  "Antigravity is not available in this account's region.": "此账号所在地区暂不支持 Antigravity。",
+  "This account is not eligible for Antigravity.": "此账号暂不符合 Antigravity 的使用资格。",
+  "Authorization code is invalid. Start sign-in again.": "授权码无效，请重新登录。",
+  "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
+    "Rakazo 界面暂不支持 {provider} 订阅登录。如果此部署已配置凭据，可以跳过。",
+  "Configured model: {provider}": "已配置模型：{provider}",
+  "No model charges. Deterministic fixture for tests.": "不产生模型费用。用于测试的确定性模拟。",
+  "Runs on a URL you control. Rakazo does not pay for model usage.":
+    "在你控制的 URL 上运行。Rakazo 不承担模型使用费用。",
+  "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.":
+    "在部署所有者配置的基础设施上运行。Rakazo 不收取模型费用。",
+  "Sign in with {provider}": "使用 {provider} 登录",
+  "Sign in with {provider}. Uses your subscription. Rakazo does not pay.":
+    "使用 {provider} 登录并使用你的订阅。Rakazo 不承担费用。",
+  "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay.":
+    "使用 SuperGrok 或 X Premium 登录，或粘贴 xAI API 密钥。Rakazo 不承担费用。",
+  "Uses your {provider} API key. Rakazo does not pay for model usage.":
+    "使用你的 {provider} API 密钥。Rakazo 不承担模型使用费用。",
+
+  "Could not save this choice": "无法保存此选择",
+  "Could not dismiss": "无法关闭",
+
   "Couldn't refresh — showing the last loaded messages.": "无法刷新——显示最近加载的消息。",
   "Try Again": "重试",
   "Too many unsent messages": "未发送消息过多",
@@ -48,6 +96,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Client secret": "客户端密钥",
   "Connect apps": "连接应用",
   Continue: "继续",
+  "Complete sign-in on the server.": "请在服务端浏览器中完成登录。",
   "Could not verify or save these credentials": "无法验证或保存这些凭据",
   "Direct MCP": "直连 MCP",
   "Finish MCP authorization in the web app.": "请在网页应用中完成 MCP 授权。",
@@ -607,6 +656,15 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Opened its thread.": "已打开其对话。",
   "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed.":
     "粘贴你服务器的 OpenAI 兼容地址。如有需要，Rakazo 会自动补上 /v1。",
+  "Cancellation requested; external process needs manual confirmation and is not shown as stopped.":
+    "已请求取消；外部进程需要人工确认，不会显示为已停止。",
+  "Finishing safely": "正在安全收尾",
+  "In flight work will finish safely.": "正在进行的工作会安全收尾。",
+  "Pause project": "暂停项目",
+  "Pause project?": "要暂停项目吗？",
+  Resume: "恢复",
+  "Resume project": "恢复项目",
+  "Resume project?": "要恢复项目吗？",
   Paused: "已暂停",
   Prompt: "提示词",
   "Recording a live demonstration needs desktop or web with the full computer view. You can still ask this bot to run saved skills from chat.":
@@ -697,6 +755,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Voice chat": "语音通话",
   "Show transcript": "显示字幕",
   "Hide transcript": "隐藏字幕",
+  Chart: "图表",
+  "{size} bytes": "{size} 字节",
 
   Artifact: "制品",
   Artifacts: "制品",

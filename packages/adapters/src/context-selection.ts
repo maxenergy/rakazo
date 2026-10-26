@@ -31,6 +31,8 @@ export interface ContextSelectionOptions {
   /** Keep tool protocol intact while shortening oversized result bodies. */
   truncateToolResults?: boolean;
 }
+/** Older protected user text (steering, peer messages) keeps this much when a turn overflows. */
+const PROTECTED_USER_TEXT_LIMIT = 2_000;
 export class ContextBudgetError extends Error {
   constructor(
     public readonly estimatedTokens: number,
@@ -396,6 +398,39 @@ export function selectContext<T extends ContextMessage>(
         };
       }
     }
+    // A long turn collects steering and peer messages, all protected. Keep the newest
+    // whole and the start and end of older long ones rather than failing the turn.
+    const newestUser = messages.findLastIndex((message) => message.role === "user");
+    let shortenedUsers = 0;
+    const condensed = messages.map((message, index) => {
+      if (index === newestUser || !protectedIndexes.has(index) || message.role !== "user")
+        return message;
+      let changed = false;
+      const shorten = (text: string) => {
+        if (text.length <= PROTECTED_USER_TEXT_LIMIT) return text;
+        changed = true;
+        const half = PROTECTED_USER_TEXT_LIMIT / 2;
+        const omitted = text.length - PROTECTED_USER_TEXT_LIMIT;
+        return `${text.slice(0, half)}\n[${omitted} characters omitted to fit the model context]\n${text.slice(-half)}`;
+      };
+      const content =
+        typeof message.content === "string"
+          ? shorten(message.content)
+          : Array.isArray(message.content)
+            ? message.content.map((part) =>
+                part &&
+                typeof part === "object" &&
+                part.type === "text" &&
+                typeof part.text === "string"
+                  ? { ...part, text: shorten(part.text) }
+                  : part,
+              )
+            : message.content;
+      if (!changed) return message;
+      shortenedUsers += 1;
+      return { ...message, content } as T;
+    });
+    if (shortenedUsers) return selectContext(condensed, options);
     throw new ContextBudgetError(
       used + fixed,
       options.budget.contextWindow - options.budget.outputReserve,

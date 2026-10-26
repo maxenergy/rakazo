@@ -12,7 +12,7 @@ import {
   SecretHttpRequest,
 } from "@rakazo/contracts";
 import type { Prisma, PrismaClient } from "@rakazo/db";
-import { withTransactionRetry } from "@rakazo/db";
+import { assertExecutionFence, type ExecutionFence, withTransactionRetry } from "@rakazo/db";
 import { combineSignals, redactConnectorPayload } from "./connector-safety.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { createPrivateNetworkFetch, createSafeRemoteFetch } from "./remote-mcp.js";
@@ -480,9 +480,15 @@ export function getBotSecretMetadata(
   });
 }
 
-export async function forgetBotSecret(prisma: PrismaClient, scope: BotSecretScope, name: string) {
+export async function forgetBotSecret(
+  prisma: PrismaClient,
+  scope: BotSecretScope,
+  name: string,
+  executionFence?: ExecutionFence,
+) {
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM bots WHERE id = ${scope.botId} FOR UPDATE`;
+    if (executionFence) await assertExecutionFence(tx, executionFence);
     await tx.botSecret.deleteMany({ where: { ...scopeFields(scope), name } });
   });
   return { removed: true };

@@ -112,6 +112,30 @@ test("focus choice follows Simplified Chinese UI locale", async ({ page }, testI
   await expect(page.getByRole("button", { name: /什么都做一点/ })).toBeVisible();
   await page.mouse.move(1, 1);
   await captureScreenshot(page, testInfo, "choice-card-onboarding-zh-cn");
+
+  const request = page.waitForRequest("**/rpc/onboarding/choose");
+  await page.getByRole("button", { name: /日常工作/ }).click();
+  expect((await request).headers()["accept-language"]).toBe("zh-CN");
+  await expect(page.getByTestId("transcript")).toContainText("明白了，先处理Slack、日历和邮件。");
+  await expect(page.getByTestId("transcript")).toContainText("搜索、阅读和发送消息。");
+  await expect(
+    page.getByTestId("transcript").getByText("连接这 3 个应用后，我就开始整理相关信息。"),
+  ).toBeVisible();
+  await captureScreenshot(page, testInfo, "onboarding-follow-ups-zh-cn");
+  await page.reload();
+  await expect(
+    page.getByTestId("transcript").getByText("连接这 3 个应用后，我就开始整理相关信息。"),
+  ).toBeVisible();
+  await page.getByTestId("bot-settings-trigger").click();
+  const botSettings = page.getByTestId("bot-settings");
+  await botSettings.getByTestId("bot-settings-advanced").evaluate((element) => {
+    (element as HTMLDetailsElement).open = true;
+  });
+  const credentials = botSettings.getByTestId("bot-credentials");
+  await expect(credentials.getByText("凭据", { exact: true })).toBeVisible();
+  await expect(credentials.getByRole("button", { name: "添加凭据" })).toBeVisible();
+  await credentials.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "bot-credentials-zh-cn");
 });
 
 test("choice refresh failures leave options available for retry", async ({ page }) => {

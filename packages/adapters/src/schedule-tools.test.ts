@@ -140,6 +140,17 @@ describe("filterBuiltinToolsForThread", () => {
     { name: "remember" },
   ];
 
+  it("lets org bots message colleagues from a group", () => {
+    expect(filterBuiltinToolsForThread(tools, "group-1", true).map((tool) => tool.name)).toEqual([
+      "handoff_to_bot",
+      "message_bot",
+      "schedule_create",
+      "schedule_list",
+      "schedule_cancel",
+      "remember",
+    ]);
+  });
+
   it("keeps handoff and schedule tools in groups", () => {
     expect(filterBuiltinToolsForThread(tools, "group-1").map((tool) => tool.name)).toEqual([
       "handoff_to_bot",

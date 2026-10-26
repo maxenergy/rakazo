@@ -1,4 +1,37 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Back to projects": "Назад к проектам",
+  Home: "Главная",
+  "Manage project members on web.": "Управляйте участниками проекта в веб-версии.",
+  Archived: "В архиве",
+  Member: "Участник",
+  "No members yet.": "Участников пока нет.",
+  "No project owner assigned.": "Руководитель проекта не назначен.",
+  Owner: "Руководитель",
+  Projects: "Проекты",
+  "Sort by cost": "Сортировать по стоимости",
+  "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
+    "Запрос CLI не выполнен. Проверьте вход, выбранную модель и лимиты подписки. Переход на API не использовался.",
+  "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
+    "Вход по подписке {provider} пока недоступен в интерфейсе Rakazo. Пропустите этот шаг, если в развёртывании уже есть учётные данные.",
+  "Configured model: {provider}": "Настроенная модель: {provider}",
+  "No model charges. Deterministic fixture for tests.":
+    "Без платы за модель. Детерминированная симуляция для тестов.",
+  "Runs on a URL you control. Rakazo does not pay for model usage.":
+    "Работает по URL, который вы контролируете. Rakazo не оплачивает использование модели.",
+  "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.":
+    "Работает на инфраструктуре, настроенной владельцем развёртывания. Rakazo не взимает плату за модель.",
+  "Sign in with {provider}": "Войти через {provider}",
+  "Sign in with {provider}. Uses your subscription. Rakazo does not pay.":
+    "Войдите через {provider}, чтобы использовать свою подписку. Rakazo не оплачивает расходы.",
+  "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay.":
+    "Войдите через SuperGrok или X Premium либо вставьте API-ключ xAI. Rakazo не оплачивает расходы.",
+  "Uses your {provider} API key. Rakazo does not pay for model usage.":
+    "Используется ваш API-ключ {provider}. Rakazo не оплачивает использование модели.",
+  "Complete sign-in on the server.": "Завершите вход на сервере.",
+
+  "Could not save this choice": "Не удалось сохранить выбор",
+  "Could not dismiss": "Не удалось закрыть",
+
   "Couldn't refresh — showing the last loaded messages.":
     "Не удалось обновить — показаны последние загруженные сообщения.",
   "Try Again": "Повторить",
@@ -629,6 +662,15 @@ export const RU_MESSAGES: Record<string, string> = {
   "Opened its thread.": "Диалог открыт.",
   "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed.":
     "Вставьте OpenAI-совместимый адрес со своего сервера. При необходимости Rakazo добавляет /v1.",
+  "Cancellation requested; external process needs manual confirmation and is not shown as stopped.":
+    "Запрошена отмена; внешний процесс требует подтверждения вручную и не отображается как остановленный.",
+  "Finishing safely": "Безопасное завершение",
+  "In flight work will finish safely.": "Текущая работа безопасно завершится.",
+  "Pause project": "Приостановить проект",
+  "Pause project?": "Приостановить проект?",
+  Resume: "Возобновить",
+  "Resume project": "Возобновить проект",
+  "Resume project?": "Возобновить проект?",
   Paused: "Приостановлено",
   Prompt: "Промпт",
   "Recording a live demonstration needs desktop or web with the full computer view. You can still ask this bot to run saved skills from chat.":
@@ -719,6 +761,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Voice chat": "Голосовой чат",
   "Show transcript": "Показать расшифровку",
   "Hide transcript": "Скрыть расшифровку",
+  Chart: "Диаграмма",
+  "{size} bytes": "{size} байт",
 
   Artifact: "Артефакт",
   Artifacts: "Артефакты",

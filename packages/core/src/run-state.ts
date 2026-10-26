@@ -4,6 +4,7 @@ export const ACTIVE_RUN_STATUSES = [
   "queued",
   "leased",
   "running",
+  "waiting_budget",
   "waiting_input",
   "waiting_takeover",
 ] as const satisfies readonly RunStatus[];
@@ -13,7 +14,13 @@ const TERMINAL: RunStatus[] = ["completed", "failed", "cancelled"];
  * Routine and webhook runs are not the conversation. The creation intro has no tools;
  * a message that lands during it waits, and the continuation after the intro finishes answers it.
  */
-const NON_CONVERSATIONAL_RUN_TRIGGERS = new Set(["routine", "webhook", "created", "tickets"]);
+const NON_CONVERSATIONAL_RUN_TRIGGERS = new Set([
+  "routine",
+  "webhook",
+  "created",
+  "tickets",
+  "org_check_in",
+]);
 
 /**
  * Background triggers do internal work that must not leak into the chat: the
@@ -31,7 +38,16 @@ export function isBackgroundRunTrigger(trigger: string | null | undefined): bool
 const allowed: Record<RunStatus, RunStatus[]> = {
   queued: ["leased", "cancelled"],
   leased: ["running", "queued", "cancelled"],
-  running: ["waiting_input", "waiting_takeover", "completed", "failed", "cancelled", "leased"],
+  running: [
+    "waiting_budget",
+    "waiting_input",
+    "waiting_takeover",
+    "completed",
+    "failed",
+    "cancelled",
+    "leased",
+  ],
+  waiting_budget: ["queued", "cancelled"],
   waiting_input: ["queued", "leased", "cancelled"],
   waiting_takeover: ["queued", "leased", "cancelled"],
   completed: [],

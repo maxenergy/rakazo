@@ -12,6 +12,7 @@ import {
   finalizeComputerControlRelease,
   finalizeRun,
   followThreadEvents,
+  pauseRunForBudget,
   pauseRunForInput,
   pauseRunForTakeover,
   sendUserMessage,
@@ -2828,6 +2829,7 @@ describe("clearThread", () => {
     const fanout = new TestFanout();
     const publish = vi.spyOn(fanout, "publish");
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       thread: {
         update: vi
           .fn()
@@ -2889,6 +2891,7 @@ describe("clearThread", () => {
   it("scopes group clear lease cleanup to cancelled run ids", async () => {
     const fanout = new TestFanout();
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       thread: {
         update: vi
           .fn()
@@ -3201,5 +3204,140 @@ describe("appendEvent", () => {
     ).rejects.toThrow(RunHistoryWriteError);
     expect(tx.run.findUnique).not.toHaveBeenCalled();
     expect(tx.event.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("pauseRunForBudget", () => {
+  it("stores the paused run, prompt, and status event in one transaction", async () => {
+    const fanout = new TestFanout();
+    const publish = vi.spyOn(fanout, "publish");
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "thread-1" }]),
+      run: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({
+          status: "running",
+          createdAt: new Date("2026-08-16T12:00:00.000Z"),
+          threadId: "thread-1",
+        }),
+      },
+      attempt: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      thread: {
+        update: vi
+          .fn()
+          .mockResolvedValueOnce({ nextMessageSeq: 4 })
+          .mockResolvedValueOnce({ nextEventSeq: 8 })
+          .mockResolvedValueOnce({ nextEventSeq: 9 }),
+      },
+      message: { create: vi.fn().mockResolvedValue({ id: "message-1" }) },
+      event: {
+        create: vi.fn(async ({ data }: { data: { seq: number; type: string } }) => ({
+          ...event(data.seq),
+          type: data.type,
+        })),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+
+    await expect(
+      pauseRunForBudget(
+        prisma,
+        {
+          spaceId: "workspace-1",
+          threadId: "thread-1",
+          botId: "bot-1",
+          runId: "run-1",
+          attemptId: "attempt-1",
+          leaseOwner: "worker-1",
+          leaseFence: 3,
+          blocks: [{ kind: "text", text: "Budget approval required" }],
+          checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+        },
+        fanout,
+      ),
+    ).resolves.toBe(true);
+
+    expect(tx.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          botId: "bot-1",
+          runId: "run-1",
+          role: "bot",
+        }),
+      }),
+    );
+    expect(tx.run.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "running", leaseFence: 3 }),
+        data: {
+          status: "waiting_budget",
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+          segmentCheckpoint: null,
+        },
+      }),
+    );
+    expect(tx.event.create.mock.calls.map(([input]) => input.data.type)).toEqual([
+      "thread.message.created",
+      "run.waiting_budget",
+    ]);
+    expect(publish).toHaveBeenCalledWith("thread:thread-1", JSON.stringify({ cursor: 8 }));
+  });
+
+  it("does not persist a pause after losing the lease", async () => {
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      run: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      attempt: { updateMany: vi.fn() },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+    await expect(
+      pauseRunForBudget(prisma, {
+        spaceId: "workspace-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        runId: "run-1",
+        attemptId: "attempt-1",
+        leaseOwner: "worker-1",
+        leaseFence: 3,
+        blocks: [],
+        checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+      }),
+    ).resolves.toBe(false);
+    expect(tx.attempt.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects the transaction when the active attempt cannot pause", async () => {
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      run: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      attempt: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+    await expect(
+      pauseRunForBudget(prisma, {
+        spaceId: "workspace-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        runId: "run-1",
+        attemptId: "attempt-1",
+        leaseOwner: "worker-1",
+        leaseFence: 3,
+        blocks: [],
+        checkpoint: JSON.stringify({ kind: "budget_pause_v1", reason: "unavailable" }),
+      }),
+    ).rejects.toThrow("Active run attempt was not available to pause");
   });
 });

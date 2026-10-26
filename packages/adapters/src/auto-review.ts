@@ -16,6 +16,8 @@ import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { LOCAL_PROVIDER_ID } from "./pi-local-provider.js";
 
+import { reviewFailureClass } from "./review-failure.js";
+
 const DEFAULT_TIMEOUT_MS = 1_500;
 const MAX_TASK_CHARS = 400;
 const MAX_BOT_CHARS = 240;
@@ -266,9 +268,15 @@ export function buildAutoReviewPrompt(input: AutoReviewRequest): string {
 }
 
 export async function runAutoReviewJudge(input: {
+  budgetScope?: Readonly<{
+    spaceId: string;
+    projectId: string;
+    executionFence?: Readonly<{ runId: string; leaseOwner: string; leaseFence: number }>;
+  }> | null;
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;
+  cliDiscovery?: AgentRunModel["cliDiscovery"];
   apiKey?: string;
   accountId?: string;
   gatewayId?: string;
@@ -300,6 +308,7 @@ export async function runAutoReviewJudge(input: {
         botId: input.botId,
         threadId: input.threadId,
         runId: `${input.runId}:auto-review`,
+        budgetScope: input.budgetScope,
         usageOperationKind: "setup",
         onUsage: async (event) => {
           await input.onUsage?.(event);
@@ -314,6 +323,7 @@ export async function runAutoReviewJudge(input: {
         model: {
           provider: input.checker.provider,
           id: input.checker.model,
+          cliDiscovery: input.cliDiscovery,
           apiKey: input.oauth ? undefined : input.apiKey,
           accountId: input.accountId,
           gatewayId: input.gatewayId,
@@ -346,8 +356,13 @@ export async function runAutoReviewJudge(input: {
         else text = body;
       }
     }
-  } catch {
-    return { decision: "error", model: modelLabel, reason: "Checker timed out or failed." };
+  } catch (error) {
+    return {
+      decision: "error",
+      model: modelLabel,
+      reason: "Checker timed out or failed.",
+      failureClass: reviewFailureClass(error),
+    };
   }
 
   if (failed || !text) {
@@ -362,9 +377,15 @@ export async function runAutoReviewJudge(input: {
 }
 
 export type LlmAutoReviewOptions = {
+  budgetScope?: Readonly<{
+    spaceId: string;
+    projectId: string;
+    executionFence?: Readonly<{ runId: string; leaseOwner: string; leaseFence: number }>;
+  }> | null;
   onUsage?: (event: Extract<AgentRuntimeEvent, { type: "usage" }>) => Promise<unknown>;
   runtime: AgentRuntime;
   checker: AutoReviewChecker;
+  cliDiscovery?: AgentRunModel["cliDiscovery"];
   apiKey?: string;
   accountId?: string;
   gatewayId?: string;

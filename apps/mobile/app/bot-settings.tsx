@@ -8,6 +8,7 @@ import {
 } from "@rakazo/contracts";
 import {
   connectedModelChoices,
+  modelChoiceLabel,
   modelOptionKey,
   parseModelOptionKey,
   resolveSelectableModelId,
@@ -143,7 +144,7 @@ export default function BotSettingsScreen() {
   ).filter((level) => level !== "off");
 
   const spaceDefaultLabel = me?.defaultModel
-    ? `${t("Space default")} (${catalogLabel(catalog, me.defaultProvider, me.defaultModel) ?? me.defaultModel})`
+    ? `${t("Space default")} (${modelChoiceLabel(catalog, me.defaultProvider, me.defaultModel)})`
     : t("Space default");
 
   const modelChoices: MenuPickerChoice[] = useMemo(() => {
@@ -151,14 +152,23 @@ export default function BotSettingsScreen() {
     if (selectedModelKey && !connectedOptions.some((option) => option.key === selectedModelKey)) {
       choices.push({
         key: selectedModelKey,
-        label: selectedModel?.modelId ?? selectedModelKey,
+        label: selectedModel
+          ? modelChoiceLabel(catalog, selectedModel.provider, selectedModel.modelId)
+          : selectedModelKey,
       });
     }
     for (const option of connectedOptions) {
       choices.push({ key: option.key, label: option.label });
     }
     return choices;
-  }, [connectedOptions, selectedModel?.modelId, selectedModelKey, spaceDefaultLabel]);
+  }, [
+    catalog,
+    connectedOptions,
+    selectedModel?.provider,
+    selectedModel?.modelId,
+    selectedModelKey,
+    spaceDefaultLabel,
+  ]);
 
   const thinkingChoices: MenuPickerChoice[] = useMemo(
     () => [
@@ -551,15 +561,6 @@ export default function BotSettingsScreen() {
       </ScrollView>
     </>
   );
-}
-
-function catalogLabel(
-  catalog: MobileModel[],
-  provider: string | null | undefined,
-  modelId: string,
-) {
-  if (!provider) return undefined;
-  return catalog.find((entry) => entry.provider === provider && entry.id === modelId)?.label;
 }
 
 function thinkingLevelLabel(level: ThinkingLevel, t: (message: string) => string) {

@@ -8,6 +8,7 @@ export * from "./background-job-handlers.js";
 export * from "./billing-emulator.js";
 export * from "./bot-avatar.js";
 export * from "./bot-messages.js";
+export * from "./bot-model-tools.js";
 export {
   forgetBotSecret,
   getBotSecretMetadata,
@@ -20,11 +21,23 @@ export * from "./box-sandbox.js";
 export * from "./browser-emulator.js";
 export * from "./browser-provider-factory.js";
 export * from "./browser-tools.js";
+export * from "./budget-catalog.js";
+export * from "./budget-observer.js";
+export * from "./budget-price.js";
+export * from "./budget-scope.js";
 export * from "./builtin-skills.js";
 export * from "./builtin-tools.js";
 export * from "./cartesia-voice.js";
 export * from "./chat-sdk-surface.js";
 export * from "./child-bots.js";
+export {
+  admittedCliModel,
+  isNewCodexCliModel,
+  MODEL_NOT_DISCOVERED,
+} from "./cli-model-admission.js";
+export * from "./cli-model-catalog.js";
+export { CliModelSignInError } from "./cli-model-login.js";
+export { isCliModelProvider, removeCliProfile, runCliProcess } from "./cli-model-process.js";
 export * from "./cloud-agent-emulator.js";
 export * from "./cloud-agent-factory.js";
 export * from "./cloud-agent-poll.js";
@@ -49,6 +62,7 @@ export * from "./current-time.js";
 export * from "./cursor-cloud-agent.js";
 export * from "./daytona-emulator.js";
 export * from "./daytona-sandbox.js";
+export * from "./dependency-tools.js";
 export * from "./deployment-model.js";
 export * from "./desktop-sandbox.js";
 export * from "./destination-emulator.js";
@@ -91,6 +105,7 @@ export * from "./model-vision.js";
 export * from "./none-sandbox.js";
 export * from "./openai-compatible-url.js";
 export * from "./openai-voice.js";
+export * from "./org-check-in.js";
 export * from "./page-browser-session.js";
 export * from "./pi-catalog-availability.js";
 export * from "./pi-codex-catalog.js";
@@ -102,6 +117,7 @@ export * from "./pi-runtime.js";
 export * from "./pi-session.js";
 export * from "./pipedream-connector.js";
 export * from "./private-endpoint.js";
+export * from "./proposal-tools.js";
 export * from "./railway-sandbox.js";
 export * from "./realtime.js";
 export * from "./release-watch.js";
@@ -131,6 +147,7 @@ export * from "./team-chat-messaging.js";
 export * from "./third-party-connector-emulator.js";
 export * from "./ticket-changes.js";
 export * from "./ticket-tools.js";
+export { reconcileTicketWakes } from "./ticket-wake.js";
 export * from "./voice-factory.js";
 export * from "./wakeup.js";
 export * from "./web-limits.js";

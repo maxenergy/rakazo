@@ -94,6 +94,11 @@ jobs:
       - run: pnpm db:generate
         env:
           DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
+      - name: Locate PostgreSQL 16 for acceptance tests
+        run: |
+          test -x /usr/lib/postgresql/16/bin/initdb
+          echo "RAK_PG_BIN_DIR=/usr/lib/postgresql/16/bin" >> "$GITHUB_ENV"
+          echo "RAK_REQUIRE_PG=1" >> "$GITHUB_ENV"
       - run: pnpm test
 
   test-integration:
@@ -110,6 +115,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Locate PostgreSQL 16 for acceptance tests
+        run: |
+          test -x /usr/lib/postgresql/16/bin/initdb
+          echo "RAK_PG_BIN_DIR=/usr/lib/postgresql/16/bin" >> "$GITHUB_ENV"
+          echo "RAK_REQUIRE_PG=1" >> "$GITHUB_ENV"
       - run: pnpm test:integration
 
   test-e2e:

@@ -124,7 +124,11 @@ describeIntegration("run executor lifecycle", () => {
     expect(handles.connector.records).toHaveLength(recordsBefore);
     expect(
       await handles.prisma.event.count({
-        where: { runId: seeded.run.id, type: "effect.reconciled" },
+        where: {
+          runId: seeded.run.id,
+          type: "effect.reconciled",
+          payload: { path: ["reason"], equals: "execution_takeover" },
+        },
       }),
     ).toBe(1);
   });
@@ -406,7 +410,11 @@ describeIntegration("run executor lifecycle", () => {
     async function startContinuation(runId: string) {
       const run = await handles.prisma.run.update({
         where: { id: runId },
-        data: { status: "running", ...lease },
+        data: {
+          status: "running",
+          ...lease,
+          leaseExpiresAt: new Date(Date.now() + 60_000),
+        },
       });
       const attempt = await handles.prisma.attempt.create({
         data: { runId, fence: lease.leaseFence, status: "running" },

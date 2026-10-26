@@ -1170,7 +1170,7 @@ describe("PiOAuthLogins", () => {
     const logins = new PiOAuthLogins();
     await expect(
       logins.begin({ userId: "u", spaceId: "w", provider: "openrouter" }),
-    ).rejects.toThrow(/ChatGPT Plus\/Pro, Claude Pro\/Max, GitHub Copilot, and SuperGrok/);
+    ).rejects.toThrow("Subscription sign-in is not available for this provider.");
   });
 
   it("runs the anthropic auth-url flow via submitted code", async () => {
@@ -1213,7 +1213,8 @@ describe("PiOAuthLogins", () => {
     await flushMicrotasks();
     const done = await logins.complete(started.loginId, { userId: "u", spaceId: "w" });
     expect(done.status).toBe("connected");
-    if (done.status === "connected") expect(done.credential.access).toBe("claude-access");
+    if (done.status === "connected")
+      expect(done.credential).toMatchObject({ access: "claude-access" });
   });
 
   it("rejects submit for a login that is not waiting for a code", async () => {
@@ -1299,6 +1300,45 @@ describe("PiOAuthLogins", () => {
 
     expect(promptSettled).toBe(true);
     await logins.cancel(started.loginId, { userId: "u", spaceId: "w" });
+  });
+
+  it("keeps manual-code cancellation safe when listener cleanup clears the event target", async () => {
+    const promptAbort = new AbortController();
+    const reason = new Error("Provider callback cancelled");
+    let onAbort: EventListener | undefined;
+    vi.spyOn(promptAbort.signal, "addEventListener").mockImplementation((type, listener) => {
+      if (type === "abort") onAbort = listener as EventListener;
+    });
+    const event = new Event("abort");
+    Object.defineProperty(event, "currentTarget", {
+      configurable: true,
+      value: promptAbort.signal,
+    });
+    vi.spyOn(promptAbort.signal, "removeEventListener").mockImplementation(() => {
+      Object.defineProperty(event, "currentTarget", { configurable: true, value: null });
+    });
+    Object.defineProperty(promptAbort.signal, "reason", { value: reason });
+    let caught: unknown;
+    const logins = new PiOAuthLogins(async (_provider, _type, interaction) => {
+      interaction.notify({ type: "auth_url", url: "https://claude.com/cai/oauth/authorize" });
+      try {
+        await interaction.prompt({
+          type: "manual_code",
+          message: "paste",
+          signal: promptAbort.signal,
+        });
+      } catch (error) {
+        caught = error;
+        throw error;
+      }
+      return oauthCred();
+    });
+    const scope = { userId: "u", spaceId: "w" };
+    const started = await logins.begin({ ...scope, provider: "claude-code" });
+    expect(() => onAbort?.(event)).not.toThrow();
+    await flushMicrotasks();
+    expect(caught).toBe(reason);
+    await logins.cancel(started.loginId, scope);
   });
 
   it("rejects non-HTTPS authorization URLs", async () => {
@@ -1398,11 +1438,12 @@ describe("PiOAuthLogins", () => {
       provider: CHATGPT_OAUTH_PROVIDER,
       modelId: "gpt-5.4",
     });
-    if (done.status === "connected") expect(done.credential.access).toBe("live-access");
+    if (done.status === "connected")
+      expect(done.credential).toMatchObject({ access: "live-access" });
     const persisted = await logins.finish(
       started.loginId,
       { userId: "u", spaceId: "w" },
-      async (result) => result.credential.access,
+      async (result) => (result.credential.type === "oauth" ? result.credential.access : undefined),
     );
     expect(persisted).toEqual({ status: "connected", value: "live-access" });
     const gone = await logins.complete(started.loginId, { userId: "u", spaceId: "w" });
@@ -1571,10 +1612,8 @@ describe("PiOAuthLogins", () => {
     ).toBe("connected");
 
     await expect(
-      logins.finish(
-        started.loginId,
-        { userId: "owner", spaceId: "workspace" },
-        async (result) => result.credential.access,
+      logins.finish(started.loginId, { userId: "owner", spaceId: "workspace" }, async (result) =>
+        result.credential.type === "oauth" ? result.credential.access : undefined,
       ),
     ).resolves.toEqual({ status: "connected", value: "access-token" });
     expect(
@@ -1908,7 +1947,7 @@ describe("PiOAuthLogins", () => {
         // The expiry timer must not abort this write. A replacement that
         // started underneath it would be overwritten by this persist.
         if (result.signal.aborted) throw result.signal.reason;
-        persistedAccess = result.credential.access;
+        persistedAccess = result.credential.type === "oauth" ? result.credential.access : undefined;
         return "saved-original";
       });
       await Promise.resolve();

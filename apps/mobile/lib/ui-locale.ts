@@ -1,3 +1,5 @@
+import { normalizeUiLocale as normalizeSharedUiLocale } from "@rakazo/contracts";
+
 export const UI_LOCALES = ["en", "zh-CN", "ru", "de"] as const;
 
 export type UiLocale = (typeof UI_LOCALES)[number];
@@ -28,22 +30,8 @@ export function isUiLocale(value: string | null | undefined): value is UiLocale 
 
 /** Normalize BCP-47 tags to a mobile UI locale, else `en`. */
 export function normalizeUiLocale(raw: string | null | undefined): UiLocale {
-  if (!raw) return "en";
-  const normalized = raw.trim().toLowerCase().replace(/_/g, "-");
-  // Simplified Chinese only. Do not fold zh-TW / zh-HK / zh-Hant into zh-CN.
-  if (
-    normalized === "zh" ||
-    normalized === "zh-cn" ||
-    normalized === "zh-hans" ||
-    normalized === "zh-sg" ||
-    normalized.startsWith("zh-hans-") ||
-    normalized.startsWith("zh-cn-")
-  ) {
-    return "zh-CN";
-  }
-  if (normalized === "ru" || normalized.startsWith("ru-")) return "ru";
-  const primary = normalized.split("-")[0] ?? "";
-  return isUiLocale(primary) ? primary : "en";
+  const locale = normalizeSharedUiLocale(raw);
+  return isUiLocale(locale) ? locale : "en";
 }
 
 export type ResolveUiLocaleOptions = {

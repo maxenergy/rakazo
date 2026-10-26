@@ -170,6 +170,7 @@ function mutationDeps(ticketBoardEnabled = true) {
       })),
     },
     $queryRaw: vi.fn(async () => []),
+    $executeRaw: vi.fn(async () => 1),
   };
   const prisma = {
     ...boardSpace(),
@@ -232,13 +233,36 @@ describe("ticket mutations", () => {
       }),
     );
   });
+  it("asks the bot that finishes a ticket for a proven lesson", async () => {
+    const s = mutationDeps();
+    const done = await updateTicket(s.deps, {
+      spaceId: "ws",
+      botId: "bot-1",
+      id: "t1",
+      status: "done",
+    });
+    expect(done).toHaveProperty("note", expect.stringContaining("team-lessons"));
+    const doing = await updateTicket(s.deps, {
+      spaceId: "ws",
+      botId: "bot-1",
+      id: "t1",
+      status: "doing",
+    });
+    expect(doing).not.toHaveProperty("note");
+  });
   it("does not wake a bot creating or assigning a ticket to itself", async () => {
     const s = mutationDeps();
     await createTicket(s.deps, { spaceId: "ws", botId: "bot-1", title: "Ship" });
     await updateTicket(s.deps, { spaceId: "ws", id: "t1", ownerBotId: "bot-2", botId: "bot-2" });
     expect(s.changes.mock.calls.map(([value]) => value.wakeAssignee)).toEqual([false, false]);
   });
-  it("comments without waking the owner", async () => {
+  it("wakes the owner when someone else comments", async () => {
+    const s = mutationDeps();
+    await commentTicket(s.deps, { spaceId: "ws", botId: "bot-2", id: "t1", body: "Fix the test" });
+    await commentTicket(s.deps, { spaceId: "ws", userId: "user-1", id: "t1", body: "Go ahead" });
+    expect(s.changes.mock.calls.map(([value]) => value.wakeAssignee)).toEqual([true, true]);
+  });
+  it("comments on its own ticket without waking itself", async () => {
     const s = mutationDeps();
     const result = await commentTicket(s.deps, {
       spaceId: "ws",

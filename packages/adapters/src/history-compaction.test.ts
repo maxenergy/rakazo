@@ -473,6 +473,36 @@ describe("recordHistoryCompactAttemptsExhausted", () => {
 });
 
 describe("compactHistory", () => {
+  it("rejects an unavailable originating run before calling the model", async () => {
+    const harness = compactionHarness({ deploymentModelKey: "openrouter-key" });
+    const findFirst = vi.fn(async () => null);
+    Object.assign(harness.prisma, { run: { findFirst } });
+    await expect(compactHistory(harness.deps, "thread-1", "missing-run")).rejects.toThrow();
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: "missing-run", spaceId: "workspace-1", threadId: "thread-1" },
+    });
+    expect(harness.runtime.run).not.toHaveBeenCalled();
+  });
+
+  it("binds compaction to the originating run project", async () => {
+    const harness = compactionHarness({ deploymentModelKey: "openrouter-key" });
+    Object.assign(harness.prisma, {
+      run: {
+        findFirst: vi.fn(async () => ({
+          id: "source-run",
+          projectId: "source-project",
+          rootRunId: "root-run",
+        })),
+      },
+    });
+    await compactHistory(harness.deps, "thread-1", "source-run");
+    expect(harness.runtime.run).toHaveBeenCalledOnce();
+    expect(harness.runtime.run.mock.calls[0]![0].budgetScope).toEqual({
+      spaceId: "workspace-1",
+      projectId: "source-project",
+    });
+  });
+
   it("summarizes the next batch, saves it through the provider, and advances the cursor", async () => {
     const harness = compactionHarness({ deploymentModelKey: "openrouter-key" });
 

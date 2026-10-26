@@ -1,4 +1,5 @@
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
+import { createServer } from "node:http";
 import type { RakazoDesktopOAuthCallback } from "@rakazo/contracts";
 import { LOOPBACK_HOSTS } from "./oauth-callback.js";
 
@@ -10,6 +11,7 @@ export async function openBrowserAuth(
     openExternal: (url: string) => Promise<unknown>;
     onCallback: (callback: RakazoDesktopOAuthCallback) => void;
     onClose?: () => void;
+    callbackOwner?: "app" | "provider";
   },
 ): Promise<void> {
   const url = new URL(authorizationUrl);
@@ -33,7 +35,7 @@ export async function openBrowserAuth(
   options.signal.throwIfAborted();
   options.signal.addEventListener("abort", close, { once: true });
   try {
-    if (redirect) {
+    if (redirect && options.callbackOwner !== "provider") {
       const callback = new URL(redirect);
       const state = url.searchParams.get("state");
       if (
@@ -123,7 +125,7 @@ export async function openBrowserAuth(
     }
     options.signal.throwIfAborted();
     await options.openExternal(url.href);
-    if (!redirect) close();
+    if (!redirect || options.callbackOwner === "provider") close();
   } catch (error) {
     close();
     throw error;

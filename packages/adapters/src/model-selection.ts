@@ -8,6 +8,12 @@ import {
   findModelCredential,
   type PrismaClient,
 } from "@rakazo/db";
+import {
+  admittedCliModel,
+  discoverSelectedCliCredential,
+  isNewCodexCliModel,
+  MODEL_NOT_DISCOVERED,
+} from "./cli-model-admission.js";
 import type { ModelCredentialAuthKind } from "./pi-catalog-availability.js";
 import {
   catalogModelAvailableForAuth,
@@ -259,6 +265,7 @@ export async function prepareStoredModelAuth(
   modelId: string,
   live?: CodexLiveCatalog,
   liveOpts?: CodexLiveReadOptions,
+  cliScope?: { spaceId: string; credentialId: string },
 ): Promise<{ ref: string | null; auth: StoredModelAuthRead }> {
   const secret = await prisma.secret.findFirst({
     where: { id: secretId, userId, spaceId: null },
@@ -271,6 +278,23 @@ export async function prepareStoredModelAuth(
   } catch (error) {
     if (error instanceof SecretStoreUnavailableError) throw error;
     return { ref: secret.ciphertext, auth: { status: "unreadable" } };
+  }
+  if (isNewCodexCliModel(provider, modelId)) {
+    const result = cliScope
+      ? await discoverSelectedCliCredential(
+          prisma,
+          secretStore,
+          { userId, spaceId: cliScope.spaceId },
+          { id: cliScope.credentialId, secretId },
+        )
+      : undefined;
+    const admitted =
+      result?.status === "discovered" &&
+      result.models.some((model) => model.model === modelId && !model.hidden);
+    return {
+      ref: secret.ciphertext,
+      auth: admitted ? { status: "ready" } : { status: "rejected", message: MODEL_NOT_DISCOVERED },
+    };
   }
   let message: string | undefined;
   try {
@@ -328,7 +352,14 @@ export async function validateConnectedModelChoice(
   actor: Pick<Actor, "userId" | "spaceId">,
   provider: string,
   modelId: string,
+  secretStore?: Pick<SecretStore, "load">,
+  cacheOnly = false,
 ) {
+  if (isNewCodexCliModel(provider, modelId)) {
+    return secretStore && (await admittedCliModel(prisma, secretStore, actor, modelId, cacheOnly))
+      ? undefined
+      : MODEL_NOT_DISCOVERED;
+  }
   const credential = await findModelCredential(prisma, actor, provider);
   if (!credential) return "Connect that model provider first";
   if (!usableModelId(modelId)) return "Unknown model for that provider";
@@ -423,6 +454,7 @@ export function pinnedModelCredentialError(
   if (
     modelId &&
     !isCatalogModelChoice(choice.modelProvider, modelId) &&
+    !isNewCodexCliModel(choice.modelProvider, modelId) &&
     credential.defaultModel !== modelId
   ) {
     return "Unknown model for that provider";

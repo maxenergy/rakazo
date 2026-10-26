@@ -6,6 +6,7 @@ import { RPCHandler } from "@orpc/server/fetch";
 import type { ManagedConnectorProvider } from "@rakazo/adapter-kit";
 import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
 import {
+  CliModelSignInError,
   COMPUTER_SCREEN_UNAVAILABLE,
   CodexCatalogCache,
   ComputerBusyError,
@@ -1974,6 +1975,30 @@ describe("model credential persistence", () => {
     return response;
   }
 
+  it("returns a public connection error for a failed CLI login without reflecting diagnostics", async () => {
+    const { deps } = persistDeps();
+    deps.oauthLogins.begin = vi
+      .fn()
+      .mockRejectedValue(new CliModelSignInError("CLI sign-in failed. Start sign-in again."));
+    const response = await call(new RPCHandler(createRouter(deps)), "models/beginOAuth", {
+      provider: "claude-code",
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      json: { code: "BAD_REQUEST", message: "Could not connect this provider" },
+    });
+  });
+
+  it("keeps unexpected login errors private", async () => {
+    const { deps } = persistDeps();
+    deps.oauthLogins.begin = vi.fn().mockRejectedValue(new Error("private-host-diagnostic"));
+    const response = await call(new RPCHandler(createRouter(deps)), "models/beginOAuth", {
+      provider: "claude-code",
+    });
+    expect(response.status).toBe(500);
+    expect(await response.text()).not.toContain("private-host-diagnostic");
+  });
+
   it("does not persist a stringified null model id from subscription sign-in", async () => {
     const { upsert, finish, handler } = persistDeps();
     finish.mockImplementation(async (_loginId, _actor, persist) => ({
@@ -3367,6 +3392,7 @@ describe("bot restore computer quota", () => {
     const $queryRaw = vi.fn(async () => [{ lock: "1" }]);
     const prisma = {
       bot: botApi,
+      routine: { updateMany: vi.fn(), update: vi.fn() },
       computer,
       $queryRaw,
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
@@ -3422,6 +3448,8 @@ describe("bot restore computer quota", () => {
     const { response } = await call();
     expect(response.status).toBe(200);
     expect(prisma.bot.update).toHaveBeenCalledOnce();
+    expect(prisma.routine.update).not.toHaveBeenCalled();
+    expect(prisma.routine.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -3491,6 +3519,7 @@ describe("routines.update", () => {
           },
         ]),
       },
+      project: { findFirst: vi.fn(async () => ({ status: model.projectStatus ?? "active" })) },
       routine: {
         findFirst: vi.fn(async (args: { where: { bot?: { archivedAt: null } } }) =>
           botArchived && args.where.bot?.archivedAt === null ? null : savedRoutine,
@@ -3529,6 +3558,17 @@ describe("routines.update", () => {
       );
     return { update, enqueue, call, findFirst: prisma.routine.findFirst };
   }
+
+  it("refuses to enable a paused project's routine without writing or scheduling", async () => {
+    const { update, enqueue, call } = fixture(false, false, {
+      projectId: "project-1",
+      projectStatus: "paused",
+    });
+    const { response } = await call();
+    expect(response.status).toBe(400);
+    expect(update).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
 
   it("refuses to re-arm a routine on an archived bot without writing", async () => {
     const { update, enqueue, call } = fixture(true);

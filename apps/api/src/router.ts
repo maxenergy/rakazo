@@ -43,11 +43,13 @@ import {
   buildMcpCredentialBlob,
   buildModelConnectPlaintext,
   CHATGPT_OAUTH_PROVIDER,
+  CliModelSignInError,
   CodexCatalogCache,
   ComputerBusyError,
   cancelComputerRunWork,
   checkpointAndRecordComputerWorkspace,
   clearInactiveUserComputerControl,
+  cliCatalogForSpace,
   codexLiveCatalogsForSpace,
   codexLiveListsModel,
   commentTicket,
@@ -69,12 +71,15 @@ import {
   hasActiveComputerControl,
   hostCredentialSource,
   isAutoReviewCheckerConfigured,
+  isCliModelProvider,
   isComputerScreenUnavailable,
+  isNewCodexCliModel,
   isSandboxGoneError,
   isScratchpadStatus,
   kickModelCredentialRefresh,
   listAvailablePiCatalog,
   listBotSecretMetadata,
+  listConnectedBotModels,
   listPiCatalog,
   listScratchpadItems,
   McpOAuthBroker,
@@ -93,9 +98,11 @@ import {
   prepareStoredModelAuth,
   probeCatalogProviderModels,
   probeOpenAiCompatibleModels,
+  proposalDecisionText,
   provisionComputer,
   queueComputerUpdate,
   releaseComputerExecutionLease,
+  removeCliProfile,
   replaceComputer,
   resolveAutoReviewChecker,
   resolveBotUploadPath,
@@ -158,11 +165,19 @@ import {
   expandSkillReferencesInPrompt,
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
+  LAUNCH_TEAM_NAME,
+  LAUNCH_TEAM_TEMPLATES,
   nextCronDateAcrossStrict,
+  pickTemplateModel,
 } from "@rakazo/core";
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
+  addTicketDependency,
   appendEventInTransaction,
+  archiveKeyResult,
+  archiveMilestone,
+  archiveProject,
+  assertProjectExecutionAllowed,
   BotSectionNameConflictError,
   CannotDeleteDefaultSpaceError,
   CannotDeleteLastSpaceError,
@@ -171,13 +186,23 @@ import {
   ComputerLimitError,
   claimEmptySpaceDeletionForMember,
   createExternalConversationRepos,
+  createGoal,
   createGroupRepos,
+  createKeyResult,
+  createMilestone,
+  createProject,
   createRepos,
   createSpaceForMember,
   createThreadMessageInTransaction,
+  decideProposal,
   defaultModelCredentialCandidates,
   deleteEmptySpaceForMember,
+  deleteGoal,
+  deleteKeyResult,
+  deleteMilestone,
+  deleteProject,
   deleteUnreferencedCredentialSecret,
+  editProjectMember,
   ensureBoard,
   findDefaultModelCredential,
   findDefaultVoiceCredential,
@@ -189,18 +214,33 @@ import {
   IsolationError,
   issueMessagingLinkCode,
   listBoards,
+  listBotBackupModels,
+  listProposals,
   listSpaceBackupModels,
   listTicketComments,
   lockOwnedGroup,
   newestModelCredentialOrder,
   newestVoiceCredentialOrder,
   Prisma,
+  ProjectLinkError,
+  ProposalDecisionError,
   parseComputerMode,
   pushSessionExpiresAt,
+  readBotContinuation,
+  readBotProjects,
+  readGoals,
+  readKeyResults,
+  readMilestones,
+  readProjectMembers,
+  readProjects,
+  readTicketDependencies,
   releaseSpaceDeletionClaim,
+  removeTicketDependency,
   renameSpaceForMember,
   renewSpaceDeletionClaim,
+  replaceBotBackupModels,
   replaceSpaceBackupModels,
+  reportsToError,
   restoreBotUnderComputerQuota,
   SPACE_DELETION_CLAIM_TIMEOUT_MS,
   SpaceDeletionInProgressError,
@@ -209,10 +249,17 @@ import {
   SpaceNotFoundError,
   selectSpaceModelPreference,
   selectSpaceVoicePreference,
+  setProjectBudget,
   toBoardDto,
   toTicketCommentDto,
   toTicketDto,
   touchGroupUpdatedAt,
+  updateGoal,
+  updateKeyResult,
+  updateMilestone,
+  updateProject,
+  validateProjectFilter,
+  withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
@@ -256,6 +303,7 @@ import {
   startOnboarding,
 } from "./onboarding.js";
 import { listRoutineRuns } from "./routine-runs.js";
+import { getRunDiagnostics } from "./run-diagnostics.js";
 import { listSpaceRuns } from "./runs.js";
 import { addScreenProxyCapability } from "./screen-proxy.js";
 import { querySpaceSearch } from "./search.js";
@@ -791,7 +839,14 @@ export function createRouter(deps: RouterDeps) {
     })
     .use(async ({ context, next }) => {
       if (!context.actor) throw new ORPCError("UNAUTHORIZED");
-      return next({ context: { ...context, actor: context.actor } });
+      try {
+        return await next({ context: { ...context, actor: context.actor } });
+      } catch (error) {
+        if (error instanceof ProjectLinkError) {
+          throw new ORPCError(error.code, { message: error.message });
+        }
+        throw error;
+      }
     });
   const ticketDeps = {
     prisma: deps.prisma,
@@ -835,7 +890,10 @@ export function createRouter(deps: RouterDeps) {
       update: authed.preferences.update.handler(async ({ context, input }): Promise<Me> => {
         await deps.prisma.user.update({
           where: { id: context.actor.userId },
-          data: { avatarStyle: input.avatarStyle },
+          data: {
+            ...(input.avatarStyle ? { avatarStyle: input.avatarStyle } : {}),
+            ...(input.uiLocale ? { uiLocale: input.uiLocale } : {}),
+          },
         });
         return meDto(deps, context.actor);
       }),
@@ -1128,7 +1186,13 @@ export function createRouter(deps: RouterDeps) {
               refreshExpiredCredential(context.actor, secretId, CHATGPT_OAUTH_PROVIDER),
           },
         );
-        const catalog = live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available;
+        const catalog = await cliCatalogForSpace(
+          deps.prisma,
+          deps.secrets,
+          context.actor,
+          auth,
+          live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available,
+        );
         // The scripted fixture only exists to drive the scripted runtime; a real
         // runtime cannot execute it, so it stays out of the user-facing catalog.
         return deps.env.agentRuntime === "scripted" ? [...catalog, scriptedCatalogEntry] : catalog;
@@ -1200,7 +1264,13 @@ export function createRouter(deps: RouterDeps) {
                 refreshExpiredCredential(context.actor, secretId, CHATGPT_OAUTH_PROVIDER),
             },
           );
-          const catalog = live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available;
+          const catalog = await cliCatalogForSpace(
+            deps.prisma,
+            deps.secrets,
+            context.actor,
+            auth,
+            live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available,
+          );
           for (const choice of input) {
             const credential = await findModelCredential(
               deps.prisma,
@@ -1224,8 +1294,13 @@ export function createRouter(deps: RouterDeps) {
               context.actor,
               choice.provider,
               choice.modelId,
+              deps.secrets,
             );
-            if (error || choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
+            if (
+              error ||
+              (choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
+                !isNewCodexCliModel(choice.provider, choice.modelId))
+            ) {
               throw new ORPCError("BAD_REQUEST", {
                 message: error ?? "That model is not available for this connection",
               });
@@ -1315,15 +1390,21 @@ export function createRouter(deps: RouterDeps) {
         }
       }),
       beginOAuth: authed.models.beginOAuth.handler(async ({ context, input }) => {
-        return deps.oauthLogins.begin({
-          userId: context.actor.userId,
-          spaceId: context.actor.spaceId,
-          provider: input.provider,
-          modelId: input.modelId,
-          thinkingLevel: input.thinkingLevel,
-          label: input.label,
-          signal: context.signal,
-        });
+        try {
+          return await deps.oauthLogins.begin({
+            userId: context.actor.userId,
+            spaceId: context.actor.spaceId,
+            provider: input.provider,
+            modelId: input.modelId,
+            thinkingLevel: input.thinkingLevel,
+            label: input.label,
+            signal: context.signal,
+          });
+        } catch (error) {
+          if (error instanceof CliModelSignInError)
+            throw new ORPCError("BAD_REQUEST", { message: "Could not connect this provider" });
+          throw error;
+        }
       }),
       submitOAuthCode: authed.models.submitOAuthCode.handler(async ({ context, input }) => {
         return deps.oauthLogins.submit(input.loginId, context.actor, input.code);
@@ -1346,7 +1427,10 @@ export function createRouter(deps: RouterDeps) {
               context.actor,
               {
                 provider: login.provider,
-                plaintext: serializeModelSecret({ kind: "oauth", credential: login.credential }),
+                plaintext:
+                  login.credential.type === "cli"
+                    ? serializeModelSecret({ kind: "cli", credential: login.credential })
+                    : serializeModelSecret({ kind: "oauth", credential: login.credential }),
                 label:
                   login.label ??
                   listPiCatalog().find((entry) => entry.provider === login.provider)?.providerName,
@@ -1421,6 +1505,7 @@ export function createRouter(deps: RouterDeps) {
                             input.provider,
                           ),
                       },
+                      { spaceId: context.actor.spaceId, credentialId: candidate.id },
                     ),
                   ] as const,
               ),
@@ -1535,7 +1620,7 @@ export function createRouter(deps: RouterDeps) {
           userId: context.actor.userId,
           provider: input.provider,
         });
-        await withSerializableRetry(() =>
+        const retiredCliProfiles = await withSerializableRetry(() =>
           deps.prisma.$transaction(
             async (tx) => {
               await tx.spaceBackupModel.deleteMany({
@@ -1544,7 +1629,20 @@ export function createRouter(deps: RouterDeps) {
               const existing = await tx.userModelCredential.findMany({
                 where: { userId: context.actor.userId, provider: input.provider },
               });
-              if (existing.length === 0) return;
+              if (existing.length === 0) return [];
+              const profiles: string[] = [];
+              if (isCliModelProvider(input.provider)) {
+                for (const row of existing) {
+                  const secret = await tx.secret.findFirst({
+                    where: { id: row.secretId, userId: context.actor.userId },
+                  });
+                  if (!secret) continue;
+                  const parsed = parseModelSecret(
+                    await deps.secrets.load(secret.ciphertext, secret.id),
+                  );
+                  if (parsed.kind === "cli") profiles.push(parsed.credential.profileId);
+                }
+              }
               const ids = existing.map((row) => row.id);
               // Credentials belong to the account, not the space — disconnecting
               // removes them everywhere, matching voice.disconnect. Linked
@@ -1562,14 +1660,90 @@ export function createRouter(deps: RouterDeps) {
                   secretId: row.secretId,
                 });
               }
+              return profiles;
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
           ),
         );
+        await Promise.all(retiredCliProfiles.map((profileId) => removeCliProfile(profileId)));
         return { ok: true as const };
       }),
     },
     bots: {
+      backups: authed.bots.backups.handler(async ({ context, input }) =>
+        listBotBackupModels(deps.prisma, { ...context.actor, botId: input.botId }),
+      ),
+      setBackups: authed.bots.setBackups.handler(async ({ context, input }) => {
+        const owned = await deps.prisma.bot.findFirst({
+          where: { id: input.botId, userId: context.actor.userId, spaceId: context.actor.spaceId },
+          select: { id: true },
+        });
+        if (!owned) throw new IsolationError();
+        const models = input.models;
+        if (models.length > 0) {
+          const auth = await modelCredentialAuthKindsForSpace(
+            deps.prisma,
+            deps.secrets,
+            context.actor,
+          );
+          const available = listAvailablePiCatalog(auth.byProvider, auth.byModel);
+          const live = await codexLiveCatalogsForSpace(
+            deps.prisma,
+            deps.secrets,
+            context.actor,
+            auth,
+            codexCatalog,
+            {
+              onExpiredToken: (secretId) =>
+                refreshExpiredCredential(context.actor, secretId, CHATGPT_OAUTH_PROVIDER),
+            },
+          );
+          const catalog = await cliCatalogForSpace(
+            deps.prisma,
+            deps.secrets,
+            context.actor,
+            auth,
+            live.size > 0 ? applyCodexLiveCatalog(available, auth, live) : available,
+          );
+          for (const choice of models) {
+            const credential = await findModelCredential(
+              deps.prisma,
+              context.actor,
+              choice.provider,
+              choice.modelId,
+            );
+            if (!credential) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "Connect that model provider first",
+              });
+            }
+            if (
+              catalog.some(
+                (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
+              )
+            )
+              continue;
+            const error = await validateConnectedModelChoice(
+              deps.prisma,
+              context.actor,
+              choice.provider,
+              choice.modelId,
+              deps.secrets,
+            );
+            if (
+              error ||
+              (choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
+                !isNewCodexCliModel(choice.provider, choice.modelId))
+            ) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: error ?? "That model is not available for this connection",
+              });
+            }
+          }
+        }
+        await replaceBotBackupModels(deps.prisma, { ...context.actor, botId: input.botId }, models);
+        return models;
+      }),
       list: authed.bots.list.handler(async ({ context }) => repos.listBots(context.actor)),
       listArchived: authed.bots.listArchived.handler(async ({ context }) =>
         repos.listBots(context.actor, { archived: true }),
@@ -1577,7 +1751,10 @@ export function createRouter(deps: RouterDeps) {
       get: authed.bots.get.handler(async ({ context, input }) => {
         const found = (await repos.listBots(context.actor)).find((bot) => bot.id === input.botId);
         if (!found) throw new IsolationError();
-        return found;
+        const projects = await deps.prisma.$transaction((tx) =>
+          readBotProjects(tx, context.actor.spaceId, input.botId),
+        );
+        return { ...found, projects };
       }),
       create: authed.bots.create.handler(async ({ context, input }) => {
         let bot: Bot;
@@ -1631,6 +1808,70 @@ export function createRouter(deps: RouterDeps) {
         }
         return duplicate;
       }),
+      createLaunchTeam: authed.bots.createLaunchTeam.handler(async ({ context }) => {
+        const connected = (
+          await listConnectedBotModels(
+            { prisma: deps.prisma, secretStore: deps.secrets, codexCatalog },
+            context.actor,
+          )
+        ).models.map((model) => ({ provider: model.provider, modelId: model.id }));
+        const created: Record<string, { bot: Bot; isNew: boolean }> = {};
+        for (const template of LAUNCH_TEAM_TEMPLATES) {
+          const spawnKey = `launch-team:${template.key}`;
+          const existing = await deps.prisma.bot.findUnique({
+            where: { spaceId_spawnKey: { spaceId: context.actor.spaceId, spawnKey } },
+            select: { id: true, archivedAt: true },
+          });
+          if (existing && !existing.archivedAt) {
+            const bot = (await repos.listBots(context.actor)).find((b) => b.id === existing.id);
+            if (!bot) throw new IsolationError();
+            created[template.key] = { bot, isNew: false };
+            continue;
+          }
+          if (existing) {
+            throw new ORPCError("CONFLICT", {
+              message: `Restore or delete the archived ${template.name} first`,
+            });
+          }
+          const model = pickTemplateModel(template, connected);
+          try {
+            created[template.key] = {
+              isNew: true,
+              bot: await repos.createBot(context.actor, {
+                name: template.name,
+                title: template.title,
+                description: "",
+                instructions: template.instructions,
+                notifyOnFinish: true,
+                spawnKey,
+                orgRole: template.orgRole,
+                team: LAUNCH_TEAM_NAME,
+                ...(model ? { modelProvider: model.provider, modelId: model.modelId } : {}),
+              }),
+            };
+          } catch (error) {
+            throw mapSpaceLifecycleError(error);
+          }
+        }
+        const ceo = created.ceo;
+        const cto = created.cto;
+        if (!ceo || !cto) throw new ORPCError("INTERNAL_SERVER_ERROR");
+        let groupId: string | null = null;
+        // Only a fresh pair gets a new chat, so a repeated call never duplicates it.
+        if (ceo.isNew && cto.isNew) {
+          groupId = (
+            await groupRepos
+              .createGroup(context.actor, {
+                name: LAUNCH_TEAM_NAME,
+                botIds: [ceo.bot.id, cto.bot.id],
+              })
+              .catch((error: unknown) => {
+                throw mapSpaceLifecycleError(error);
+              })
+          ).id;
+        }
+        return { ceo: ceo.bot, cto: cto.bot, groupId };
+      }),
       reorder: authed.bots.reorder.handler(async ({ context, input }) => {
         await repos.reorderBots(context.actor, input.botIds);
         return { ok: true as const };
@@ -1669,7 +1910,21 @@ export function createRouter(deps: RouterDeps) {
           const inCatalog = knownModels.some(
             (item) => item.provider === input.modelProvider && item.id === input.modelId,
           );
-          if (!inCatalog && credential.defaultModel !== input.modelId) {
+          if (isNewCodexCliModel(input.modelProvider, input.modelId)) {
+            const error = await validateConnectedModelChoice(
+              deps.prisma,
+              context.actor,
+              input.modelProvider,
+              input.modelId,
+              deps.secrets,
+            );
+            if (error) throw new ORPCError("BAD_REQUEST", { message: error });
+          }
+          if (
+            !inCatalog &&
+            !isNewCodexCliModel(input.modelProvider, input.modelId) &&
+            credential.defaultModel !== input.modelId
+          ) {
             throw new ORPCError("BAD_REQUEST", { message: "Unknown model for that provider" });
           }
           if (inCatalog) {
@@ -1739,6 +1994,15 @@ export function createRouter(deps: RouterDeps) {
           }
         }
         if (!existing.thread) throw new IsolationError();
+        if (input.reportsToBotId) {
+          const message = await reportsToError(
+            deps.prisma,
+            context.actor,
+            input.botId,
+            input.reportsToBotId,
+          );
+          if (message) throw new ORPCError("BAD_REQUEST", { message });
+        }
         await commitBotUpdate({
           prisma: deps.prisma,
           notify: (threadId, seq) => deps.events.notify(threadId, seq),
@@ -1769,6 +2033,9 @@ export function createRouter(deps: RouterDeps) {
             ...(input.disabledBuiltinTools !== undefined
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
               : {}),
+            ...(input.orgRole !== undefined ? { orgRole: input.orgRole } : {}),
+            ...(input.team !== undefined ? { team: input.team } : {}),
+            ...(input.reportsToBotId !== undefined ? { reportsToBotId: input.reportsToBotId } : {}),
           },
         });
         const bots = await repos.listBots(context.actor);
@@ -1856,6 +2123,15 @@ export function createRouter(deps: RouterDeps) {
           computerContext(context.actor, bot.id, "archive"),
         );
         return { ok: true as const };
+      }),
+      continuationPreview: authed.bots.continuationPreview.handler(async ({ context, input }) => {
+        const bot = await repos.getBot(context.actor, input.botId, { includeArchived: true });
+        const preview = await readBotContinuation(deps.prisma, {
+          spaceId: context.actor.spaceId,
+          userId: context.actor.userId,
+          botId: bot.id,
+        });
+        return { ...preview, routines: preview.routines.map(mapRoutine) };
       }),
       restore: authed.bots.restore.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId, { includeArchived: true });
@@ -3277,6 +3553,9 @@ export function createRouter(deps: RouterDeps) {
           });
         }
         const bot = await repos.getBot(context.actor, input.botId);
+        await validateProjectFilter(deps.prisma, context.actor.spaceId, {
+          projectId: input.projectId,
+        });
         await assertRoutineModel(deps, context.actor, input);
         // Validate every recurring cron even when inactive; @once and webhook-only have no next date.
         let nextRunAt: Date | null = null;
@@ -3289,6 +3568,7 @@ export function createRouter(deps: RouterDeps) {
             spaceId: context.actor.spaceId,
             botId: input.botId,
             userId: context.actor.userId,
+            projectId: input.projectId,
             name: input.name,
             prompt: input.prompt,
             crons: input.crons,
@@ -3329,8 +3609,24 @@ export function createRouter(deps: RouterDeps) {
           },
         });
         if (!existing) throw new ORPCError("NOT_FOUND");
+        await validateProjectFilter(deps.prisma, context.actor.spaceId, {
+          projectId: input.projectId,
+        });
         const bot = await repos.getBot(context.actor, existing.botId);
         const active = input.active ?? existing.active;
+        if (active) {
+          try {
+            await assertProjectExecutionAllowed(
+              deps.prisma,
+              context.actor.spaceId,
+              input.projectId === undefined ? existing.projectId : input.projectId,
+            );
+          } catch (error) {
+            if (error instanceof ProjectLinkError)
+              throw new ORPCError(error.code, { message: error.message });
+            throw error;
+          }
+        }
         const crons = input.crons ?? existing.crons;
         const timezone = input.timezone ?? existing.timezone;
         const webhookEnabled = input.webhookEnabled ?? existing.webhookEnabled;
@@ -3441,6 +3737,7 @@ export function createRouter(deps: RouterDeps) {
                 : {}),
             },
             data: {
+              projectId: input.projectId,
               name: input.name,
               prompt: input.prompt,
               crons: input.crons,
@@ -3538,6 +3835,7 @@ export function createRouter(deps: RouterDeps) {
               });
               if (existing) return existing;
             }
+            await assertProjectExecutionAllowed(tx, context.actor.spaceId, routine.projectId);
             const task = await tx.task.create({
               data: {
                 spaceId: context.actor.spaceId,
@@ -3563,6 +3861,7 @@ export function createRouter(deps: RouterDeps) {
                 status: "queued",
                 trigger: "routine",
                 routineId: routine.id,
+                projectId: routine.projectId,
                 ...routineRunModelPin(currentModel),
                 clientNonce: nonce,
               },
@@ -3717,10 +4016,547 @@ export function createRouter(deps: RouterDeps) {
         }
       }),
     },
+    goals: {
+      list: boardEnabled.goals.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return readGoals(tx, spaceId, input);
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      get: boardEnabled.goals.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return (await readGoals(tx, spaceId, input))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      create: boardEnabled.goals.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createGoal(tx, spaceId, input);
+              return (await readGoals(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.goals.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateGoal(tx, spaceId, input);
+              return (await readGoals(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.goals.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteGoal(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+    },
+    keyResults: {
+      list: boardEnabled.keyResults.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return readKeyResults(tx, spaceId, input);
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      get: boardEnabled.keyResults.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              return (await readKeyResults(tx, spaceId, input))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+
+        return result;
+      }),
+      create: boardEnabled.keyResults.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createKeyResult(tx, spaceId, input);
+              return (await readKeyResults(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.keyResults.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateKeyResult(tx, spaceId, input);
+              return (await readKeyResults(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      archive: boardEnabled.keyResults.archive.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await archiveKeyResult(tx, spaceId, input.id);
+              return (await readKeyResults(tx, spaceId, { id: input.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.keyResults.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteKeyResult(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+    },
+    projects: {
+      members: boardEnabled.projects.members.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => readProjectMembers(tx, context.actor.spaceId, input.projectId),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      addMember: boardEnabled.projects.addMember.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "add", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+      removeMember: boardEnabled.projects.removeMember.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "remove", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+      setOwner: boardEnabled.projects.setOwner.handler(async ({ context, input }) => {
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            (tx) => editProjectMember(tx, context.actor.spaceId, "owner", input),
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return result;
+      }),
+
+      budget: boardEnabled.projects.budget.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const project = await deps.prisma.project.findFirst({
+          where: { id: input.projectId, spaceId },
+          select: { id: true },
+        });
+        if (!project) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        const budget = await deps.prisma.projectBudget.findUnique({
+          where: { spaceId_projectId: { spaceId, projectId: input.projectId } },
+        });
+        return budget
+          ? {
+              projectId: budget.projectId,
+              version: budget.version,
+              limitMicroUsd: budget.limitMicroUsd.toString(),
+              reservedMicroUsd: budget.reservedMicroUsd.toString(),
+              settledMicroUsd: budget.settledMicroUsd.toString(),
+            }
+          : null;
+      }),
+      setBudget: boardEnabled.projects.setBudget.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const project = await deps.prisma.project.findFirst({
+          where: { id: input.projectId, spaceId },
+          select: { id: true },
+        });
+        if (!project) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        const budget = await setProjectBudget(deps.prisma, {
+          spaceId,
+          projectId: input.projectId,
+          limitMicroUsd: BigInt(input.limitMicroUsd),
+          createdByUserId: context.actor.userId,
+        });
+        await deps.boardEvents.notify(spaceId);
+        return {
+          projectId: budget.projectId,
+          version: budget.version,
+          limitMicroUsd: budget.limitMicroUsd.toString(),
+          reservedMicroUsd: budget.reservedMicroUsd.toString(),
+          settledMicroUsd: budget.settledMicroUsd.toString(),
+        };
+      }),
+      list: boardEnabled.projects.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readProjects(tx, spaceId, input);
+              return rows;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      get: boardEnabled.projects.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readProjects(tx, spaceId, input);
+              return rows[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      create: boardEnabled.projects.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createProject(tx, spaceId, input);
+              return (await readProjects(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.projects.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateProject(tx, spaceId, input);
+              return {
+                ...(await readProjects(tx, spaceId, { id: row.id }))[0]!,
+                cancellationRequests: (input.cancelRunIds ?? []).map((id) => ({
+                  id,
+                  externalProcessState: "needs_confirmation" as const,
+                })),
+              };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      archive: boardEnabled.projects.archive.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await archiveProject(tx, spaceId, input.id);
+              return (await readProjects(tx, spaceId, { id: input.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.projects.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteProject(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+    },
+    milestones: {
+      list: boardEnabled.milestones.list.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readMilestones(tx, spaceId, input);
+              return rows;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      get: boardEnabled.milestones.get.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const rows = await readMilestones(tx, spaceId, input);
+              return rows[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result;
+      }),
+      create: boardEnabled.milestones.create.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await createMilestone(tx, spaceId, input);
+              return (await readMilestones(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      update: boardEnabled.milestones.update.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const row = await updateMilestone(tx, spaceId, input);
+              return (await readMilestones(tx, spaceId, { id: row.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      archive: boardEnabled.milestones.archive.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await archiveMilestone(tx, spaceId, input.id);
+              return (await readMilestones(tx, spaceId, { id: input.id }))[0]!;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+      delete: boardEnabled.milestones.delete.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await deleteMilestone(tx, spaceId, input.id);
+              return { ok: true as const };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.boardEvents.notify(spaceId);
+        return result;
+      }),
+    },
+    proposals: {
+      list: authed.proposals.list.handler(async ({ context, input }) =>
+        listProposals(deps.prisma, context.actor, input.status),
+      ),
+      decide: authed.proposals.decide.handler(async ({ context, input }) => {
+        let proposal: Awaited<ReturnType<typeof decideProposal>>;
+        try {
+          proposal = await decideProposal(deps.prisma, context.actor, input);
+        } catch (error) {
+          if (error instanceof ProposalDecisionError) {
+            throw new ORPCError("BAD_REQUEST", { message: error.message });
+          }
+          throw error;
+        }
+        if (proposal.status === "pending") return proposal;
+        const budgetApproval = await deps.prisma.budgetOverrunApproval.findFirst({
+          where: { spaceId: context.actor.spaceId, proposalId: proposal.id },
+        });
+        if (budgetApproval) {
+          // Budget decisions resume their original run; a new user message would
+          // create a second execution. Queued runs also have reconciler recovery.
+          if (budgetApproval.status === "approved") {
+            const binding = JSON.parse(budgetApproval.scope);
+            const resumed = await deps.prisma.run.findFirst({
+              where: {
+                id: binding.runId,
+                spaceId: context.actor.spaceId,
+                threadId: binding.threadId,
+                botId: proposal.botId,
+                status: "queued",
+              },
+              select: { id: true },
+            });
+            if (resumed) {
+              await deps.jobs.enqueue(runContinueJob(resumed.id)).catch((error) => {
+                getLogger().error("budget approval resume enqueue", error);
+              });
+            }
+          }
+          return proposal;
+        }
+        // The decision is saved either way; an archived bot just is not woken.
+        try {
+          const target = await resolveThreadTarget(deps.prisma, context.actor, {
+            botId: proposal.botId,
+          });
+          await sendThreadMessage(deps, context.actor, target, {
+            text: proposalDecisionText({ ...proposal, status: proposal.status }),
+            clientNonce: `proposal-decision:${proposal.id}`,
+          });
+        } catch (error) {
+          getLogger().error("proposal decision delivery", error);
+        }
+        return proposal;
+      }),
+    },
     tickets: {
+      dependencies: boardEnabled.tickets.dependencies.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withTransactionRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              const dependencies = await readTicketDependencies(tx, spaceId, input.ticketId);
+              const ticket = await tx.ticket.findFirstOrThrow({
+                where: { spaceId, id: input.ticketId },
+              });
+              return { dependencies, ticket };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        return result.dependencies;
+      }),
+      addDependency: boardEnabled.tickets.addDependency.handler(async ({ context, input }) => {
+        const spaceId = context.actor.spaceId;
+        const result = await withTransactionRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await addTicketDependency(tx, spaceId, input.ticketId, input.prerequisiteId);
+              const dependencies = await readTicketDependencies(tx, spaceId, input.ticketId);
+              const ticket = await tx.ticket.findFirstOrThrow({
+                where: { spaceId, id: input.ticketId },
+              });
+              return { dependencies, ticket };
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
+        await deps.ticketChanges?.({
+          spaceId,
+          boardId: result.ticket.boardId,
+          ticketId: result.ticket.id,
+          assigneeBotId: result.ticket.assigneeBotId,
+          wakeAssignee: false,
+        });
+        return result.dependencies;
+      }),
+      removeDependency: boardEnabled.tickets.removeDependency.handler(
+        async ({ context, input }) => {
+          const spaceId = context.actor.spaceId;
+          const result = await withTransactionRetry(() =>
+            deps.prisma.$transaction(
+              async (tx) => {
+                await removeTicketDependency(tx, spaceId, input.ticketId, input.prerequisiteId);
+                const dependencies = await readTicketDependencies(tx, spaceId, input.ticketId);
+                const ticket = await tx.ticket.findFirstOrThrow({
+                  where: { spaceId, id: input.ticketId },
+                });
+                return { dependencies, ticket };
+              },
+              { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+            ),
+          );
+          await deps.ticketChanges?.({
+            spaceId,
+            boardId: result.ticket.boardId,
+            ticketId: result.ticket.id,
+            assigneeBotId: result.ticket.assigneeBotId,
+            wakeAssignee: false,
+          });
+          return result.dependencies;
+        },
+      ),
       list: boardEnabled.tickets.list.handler(async ({ context, input }) => {
         const board = await resolveSpaceBoard(deps.prisma, context.actor.spaceId, input.boardId);
         const q = input.q?.trim();
+        const refMatch = q?.match(/^(.+)-(\d+)$/);
+        const referenceNumber =
+          refMatch && refMatch[1]?.toLowerCase() === board.ticketPrefix.toLowerCase()
+            ? Number(refMatch[2])
+            : undefined;
         const where: Prisma.TicketWhereInput = {
           spaceId: context.actor.spaceId,
           boardId: board.id,
@@ -3731,14 +4567,29 @@ export function createRouter(deps: RouterDeps) {
                 OR: [
                   { title: { contains: q, mode: "insensitive" } },
                   { description: { contains: q, mode: "insensitive" } },
+                  ...(referenceNumber !== undefined && Number.isSafeInteger(referenceNumber)
+                    ? [{ number: referenceNumber }]
+                    : []),
                 ],
               }
             : {}),
         };
-        const rows = await deps.prisma.ticket.findMany({
-          where,
-          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-        });
+        const rows = await withSerializableRetry(() =>
+          deps.prisma.$transaction(
+            async (tx) => {
+              await validateProjectFilter(tx, context.actor.spaceId, input);
+              return tx.ticket.findMany({
+                where: {
+                  ...where,
+                  ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
+                  ...(input.milestoneId !== undefined ? { milestoneId: input.milestoneId } : {}),
+                },
+                orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+              });
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+          ),
+        );
         return { tickets: rows.map((row) => toTicketDto(row, board.ticketPrefix)) };
       }),
       get: boardEnabled.tickets.get.handler(async ({ context, input }) => {
@@ -6026,6 +6877,9 @@ export function createRouter(deps: RouterDeps) {
       favicon: authed.links.favicon.handler(async ({ input }) => favicons.favicon(input.origin)),
     },
     runs: {
+      diagnostics: authed.runs.diagnostics.handler(async ({ context, input }) =>
+        getRunDiagnostics(deps.prisma, context.actor, input),
+      ),
       list: authed.runs.list.handler(async ({ context, input }) => ({
         runs: await listSpaceRuns(deps.prisma, context.actor, input.filter),
       })),
@@ -6733,6 +7587,24 @@ async function persistModelCredential(
           where: { userId: actor.userId, provider: input.provider },
           orderBy: newestModelCredentialOrder,
         });
+        let retiredCliProfileId: string | undefined;
+        if (existing && isCliModelProvider(input.provider)) {
+          const previous = await tx.secret.findFirst({
+            where: { id: existing.secretId, userId: actor.userId },
+          });
+          if (previous) {
+            const parsed = parseModelSecret(
+              await deps.secrets.load(previous.ciphertext, previous.id),
+            );
+            const next = parseModelSecret(input.plaintext);
+            if (
+              parsed.kind === "cli" &&
+              next.kind === "cli" &&
+              parsed.credential.profileId !== next.credential.profileId
+            )
+              retiredCliProfileId = parsed.credential.profileId;
+          }
+        }
         throwIfAborted(input.signal);
         const secret = await tx.secret.create({
           data: {
@@ -6794,11 +7666,18 @@ async function persistModelCredential(
           });
           throwIfAborted(input.signal);
         }
-        return { ...credential, isDefault: true, defaultModel };
+        return { ...credential, isDefault: true, defaultModel, retiredCliProfileId };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),
   );
+  if (cred.retiredCliProfileId) {
+    // The new credential is already committed. A cleanup failure must not leave
+    // its login pending, where expiry/cancellation could delete that live profile.
+    await removeCliProfile(cred.retiredCliProfileId).catch(() => {
+      getLogger().warn("Could not remove retired CLI sign-in storage.");
+    });
+  }
   return modelCredentialDto(cred, input.plaintext);
 }
 
@@ -6829,11 +7708,13 @@ async function assertRoutineModel(
     actor,
     model.modelProvider,
     model.modelId,
+    deps.secrets,
   );
   if (message) throw new ORPCError("BAD_REQUEST", { message });
 }
 
 function mapRoutine(row: {
+  projectId?: string | null;
   id: string;
   botId: string;
   name: string;
@@ -6854,6 +7735,7 @@ function mapRoutine(row: {
 }): Routine {
   return {
     id: row.id,
+    projectId: row.projectId ?? null,
     botId: row.botId,
     name: row.name,
     prompt: row.prompt,

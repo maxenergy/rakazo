@@ -15,9 +15,34 @@ export const activeRunSelection = {
     trigger: { notIn: backgroundRunTriggers },
   },
   orderBy: { createdAt: "desc" as const },
-  take: 1,
+  // A bot works one turn at a time; newer turns queue behind it.
+  take: 10,
   select: { status: true },
 } as const;
+
+const ROSTER_STATUS_PRIORITY = [
+  "waiting_budget",
+  "waiting_takeover",
+  "waiting_input",
+  "running",
+  "leased",
+  "queued",
+];
+
+/**
+ * The run that best describes a bot right now: one that needs the user, then the
+ * turn it is working on, before turns queued behind it. Otherwise a bot with queued
+ * messages reads as waiting in line while it is busy working.
+ */
+export function rosterActiveRun<T extends { status: string }>(runs: readonly T[]): T | undefined {
+  let best: T | undefined;
+  for (const run of runs) {
+    const rank = ROSTER_STATUS_PRIORITY.indexOf(run.status);
+    if (rank < 0) continue;
+    if (!best || rank < ROSTER_STATUS_PRIORITY.indexOf(best.status)) best = run;
+  }
+  return best ?? runs[0];
+}
 
 /** Latest user-visible run for a bot roster error signal; later success clears an older failure. */
 export const latestBotRunSelection = {

@@ -4,6 +4,7 @@ import type { ContractRouterClient } from "@orpc/contract";
 import type { AppContract } from "@rakazo/contracts";
 import { LOCAL_SETTINGS_PAGE, LOCAL_SETTINGS_RPC } from "@rakazo/contracts";
 import { desktopBridge } from "./desktop";
+import { getActiveUiLocale } from "./i18n";
 
 const SPACE_STORAGE_KEY = "rakazo:space-id";
 
@@ -46,6 +47,7 @@ export function withSpaceHeaders(
   spaceId: string | null = selectedSpaceId(),
 ): Headers {
   const headers = new Headers(init);
+  headers.set("accept-language", getActiveUiLocale());
   if (spaceId) headers.set("x-rakazo-space-id", spaceId);
   else headers.delete("x-rakazo-space-id");
   return headers;

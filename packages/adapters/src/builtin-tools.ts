@@ -8,7 +8,9 @@ import {
   TICKET_STATUSES,
 } from "@rakazo/contracts";
 import { z } from "zod";
+import { archivedBotToolInputs } from "./archived-bot-tools.js";
 import { allowPrivateHttpSecretOrigins } from "./bot-secrets.js";
+import { goalToolInputs } from "./goal-tools.js";
 
 // The owner flag can land in process.env after static imports run (loadRootEnv
 // parses .env once the entry module is already executing), so the model-facing
@@ -66,6 +68,7 @@ function secretAskToolSurface() {
 export const DELEGATION_TOOL_NAMES = new Set([
   "run_subagent",
   "spawn_bot",
+  "set_bot_model",
   "archive_bot",
   "delete_bot",
   "handoff_to_bot",
@@ -73,6 +76,7 @@ export const DELEGATION_TOOL_NAMES = new Set([
 ]);
 
 const scheduleCreateProperties = {
+  projectId: { type: ["string", "null"], description: "所属项目 ID；为空时不归属项目。" },
   name: { type: "string", description: "Short label shown in Routines." },
   prompt: {
     type: "string",
@@ -144,6 +148,30 @@ const scheduleCreateInputSchema = {
 };
 
 export const builtinAgentTools: ConnectorTool[] = [
+  ...Object.entries(archivedBotToolInputs).map(
+    ([name, schema]): ConnectorTool => ({
+      name,
+      description:
+        name === "list_archived_bots"
+          ? "仅本空间 CEO/CTO：列出归档员工、原项目及最近工单（默认 5 张）。"
+          : name === "preview_restore_bot"
+            ? "仅本空间 CEO/CTO：只读预览员工恢复接续信息及目标项目暂停状态，不修改数据。恢复后不会自动派工，也不会启用定时任务。"
+            : "仅本空间 CEO/CTO：恢复员工并可加入目标项目，保留身份、记忆和文件，返回接续预览。暂停项目也可恢复；不会自动派工，也不会启用定时任务。",
+      inputSchema: z.toJSONSchema(schema, { io: "input" }),
+      readOnly: name !== "restore_bot",
+    }),
+  ),
+  ...Object.entries(goalToolInputs).map(
+    ([name, schema]): ConnectorTool => ({
+      name,
+      description: name.startsWith("project_")
+        ? "管理项目状态、成员与唯一负责人。project_update 设置 status 暂停/恢复，返回在途运行；默认安全收尾，cancelRunIds 仅请求取消所选运行，外部进程仍待人工确认。所有操作限制在当前空间。"
+        : `${name.replaceAll("_", " ")}. Goal/KR values and state require explicit updates; calculationRule describes how values are measured. Project progress never automatically achieves a KR.`,
+      inputSchema: z.toJSONSchema(schema, { io: "input" }),
+      readOnly: name === "project_members" || name.endsWith("_list") || name.endsWith("_get"),
+    }),
+  ),
+
   {
     name: "computer_observe",
     description:
@@ -816,6 +844,73 @@ export const builtinAgentTools: ConnectorTool[] = [
     readOnly: true,
   },
   {
+    name: "ticket_dependency_list",
+    description:
+      "List prerequisites and dependents, including derived blocking without changing ticket status.",
+    inputSchema: {
+      type: "object",
+      required: ["ticketId"],
+      properties: { ticketId: { type: "string", description: "Ticket id." } },
+    },
+    readOnly: true,
+  },
+  {
+    name: "ticket_dependency_add",
+    description:
+      "Add a prerequisite dependency to a ticket. Rejects cycles, archived resources and cross-space links.",
+    inputSchema: {
+      type: "object",
+      required: ["ticketId", "prerequisiteId"],
+      properties: {
+        ticketId: { type: "string", description: "Ticket id." },
+        prerequisiteId: {
+          type: "string",
+          description: "Prerequisite ticket id in the same space.",
+        },
+      },
+    },
+    readOnly: false,
+  },
+  {
+    name: "ticket_dependency_remove",
+    description: "Remove a prerequisite dependency from a ticket.",
+    inputSchema: {
+      type: "object",
+      required: ["ticketId", "prerequisiteId"],
+      properties: {
+        ticketId: { type: "string", description: "Ticket id." },
+        prerequisiteId: {
+          type: "string",
+          description: "Prerequisite ticket id in the same space.",
+        },
+      },
+    },
+    readOnly: false,
+  },
+  {
+    name: "run_failures",
+    description:
+      "List your recent failed or cancelled runs (last 72 hours) with their error, deadline, duration and failure events, or a named colleague's. Use it to find why work stopped before retrying or asking for help.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot: { type: "string", description: "A colleague's name; omit for your own runs." },
+        limit: { type: "integer", minimum: 1, maximum: 10 },
+      },
+    },
+    readOnly: true,
+  },
+  {
+    name: "model_scorecard",
+    description:
+      "Per org member over recent days: model, finished and failed runs, tickets done and tokens used. Use it to choose models and staffing from results.",
+    inputSchema: {
+      type: "object",
+      properties: { days: { type: "integer", minimum: 1, maximum: 30 } },
+    },
+    readOnly: true,
+  },
+  {
     name: "ticket_get",
     description: "Read a ticket by reference or id, with comments.",
     inputSchema: {
@@ -881,6 +976,15 @@ export const builtinAgentTools: ConnectorTool[] = [
     description:
       'Create a reminder or recurring job for this bot. Use for "remind me in 10 minutes" or "every morning send a joke". Repeats: cron or every/unit (min 1 minute). One-shot: runAt, delayMinutes, or delaySeconds.',
     inputSchema: scheduleCreateInputSchema,
+  },
+  {
+    name: "schedule_update",
+    description: "编辑当前员工定时任务的项目归属；projectId 为空时清除归属，不启用停用的任务。",
+    inputSchema: {
+      type: "object",
+      properties: { routineId: { type: "string" }, projectId: { type: ["string", "null"] } },
+      required: ["routineId", "projectId"],
+    },
   },
   {
     name: "schedule_list",
@@ -1010,6 +1114,82 @@ export const builtinAgentTools: ConnectorTool[] = [
     },
   },
   {
+    name: "submit_proposal",
+    description:
+      "Send a plan or decision to the user for approval. Use it only for what the user keeps: changing the user's goal or scope, new paid spending, irreversible or outward-facing actions, or a CEO and CTO deadlock. Do not act on it until the decision arrives as a new message. If you have an org role, only the CEO may submit; others use escalate.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: {
+          type: "string",
+          enum: ["plan", "decision"],
+          description:
+            "plan for a plan of work; decision for a choice about scope, budget, or direction.",
+        },
+        title: { type: "string", description: "Short title." },
+        summary: {
+          type: "string",
+          description: "The full proposal: goal, approach, team and models, cost, risks.",
+        },
+        options: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional choices for the user to pick from, at most 6.",
+        },
+        recommendation: { type: "string", description: "Optional recommended option and why." },
+      },
+      required: ["kind", "title", "summary"],
+    },
+  },
+  {
+    name: "record_decision",
+    description:
+      "CEO or CTO only: record a decision the launch team made itself (technical approach, staffing and models, milestones, spending within existing subscriptions) so the user can see it, then act on it. Does not wait for the user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["plan", "decision"] },
+        title: { type: "string", description: "Short title." },
+        summary: { type: "string", description: "What was decided and what happens next." },
+        choice: { type: "string", description: "Optional chosen option." },
+        rationale: { type: "string", description: "Why, including what the CTO and CEO weighed." },
+      },
+      required: ["kind", "title", "summary"],
+    },
+  },
+  {
+    name: "report_to_group",
+    description:
+      "CEO only: post a short milestone report to the user in the org's group chat. Use it when a milestone or ticket is finished, or when a blocker needs the user's attention, not for progress updates. Say what was finished, the evidence (PR and CI links), what comes next, and what is needed from the user (or none).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          maxLength: 2000,
+          description: "The report, at most five short lines.",
+        },
+      },
+      required: ["message"],
+    },
+  },
+  {
+    name: "escalate",
+    description:
+      "Escalate within your org: technical sends a hard technical problem to the CTO; decision sends a decision about scope, budget, or direction to the CEO, who takes it to the user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["technical", "decision"] },
+        message: {
+          type: "string",
+          description: "The problem or decision, what you tried, and the options you see.",
+        },
+      },
+      required: ["kind", "message"],
+    },
+  },
+  {
     name: "create_space",
     description:
       "Propose a new space in the current organization when the user asks for a separate data boundary. A space can contain many bots and groups, but its chats, files, memory, tools, and integrations stay isolated from other spaces. This always shows the user a confirmation card before creation. Creating the space is the whole action; do not create bots in it unless the user asks later.",
@@ -1029,7 +1209,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "spawn_bot",
     description:
-      "Create a full, regular bot — the same kind the user creates from the + button. It gets its own thread, computer, and memory, and appears as a peer in the bot list. Do not also call run_subagent. Creating the bot is the whole action. Only set prompt if the user asked that new bot to start work immediately.",
+      "Create a full, regular bot with its own thread, computer, and memory. Use list_models for exact connected provider/model IDs and pass both model_provider and model_id when the user specifies a model. Otherwise the bot inherits its parent's model. Do not also call run_subagent. Only set prompt if the user asked the new bot to start work immediately.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1046,8 +1226,78 @@ export const builtinAgentTools: ConnectorTool[] = [
           description:
             "Optional. team shares one screen with other Team bots; dedicated (Private) gets its own. Defaults to team.",
         },
+        model_provider: {
+          type: "string",
+          description: "Connected provider ID from list_models. Set together with model_id.",
+        },
+        model_id: {
+          type: "string",
+          description:
+            "Exact model ID from list_models for that provider. Set together with model_provider.",
+        },
+        role: {
+          type: "string",
+          enum: ["lead", "member"],
+          description:
+            "Optional org role. The new bot reports to you. Defaults to member when you have an org role.",
+        },
+        team: {
+          type: "string",
+          description: "Optional team name. Defaults to your team.",
+        },
       },
       required: ["name"],
+    },
+  },
+  {
+    name: "list_models",
+    description:
+      "List models available through the user's connected providers in this space. Use the exact provider and model IDs with spawn_bot or set_bot_model. Provider identity matters even when model names match. No credentials are returned.",
+    readOnly: true,
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "recommend_model",
+    description:
+      "Recommend authorized models in this space using capability requirements and optional token workload estimates. Unknown capabilities cannot satisfy requirements. Returns comparable API cost estimates when available; does not change the selected model.",
+    readOnly: true,
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        capabilities: {
+          type: "array",
+          items: { type: "string", enum: ["imageInput", "reasoning"] },
+        },
+        contextWindow: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        maxTokens: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        workload: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            inputTokens: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+            outputTokens: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+          },
+          required: ["inputTokens", "outputTokens"],
+        },
+      },
+    },
+  },
+  {
+    name: "set_bot_model",
+    description:
+      "Set the model for this bot or an active bot it created. Use bot_id from the teammate directory for a child bot; omit it to configure yourself. Call list_models first, use exact provider/model IDs, and report the saved pair returned by this tool. Do not use the browser to change bot settings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot_id: { type: "string", description: "Child bot ID. Omit to configure this bot." },
+        model_provider: { type: "string", description: "Connected provider ID from list_models." },
+        model_id: {
+          type: "string",
+          description: "Exact model ID for that provider from list_models.",
+        },
+      },
+      required: ["model_provider", "model_id"],
     },
   },
   {

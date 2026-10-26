@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld("rakazoDesktop", {
     install: () => ipcRenderer.invoke("desktop.update.install"),
   },
   oauth: {
-    open: (url) => ipcRenderer.invoke("desktop.oauth.open", url),
+    open: (url, options) => ipcRenderer.invoke("desktop.oauth.open", url, options),
     cancel: (url) => ipcRenderer.invoke("desktop.oauth.cancel", url),
     onCallback: (listener) => {
       // The IpcRendererEvent stays in the preload: the renderer only sees the code.

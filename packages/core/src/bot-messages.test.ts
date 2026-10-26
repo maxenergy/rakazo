@@ -10,6 +10,7 @@ import {
   clampBotMessage,
   formatBotRosterLines,
   nextBotMessageHop,
+  ORG_BOT_MESSAGE_MAX_HOPS,
   renderBotDirectory,
   renderGroupMembersContext,
   resolveBotAddress,
@@ -53,6 +54,11 @@ describe("hop bounding", () => {
   it("refuses only past the limit", () => {
     expect(botMessageHopExhausted(BOT_MESSAGE_MAX_HOPS)).toBe(false);
     expect(botMessageHopExhausted(BOT_MESSAGE_MAX_HOPS + 1)).toBe(true);
+    // Org chains get a higher cap that still ends loops.
+    expect(botMessageHopExhausted(BOT_MESSAGE_MAX_HOPS + 1, ORG_BOT_MESSAGE_MAX_HOPS)).toBe(false);
+    expect(botMessageHopExhausted(ORG_BOT_MESSAGE_MAX_HOPS + 1, ORG_BOT_MESSAGE_MAX_HOPS)).toBe(
+      true,
+    );
   });
 
   it("stops a two-bot volley in a bounded number of deliveries", () => {

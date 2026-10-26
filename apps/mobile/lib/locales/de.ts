@@ -1,4 +1,38 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Back to projects": "Zurück zu den Projekten",
+  Home: "Startseite",
+  Loading: "Wird geladen",
+  "Manage project members on web.": "Projektmitglieder im Web verwalten.",
+  Archived: "Archiviert",
+  Member: "Mitglied",
+  "No members yet.": "Noch keine Mitglieder.",
+  "No project owner assigned.": "Keine Projektleitung festgelegt.",
+  Owner: "Projektleitung",
+  Projects: "Projekte",
+  "Sort by cost": "Nach Kosten sortieren",
+  "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.":
+    "CLI-Anfrage fehlgeschlagen. Prüfe die Anmeldung, das ausgewählte Modell und die Abonnementlimits. Es wurde nicht auf die API ausgewichen.",
+  "{provider} subscription login is not in the Rakazo UI yet. Skip if this deployment already has credentials.":
+    "Die Anmeldung mit einem {provider}-Abonnement ist in der Rakazo-Oberfläche noch nicht verfügbar. Überspringe sie, wenn bereits Zugangsdaten eingerichtet sind.",
+  "Configured model: {provider}": "Konfiguriertes Modell: {provider}",
+  "No model charges. Deterministic fixture for tests.":
+    "Keine Modellkosten. Deterministische Testsimulation.",
+  "Runs on a URL you control. Rakazo does not pay for model usage.":
+    "Läuft unter einer URL, die du kontrollierst. Rakazo trägt keine Modellkosten.",
+  "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.":
+    "Läuft auf der vom Betreiber eingerichteten Infrastruktur. Keine Modellkosten durch Rakazo.",
+  "Sign in with {provider}": "Mit {provider} anmelden",
+  "Sign in with {provider}. Uses your subscription. Rakazo does not pay.":
+    "Mit {provider} anmelden und dein Abonnement nutzen. Rakazo trägt keine Kosten.",
+  "Sign in with SuperGrok or X Premium, or paste an xAI API key. Rakazo does not pay.":
+    "Mit SuperGrok oder X Premium anmelden oder einen xAI-API-Schlüssel einfügen. Rakazo trägt keine Kosten.",
+  "Uses your {provider} API key. Rakazo does not pay for model usage.":
+    "Verwendet deinen {provider}-API-Schlüssel. Rakazo trägt keine Modellkosten.",
+  "Complete sign-in on the server.": "Schließe die Anmeldung auf dem Server ab.",
+
+  "Could not save this choice": "Auswahl konnte nicht gespeichert werden",
+  "Could not dismiss": "Konnte nicht geschlossen werden",
+
   "Couldn't refresh — showing the last loaded messages.":
     "Aktualisierung fehlgeschlagen – die zuletzt geladenen Nachrichten werden angezeigt.",
   "Try Again": "Erneut versuchen",
@@ -283,6 +317,15 @@ export const DE_MESSAGES: Record<string, string> = {
   "Git event": "Git-Ereignis",
   "Message event": "Nachrichtenereignis",
   "Open conversation": "Unterhaltung öffnen",
+  "Cancellation requested; external process needs manual confirmation and is not shown as stopped.":
+    "Abbruch angefordert; der externe Prozess benötigt eine manuelle Bestätigung und wird nicht als beendet angezeigt.",
+  "Finishing safely": "Sicherer Abschluss läuft",
+  "In flight work will finish safely.": "Laufende Arbeit wird sicher abgeschlossen.",
+  "Pause project": "Projekt pausieren",
+  "Pause project?": "Projekt pausieren?",
+  Resume: "Fortsetzen",
+  "Resume project": "Projekt fortsetzen",
+  "Resume project?": "Projekt fortsetzen?",
   Paused: "Pausiert",
   Prompt: "Prompt",
   "Routine link is incomplete": "Der Routine-Link ist unvollständig",
@@ -738,6 +781,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Transcript: "Transkript",
   Unmute: "Stummschaltung aufheben",
   "Voice chat": "Sprachchat",
+  Chart: "Diagramm",
+  "{size} bytes": "{size} Byte",
   "Call sounds": "Anruftöne",
   "Hello {name}, {bot} here.": "Hallo {name}, hier ist {bot}.",
   "Hello, {bot} here.": "Hallo, hier ist {bot}.",

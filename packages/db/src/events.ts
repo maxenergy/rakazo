@@ -18,15 +18,19 @@ import {
   sanitizeJsonValue,
 } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
+import { requestOverrunApprovalInTransaction } from "./budget-overrun-approvals.js";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { expireComputerExecutionLeases } from "./computers.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import {
   assertRunCanWriteHistory,
   assertRunIsCancelled,
   createThreadMessageInTransaction,
   RunHistoryWriteError,
 } from "./messages.js";
+import { createProposalInTransaction } from "./proposals.js";
+import { lockTicketSpace } from "./ticket-space-lock.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 const EVENT_BATCH_SIZE = 200;
@@ -34,6 +38,7 @@ const PUSH_CATCH_UP_MS = 30_000;
 const POLL_ONLY_CATCH_UP_MS = 400;
 
 export interface AppendEventInput {
+  executionFence?: ExecutionFence;
   spaceId: string;
   threadId: string;
   botId: string;
@@ -48,6 +53,7 @@ export interface ThreadEvents {
   answerRunInput(input: AnswerRunInput): Promise<boolean>;
   append(input: AppendEventInput): Promise<ProductEvent>;
   claimSteering(input: ClaimSteeringInput): Promise<ClaimedSteeringMessage[]>;
+  deliverSteering(input: DeliverSteeringInput): Promise<void>;
   clearThread(input: ClearThreadInput): Promise<ClearThreadResult>;
   finalizeComputerControlRelease(
     input: FinalizeComputerControlReleaseInput,
@@ -95,6 +101,10 @@ export interface ClaimSteeringInput {
   leaseOwner: string;
   leaseFence: number;
   seenIds: string[];
+}
+
+export interface DeliverSteeringInput extends Omit<ClaimSteeringInput, "seenIds"> {
+  ids: string[];
 }
 
 export interface ClaimedSteeringMessage {
@@ -270,6 +280,7 @@ export function createThreadEvents(
     answerRunInput: (input) => answerRunInput(prisma, input, realtime, options.runSecretWriter),
     append: (input) => appendEvent(prisma, input, realtime),
     claimSteering: (input) => claimSteering(prisma, input),
+    deliverSteering: (input) => deliverSteering(prisma, input, realtime),
     clearThread: (input) => clearThread(prisma, input, realtime),
     finalizeComputerControlRelease: (input) =>
       finalizeComputerControlRelease(prisma, input, realtime),
@@ -289,6 +300,13 @@ export async function clearThread(
   realtime?: RealtimeFanout,
 ): Promise<ClearThreadResult> {
   const committed = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Event inserts acquire a Space foreign-key lock before Bot/Thread/Run.
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${input.spaceId} FOR KEY SHARE`;
+    if (input.groupId) {
+      await tx.$queryRaw`SELECT id FROM chat_groups WHERE id = ${input.groupId} AND "spaceId" = ${input.spaceId} FOR UPDATE`;
+    } else {
+      await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} AND "spaceId" = ${input.spaceId} FOR UPDATE`;
+    }
     const thread = await tx.thread.update({
       where: {
         id: input.threadId,
@@ -303,7 +321,16 @@ export async function clearThread(
         spaceId: input.spaceId,
         threadId: input.threadId,
         ...(input.groupId ? {} : { botId: input.botId }),
-        status: { in: ["queued", "leased", "running", "waiting_input", "waiting_takeover"] },
+        status: {
+          in: [
+            "queued",
+            "leased",
+            "running",
+            "waiting_input",
+            "waiting_takeover",
+            "waiting_budget",
+          ],
+        },
       },
       select: { id: true, taskId: true },
     });
@@ -425,7 +452,14 @@ export async function sendUserMessage(
                 threadId: input.threadId,
                 botId: input.botId,
                 status: {
-                  in: ["running", "queued", "leased", "waiting_input", "waiting_takeover"],
+                  in: [
+                    "running",
+                    "queued",
+                    "leased",
+                    "waiting_input",
+                    "waiting_takeover",
+                    "waiting_budget",
+                  ],
                 },
               },
               select: { id: true, taskId: true, trigger: true },
@@ -541,6 +575,7 @@ export async function claimSteering(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       select: { id: true, trigger: true, sourceMessage: { select: { blocks: true } } },
     });
@@ -590,6 +625,83 @@ export async function claimSteering(
       blocks: item.message.blocks as MessageBlock[],
     }));
   });
+}
+
+/** Thread serialization makes receipts idempotent across retries and lease takeover. */
+export async function deliverSteering(
+  prisma: PrismaClient,
+  input: DeliverSteeringInput,
+  realtime?: RealtimeFanout,
+): Promise<void> {
+  if (input.ids.length === 0) return;
+  const seq = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
+    const fence = {
+      runId: input.runId,
+      leaseOwner: input.leaseOwner,
+      leaseFence: input.leaseFence,
+    };
+    await assertExecutionFence(tx, fence);
+    const run = await tx.run.findFirstOrThrow({
+      where: { id: input.runId, botId: input.botId, threadId: input.threadId },
+      select: { spaceId: true },
+    });
+    const steering = await tx.steeringMessage.findMany({
+      where: {
+        id: { in: input.ids },
+        runId: input.runId,
+        botId: input.botId,
+        claimedAt: { not: null },
+        message: { threadId: input.threadId },
+      },
+      include: { message: { select: { seq: true } } },
+      orderBy: [{ message: { seq: "asc" } }, { id: "asc" }],
+    });
+    if (steering.length !== new Set(input.ids).size) {
+      throw new Error("Steering delivery must acknowledge claimed messages from this run");
+    }
+    let lastSeq: number | undefined;
+    for (const item of steering) {
+      const existing = await tx.event.findFirst({
+        where: {
+          threadId: input.threadId,
+          botId: input.botId,
+          type: "steering.delivered",
+          payload: { path: ["steeringId"], equals: item.id },
+        },
+        select: { id: true },
+      });
+      if (existing) continue;
+      const received = await tx.event.findFirstOrThrow({
+        where: {
+          threadId: input.threadId,
+          type: "thread.message.created",
+          payload: { path: ["messageId"], equals: item.messageId },
+        },
+        orderBy: { seq: "asc" },
+        select: { id: true, createdAt: true },
+      });
+      const event = await appendEventInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: input.threadId,
+        botId: input.botId,
+        runId: input.runId,
+        executionFence: fence,
+        type: "steering.delivered",
+        payload: {
+          steeringId: item.id,
+          messageId: item.messageId,
+          messageSeq: item.message.seq,
+          receivedEventId: received.id,
+          receivedAt: received.createdAt.toISOString(),
+          leaseFence: input.leaseFence,
+        },
+      });
+      lastSeq = event.seq;
+    }
+    return lastSeq;
+  });
+  if (seq !== undefined) await notifyRealtime(realtime, input.threadId, seq);
 }
 
 async function findPendingAsk(
@@ -871,6 +983,7 @@ export async function pauseRunForInput(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_input",
@@ -926,6 +1039,141 @@ export async function pauseRunForInput(
   return true;
 }
 
+export async function pauseRunForBudget(
+  prisma: PrismaClient,
+  input: Omit<PauseRunForInput, "offeredActions"> & { checkpoint: string },
+  realtime?: RealtimeFanout,
+): Promise<boolean> {
+  const committed = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Approval creation references Bot: acquire Space -> Bot -> Thread -> Run.
+    await lockTicketSpace(tx, input.spaceId);
+    await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} FOR KEY SHARE`;
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
+    const paused = await tx.run.updateMany({
+      where: {
+        id: input.runId,
+        spaceId: input.spaceId,
+        threadId: input.threadId,
+        botId: input.botId,
+        status: "running",
+        leaseOwner: input.leaseOwner,
+        leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
+      },
+      data: {
+        status: "waiting_budget",
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        checkpoint: input.checkpoint,
+        // Budget approval reconstructs history and replays completed effects.
+        // Runtime segments carry occurrence counters for crash recovery only.
+        segmentCheckpoint: null,
+      },
+    });
+    if (paused.count !== 1) return null;
+
+    const attempt = await tx.attempt.updateMany({
+      where: {
+        id: input.attemptId,
+        runId: input.runId,
+        fence: input.leaseFence,
+        status: "running",
+      },
+      data: { status: "waiting_budget", finishedAt: new Date() },
+    });
+    if (attempt.count !== 1) throw new Error("Active run attempt was not available to pause");
+
+    const checkpoint = JSON.parse(input.checkpoint);
+    if (checkpoint.kind !== "budget_pause_v1") throw new Error("Invalid budget checkpoint");
+    const call = checkpoint.call;
+    if (checkpoint.reason === "insufficient" && call) {
+      if (
+        call.spaceId !== input.spaceId ||
+        typeof call.projectId !== "string" ||
+        typeof call.callId !== "string"
+      )
+        throw new Error("Invalid budget call scope");
+      const amountMicroUsd = BigInt(call.amountMicroUsd);
+      if (amountMicroUsd <= 0n) throw new Error("Invalid budget approval amount");
+      const bot = await tx.bot.findFirstOrThrow({
+        where: { id: input.botId, spaceId: input.spaceId },
+        select: { userId: true },
+      });
+      const requestKey = `budget:${input.runId}:${input.attemptId}:${call.callId}`;
+      const scope = JSON.stringify({
+        runId: input.runId,
+        threadId: input.threadId,
+        botId: input.botId,
+        attemptId: input.attemptId,
+        leaseFence: input.leaseFence,
+        callId: call.callId,
+      });
+      const { proposal, replayed } = await createProposalInTransaction(
+        tx,
+        { spaceId: input.spaceId, userId: bot.userId },
+        {
+          botId: input.botId,
+          submitKey: requestKey,
+          kind: "decision",
+          title: "Increase project budget",
+          summary: `Increase project ${call.projectId} budget by ${amountMicroUsd} micro-USD to resume run ${input.runId}.`,
+          options: [],
+          recommendation: "Approve the bound budget increase to resume this run.",
+        },
+      );
+      if (replayed) throw new Error("Budget pause proposal already exists");
+      const approval = await requestOverrunApprovalInTransaction(tx, {
+        spaceId: input.spaceId,
+        projectId: call.projectId,
+        amountMicroUsd,
+        scope,
+        requestKey,
+        proposalId: proposal.id,
+      });
+      await tx.run.update({
+        where: { id: input.runId },
+        data: {
+          checkpoint: JSON.stringify({
+            ...checkpoint,
+            approvalId: approval.id,
+            proposalId: proposal.id,
+          }),
+        },
+      });
+    }
+
+    const message = await createThreadMessageInTransaction(tx, {
+      threadId: input.threadId,
+      role: "bot",
+      blocks: input.blocks,
+      botId: input.botId,
+      runId: input.runId,
+    });
+    await appendEventInTransaction(tx, {
+      spaceId: input.spaceId,
+      threadId: input.threadId,
+      botId: input.botId,
+      type: "thread.message.created",
+      runId: input.runId,
+      payload: { messageId: message.id, role: "bot", blocks: input.blocks },
+    });
+    const waitingEvent = await appendEventInTransaction(tx, {
+      spaceId: input.spaceId,
+      threadId: input.threadId,
+      botId: input.botId,
+      type: "run.waiting_budget",
+      runId: input.runId,
+      payload: {},
+    });
+    await tx.event.deleteMany({ where: { runId: input.runId, type: "thread.progress" } });
+    return { threadId: waitingEvent.threadId, seq: waitingEvent.seq };
+  });
+
+  if (!committed) return false;
+  await notifyRealtime(realtime, committed.threadId, committed.seq);
+  return true;
+}
+
 export async function pauseRunForTakeover(
   prisma: PrismaClient,
   input: PauseRunForTakeover,
@@ -942,6 +1190,7 @@ export async function pauseRunForTakeover(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: "waiting_takeover",
@@ -1160,6 +1409,10 @@ async function finalizeRunOnce(
   input: FinalizeRunInput,
 ): Promise<{ threadId: string; seq: number; continuationRunId: string | null } | null> {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Event inserts acquire a Space foreign-key lock; take it before Bot.
+    // Follow the global parent lock order: Space -> Bot -> Thread -> Run.
+    await tx.$queryRaw`SELECT id FROM spaces WHERE id = ${input.spaceId} FOR KEY SHARE`;
+    await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
     let writableRun: { startedAt: Date | null } | undefined;
     try {
@@ -1179,6 +1432,7 @@ async function finalizeRunOnce(
         status: "running",
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
+        leaseExpiresAt: { gt: new Date() },
       },
       data: {
         status: input.outcome,
@@ -1284,7 +1538,9 @@ export async function createPendingSteeringRun(
     where: {
       threadId: input.threadId,
       botId: input.botId,
-      status: { in: ["queued", "leased", "running", "waiting_input", "waiting_takeover"] },
+      status: {
+        in: ["queued", "leased", "running", "waiting_input", "waiting_takeover", "waiting_budget"],
+      },
     },
     select: { id: true },
   });
@@ -1376,6 +1632,12 @@ export async function appendEventInTransaction(
     data: { nextEventSeq: { increment: 1 } },
     select: { nextEventSeq: true },
   });
+  if (input.executionFence) {
+    if (input.runId !== input.executionFence.runId) {
+      throw new Error("Event execution fence must match run");
+    }
+    await assertExecutionFence(tx, input.executionFence);
+  }
   // run.cancelled is appended after the run row already reads cancelled, so it
   // asserts the terminal status where every other event needs a writable run.
   if (input.type === "run.cancelled") {

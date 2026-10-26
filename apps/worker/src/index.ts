@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { writeSync } from "node:fs";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
 import { ComposioConnector, IntegrationProviderSettings } from "@rakazo/adapters";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
@@ -8,7 +10,9 @@ loadRootEnv();
 import {
   ChatSdkMessagingSurface,
   CodexCatalogCache,
+  catalogBudgetRates,
   createBackgroundJobHandlers,
+  createBudgetObserver,
   createCloudAgentConnection,
   createConnectorStack,
   createJobReconciler,
@@ -18,7 +22,10 @@ import {
   createRunSandbox,
   createRunSecretWriter,
   createTicketChangeNotifier,
+  createUpperBound,
   createWebProvider,
+  currentBudgetScope,
+  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
   databaseCapacityBackoffMs,
   ExpoPushProvider,
   GraphileJobPublisher,
@@ -40,6 +47,8 @@ import {
   pipedreamConfigFromEnv,
   reconcileCloudAgents,
   reconcileComputerUpdates,
+  reconcileOrgCheckIns,
+  reconcileTicketWakes,
   resolveDeploymentModel,
   resolvePiSessionRoot,
   resolveSandboxProvider,
@@ -52,7 +61,9 @@ import { resolveEncryptionKey, resolveSupervisorToken } from "@rakazo/core";
 import {
   createBoardEvents,
   createDb,
+  createDbBudgetPort,
   createThreadEvents,
+  expireOverrunApprovals,
   isTooManyDatabaseConnections,
   parsePositiveInteger,
   pushSessionExpiresAt,
@@ -94,7 +105,17 @@ async function main() {
   const runtime =
     process.env.AGENT_RUNTIME === "scripted"
       ? new ScriptedAgentRuntime()
-      : new PiAgentRuntime({ sessionRoot: resolvePiSessionRoot(dataDir) });
+      : new PiAgentRuntime({
+          sessionRoot: resolvePiSessionRoot(dataDir),
+          modelCallObserver: createBudgetObserver({
+            port: createDbBudgetPort(prisma),
+            scope: currentBudgetScope,
+            upperBoundMicroUsd: createUpperBound({
+              lookup: catalogBudgetRates,
+              fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+            }),
+          }),
+        });
   // Same resolver the API uses, so both processes agree on provider, model and key.
   const { key: deploymentModelKey, configured: deploymentModelConfigured } =
     resolveDeploymentModel();
@@ -263,6 +284,7 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, databaseCapacityBackoffMs(attempt)));
     }
   }
+  const ticketWakeClaimer = `worker:${randomUUID()}`;
   const reconciler = createJobReconciler({
     prisma,
     jobs,
@@ -271,6 +293,16 @@ async function main() {
     leadership: createPostgresReconciliationLeadership(pool),
     reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
+    reconcileOrgCheckIns: () => reconcileOrgCheckIns({ prisma, jobs }),
+    reconcileBudgetApprovals: async () => {
+      await expireOverrunApprovals(prisma);
+    },
+    reconcileTicketWakes: async () => {
+      await reconcileTicketWakes(
+        { prisma, jobs, ticketBoardEnabled },
+        { claimer: ticketWakeClaimer },
+      );
+    },
   });
   reconciler.start();
 
@@ -308,6 +340,10 @@ async function main() {
     logger.error("unhandledRejection", reason);
     if (isTooManyDatabaseConnections(reason)) return;
     void stop().finally(() => process.exit(1));
+  });
+  // A silent stop with no exit line was killed or crashed natively, not exited by Node.
+  process.on("exit", (code) => {
+    writeSync(2, `worker exiting code=${code} stopping=${stopping}\n`);
   });
 
   logger.info("worker ready", { degraded: secrets.describe().capabilities.degraded ?? false });

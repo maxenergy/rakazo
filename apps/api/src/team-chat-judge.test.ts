@@ -43,11 +43,14 @@ describe("team chat engagement judge", () => {
   });
 
   it("persists cache-read and cache-write tokens from usage events", async () => {
-    const create = vi.fn(async () => ({ id: "usage-1" }));
+    const create = vi.fn(async ({ data }) => ({ id: "usage-1", ...data }));
     const prisma = {
       deploymentSettings: { findUnique: vi.fn(async () => null) },
       spaceModelPreference: { findFirst: vi.fn(async () => null) },
+      $queryRaw: vi.fn(async () => []),
+      $executeRaw: vi.fn(async () => 1),
       usageRecord: { create },
+      $transaction: vi.fn(async (execute) => execute(prisma)),
     };
     const runtime = {
       run: async function* () {
@@ -92,7 +95,13 @@ describe("team chat engagement judge", () => {
         spaceId: "space-1",
         botId: "bot-1",
         userId: "user-1",
-        parentRunId: undefined,
+        attributedRunId: null,
+        rootRunId: null,
+        runId: null,
+        parentRunId: null,
+        projectId: null,
+        billingKind: "unknown",
+        costMicroUsd: null,
         operationId: expect.stringMatching(/^team-chat-judge:[0-9a-f-]{36}$/),
         operationKind: "setup",
         provider: "google",
@@ -104,7 +113,6 @@ describe("team chat engagement judge", () => {
         cacheWrite1hTokens: null,
         reasoningTokens: null,
         totalTokens: null,
-        costUsd: null,
         costSource: null,
         pricingVersion: null,
         usageSource: null,

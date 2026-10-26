@@ -12,7 +12,14 @@ describe("Pi model catalog", () => {
   it("keeps the custom catalog independent of server model IDs", () => {
     const custom = listPiCatalog().filter((entry) => entry.provider === "openai-compatible");
     expect(custom).toHaveLength(1);
-    expect(custom[0]).toMatchObject({ id: "custom", placeholder: true, reasoning: false });
+    expect(custom[0]).toMatchObject({
+      id: "custom",
+      placeholder: true,
+      pricing: null,
+      contextWindow: null,
+      maxTokens: null,
+    });
+    expect(custom[0]).not.toHaveProperty("reasoning");
   });
 
   afterEach(() => {
@@ -37,16 +44,71 @@ describe("Pi model catalog", () => {
     const copilot = catalog.find((entry) => entry.provider === "github-copilot");
     expect(copilot?.signIn).toBe("device-code");
     const grok = catalog.find((entry) => entry.provider === "xai");
-    expect(grok?.signIn).toBe("device-code");
+    expect(grok).toMatchObject({ auth: "api-key", subscription: false, authHint: "API key" });
+    expect(grok?.signIn).toBeUndefined();
     const claude = catalog.find((entry) => entry.provider === "anthropic");
     expect(claude).toMatchObject({
-      signIn: "auth-url",
-      authHint: "Claude Pro/Max / key",
-      oauthLabel: "Sign in with Claude Pro/Max",
-      billing: "",
+      auth: "api-key",
+      authHint: "API key",
+      subscription: false,
+      billing: expect.stringContaining("API key"),
     });
+    expect(claude?.signIn).toBeUndefined();
     expect(scriptedCatalogEntry.provider).toBe("scripted");
+    for (const provider of ["codex-cli", "claude-code", "antigravity-cli", "grok-cli"]) {
+      expect(catalog.find((entry) => entry.provider === provider)).toMatchObject({
+        auth: "oauth",
+        subscription: true,
+        pricing: null,
+        billingModes: ["subscription"],
+        supportsMaxTokens: false,
+      });
+    }
+    for (const provider of ["codex-cli", "claude-code", "antigravity-cli", "grok-cli"]) {
+      expect(catalog.find((entry) => entry.provider === provider)).not.toHaveProperty("reasoning");
+    }
+    expect(catalog.find((entry) => entry.provider === "antigravity-cli")).toMatchObject({
+      providerName: "Antigravity CLI",
+      signIn: "auth-url",
+      id: "gemini-3.8-flash-high",
+    });
+    expect(catalog.some((entry) => entry.provider === "gemini-cli")).toBe(false);
+    expect(catalog.find((entry) => entry.provider === "grok-cli")?.id).toBe("grok-build");
   });
+
+  it("keeps inherited CLI limits unknown and explicit CLI constants known", () => {
+    const catalog = listPiCatalog();
+    for (const provider of ["codex-cli", "claude-code", "grok-cli"]) {
+      expect(catalog.find((entry) => entry.provider === provider)).toMatchObject({
+        pricing: null,
+        contextWindow: null,
+        maxTokens: null,
+      });
+    }
+    expect(catalog.find((entry) => entry.provider === "antigravity-cli")).toMatchObject({
+      pricing: null,
+      contextWindow: 1_000_000,
+      maxTokens: 64_000,
+    });
+  });
+
+  it.each([false, true])(
+    "projects only explicitly configured local limits (%s)",
+    async (explicit) => {
+      vi.stubEnv("RAKAZO_LOCAL_MODELS", "metadata-fixture");
+      vi.stubEnv("RAKAZO_LOCAL_CONTEXT_WINDOW", explicit ? "8192" : "");
+      vi.stubEnv("RAKAZO_LOCAL_MAX_TOKENS", explicit ? "512" : "");
+      vi.resetModules();
+      const { listPiCatalog: configured } = await import("./pi-models.js");
+      const entry = configured().find((item) => item.id === "metadata-fixture");
+      expect(entry).toMatchObject({
+        pricing: null,
+        contextWindow: explicit ? 8192 : null,
+        maxTokens: explicit ? 512 : null,
+      });
+      expect(entry).not.toHaveProperty("reasoning");
+    },
+  );
 
   it("lists DeepSeek API model ids instead of display labels", () => {
     const deepseek = listPiCatalog().filter((entry) => entry.provider === "deepseek");
@@ -160,10 +222,14 @@ describe("Pi model catalog", () => {
     vi.resetModules();
 
     const { listPiCatalog: listConfiguredCatalog } = await import("./pi-models.js");
+    expect(listConfiguredCatalog()[0]).not.toHaveProperty("reasoning");
     expect(listConfiguredCatalog()[0]).toMatchObject({
       provider: "openrouter",
       id: "rakazo-test/unknown-future-model",
       label: "rakazo-test/unknown-future-model",
+      pricing: null,
+      contextWindow: null,
+      maxTokens: null,
     });
   });
 

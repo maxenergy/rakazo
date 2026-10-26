@@ -58,6 +58,9 @@ function setup(options: Partial<AuthEnv> = {}) {
     },
     spaceMember: { findFirst: vi.fn(async () => ({ id: "existing-space" })) },
     member: { findMany: vi.fn(async () => []) },
+    space: { findMany: vi.fn(async () => []) },
+    budgetSpendLedger: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+    budgetApprovalDeletionAudit: { deleteMany: vi.fn(async () => ({ count: 0 })) },
     messagingIdentity: { deleteMany: vi.fn(async () => ({})) },
     organization: { deleteMany: vi.fn(async () => ({})) },
   };

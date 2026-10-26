@@ -550,9 +550,15 @@ export function applyCodexLiveCatalog(
 
 function withLiveFields(entry: PiCatalogEntry, model: CodexCatalogModel): PiCatalogEntry {
   const thinkingLevels = liveThinkingLevels(model);
+  const capabilities = {
+    ...(entry.capabilities ?? { imageInput: { value: null, source: null } }),
+    reasoning: { value: true, source: "codex-live-catalog" },
+  };
   return thinkingLevels
-    ? { ...entry, reasoning: true, thinkingLevels }
-    : { ...entry, reasoning: entry.reasoning || model.reasoningEfforts.length > 0 };
+    ? { ...entry, reasoning: true, thinkingLevels, capabilities }
+    : model.reasoningEfforts.length > 0
+      ? { ...entry, reasoning: true, capabilities }
+      : { ...entry };
 }
 
 function liveThinkingLevels(model: CodexCatalogModel): ThinkingLevel[] | undefined {

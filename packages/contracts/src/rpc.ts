@@ -12,12 +12,15 @@ import {
   BoardSchema,
   CommentTicketInput,
   CreateTicketInput,
+  EditTicketDependencyInput,
   GetTicketInput,
   ListTicketsInput,
   ListTicketsOutput,
   MoveTicketInput,
   RenameBoardInput,
   TicketCommentSchema,
+  TicketDependenciesInput,
+  TicketDependenciesSchema,
   TicketSchema,
   UpdateTicketInput,
 } from "./board.js";
@@ -100,14 +103,44 @@ import {
   VoiceStatusSchema,
 } from "./domain.js";
 import { ComputerCommandSchema, ProductEventSchema } from "./events.js";
+import {
+  CreateGoalInput,
+  CreateKeyResultInput,
+  GoalSchema,
+  KeyResultSchema,
+  ListGoalsInput,
+  ListKeyResultsInput,
+  UpdateGoalInput,
+  UpdateKeyResultInput,
+} from "./goals.js";
 import { Id, IsoDate } from "./ids.js";
 import {
   IntegrationProviderConfigSchema,
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
+import {
+  BotProjectSchema,
+  CreateMilestoneInput,
+  CreateProjectInput,
+  EditProjectMemberInput,
+  ListMilestonesInput,
+  ListProjectsInput,
+  MilestoneSchema,
+  ProjectBudgetSchema,
+  ProjectMemberSchema,
+  ProjectMembersInput,
+  ProjectSchema,
+  SetProjectBudgetInput,
+  SetProjectOwnerInput,
+  UpdateMilestoneInput,
+  UpdateProjectInput,
+} from "./projects.js";
+import { DecideProposalInput, ListProposalsInput, ProposalSchema } from "./proposals.js";
 import { MessageReactionSchema } from "./reactions.js";
+import { RunDiagnosticsInputSchema, RunDiagnosticsOutputSchema } from "./run-diagnostics.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
 import { SearchQueryOutputSchema } from "./search.js";
+import { UiLocaleSchema } from "./ui-locale.js";
 
 const botId = z.object({ botId: Id });
 const groupId = z.object({ groupId: Id });
@@ -136,8 +169,15 @@ const structuredMentionTarget = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("connector"), id: Id }),
 ]);
 
+export const RunDeadlineMsSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(24 * 60 * 60_000, "Run deadline must not exceed 24 hours");
+
 const threadSendInput = threadTarget
   .safeExtend({
+    deadlineMs: RunDeadlineMsSchema.optional(),
     text: z.string().optional(),
     artifactIds: z.array(Id).max(ATTACHMENT_MAX_COUNT).optional(),
     /** Bare bot ids (legacy) or typed mention chips from the composer. */
@@ -192,7 +232,16 @@ export const appContract = {
     portal: oc.output(z.object({ url: z.string().url() })),
   },
   preferences: {
-    update: oc.input(z.object({ avatarStyle: AvatarStyleSchema })).output(MeSchema),
+    update: oc
+      .input(
+        z
+          .object({
+            avatarStyle: AvatarStyleSchema.optional(),
+            uiLocale: UiLocaleSchema.optional(),
+          })
+          .refine((input) => input.avatarStyle !== undefined || input.uiLocale !== undefined),
+      )
+      .output(MeSchema),
   },
   spaces: {
     list: oc.output(SpaceNavigationSchema),
@@ -289,15 +338,41 @@ export const appContract = {
       .output(z.object({ ok: z.literal(true) })),
   },
   bots: {
+    backups: oc.input(botId).output(ModelBackupListSchema),
+    setBackups: oc
+      .input(z.object({ botId: Id, models: ModelBackupListSchema }))
+      .output(ModelBackupListSchema),
     list: oc.output(z.array(BotSchema)),
     listArchived: oc.output(z.array(BotSchema)),
-    get: oc.input(botId).output(BotSchema),
+    get: oc.input(botId).output(BotSchema.extend({ projects: z.array(BotProjectSchema) })),
     create: oc.input(CreateBotInput).output(BotSchema),
     duplicate: oc.input(botId).output(BotSchema),
+    /** Create (or return) the CEO and CTO launch team and their group chat. */
+    createLaunchTeam: oc.output(
+      z.object({ ceo: BotSchema, cto: BotSchema, groupId: Id.nullable() }),
+    ),
     reorder: oc.input(ReorderBotsInput).output(z.object({ ok: z.literal(true) })),
     update: oc.input(UpdateBotInput).output(BotSchema),
     setComputer: oc.input(z.object({ botId: Id, mode: ComputerModeSchema })).output(BotSchema),
     archive: oc.input(botId).output(z.object({ ok: z.literal(true) })),
+    continuationPreview: oc.input(botId).output(
+      z.object({
+        botId: Id,
+        projects: z.array(
+          z.object({
+            id: Id,
+            name: z.string(),
+            status: z.enum(["active", "paused"]),
+            archivedAt: IsoDate.nullable(),
+            member: z.boolean(),
+          }),
+        ),
+        tickets: z.array(
+          z.object({ id: Id, projectId: Id.nullable(), title: z.string(), status: z.string() }),
+        ),
+        routines: z.array(RoutineSchema),
+      }),
+    ),
     restore: oc.input(botId).output(z.object({ ok: z.literal(true) })),
     remove: oc
       .input(z.object({ botId: Id, deleteMemories: z.boolean().default(false) }))
@@ -505,6 +580,7 @@ export const appContract = {
         z
           .object({
             routineId: Id,
+            projectId: Id.nullable().optional(),
             name: z.string().optional(),
             prompt: z.string().optional(),
             crons: z.array(z.string().min(1)).optional(),
@@ -583,7 +659,52 @@ export const appContract = {
     rename: oc.input(RenameBoardInput).output(BoardSchema),
     subscribe: oc.output(eventIterator(BoardEventSchema)),
   },
+  proposals: {
+    list: oc.input(ListProposalsInput).output(z.array(ProposalSchema)),
+    /** Approve or reject a pending proposal, then wake the bot that sent it. */
+    decide: oc.input(DecideProposalInput).output(ProposalSchema),
+  },
+  goals: {
+    list: oc.input(ListGoalsInput).output(z.array(GoalSchema)),
+    get: oc.input(z.object({ id: Id })).output(GoalSchema),
+    create: oc.input(CreateGoalInput).output(GoalSchema),
+    update: oc.input(UpdateGoalInput).output(GoalSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
+  },
+  keyResults: {
+    list: oc.input(ListKeyResultsInput).output(z.array(KeyResultSchema)),
+    get: oc.input(z.object({ id: Id })).output(KeyResultSchema),
+    create: oc.input(CreateKeyResultInput).output(KeyResultSchema),
+    update: oc.input(UpdateKeyResultInput).output(KeyResultSchema),
+    archive: oc.input(z.object({ id: Id })).output(KeyResultSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
+  },
+  projects: {
+    members: oc.input(ProjectMembersInput).output(z.array(ProjectMemberSchema)),
+    addMember: oc.input(EditProjectMemberInput).output(z.array(ProjectMemberSchema)),
+    removeMember: oc.input(EditProjectMemberInput).output(z.array(ProjectMemberSchema)),
+    setOwner: oc.input(SetProjectOwnerInput).output(z.array(ProjectMemberSchema)),
+    budget: oc.input(z.object({ projectId: Id })).output(ProjectBudgetSchema.nullable()),
+    setBudget: oc.input(SetProjectBudgetInput).output(ProjectBudgetSchema),
+    list: oc.input(ListProjectsInput).output(z.array(ProjectSchema)),
+    get: oc.input(z.object({ id: Id })).output(ProjectSchema),
+    create: oc.input(CreateProjectInput).output(ProjectSchema),
+    update: oc.input(UpdateProjectInput).output(ProjectSchema),
+    archive: oc.input(z.object({ id: Id })).output(ProjectSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
+  },
+  milestones: {
+    list: oc.input(ListMilestonesInput).output(z.array(MilestoneSchema)),
+    get: oc.input(z.object({ id: Id })).output(MilestoneSchema),
+    create: oc.input(CreateMilestoneInput).output(MilestoneSchema),
+    update: oc.input(UpdateMilestoneInput).output(MilestoneSchema),
+    archive: oc.input(z.object({ id: Id })).output(MilestoneSchema),
+    delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
+  },
   tickets: {
+    dependencies: oc.input(TicketDependenciesInput).output(TicketDependenciesSchema),
+    addDependency: oc.input(EditTicketDependencyInput).output(TicketDependenciesSchema),
+    removeDependency: oc.input(EditTicketDependencyInput).output(TicketDependenciesSchema),
     list: oc.input(ListTicketsInput).output(ListTicketsOutput),
     get: oc.input(GetTicketInput).output(TicketSchema),
     create: oc.input(CreateTicketInput).output(TicketSchema),
@@ -900,6 +1021,7 @@ export const appContract = {
       .output(z.object({ icon: z.string().nullable(), retry: z.boolean().optional() })),
   },
   runs: {
+    diagnostics: oc.input(RunDiagnosticsInputSchema).output(RunDiagnosticsOutputSchema),
     list: oc.input(z.object({ filter: z.enum(["active", "recent"]) })).output(RunsListOutputSchema),
   },
   voice: {

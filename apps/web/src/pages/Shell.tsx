@@ -47,6 +47,8 @@ import {
   isRunTerminalEvent,
   isToolActivityBlock,
   latestAnswerableAskMessageId,
+  localizeOnboardingMessage,
+  localizeSubagentProgress,
   mentionChipKey,
   nestRosterByParent,
   plainTextFromMarkdown,
@@ -91,6 +93,7 @@ import {
   Box,
   ChevronDown,
   CircleAlert,
+  ClipboardCheck,
   Clock,
   Copy,
   FolderOpen,
@@ -138,6 +141,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArtifactFileCard } from "../components/ArtifactFileCard";
 import { AskCard } from "../components/AskCard";
 import { ActiveBotGlyph, CollaborationMarker } from "../components/ai/CollaborationMarker";
+import { BotRestorePreview, type RestorePreview } from "../components/BotRestorePreview";
 import { CloudAgentCard } from "../components/CloudAgentCard";
 import { ComputerMaintenanceActions } from "../components/ComputerMaintenanceActions";
 import {
@@ -189,6 +193,7 @@ import {
 import { publishComputerCommand } from "../lib/computer-workspace";
 import { desktopBridge } from "../lib/desktop";
 import { scheduleFocusPrompt } from "../lib/focus-prompt";
+import { getActiveUiLocale } from "../lib/i18n";
 import { localTimezone } from "../lib/local-timezone";
 import { copyableMessageText } from "../lib/message-text";
 import { messageProviderLabel } from "../lib/messaging";
@@ -257,9 +262,11 @@ import type { RoutineDraftState } from "./RoutineEditor";
 import {
   draftFromRoutine,
   emptyRoutineDraft,
+  FinishedRoutines,
   RoutineEditor,
   RoutineListHeader,
   RoutineListRow,
+  routineFinished,
   routineNeedsOneShotArm,
 } from "./RoutineEditor";
 import type { SettingsSection } from "./SettingsOverlay";
@@ -285,6 +292,7 @@ import {
   ChoiceCard,
   McpApprovalCard,
 } from "./shell/message-cards";
+import { PendingApprovalsLink } from "./shell/pending-approvals-link";
 import { commitSpaceRename, sidebarGroupsForSpaces } from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
@@ -421,6 +429,12 @@ export function ShellPage() {
   const [archivedBots, setArchivedBots] = useState<Bot[]>([]);
   const [archivedGroups, setArchivedGroups] = useState<Group[]>([]);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [restorePreview, setRestorePreview] = useState<{
+    bot: Bot;
+    preview: RestorePreview;
+  } | null>(null);
+  const [restorePreviewLoading, setRestorePreviewLoading] = useState(false);
+  const [restorePreviewError, setRestorePreviewError] = useState<string | null>(null);
   const [collapsedSidebarSections, setCollapsedSidebarSections] = useState(() => new Set<string>());
   const [collapsedRosterParents, setCollapsedRosterParents] = useState(() => new Set<string>());
 
@@ -1801,7 +1815,12 @@ export function ShellPage() {
   const transcriptRunning = workingRuns.length > 0;
   const composerRunning = currentRuns.some((run) => isActive(run.status));
   const runError = threadRunError(activeSnapshot, dismissedRunErrorIds);
-  const displayedRunError = !sendError ? runError : null;
+  const displayedRunError = !sendError
+    ? runError ===
+      "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used."
+      ? t`CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.`
+      : runError
+    : null;
   const displayedRunErrorId = displayedRunError ? (activeSnapshot?.run?.id ?? null) : null;
   const handleRunErrorPresented = useCallback((runId: string) => {
     rememberSeenRunErrorId(runId);
@@ -3365,9 +3384,20 @@ export function ShellPage() {
                       <Button
                         variant="ghost"
                         size="xs"
-                        onClick={() =>
-                          void rpc.bots.restore({ botId: bot.id }).then(() => refreshBots(true))
-                        }
+                        disabled={restorePreviewLoading}
+                        onClick={() => {
+                          setRestorePreviewLoading(true);
+                          setRestorePreviewError(null);
+                          void rpc.bots
+                            .continuationPreview({ botId: bot.id })
+                            .then((preview) => {
+                              setRestorePreview({ bot, preview });
+                            })
+                            .catch((cause: unknown) => {
+                              setRestorePreviewError(String(cause));
+                            })
+                            .finally(() => setRestorePreviewLoading(false));
+                        }}
                       >
                         <Trans>Restore</Trans>
                       </Button>
@@ -3418,6 +3448,7 @@ export function ShellPage() {
             </div>
           ) : null}
         </div>
+        <PendingApprovalsLink onNavigate={() => setMobileSidebarOpen(false)} />
         <button
           type="button"
           onClick={() => setPluginsOpen(true)}
@@ -3446,6 +3477,18 @@ export function ShellPage() {
               align="start"
               className="w-[calc(316px-1.5rem)] max-w-[calc(100vw-3rem)] gap-0 p-1 data-closed:animate-none"
             >
+              <Button
+                variant="ghost"
+                className="w-full justify-start font-normal"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setMobileSidebarOpen(false);
+                  navigate("/app/approvals");
+                }}
+              >
+                <ClipboardCheck className="text-muted-foreground" strokeWidth={1.75} />
+                <Trans>Approvals</Trans>
+              </Button>
               {bootstrapMe?.ticketBoardEnabled ? (
                 <Button
                   variant="ghost"
@@ -3453,11 +3496,23 @@ export function ShellPage() {
                   onClick={() => {
                     setMenuOpen(false);
                     setMobileSidebarOpen(false);
-                    navigate("/app/board");
+                    navigate(
+                      window.matchMedia("(max-width: 767px)").matches
+                        ? "/app/tickets"
+                        : "/app/board",
+                    );
                   }}
                 >
-                  <SquareKanban className="text-muted-foreground" strokeWidth={1.75} />
-                  <Trans>Board</Trans>
+                  <SquareKanban
+                    className="hidden text-muted-foreground md:block"
+                    strokeWidth={1.75}
+                  />
+                  <span className="hidden md:inline">
+                    <Trans>Board</Trans>
+                  </span>
+                  <span className="md:hidden">
+                    <Trans>Tickets</Trans>
+                  </span>
                 </Button>
               ) : null}
               <Button
@@ -3896,14 +3951,14 @@ export function ShellPage() {
                     setPanel("routine");
                   }}
                 />
-                {activeRoutines.map((routine) => {
-                  const routineRunning =
-                    snapshot?.run?.routineId === routine.id && isActive(snapshot.run.status);
-                  return (
+                {(() => {
+                  const row = (routine: Routine) => (
                     <RoutineListRow
                       key={routine.id}
                       routine={routine}
-                      running={routineRunning}
+                      running={
+                        snapshot?.run?.routineId === routine.id && isActive(snapshot.run.status)
+                      }
                       onOpen={() => {
                         setRoutineDraft(draftFromRoutine(routine));
                         setRoutineWebhookSecret(null);
@@ -3914,7 +3969,16 @@ export function ShellPage() {
                       onStop={() => void stopRun()}
                     />
                   );
-                })}
+                  const finished = activeRoutines.filter(routineFinished);
+                  return (
+                    <>
+                      {activeRoutines.filter((routine) => !routineFinished(routine)).map(row)}
+                      <FinishedRoutines count={finished.length}>
+                        {finished.map(row)}
+                      </FinishedRoutines>
+                    </>
+                  );
+                })()}
               </div>
             ) : null}
             {panel === "create-group" ? (
@@ -4325,6 +4389,35 @@ export function ShellPage() {
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : null}
+
+        {restorePreview ? (
+          <BotRestorePreview
+            botName={restorePreview.bot.name}
+            preview={restorePreview.preview}
+            onCancel={() => setRestorePreview(null)}
+            onEnableRoutine={async (routineId) => {
+              await rpc.routines.update({ routineId, active: true });
+            }}
+            onConfirmRestore={async () => {
+              await rpc.bots.restore({ botId: restorePreview.bot.id });
+              setRestorePreview(null);
+              await refreshBots(true);
+            }}
+          />
+        ) : restorePreviewError ? (
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+          >
+            <div className="space-y-3 rounded-lg border bg-background p-5 text-foreground shadow-lg">
+              <p>{restorePreviewError}</p>
+              <Button type="button" onClick={() => setRestorePreviewError(null)}>
+                <Trans>Close</Trans>
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {deleteTarget ? (
@@ -6587,6 +6680,7 @@ const MessageView = memo(function MessageView({
   showToolActivity: boolean;
 }) {
   const { t } = useLingui();
+  message = localizeOnboardingMessage(message, getActiveUiLocale());
   const isNarration =
     message.role === "bot" &&
     message.blocks.length > 0 &&
@@ -6808,14 +6902,21 @@ const MessageView = memo(function MessageView({
                     animation: running ? "rkPulse 1.2s ease-in-out infinite" : undefined,
                   }}
                 >
-                  {running ? <Trans>subagent</Trans> : block.status}
+                  {running ? (
+                    <Trans>subagent</Trans>
+                  ) : failed ? (
+                    <Trans>Failed</Trans>
+                  ) : (
+                    <Trans>Done</Trans>
+                  )}
                 </span>
               </div>
               <div className="mt-2 text-[13.5px] text-muted-foreground">{block.task}</div>
               {block.progress || block.result ? (
                 <div className="mt-2.5 text-[14.5px] leading-[1.5] text-foreground/75">
                   <ChatMarkdown streaming={running}>
-                    {block.result || block.progress || ""}
+                    {block.result ||
+                      localizeSubagentProgress(block.progress || "", getActiveUiLocale())}
                   </ChatMarkdown>
                 </div>
               ) : null}

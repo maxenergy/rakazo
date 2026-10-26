@@ -2,8 +2,14 @@ import * as z from "zod";
 import { botSecretDestinationSchema } from "./bot-secrets.js";
 import { Id } from "./ids.js";
 import { McpTransportSchema } from "./mcp.js";
+import { OnboardingApp, OnboardingText } from "./onboarding.js";
 
 export const ProductEventType = z.enum([
+  "run.storage_refused",
+  "run.storage_paused",
+  "run.storage_resumed",
+  "storage.capacity_warning",
+  "steering.delivered",
   "thread.message.created",
   "thread.cleared",
   "thread.message.updated",
@@ -19,6 +25,7 @@ export const ProductEventType = z.enum([
   "thread.call.ended",
   "run.started",
   "run.checkpointed",
+  "run.waiting_budget",
   "run.waiting_input",
   "run.completed",
   "run.failed",
@@ -32,6 +39,7 @@ export const ProductEventType = z.enum([
   "routine.created",
   "routine.updated",
   "routine.fired",
+  "routine.skipped",
   "skill.teaching.started",
   "skill.teaching.stopped",
   "skill.draft.created",
@@ -93,7 +101,7 @@ export const SecretAskPurpose = z.enum(["otp", "password", "api_key"]);
 export type SecretAskPurpose = z.infer<typeof SecretAskPurpose>;
 
 export const MessageBlock = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("text"), text: z.string() }),
+  z.object({ kind: z.literal("text"), text: z.string(), onboarding: OnboardingText.optional() }),
   z.object({
     kind: z.literal("card"),
     lines: z.array(z.object({ k: z.string(), v: z.string() })),
@@ -125,6 +133,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("choice"),
     question: z.string(),
+    onboarding: z.literal("focus").optional(),
     subtitle: z.string().optional(),
     options: z.array(z.object({ id: z.string(), letter: z.string(), label: z.string() })),
     /** Set once the user picks an option; renders the picker as answered. */
@@ -138,6 +147,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     provider: z.string(),
     name: z.string(),
     description: z.string(),
+    onboardingApp: OnboardingApp.optional(),
     logo: z.string().nullable(),
     status: z.enum(["pending", "connected"]),
   }),
@@ -325,6 +335,20 @@ export function foldComputerCommands<T extends ComputerCommand>(events: T[]): T[
   }
   return [...byId.values()];
 }
+
+/** First durable receipt of ordered steering at a safe runtime turn boundary.
+ * Event.createdAt is delivery time; receivedAt is the source thread.message.created event timestamp.
+ * Recovery can re-invoke context without creating another receipt.
+ */
+export const SteeringDeliveredPayload = z.object({
+  steeringId: Id,
+  receivedEventId: Id,
+  messageId: Id,
+  messageSeq: z.number().int().nonnegative(),
+  receivedAt: z.iso.datetime(),
+  leaseFence: z.number().int().nonnegative(),
+});
+export type SteeringDeliveredPayload = z.infer<typeof SteeringDeliveredPayload>;
 
 export const ProductEventSchema = z.object({
   id: Id,

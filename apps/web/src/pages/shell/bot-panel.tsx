@@ -17,6 +17,7 @@ import {
 } from "@rakazo/contracts";
 import {
   connectedModelChoices,
+  modelChoiceLabel,
   modelOptionKey,
   parseModelOptionKey,
   resolveSelectableModelId,
@@ -571,6 +572,7 @@ export function BotSettings({
           <Trans>Model</Trans>
           <NativeSelect
             id={`${ids}-model`}
+            aria-label={t`Model`}
             className="mt-2 w-full"
             value={selectedModelKey}
             onChange={(event) => {
@@ -581,13 +583,15 @@ export function BotSettings({
             <NativeSelectOption value="">
               {t`Space default`}
               {me?.defaultModel
-                ? ` (${catalogLabel(catalog, me.defaultProvider, me.defaultModel) ?? me.defaultModel})`
+                ? ` (${modelChoiceLabel(catalog, me.defaultProvider, me.defaultModel)})`
                 : ""}
             </NativeSelectOption>
             {selectedModelKey &&
             !connectedOptions.some((option) => option.key === selectedModelKey) ? (
               <NativeSelectOption value={selectedModelKey}>
-                {selectedModel?.modelId ?? selectedModelKey}
+                {selectedModel
+                  ? modelChoiceLabel(catalog, selectedModel.provider, selectedModel.modelId)
+                  : selectedModelKey}
               </NativeSelectOption>
             ) : null}
             {connectedOptions.map((option) => (
@@ -753,13 +757,4 @@ export function BotSettings({
 
 function sameStringList(left: readonly string[], right: readonly string[]) {
   return left.length === right.length && left.every((entry, index) => entry === right[index]);
-}
-
-function catalogLabel(
-  catalog: ModelCatalogEntry[],
-  provider: string | null | undefined,
-  modelId: string,
-) {
-  if (!provider) return undefined;
-  return catalog.find((entry) => entry.provider === provider && entry.id === modelId)?.label;
 }

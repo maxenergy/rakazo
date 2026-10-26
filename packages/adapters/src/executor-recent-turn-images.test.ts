@@ -82,6 +82,11 @@ async function runWithModel(
     yield { type: "done" as const, text: "Done" };
   });
   const prisma = {
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+      return callback(this);
+    }),
+    user: { findUnique: vi.fn(async () => ({ uiLocale: "zh-CN" })) },
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => run),
@@ -91,8 +96,10 @@ async function runWithModel(
       }),
     },
     bot: {
+      findFirst: vi.fn(async () => ({ id: run.botId })),
       findUniqueOrThrow: vi.fn(async () => ({
         id: run.botId,
+        userId: run.userId,
         name: "Assistant",
         title: "Assistant",
         description: "Test assistant",
@@ -136,6 +143,14 @@ async function runWithModel(
     },
     secret: { findFirst: vi.fn(async () => null) },
     userModelCredential: { findFirst: vi.fn(async () => null) },
+    botBackupModel: {
+      findMany: vi.fn(async () => {
+        if (backupReadFails) throw new Error("Backup list unavailable");
+        return switchModel
+          ? [{ provider: switchModel.provider, modelId: switchModel.modelId }]
+          : [];
+      }),
+    },
     spaceBackupModel: {
       findMany: vi.fn(async () => {
         if (backupReadFails) throw new Error("Backup list unavailable");
@@ -169,6 +184,22 @@ async function runWithModel(
     deploymentModelKey: "fake-deployment-key",
     runtime: { describe: () => ({ capabilities: { scripted } }), run: runtimeRun },
     sandbox: {
+      async *execute(_computer: unknown, request: { argv: string[] }) {
+        yield {
+          type: "stdout" as const,
+          data: JSON.stringify(
+            request.argv.slice(3).map((path) => ({
+              path,
+              fsId: "fixture",
+              bavail: "26214400",
+              frsize: "4096",
+              availBytes: "107374182400",
+              sampledAt: 1,
+            })),
+          ),
+        };
+        yield { type: "exit" as const, code: 0 };
+      },
       describe: () => ({ capabilities: { graphical: false } }),
       writeFile: vi.fn(async () => undefined),
       async *exportWorkspace() {
@@ -192,6 +223,11 @@ async function runWithModel(
 }
 
 describe("recent turn images follow model vision", () => {
+  it("includes the user's saved language in runtime instructions and helper context", async () => {
+    const { request } = await runWithModel(TEXT_ONLY_MODEL);
+    expect(request.uiLocale).toBe("zh-CN");
+    expect(request.instructions).toContain("Use Simplified Chinese");
+  });
   it("does not send history images to a text-only model", async () => {
     const { request, get } = await runWithModel(TEXT_ONLY_MODEL);
 
@@ -216,15 +252,28 @@ describe("recent turn images follow model vision", () => {
     const { prisma, request } = await runWithModel(TEXT_ONLY_MODEL, undefined, true);
     expect(request.fallbackModels).toEqual([]);
     expect(request.resolveFallbackModel).toBeUndefined();
-    expect(prisma.spaceBackupModel.findMany).toHaveBeenCalledExactlyOnceWith({
-      where: { userId: "user-1", spaceId: "space-1" },
+    expect(prisma.bot.findFirst).toHaveBeenCalledWith({
+      where: { id: "bot-1", userId: "user-1", spaceId: "space-1" },
+      select: { id: true },
+    });
+    // Pre-claim discovery and execution each check the effective backups.
+    expect(prisma.botBackupModel.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.botBackupModel.findMany).toHaveBeenNthCalledWith(1, {
+      where: { botId: "bot-1" },
       orderBy: { position: "asc" },
       select: { provider: true, modelId: true },
     });
+    expect(prisma.botBackupModel.findMany).toHaveBeenNthCalledWith(2, {
+      where: { botId: "bot-1" },
+      orderBy: { position: "asc" },
+      select: { provider: true, modelId: true },
+    });
+    expect(prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
   });
 
   it("does not read or configure backups for scripted runs", async () => {
     const { prisma, request } = await runWithModel(TEXT_ONLY_MODEL, undefined, false, true);
+    expect(prisma.botBackupModel.findMany).not.toHaveBeenCalled();
     expect(prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
     expect(request.fallbackModels).toEqual([]);
     expect(request.resolveFallbackModel).toBeUndefined();
@@ -287,6 +336,7 @@ describe("recent turn images follow model vision", () => {
         status: "running",
         leaseOwner: "worker-1",
         leaseFence: expect.any(Number),
+        leaseExpiresAt: { gt: expect.any(Date) },
       },
       data: { modelProvider: backup.provider, modelId: backup.modelId },
     });

@@ -10,6 +10,8 @@ import {
 import { ThreadMessageSchema } from "./events.js";
 import { Id, MemoryScope, RunStatus, SandboxKind } from "./ids.js";
 import { McpHeadersSchema, McpRemoteEndpointSchema, McpTransportSchema } from "./mcp.js";
+import { ModelCapabilitiesSchema } from "./model-capabilities.js";
+import { BOT_TEAM_MAX_LENGTH, BotOrgRoleSchema } from "./org.js";
 import { RunTriggerSchema } from "./runs.js";
 
 export const ComputerModeSchema = z.enum(["team", "dedicated"]);
@@ -81,6 +83,9 @@ export const BotSchema = z.object({
   webhookConfigured: z.boolean(),
   /** Present when created with an idempotency key (e.g. onboarding:first). */
   spawnKey: z.string().nullable(),
+  orgRole: BotOrgRoleSchema.nullable().default(null),
+  team: z.string().default(""),
+  reportsToBotId: Id.nullable().default(null),
 });
 export type Bot = z.infer<typeof BotSchema>;
 
@@ -346,6 +351,9 @@ export const UpdateBotInput = z
     teamChatAmbientEnabled: z.boolean().optional(),
     teamChatRules: z.string().max(TEAM_CHAT_RULES_MAX_LENGTH).optional(),
     disabledBuiltinTools: DisabledBuiltinToolsSchema.optional(),
+    orgRole: BotOrgRoleSchema.nullable().optional(),
+    team: z.string().trim().max(BOT_TEAM_MAX_LENGTH).optional(),
+    reportsToBotId: Id.nullable().optional(),
   })
   .superRefine((value, ctx) => {
     const providerProvided = value.modelProvider !== undefined;
@@ -404,6 +412,7 @@ export function routineModelIssues(
 }
 
 export const RoutineSchema = z.object({
+  projectId: Id.nullable().optional(),
   id: Id,
   botId: Id,
   name: z.string(),
@@ -432,6 +441,7 @@ export type Routine = z.infer<typeof RoutineSchema>;
 
 export const CreateRoutineInput = z
   .object({
+    projectId: Id.nullable().optional(),
     botId: Id,
     name: z.string().min(1).max(80),
     prompt: z.string().min(1),
@@ -1037,7 +1047,7 @@ export const ModelCredentialSchema = z.object({
   maxImagesPerPrompt: z.number().int().min(1).max(1000).optional(),
   thinkingLevels: z.array(ThinkingLevelSchema).optional(),
   /** Stored secret kind. Absent when the secret could not be read. */
-  authKind: z.enum(["api_key", "oauth", "openai_compatible"]).optional(),
+  authKind: z.enum(["api_key", "oauth", "openai_compatible", "cli"]).optional(),
 });
 export type ModelCredential = z.infer<typeof ModelCredentialSchema>;
 
@@ -1143,7 +1153,7 @@ export const ModelConnectInputSchema = z
   });
 export type ModelConnectInput = z.infer<typeof ModelConnectInputSchema>;
 
-export const ModelOAuthSignInModeSchema = z.enum(["device-code", "auth-url"]);
+export const ModelOAuthSignInModeSchema = z.enum(["device-code", "auth-url", "browser"]);
 export type ModelOAuthSignInMode = z.infer<typeof ModelOAuthSignInModeSchema>;
 
 const ModelOAuthBeginBaseSchema = z.object({
@@ -1161,7 +1171,12 @@ export const ModelOAuthBeginSchema = z.discriminatedUnion("mode", [
     mode: z.literal("device-code"),
     userCode: z.string().min(1),
   }),
-  ModelOAuthBeginBaseSchema.extend({ mode: z.literal("auth-url") }),
+  ModelOAuthBeginBaseSchema.extend({
+    mode: z.literal("auth-url"),
+    // Official CLIs own token exchange even when their fallback URL returns a code.
+    callbackOwner: z.enum(["app", "provider"]).optional(),
+  }),
+  ModelOAuthBeginBaseSchema.extend({ mode: z.literal("browser") }),
 ]);
 export type ModelOAuthBegin = z.infer<typeof ModelOAuthBeginSchema>;
 
@@ -1173,7 +1188,23 @@ export const SpaceMemoryConfigSchema = z.object({
 });
 export type SpaceMemoryConfig = z.infer<typeof SpaceMemoryConfigSchema>;
 
+/** Base-tier prices in USD per million tokens; null means unknown. */
+export const ModelCatalogPricingSchema = z.object({
+  inputPerMTok: z.number().nonnegative().nullable(),
+  outputPerMTok: z.number().nonnegative().nullable(),
+  cacheReadPerMTok: z.number().nonnegative().nullable(),
+  cacheWritePerMTok: z.number().nonnegative().nullable(),
+});
+
 export const ModelCatalogEntrySchema = z.object({
+  discovery: z
+    .object({
+      status: z.enum(["discovered", "static"]),
+      source: z.string().min(1),
+    })
+    .nullable()
+    .optional(),
+  capabilities: ModelCapabilitiesSchema.optional(),
   provider: z.string(),
   providerName: z.string().optional(),
   id: z.string(),
@@ -1183,8 +1214,13 @@ export const ModelCatalogEntrySchema = z.object({
   oauthLabel: z.string().optional(),
   authHint: z.string().optional(),
   subscription: z.boolean().optional(),
+  billingModes: z.array(z.enum(["api-key", "subscription"])).optional(),
+  pricing: ModelCatalogPricingSchema.nullable().optional(),
+  contextWindow: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional(),
+  maxTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional(),
   signIn: ModelOAuthSignInModeSchema.optional(),
   reasoning: z.boolean().optional(),
+  supportsMaxTokens: z.boolean().optional(),
   thinkingLevels: z.array(ThinkingLevelSchema).optional(),
   /** Catalog stand-in so a provider appears before the user enters a real model id. */
   placeholder: z.boolean().optional(),

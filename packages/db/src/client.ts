@@ -43,7 +43,12 @@ export function createDb(
 ): { prisma: PrismaClient; pool: Pool } {
   const pool = createPool(connectionString, options);
   const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter });
+  // Prisma's defaults (2 s to start, 5 s to finish an interactive transaction)
+  // fail bot runs during short pool bursts, lock waits or event-loop stalls.
+  const prisma = new PrismaClient({
+    adapter,
+    transactionOptions: { maxWait: 10_000, timeout: 20_000 },
+  });
   return { prisma, pool };
 }
 

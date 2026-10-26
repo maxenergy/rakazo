@@ -39,7 +39,7 @@ type ToolCall = {
   executionId: string;
 };
 
-function fixture(runId = "run-1") {
+function fixture(runId = "run-1", afterEffectClaim?: (effectId: string) => Promise<void>) {
   const effects: Effect[] = [];
   const results: unknown[] = [];
   const scratchpadRows: Array<{
@@ -107,6 +107,11 @@ function fixture(runId = "run-1") {
     ),
   };
   const prisma = {
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
+      return callback(this);
+    }),
+    user: { findUnique: vi.fn(async () => ({ uiLocale: "en" })) },
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => run),
@@ -194,6 +199,7 @@ function fixture(runId = "run-1") {
     yield { type: "done" as const, text: "Done" };
   });
   const executor = createRunExecutor({
+    afterEffectClaim,
     prisma,
     runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
     connector: {
@@ -201,7 +207,25 @@ function fixture(runId = "run-1") {
       resolveCall: async () => undefined,
       execute: async function* () {},
     },
-    sandbox: { describe: () => ({ capabilities: { graphical: false } }) },
+    sandbox: {
+      async *execute(_computer: unknown, request: { argv: string[] }) {
+        yield {
+          type: "stdout" as const,
+          data: JSON.stringify(
+            request.argv.slice(3).map((path) => ({
+              path,
+              fsId: "fixture",
+              bavail: "26214400",
+              frsize: "4096",
+              availBytes: "107374182400",
+              sampledAt: 1,
+            })),
+          ),
+        };
+        yield { type: "exit" as const, code: 0 };
+      },
+      describe: () => ({ capabilities: { graphical: false } }),
+    },
     memory: {
       describe: () => ({ capabilities: {} }),
       read: async () => ({ documents: [] }),
@@ -220,6 +244,9 @@ function fixture(runId = "run-1") {
     results,
     scratchpadRows,
     memoryCommit,
+    pauseRunForInput,
+    runRow: run,
+    prisma,
     setCalls(next: ToolCall[]) {
       calls = next;
     },
@@ -234,6 +261,23 @@ function fixture(runId = "run-1") {
 }
 
 describe("mutating tool effect idempotency keys", () => {
+  it("rejects a stale holder at the committed claim barrier before dispatch", async () => {
+    const f = fixture("barrier-run", async () => {
+      f.prisma.run.updateMany.mockImplementationOnce(async () => ({ count: 0 }));
+    });
+    f.setCalls([
+      {
+        name: "remember",
+        args: { path: "MEMORY.md", content: "synthetic barrier note" },
+        executionId: "barrier-call",
+      },
+    ]);
+    await f.run();
+    expect(f.effects).toHaveLength(1);
+    expect(f.effects[0]).toMatchObject({ status: "executing" });
+    expect(f.memoryCommit).not.toHaveBeenCalled();
+  });
+
   it("executes different tools that share a reused provider tool-call id", async () => {
     const f = fixture("run-a");
     f.setCalls([
@@ -455,6 +499,37 @@ describe("mutating tool effect idempotency keys", () => {
     expect(f.memoryCommit).not.toHaveBeenCalled();
     expect(f.effects).toHaveLength(1);
     expect(f.results[0]).toEqual({ ok: true, legacy: true });
+  });
+
+  it("pauses recovered intent until explicit approval, then dispatches once", async () => {
+    const args = { path: "MEMORY.md", content: "recovered fact" };
+    const f = fixture("run-recovered-intent");
+    f.effects.push({
+      id: "recovered-intent",
+      spaceId: "space-1",
+      runId: "run-recovered-intent",
+      kind: "remember",
+      idempotencyKey: toolEffectIdempotencyKey("run-recovered-intent", "remember", args),
+      status: "intended",
+      request: args,
+    });
+    f.setCalls([{ name: "remember", args, executionId: "recovery-call" }]);
+
+    await f.run();
+
+    expect(f.memoryCommit).not.toHaveBeenCalled();
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
+    expect(f.runRow.status).toBe("waiting_input");
+    expect(f.effects[0]?.status).toBe("intended");
+
+    // The existing approval handler transitions the effect before resuming the run.
+    f.effects[0]!.status = "approved";
+    await f.run();
+
+    expect(f.memoryCommit).toHaveBeenCalledOnce();
+    expect(f.effects).toHaveLength(1);
+    expect(f.effects[0]?.status).toBe("completed");
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
   });
 
   it("does not reuse an incomplete legacy effect when the request differs", async () => {

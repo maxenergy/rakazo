@@ -1697,6 +1697,7 @@ describe("computer execution leases", () => {
     };
     const create = vi.fn().mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
     const client = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       thread: {
         update: vi
           .fn()

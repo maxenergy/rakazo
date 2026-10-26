@@ -1,4 +1,4 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button, Field, FieldError, FieldLabel, Input, Toggle } from "@rakazo/ui-web";
 import { useId, useState } from "react";
 import type { MemoryProviderSettingsFormProps } from "./registry";
@@ -6,6 +6,7 @@ import type { SerenityEndpointFieldError } from "./serenity-settings";
 import { SERENITY_ENDPOINT_PLACEHOLDER, serenityConnectionDraft } from "./serenity-settings";
 
 export function SerenitySettingsForm({ busy, onConnect }: MemoryProviderSettingsFormProps) {
+  const { t } = useLingui();
   const endpointId = useId();
   const endpointErrorId = useId();
   const tokenId = useId();
@@ -78,7 +79,7 @@ export function SerenitySettingsForm({ busy, onConnect }: MemoryProviderSettings
           value={brainLabel}
           disabled={busy}
           onChange={(event) => setBrainLabel(event.target.value)}
-          placeholder="personal"
+          placeholder={t`personal`}
           autoComplete="off"
         />
       </Field>

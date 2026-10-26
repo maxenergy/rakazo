@@ -1,3 +1,5 @@
+import { resetI18nForTests } from "./i18n";
+
 vi.mock("./ai-consent", () => ({ promptAiConsent: vi.fn() }));
 
 import { isServerUnreachable, withLiveStreamingProgress } from "@rakazo/core";
@@ -68,11 +70,16 @@ vi.mock("./live-notifications.js", () => ({
 vi.mock("./network-cache.js", () => ({ clearNetworkCache: vi.fn() }));
 
 afterEach(() => {
+  resetI18nForTests("en");
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("mobile API authentication", () => {
+  it("sends the selected interface language to the backend", async () => {
+    resetI18nForTests("zh-CN");
+    expect((await authHeaders())["accept-language"]).toBe("zh-CN");
+  });
   it("does not send a captured old bearer after the session changes", async () => {
     await saveSessionToken("fake-session-a");
     const context = await captureApiRequestContext();
@@ -1020,6 +1027,7 @@ describe("mobile API authentication", () => {
     await selectSpace("space-support");
 
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       authorization: "Bearer session-token",
       "x-rakazo-space-id": "space-support",
     });
@@ -1132,6 +1140,7 @@ describe("mobile API authentication", () => {
       error: "Could not clear the previous server session",
     });
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       authorization: "Bearer session-token",
       "x-rakazo-space-id": "space-support",
     });
@@ -1166,6 +1175,7 @@ describe("mobile API authentication", () => {
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(AVATAR_STYLE_KEY, "organic");
       expect(getCachedAvatarStyle()).toBe("organic");
       await expect(authHeaders()).resolves.toEqual({
+        "accept-language": "en",
         authorization: "Bearer session-token",
         "x-rakazo-space-id": "space-support",
       });
@@ -1193,6 +1203,7 @@ describe("mobile API authentication", () => {
     });
     expect(currentApiBase()).toBe(previous);
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       authorization: "Bearer session-token",
       "x-rakazo-space-id": "space-support",
     });
@@ -1220,6 +1231,7 @@ describe("mobile API authentication", () => {
     });
     expect(currentApiBase()).toBe(previous);
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       "x-rakazo-space-id": "space-support",
     });
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith("rakazo.space_id", "space-support");
@@ -1264,6 +1276,7 @@ describe("mobile API authentication", () => {
       key === "rakazo.session_token" ? "session-token" : null,
     );
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       authorization: "Bearer session-token",
       "x-rakazo-space-id": "space-support",
     });
@@ -1318,6 +1331,7 @@ describe("mobile API authentication", () => {
     await expect(saveApiBase("https://third-server.example")).resolves.toMatchObject({ ok: false });
 
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       authorization: "Bearer session-token",
       "x-rakazo-space-id": "space-support",
     });
@@ -1345,6 +1359,7 @@ describe("mobile API authentication", () => {
     });
     expect(currentApiBase()).toBe(previous);
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       authorization: "Bearer session-token",
       "x-rakazo-space-id": "space-support",
     });
@@ -2168,6 +2183,7 @@ describe("mobile API authentication", () => {
       error: "Could not save the server URL",
     });
     await expect(authHeaders()).resolves.toEqual({
+      "accept-language": "en",
       "x-rakazo-space-id": "space-support",
     });
     expect(storage.get("rakazo.space_rollback")).toBe(
@@ -2788,6 +2804,25 @@ describe("mobile thread event reduction", () => {
         ]),
       ),
     ).toBe("Slack · Alex: Hello from the group");
+  });
+
+  it("localizes mobile previews without translating attachment names", () => {
+    resetI18nForTests("zh-CN");
+    expect(
+      blockText(
+        mobileMessage("attachments", [
+          {
+            kind: "file",
+            name: "report.txt",
+            artifactId: "file-1",
+            mimeType: "text/plain",
+            size: 1024,
+          },
+          { kind: "image", name: "Photo", artifactId: "image-1", mimeType: "image/png" },
+          { kind: "child_bot", name: "Scout", botId: "bot-2", status: "archived" },
+        ]),
+      ),
+    ).toBe("[文件: report.txt (1,024 字节)]\n[图片: Photo]\n已归档 Scout");
   });
 
   it("deduplicates durable messages and replaces matching transient subagent state", () => {

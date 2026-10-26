@@ -8,6 +8,7 @@ import type { PoolClient } from "pg";
 import { returnBotMessageOutcome } from "./bot-messages.js";
 import { scheduleComputerControlExpiry } from "./computer-control.js";
 import { reconcileStuckWork } from "./stuck-work.js";
+import { createStuckWorkerDetector } from "./stuck-worker.js";
 import { isLoopGuardStopText } from "./tool-loop.js";
 import { isUserProgressClientNonce } from "./user-progress.js";
 
@@ -106,9 +107,13 @@ export function createJobReconciler(
     leadership?: ReconciliationLeadership;
     reconcileComputerUpdates?: () => Promise<void>;
     reconcileCloudAgents?: () => Promise<void>;
+    reconcileOrgCheckIns?: () => Promise<void>;
+    reconcileTicketWakes?: () => Promise<void>;
+    reconcileBudgetApprovals?: () => Promise<void>;
   },
   options: { intervalMs?: number; batchSize?: number } = {},
 ) {
+  const detectStuckWorkers = createStuckWorkerDetector(deps.prisma);
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -125,9 +130,13 @@ export function createJobReconciler(
       if (deps.leadership && !(await deps.leadership.tryAcquire())) return;
 
       const auxiliary = await Promise.allSettled(
-        [deps.reconcileCloudAgents, deps.reconcileComputerUpdates].map(async (reconcile) =>
-          reconcile?.(),
-        ),
+        [
+          deps.reconcileCloudAgents,
+          deps.reconcileComputerUpdates,
+          deps.reconcileOrgCheckIns,
+          deps.reconcileTicketWakes,
+          deps.reconcileBudgetApprovals,
+        ].map(async (reconcile) => reconcile?.()),
       );
       for (const result of auxiliary) {
         if (result.status === "rejected")
@@ -135,6 +144,11 @@ export function createJobReconciler(
       }
 
       const now = new Date();
+      try {
+        await detectStuckWorkers(now);
+      } catch (error) {
+        getLogger().error("stuck worker detection", error);
+      }
       try {
         stuckCursor = await reconcileStuckWork({
           prisma: deps.prisma,

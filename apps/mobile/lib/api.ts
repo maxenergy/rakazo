@@ -29,6 +29,8 @@ import {
   isRunTerminalEvent,
   isServerUnreachable,
   isUnreachableStatus,
+  localizeOnboardingMessage,
+  localizeSubagentProgress,
   mergeThreadHistory,
   prependThreadHistoryPage,
   progressMessageId,
@@ -46,7 +48,7 @@ import { promptAiConsent } from "./ai-consent";
 import { getCachedAvatarStyle, saveAvatarStyle } from "./avatar-style";
 import type { EndpointResult } from "./endpoint";
 import { defaultApiBase, normalizeApiBase } from "./endpoint";
-import { t } from "./i18n";
+import { getActiveUiLocale, t } from "./i18n";
 import { resumeLiveNotifications } from "./live-notifications";
 import {
   clearSessionToken,
@@ -460,6 +462,7 @@ export async function authHeaders(
   const token = await loadSessionToken();
   return {
     ...(token ? { authorization: `Bearer ${token}` } : {}),
+    "accept-language": getActiveUiLocale(),
     ...(spaceId ? { "x-rakazo-space-id": spaceId } : {}),
   };
 }
@@ -1092,10 +1095,10 @@ export function messagingProviderLabel(provider: string, transport?: string): st
   return MESSAGING_PROVIDER_LABELS[provider] ?? provider;
 }
 
-/** The message's text exactly as written, for a view that selects part of it. */
+/** The displayed message text, preserving whitespace for selecting part of it. */
 export function selectableMobileMessageText(message: MobileMessage): string {
-  return message.blocks
-    .map((block) => {
+  return localizeOnboardingMessage(message, getActiveUiLocale())
+    .blocks.map((block) => {
       if (block.kind === "channel_message") {
         return `${messagingProviderLabel(block.provider, block.transport)} · ${block.fromLabel}: ${block.text}`;
       }
@@ -1112,24 +1115,25 @@ export function copyableMobileMessageText(message: MobileMessage): string {
 }
 
 export function blockText(message: MobileMessage) {
-  return message.blocks
-    .map((block) => {
+  return localizeOnboardingMessage(message, getActiveUiLocale())
+    .blocks.map((block) => {
       if (block.kind === "channel_message") {
         return `${messagingProviderLabel(block.provider, block.transport)} · ${block.fromLabel}: ${block.text}`;
       }
       if (block.kind === "cloud_agent")
-        return `${block.title}: ${block.status}${block.prUrl ? ` ${block.prUrl}` : ""}`;
+        return `${block.title}: ${t(block.status)}${block.prUrl ? ` ${block.prUrl}` : ""}`;
       if (block.kind === "subagent") {
-        return `${block.name ?? "subagent"}: ${block.result || block.progress || block.task || ""}`;
+        return `${block.name ?? t("subagent")}: ${block.result || localizeSubagentProgress(block.progress || "", getActiveUiLocale()) || block.task || ""}`;
       }
       if (block.kind === "child_bot") {
-        return `${block.status === "archived" ? "Archived" : block.status === "deleted" ? "Deleted" : "Bot"} ${block.name ?? ""}`;
+        return `${block.status === "archived" ? t("archived") : block.status === "deleted" ? t("deleted") : t("Bot")} ${block.name ?? ""}`;
       }
-      if (block.kind === "chart") return `[chart: ${block.name ?? "chart"}]`;
-      if (block.kind === "image") return `[image: ${block.name ?? "attachment"}]`;
+      if (block.kind === "chart") return `[${t("Chart")}: ${block.name}]`;
+      if (block.kind === "image") return `[${t("Image")}: ${block.name}]`;
       if (block.kind === "file") {
-        return `[file: ${block.name ?? "attachment"}${block.size ? ` (${block.size} bytes)` : ""}]`;
+        return `[${t("File")}: ${block.name}${block.size ? ` (${t("{size} bytes", { size: new Intl.NumberFormat(getActiveUiLocale()).format(block.size) })})` : ""}]`;
       }
+      if (block.kind === "choice") return block.question;
       if (block.kind === "steps") {
         return (block.steps ?? [])
           .map((step) => `${step.label}${step.count > 1 ? ` ×${step.count}` : ""}`)

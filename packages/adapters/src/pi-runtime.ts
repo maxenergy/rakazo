@@ -29,16 +29,21 @@ import type {
   ModelCallObserver,
 } from "@rakazo/adapter-kit";
 import { DEFAULT_CONTEXT_STRATEGY } from "@rakazo/adapter-kit";
-import { usableModelId } from "@rakazo/contracts";
+import { responseLanguageInstruction, usableModelId } from "@rakazo/contracts";
 import { abortableDelay } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
 import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
+import { BudgetExceededError } from "./budget-observer.js";
+import { runWithBudgetScope } from "./budget-scope.js";
 import { DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
+import { validCliDiscoveryEvidence } from "./cli-model-admission.js";
+import { registerCliModelProviders } from "./cli-model-provider.js";
 import { withCloudflareGatewayAuth } from "./cloudflare-ai-gateway.js";
 import { shortenToolResultText } from "./context-selection.js";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import { estimateModelContextTokens } from "./model-context.js";
+import { ModelCooldown } from "./model-cooldown.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import {
   normalizeOpenAiToolParameters,
@@ -63,9 +68,11 @@ import {
   REASONING_MODEL_MAX_TOKENS,
   resolveCompletionMaxTokens,
 } from "./pi-runtime-limits.js";
+import { decodePiSegment, encodePiSegment } from "./pi-segment.js";
 import type { PiSessionHandle, PiSessionRecorder } from "./pi-session.js";
 import { PiJsonlSessionRecorder } from "./pi-session.js";
 import { observedPiStream } from "./pi-usage.js";
+import { reviewFailureFacts } from "./review-failure.js";
 import type { RuntimeContextDecision } from "./runtime-context.js";
 import { createRuntimeContextPolicy, VERBATIM_TOOL_RESULTS } from "./runtime-context.js";
 import type { FinishedShellCommand } from "./shell-command-stream.js";
@@ -85,9 +92,12 @@ const toolCallBudgetsByRun = new Map<string, ToolCallBudget>();
 // their imports, and ESM hoists those imports, so module-level env reads here
 // would run before .env is loaded and miss the local provider entirely.
 let catalogModelsCache: Models | undefined;
+function builtinRuntimeModels(options?: Parameters<typeof builtinModels>[0]) {
+  return registerCliModelProviders(supplementPiModels(builtinModels(options)));
+}
 function catalogModels(): Models {
   catalogModelsCache ??= registerOpenAiCompatibleCatalog(
-    registerLocalProvider(supplementPiModels(builtinModels())),
+    registerLocalProvider(builtinRuntimeModels()),
   );
   return catalogModelsCache;
 }
@@ -150,6 +160,7 @@ export interface PiAgentRuntimeOptions {
 }
 
 export class PiAgentRuntime implements AgentRuntime {
+  private readonly modelCooldown = new ModelCooldown();
   private readonly sessionRecorder?: PiSessionRecorder;
   private readonly modelCallObserver?: ModelCallObserver;
   private readonly onContextDecision?: PiAgentRuntimeOptions["onContextDecision"];
@@ -187,21 +198,22 @@ export class PiAgentRuntime implements AgentRuntime {
     context?: Partial<AdapterContext>,
   ): AsyncIterableIterator<AgentRuntimeEvent> {
     const controller = new AbortController();
+    const scope = request.budgetScope ? Object.freeze({ ...request.budgetScope }) : null;
     const events = this.runEvents(request, controller, context);
     return {
       [Symbol.asyncIterator]() {
         return this;
       },
-      next: () => events.next(),
+      next: () => runWithBudgetScope(scope, () => events.next()),
       return: () => {
         // An async generator queues return() behind a pending next(). Abort
         // immediately so a quiet model request can settle that pending read.
         controller.abort();
-        return events.return();
+        return runWithBudgetScope(scope, () => events.return());
       },
       throw: (error) => {
         controller.abort();
-        return events.throw(error);
+        return runWithBudgetScope(scope, () => events.throw(error));
       },
     };
   }
@@ -219,6 +231,7 @@ export class PiAgentRuntime implements AgentRuntime {
     const work = (async () => {
       let trackedBudget: ToolCallBudget | undefined;
       let resumeHost: ToolHost | undefined;
+      let reviewHttpStatus: number | undefined;
       try {
         const selectedModel = resolveRuntimeModel(request.model);
         if (!selectedModel.model) {
@@ -241,6 +254,7 @@ export class PiAgentRuntime implements AgentRuntime {
           apiKey,
           credentials: selectedModel.credentials,
         };
+        const resumeSegment = decodePiSegment(request.segmentCheckpoint);
         const host: ToolHost = {
           queue,
           context,
@@ -254,7 +268,7 @@ export class PiAgentRuntime implements AgentRuntime {
           nestedAgents,
           subagentGate: createGate(MAX_PARALLEL_SUBAGENTS),
           toolCallBudget: trackedBudget,
-          toolCallSeq: { value: 0 },
+          toolCallSeq: { value: resumeSegment?.toolCallSeq ?? 0 },
           abortTurn: () => undefined,
           signal,
           depth: 0,
@@ -263,8 +277,10 @@ export class PiAgentRuntime implements AgentRuntime {
         };
         resumeHost = host;
         const tools = toAgentTools(toolDefs, host);
-        const seenSteeringIds: string[] = [];
-        const initialSteering = request.claimSteering ? await request.claimSteering([]) : [];
+        const seenSteeringIds: string[] = [...(resumeSegment?.seenSteeringIds ?? [])];
+        const initialSteering = request.claimSteering
+          ? await request.claimSteering([...seenSteeringIds])
+          : [];
         seenSteeringIds.push(...initialSteering.map((item) => item.id));
         const history = toHistory(
           withoutSteeringMessages(request.history, initialSteering),
@@ -311,7 +327,11 @@ export class PiAgentRuntime implements AgentRuntime {
           credentialScope: apiKey,
           imageTokens: estimatePiImageTokens,
         });
+        let budgetDenial: BudgetExceededError | undefined;
         const usageHooks = {
+          onBeforeCallError: (error: unknown) => {
+            if (error instanceof BudgetExceededError) budgetDenial = error;
+          },
           prepareContext: contextPolicy.prepareContext,
           imageTokens: estimatePiImageTokens,
           recordUsage: request.onUsage,
@@ -331,7 +351,22 @@ export class PiAgentRuntime implements AgentRuntime {
         const hasBackups = Boolean(request.fallbackModels?.length);
         let agent: Agent;
         let activeStreamTarget = host.activeModel;
+        const cooldownKey = (target: RuntimeModelTarget) =>
+          this.modelCooldown.key(
+            context?.spaceId,
+            context?.userId,
+            target.config.provider,
+            target.config.id,
+            target.credentials?.accessToken ?? target.apiKey,
+          );
         const fallbackState: FallbackStreamState = {
+          isCooling: (target) => this.modelCooldown.active(cooldownKey(target)),
+          recordCooldown: (target, error) => {
+            const { text, statuses } = errorFacts(error);
+            if (statuses.has(429) || /rate.?limit|too many requests/.test(text)) {
+              this.modelCooldown.record(cooldownKey(target), 30_000);
+            }
+          },
           request,
           getActive: () => activeStreamTarget,
           signal,
@@ -343,7 +378,15 @@ export class PiAgentRuntime implements AgentRuntime {
               target.models,
               target.model,
               ctx,
-              withCloudflareGatewayAuth(target.config, options),
+              withCloudflareGatewayAuth(target.config, {
+                ...options,
+                onResponse: (response, model) => {
+                  reviewHttpStatus = [401, 402, 429].includes(response.status)
+                    ? response.status
+                    : undefined;
+                  return options?.onResponse?.(response, model);
+                },
+              }),
               target.config.maxTokens,
               () => target.credentials?.accessToken ?? target.apiKey,
               (preparedOptions) =>
@@ -405,6 +448,20 @@ export class PiAgentRuntime implements AgentRuntime {
                 : request.model.maxImagesPerPrompt,
             ),
           finishTurn: async (turn, turnSignal) => {
+            // Never interrupt a tool. This hook runs after its results and usage settle.
+            if (!host.pausePending && !request.shouldEndTurn?.()) {
+              await request.onSegmentCheckpoint?.(
+                encodePiSegment({
+                  messages: turn.context.messages,
+                  toolCallSeq: host.toolCallSeq.value,
+                  seenSteeringIds,
+                }),
+              );
+            }
+            if (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) {
+              throw new Error("deadline_exceeded");
+            }
+            if (request.shouldEndTurn?.()) return { action: "end" };
             await deliverFinishedShells(
               (text) => {
                 agent.followUp({
@@ -422,7 +479,6 @@ export class PiAgentRuntime implements AgentRuntime {
             if (!request.claimSteering) return undefined;
             const steering = await request.claimSteering([...seenSteeringIds]);
             if (steering.length === 0) return undefined;
-            seenSteeringIds.push(...steering.map((item) => item.id));
             for (const item of steering) {
               const images = toPiImages(item.images);
               agent.steer({
@@ -431,6 +487,8 @@ export class PiAgentRuntime implements AgentRuntime {
                 timestamp: Date.now(),
               });
             }
+            await request.onSteeringDelivered?.(steering.map((item) => item.id));
+            seenSteeringIds.push(...steering.map((item) => item.id));
             return undefined;
           },
           initialState: {
@@ -438,7 +496,7 @@ export class PiAgentRuntime implements AgentRuntime {
             model: completionModel,
             thinkingLevel,
             tools,
-            messages: history,
+            messages: resumeSegment?.messages ?? history,
           },
         });
 
@@ -498,6 +556,10 @@ export class PiAgentRuntime implements AgentRuntime {
             }
           }
           if (event.type === "turn_end") {
+            if (request.shouldEndTurn?.()) {
+              toolWorkPendingFinal = false;
+              return;
+            }
             const messageText =
               event.message.role === "assistant" ? assistantText(event.message) : "";
             const hasToolCalls = messageHasToolCall(event.message);
@@ -566,13 +628,61 @@ export class PiAgentRuntime implements AgentRuntime {
           ...initialSteering.flatMap((item) => item.images ?? []),
         ]);
         try {
-          await agent.prompt(initialPrompt, images?.length ? images : undefined);
+          if (request.deadlineAt !== undefined && Date.now() >= request.deadlineAt) {
+            throw new Error("deadline_exceeded");
+          }
+          if (initialSteering.length) {
+            await request.onSteeringDelivered?.(initialSteering.map((item) => item.id));
+          }
+          if (resumeSegment) {
+            for (const item of initialSteering) {
+              const extraImages = toPiImages(item.images);
+              agent.steer({
+                role: "user",
+                content: extraImages.length
+                  ? [{ type: "text", text: item.text }, ...extraImages]
+                  : item.text,
+                timestamp: Date.now(),
+              });
+            }
+            const last = resumeSegment.messages.at(-1);
+            // A final text-only segment may have committed just before a crash.
+            // Return it without another paid model call.
+            if (
+              last?.role === "assistant" &&
+              !messageHasToolCall(last) &&
+              initialSteering.length === 0
+            ) {
+              streamed = assistantText(last);
+            } else {
+              await agent.continue();
+            }
+          } else {
+            await agent.prompt(initialPrompt, images?.length ? images : undefined);
+          }
         } finally {
           try {
             await agent.waitForIdle();
           } finally {
             signal.removeEventListener("abort", onAbort);
           }
+        }
+
+        if (budgetDenial) {
+          queue.push({
+            type: "budget_pause",
+            reason: budgetDenial.reason,
+            availableMicroUsd: budgetDenial.availableMicroUsd.toString(),
+            ...(budgetDenial.call
+              ? {
+                  call: {
+                    ...budgetDenial.call,
+                    amountMicroUsd: budgetDenial.call.amountMicroUsd.toString(),
+                  },
+                }
+              : {}),
+          });
+          return;
         }
 
         // Budget abort stops the agent underneath the model, which leaves
@@ -590,7 +700,11 @@ export class PiAgentRuntime implements AgentRuntime {
         if (error && !budgetExceeded) {
           throw new Error(sanitizeProviderError(activeStreamTarget.model.provider, error));
         }
-        if (!budgetExceeded && terminalMessage && !messageHasToolCall(terminalMessage)) {
+        if (
+          !budgetExceeded &&
+          terminalMessage?.role === "assistant" &&
+          !messageHasToolCall(terminalMessage)
+        ) {
           const terminalText = assistantText(terminalMessage);
           const sincePendingFinal = streamed.slice(streamedBeforePendingFinal);
           if (terminalText.trim() && !sincePendingFinal.includes(terminalText)) {
@@ -615,6 +729,8 @@ export class PiAgentRuntime implements AgentRuntime {
             queue.push({ type: "text", text: budgetMessage });
             streamed = budgetMessage;
           }
+        } else if (request.shouldEndTurn?.()) {
+          streamed = "";
         } else if (!host.pausePending && toolWorkPendingFinal) {
           if (request.allowSilentEmpty) {
             // Scheduled/FYI runs may finish after tools with no user-visible text.
@@ -639,7 +755,15 @@ export class PiAgentRuntime implements AgentRuntime {
         queue.push(streamed.trim() ? { type: "done", text: streamed } : { type: "done" });
       } catch (error) {
         const message = sanitizeError(error instanceof Error ? error.message : String(error));
-        queue.fail(new Error(message));
+        queue.fail(
+          Object.assign(
+            new Error(message),
+            reviewFailureFacts(error),
+            ...(request.runId.includes(":auto-review") && reviewHttpStatus
+              ? [{ status: reviewHttpStatus }]
+              : []),
+          ),
+        );
       } finally {
         queue.close();
         if (trackedBudget) {
@@ -694,6 +818,23 @@ function configuredOpenRouterModel(
   };
 }
 
+// Operational limits derived from all existing Codex CLI models. These are
+// transport safeguards, never evidence of a discovered model's price or context.
+export function codexDiscoveredTransportLimits() {
+  const entries = builtinRuntimeModels().getProvider("codex-cli")?.getModels() ?? [];
+  if (!entries.length) throw new Error("Codex CLI transport limits are unavailable");
+  return Object.freeze({
+    contextWindow: Math.min(...entries.map((model) => model.contextWindow)),
+    maxTokens: Math.min(...entries.map((model) => model.maxTokens)),
+    cost: Object.freeze({
+      input: Math.max(...entries.map((model) => model.cost.input)),
+      output: Math.max(...entries.map((model) => model.cost.output)),
+      cacheRead: Math.max(...entries.map((model) => model.cost.cacheRead)),
+      cacheWrite: Math.max(...entries.map((model) => model.cost.cacheWrite)),
+    }),
+  });
+}
+
 export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   provider: string;
   modelId: string;
@@ -712,7 +853,25 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   const credentials = credentialStoreForRequest({ model: modelConfig }, provider);
   const models = modelsForRequest({ model: modelConfig }, provider, credentials);
   let model = models.getModel(provider, modelId);
-  if (!model && provider !== "openrouter" && provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
+  if (!model && provider === "codex-cli" && validCliDiscoveryEvidence(modelConfig)) {
+    const evidence = modelConfig.cliDiscovery!;
+    model = {
+      id: modelId,
+      name: modelId,
+      provider,
+      api: "rakazo-cli",
+      baseUrl: "",
+      input: evidence.imageInput === true ? ["text", "image"] : ["text"],
+      reasoning: evidence.reasoning === true,
+      ...codexDiscoveredTransportLimits(),
+    };
+  }
+  if (
+    !model &&
+    provider !== "codex-cli" &&
+    provider !== "openrouter" &&
+    provider !== OPENAI_COMPATIBLE_PROVIDER_ID
+  ) {
     model = models.getModel("openrouter", modelId);
   }
   if (
@@ -724,7 +883,11 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   ) {
     model = configuredOpenRouterModel(modelId, modelConfig.contextWindow);
   }
-  if (model && (modelConfig.contextWindow !== undefined || modelConfig.maxTokens !== undefined)) {
+  if (
+    model &&
+    !modelConfig.cliDiscovery &&
+    (modelConfig.contextWindow !== undefined || modelConfig.maxTokens !== undefined)
+  ) {
     model = {
       ...model,
       ...(modelConfig.contextWindow !== undefined
@@ -767,7 +930,7 @@ export function modelsForRequest(
   const store = credentials ?? credentialStoreForRequest(request, provider);
   if (store) {
     return registerOpenAiCompatibleCatalog(
-      registerLocalProvider(supplementPiModels(builtinModels({ credentials: store }))),
+      registerLocalProvider(builtinRuntimeModels({ credentials: store })),
     );
   }
   if (
@@ -775,9 +938,7 @@ export function modelsForRequest(
     request.model.baseUrl &&
     request.model.id.trim()
   ) {
-    const models = registerOpenAiCompatibleCatalog(
-      registerLocalProvider(supplementPiModels(builtinModels())),
-    );
+    const models = registerOpenAiCompatibleCatalog(registerLocalProvider(builtinRuntimeModels()));
     return registerOpenAiCompatibleRuntime(models, {
       modelId: request.model.id,
       baseUrl: request.model.baseUrl,
@@ -1111,7 +1272,19 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
           title: raw.title ? String(raw.title) : "",
           instructions: raw.instructions ? String(raw.instructions) : "",
           prompt: raw.prompt ? String(raw.prompt) : "",
-          computer_mode: raw.computer_mode ? String(raw.computer_mode) : "",
+          computer_mode: String(raw.computer_mode ?? "").trim() || "team",
+          ...(raw.model_provider != null ? { model_provider: raw.model_provider } : {}),
+          ...(raw.model_id != null ? { model_id: raw.model_id } : {}),
+          role: raw.role ? String(raw.role) : "",
+          team: raw.team ? String(raw.team) : "",
+        };
+      }
+      if (tool.name === "set_bot_model") {
+        const botId = typeof raw.bot_id === "string" ? raw.bot_id.trim() : raw.bot_id;
+        return {
+          ...(botId != null && botId !== "" ? { bot_id: botId } : {}),
+          model_provider: raw.model_provider,
+          model_id: raw.model_id,
         };
       }
       if (tool.name === "update_bot") {
@@ -1397,6 +1570,8 @@ async function executeSubagent(host: ToolHost, executionId: string, args: Record
   let nested!: Agent;
   const providerFailures = new WeakSet<AssistantMessage["content"]>();
   const retryState: FallbackStreamState = {
+    isCooling: () => false,
+    recordCooldown: () => undefined,
     request: { ...host.request, model: requestModel, fallbackModels: [] },
     getActive: () => nestedHost.activeModel,
     signal: host.signal,
@@ -1473,6 +1648,7 @@ async function executeSubagent(host: ToolHost, executionId: string, args: Record
         `You are a Rakazo subagent named "${name}".`,
         "You run inside the parent bot's turn — you are not a separate bot chat.",
         "Complete the task and return a concise result. Do not spawn bots or further subagents.",
+        responseLanguageInstruction(host.request.uiLocale),
         extra,
       ]
         .filter(Boolean)
@@ -1699,6 +1875,10 @@ function builtinParameters(tool: ConnectorTool) {
       instructions: Type.Optional(Type.String()),
       prompt: Type.Optional(Type.String()),
       computer_mode: Type.Optional(stringEnum(["team", "dedicated"], {})),
+      model_provider: Type.Optional(Type.String()),
+      model_id: Type.Optional(Type.String()),
+      role: Type.Optional(stringEnum(["lead", "member"], {})),
+      team: Type.Optional(Type.String()),
     });
   }
   if (tool.name === "update_bot") {
@@ -2261,6 +2441,8 @@ interface RuntimeModelTarget {
 }
 
 interface FallbackStreamState {
+  isCooling(target: RuntimeModelTarget): boolean;
+  recordCooldown(target: RuntimeModelTarget, error: unknown): void;
   request: AgentRunRequest;
   getActive(): RuntimeModelTarget;
   signal: AbortSignal;
@@ -2404,6 +2586,7 @@ function fallbackSupportsContext(
   requestedThinkingLevel: AgentRunRequest["model"]["thinkingLevel"],
   tools: readonly ConnectorTool[],
 ): boolean {
+  if (candidate.config.cliDiscovery) return false;
   const inputTokens = estimateModelContextTokens(context, estimatePiImageTokens);
   const outputTokens = resolveCompletionMaxTokens(
     candidate.model.maxTokens,
@@ -2526,6 +2709,7 @@ function fallbackAwareModelStream(
         ) {
           continue;
         }
+        if (state.isCooling(candidate)) continue;
         return candidate;
       } catch {
         // Missing connections and changed credentials are skipped in configured order.
@@ -2539,6 +2723,15 @@ function fallbackAwareModelStream(
     let firstRetryableError: Extract<AssistantMessageEvent, { type: "error" }> | undefined;
     while (!signalAborted()) {
       const target = state.getActive();
+      if (state.isCooling(target)) {
+        const next = await resolveNext(target);
+        if (failIfAborted(target)) return;
+        if (next) {
+          await state.onSwitch(next);
+          continue;
+        }
+        // Cooldown is only a hint: try the active model when no alternative is available.
+      }
       lastPartial = undefined;
       let sawPartialOutput = false;
       let restart = false;
@@ -2566,6 +2759,7 @@ function fallbackAwareModelStream(
       try {
         for await (const event of stream) {
           if (event.type === "error") {
+            if (state.isProviderFailure(event.error)) state.recordCooldown(target, event.error);
             let terminalEvent = event;
             const hasTerminalPartialOutput = assistantHasPartialOutput(event.error);
             if (

@@ -1,5 +1,17 @@
 import type { Api, Model, MutableModels } from "@earendil-works/pi-ai";
 
+import type { CatalogMetadataFields } from "./pi-catalog-metadata.js";
+
+const supplementMetadata = new WeakMap<MutableModels, Map<string, CatalogMetadataFields>>();
+
+export function supplementedCatalogMetadata(
+  models: MutableModels,
+  provider: string,
+  id: string,
+): CatalogMetadataFields | undefined {
+  return supplementMetadata.get(models)?.get(`${provider}/${id}`);
+}
+
 /** Fill catalog gaps until the bundled provider library includes these releases. */
 export function supplementPiModels(models: MutableModels): MutableModels {
   function add(
@@ -12,6 +24,17 @@ export function supplementPiModels(models: MutableModels): MutableModels {
     const base = models.getModel(providerId, baseId);
     if (!provider || !base) throw new Error(`Missing model baseline: ${providerId}/${baseId}`);
     const model = { ...base, ...overrides };
+    let metadata = supplementMetadata.get(models);
+    if (!metadata) {
+      metadata = new Map();
+      supplementMetadata.set(models, metadata);
+    }
+    // Limits copied from a baseline or a fallback do not establish provenance.
+    // The supplement's explicit cost table is the source for these base-tier prices.
+    metadata.set(`${providerId}/${overrides.id}`, {
+      ...(overrides.cost ? { cost: overrides.cost } : {}),
+      ...(typeof overrides.reasoning === "boolean" ? { reasoning: overrides.reasoning } : {}),
+    });
     models.setProvider({ ...provider, getModels: () => [model, ...provider.getModels()] });
   }
   add("anthropic", "claude-sonnet-5", {

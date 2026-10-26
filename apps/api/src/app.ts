@@ -23,7 +23,9 @@ import {
   ChatSdkMessagingSurface,
   CodexCatalogCache,
   ComposioConnector,
+  catalogBudgetRates,
   createBackgroundJobHandlers,
+  createBudgetObserver,
   createCloudAgentConnection,
   createConnectorStack,
   createJobReconciler,
@@ -34,7 +36,10 @@ import {
   createRunSecretWriter,
   createSecretStore,
   createTicketChangeNotifier,
+  createUpperBound,
   createWebProvider,
+  currentBudgetScope,
+  DEFAULT_BUDGET_FALLBACK_PER_MTOK,
   deletePushToken,
   destroyBot,
   EmailEmulator,
@@ -61,6 +66,8 @@ import {
   piSessionsRoot,
   reconcileCloudAgents,
   reconcileComputerUpdates,
+  reconcileOrgCheckIns,
+  reconcileTicketWakes,
   removePiUserSessions,
   ScriptedAgentRuntime,
   SmtpEmailProvider,
@@ -73,11 +80,13 @@ import {
 } from "@rakazo/adapters";
 import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@rakazo/auth";
 import type { Actor, AuthCapabilities } from "@rakazo/contracts";
+import { requestedUiLocale } from "@rakazo/contracts";
 import { signupAllowlistBootUpdate, signupPolicyFromEnv } from "@rakazo/core";
 import type { Pool, PrismaClient } from "@rakazo/db";
 import {
   createBoardEvents,
   createDb,
+  createDbBudgetPort,
   createPool,
   createThreadEvents,
   IsolationError,
@@ -386,6 +395,14 @@ export async function createApp(
       ? new ScriptedAgentRuntime()
       : new PiAgentRuntime({
           sessionRoot: env.piSessionRecording ? piSessionsRoot(env.dataDir) : undefined,
+          modelCallObserver: createBudgetObserver({
+            port: createDbBudgetPort(prisma),
+            scope: currentBudgetScope,
+            upperBoundMicroUsd: createUpperBound({
+              lookup: catalogBudgetRates,
+              fallbackPerMTok: DEFAULT_BUDGET_FALLBACK_PER_MTOK,
+            }),
+          }),
         }));
   const notifications = new ExpoPushProvider(env.dataDir, (sessionId) =>
     pushSessionExpiresAt(prisma, sessionId),
@@ -517,6 +534,7 @@ export async function createApp(
   if (inMemoryJobs) {
     await inMemoryJobs.start(jobHandlers);
   }
+  const ticketWakeClaimer = `runtime:${randomUUID()}`;
   const reconciler = inMemoryJobs
     ? createJobReconciler({
         prisma,
@@ -525,6 +543,13 @@ export async function createApp(
         notifications,
         reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
         reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
+        reconcileOrgCheckIns: () => reconcileOrgCheckIns({ prisma, jobs }),
+        reconcileTicketWakes: async () => {
+          await reconcileTicketWakes(
+            { prisma, jobs, ticketBoardEnabled },
+            { claimer: ticketWakeClaimer },
+          );
+        },
       })
     : undefined;
   reconciler?.start();
@@ -635,7 +660,12 @@ export async function createApp(
     const session = await auth.api.getSession({ headers: sessionHeaders(request) });
     if (!session?.user) return null;
     const actor = await actorFromMembership(
-      requireMembership(prisma, session.user.id, request.headers.get("x-rakazo-space-id")),
+      requireMembership(
+        prisma,
+        session.user.id,
+        request.headers.get("x-rakazo-space-id"),
+        requestedUiLocale(request.headers.get("accept-language")),
+      ),
     );
     return actor && { actor, sessionId: session.session.id };
   };

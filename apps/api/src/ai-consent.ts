@@ -63,7 +63,15 @@ export async function aiConsentStatus(
             archivedAt: null,
             ...(botIds ? { id: { in: botIds } } : {}),
           },
-          select: { modelProvider: true, modelId: true, thinkingLevel: true },
+          select: {
+            modelProvider: true,
+            modelId: true,
+            thinkingLevel: true,
+            backupModels: {
+              orderBy: { position: "asc" },
+              select: { provider: true, modelId: true },
+            },
+          },
         })
       : [],
     // An active routine with its own model is another recipient for this bot.
@@ -145,7 +153,7 @@ export async function aiConsentStatus(
         thinkingLevel: null,
       });
     const backupModels = await Promise.all(
-      backups.map(async (backup) => {
+      [...backups, ...bots.flatMap((bot) => bot.backupModels ?? [])].map(async (backup) => {
         const credential = await findModelCredential(
           deps.prisma,
           actor,

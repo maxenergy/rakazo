@@ -15,6 +15,7 @@ function prismaForMembership(found: boolean) {
           : null,
       ),
     },
+    user: { update: vi.fn() },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({ ownerUserId: "user-1" })),
     },
@@ -22,6 +23,21 @@ function prismaForMembership(found: boolean) {
 }
 
 describe("requireMembership", () => {
+  it("saves the selected language only for an authorized member", async () => {
+    const prisma = prismaForMembership(true);
+    expect(await requireMembership(prisma, "user-1", undefined, "zh-CN")).toMatchObject({
+      uiLocale: "zh-CN",
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { uiLocale: "zh-CN" },
+    });
+    const denied = prismaForMembership(false);
+    await expect(requireMembership(denied, "user-1", "foreign", "zh-CN")).rejects.toBeInstanceOf(
+      IsolationError,
+    );
+    expect(denied.user.update).not.toHaveBeenCalled();
+  });
   it("scopes the actor to an explicitly requested space", async () => {
     const prisma = prismaForMembership(true);
 

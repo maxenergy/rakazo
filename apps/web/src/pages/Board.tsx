@@ -1,6 +1,14 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/web";
-import type { Bot, Ticket, TicketComment, TicketPriority, TicketStatus } from "@rakazo/contracts";
+import type {
+  Bot,
+  Milestone,
+  Project,
+  Ticket,
+  TicketComment,
+  TicketPriority,
+  TicketStatus,
+} from "@rakazo/contracts";
 import {
   TICKET_COMMENT_MAX_LENGTH,
   TICKET_DESCRIPTION_MAX_LENGTH,
@@ -21,97 +29,102 @@ import {
 } from "@rakazo/ui-web";
 import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { formatRelativeTime } from "../lib/relative-time";
 import { rpc } from "../lib/rpc";
 import { useTicketPriorityLabels } from "../lib/ticket-priority";
 import { useTicketStatusLabels } from "../lib/ticket-status";
+import { useBoardRefresh } from "../lib/use-board-refresh";
 import { errorText } from "../lib/user-error";
+import { TicketDependencies } from "./TicketDependencies";
 import { WindowChrome } from "./WindowChrome";
 
 export function BoardPage() {
+  const filterId = useId();
   const { t } = useLingui();
   const statuses = useTicketStatusLabels();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [bots, setBots] = useState<Bot[]>([]);
-  const [selected, setSelected] = useState<Ticket | "new" | null>(null);
-  const [error, setError] = useState("");
-  const [commentRefresh, setCommentRefresh] = useState<Record<string, number>>({});
-  const reload = useCallback(async () => {
-    const result = await rpc.tickets.list({});
-    setTickets(result.tickets);
-  }, []);
-
+  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia?.("(max-width: 767px)").matches ?? false,
+  );
   useEffect(() => {
-    let currentController: AbortController | undefined;
-    let active = true;
-    void Promise.all([rpc.tickets.list({}), rpc.bots.list()])
-      .then(([result, owners]) => {
-        if (!active) return;
-        setTickets(result.tickets);
-        setBots(owners);
-      })
-      .catch((cause) => {
-        if (active) setError(errorText(cause));
-      });
-    let cancelRetry: (() => void) | undefined;
-    void (async () => {
-      while (active) {
-        const controller = new AbortController();
-        currentController = controller;
-        try {
-          const stream = await rpc.boards.subscribe(undefined, { signal: controller.signal });
-          if (!active) return;
-          const result = await rpc.tickets.list({});
-          if (!active) return;
-          setTickets(result.tickets);
-          setCommentRefresh((previous) => ({
-            ...previous,
-            "*": (previous["*"] ?? 0) + 1,
-          }));
-          setError("");
-          for await (const event of stream) {
-            if (!active) return;
-            setCommentRefresh((previous) => ({
-              ...previous,
-              [event.ticketId ?? "*"]: (previous[event.ticketId ?? "*"] ?? 0) + 1,
-            }));
-            const result = await rpc.tickets.list({});
-            if (active) setTickets(result.tickets);
-          }
-        } catch (cause) {
-          if (active) setError(errorText(cause));
-        } finally {
-          controller.abort();
-        }
-        if (!active) return;
-        await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, 1_000);
-          cancelRetry = () => {
-            clearTimeout(timer);
-            resolve();
-          };
-        });
-        cancelRetry = undefined;
-      }
-    })();
-    return () => {
-      active = false;
-      currentController?.abort();
-      cancelRetry?.();
-    };
+    const media = window.matchMedia?.("(max-width: 767px)");
+    if (!media) return;
+    const update = () => setNarrow(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
   }, []);
+  const listView = narrow || location.pathname === "/app/tickets";
+  const projectFilter = params.get("projectId");
+  const milestoneFilter = params.get("milestoneId");
+  const statusFilter = params.get("status");
+  const filters = useCallback(
+    () => ({
+      ...(projectFilter !== null
+        ? { projectId: projectFilter === "none" ? null : projectFilter }
+        : {}),
+      ...(milestoneFilter !== null
+        ? { milestoneId: milestoneFilter === "none" ? null : milestoneFilter }
+        : {}),
+      ...(TICKET_STATUSES.includes(statusFilter as TicketStatus)
+        ? { status: statusFilter as TicketStatus }
+        : {}),
+    }),
+    [projectFilter, milestoneFilter, statusFilter],
+  );
+  const [selected, setSelected] = useState<Ticket | "new" | null>(null);
+  const [savedRevision, setSavedRevision] = useState(0);
+  const load = useCallback(
+    async (spaceId: string | null) => {
+      const options = { context: { spaceId } };
+      const [result, bots, projects] = await Promise.all([
+        rpc.tickets.list(filters(), options),
+        rpc.bots.list(undefined, options),
+        rpc.projects.list({ archived: false }, options),
+      ]);
+      const milestones =
+        projectFilter && projectFilter !== "none"
+          ? await rpc.milestones.list({ projectId: projectFilter, archived: false }, options)
+          : [];
+      return { tickets: result.tickets, bots, projects, milestones, savedRevision };
+    },
+    [filters, projectFilter, savedRevision],
+  );
+  const { data, error: loadError } = useBoardRefresh(load);
+  const tickets = data?.tickets ?? [];
+  const bots = data?.bots ?? [];
+  const error = loadError ? errorText(loadError) : "";
+  const reload = useCallback(async () => setSavedRevision((value) => value + 1), []);
+  function changeFilter(key: string, value: string) {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    if (key === "projectId") next.delete("milestoneId");
+    setParams(next);
+  }
 
   return (
     <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-background text-foreground">
       <WindowChrome />
-      <header className="flex items-center gap-3 border-b px-4 py-3">
+      <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         <Button variant="ghost" size="icon" render={<Link to="/app" />} aria-label={t`Back`}>
           <ChevronLeft />
         </Button>
         <h1 className="flex-1 font-medium">
-          <Trans>Board</Trans>
+          {listView ? <Trans>Tickets</Trans> : <Trans>Board</Trans>}
         </h1>
+        <Button variant="outline" render={<Link to="/app/projects" />}>
+          <Trans>Projects</Trans>
+        </Button>
+        {!narrow ? (
+          <Button
+            variant="outline"
+            render={<Link to={`${listView ? "/app/board" : "/app/tickets"}${location.search}`} />}
+          >
+            {listView ? <Trans>Board</Trans> : <Trans>List</Trans>}
+          </Button>
+        ) : null}
         <Button onClick={() => setSelected("new")} disabled={bots.length === 0}>
           <Trans>New ticket</Trans>
         </Button>
@@ -121,31 +134,114 @@ export function BoardPage() {
           {error}
         </p>
       ) : null}
-      <main className="relative min-h-0 min-w-0 flex-1 overflow-auto p-4">
-        <div data-testid="board-columns" className="flex min-h-full gap-3">
-          {TICKET_STATUSES.map((status) => (
-            <section key={status} className="min-w-40 flex-1 space-y-2">
-              <h2 className="px-1 text-sm font-medium">{statuses[status]}</h2>
-              {tickets
-                .filter((ticket) => ticket.status === status)
-                .map((ticket) => (
-                  <Button
-                    key={ticket.id}
-                    data-testid={`board-card-${ticket.id}`}
-                    variant="outline"
-                    className="h-auto w-full flex-col items-start gap-1 whitespace-normal p-3 text-left font-normal"
-                    onClick={() => setSelected(ticket)}
-                  >
-                    <span className="text-xs text-muted-foreground">{ticket.ref}</span>
-                    <span>{ticket.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {bots.find((bot) => bot.id === ticket.assigneeBotId)?.name}
-                    </span>
-                  </Button>
-                ))}
-            </section>
-          ))}
+      <div className="flex flex-wrap gap-3 border-b px-4 py-3">
+        <div className="min-w-0 flex-1 text-sm">
+          <label htmlFor={`${filterId}-project`}>
+            <Trans>Project</Trans>
+          </label>
+          <NativeSelect
+            id={`${filterId}-project`}
+            className="w-full"
+            value={projectFilter ?? ""}
+            onChange={(event) => changeFilter("projectId", event.target.value)}
+          >
+            <NativeSelectOption value="">{t`All`}</NativeSelectOption>
+            <NativeSelectOption value="none">{t`Unassociated`}</NativeSelectOption>
+            {data?.projects.map((project) => (
+              <NativeSelectOption key={project.id} value={project.id}>
+                {project.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
         </div>
+        <div className="min-w-0 flex-1 text-sm">
+          <label htmlFor={`${filterId}-milestone`}>
+            <Trans>Milestone</Trans>
+          </label>
+          <NativeSelect
+            id={`${filterId}-milestone`}
+            className="w-full"
+            value={milestoneFilter ?? ""}
+            onChange={(event) => changeFilter("milestoneId", event.target.value)}
+          >
+            <NativeSelectOption value="">{t`All`}</NativeSelectOption>
+            <NativeSelectOption value="none">{t`Unassociated`}</NativeSelectOption>
+            {data?.milestones.map((milestone) => (
+              <NativeSelectOption key={milestone.id} value={milestone.id}>
+                {milestone.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="min-w-0 text-sm">
+          <label htmlFor={`${filterId}-status`}>
+            <Trans>Status</Trans>
+          </label>
+          <NativeSelect
+            id={`${filterId}-status`}
+            className="w-full"
+            value={statusFilter ?? ""}
+            onChange={(event) => {
+              const next = new URLSearchParams(params);
+              if (event.target.value) next.set("status", event.target.value);
+              else next.delete("status");
+              setParams(next);
+            }}
+          >
+            <NativeSelectOption value="">{t`All`}</NativeSelectOption>
+            {TICKET_STATUSES.map((status) => (
+              <NativeSelectOption key={status} value={status}>
+                {statuses[status]}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+      </div>
+      <main className="relative min-h-0 min-w-0 flex-1 overflow-auto p-4">
+        {listView ? (
+          <ul data-testid="ticket-list" className="min-w-0 space-y-2">
+            {tickets.map((ticket) => (
+              <li key={ticket.id} className="min-w-0">
+                <Button
+                  variant="outline"
+                  data-testid={`board-card-${ticket.id}`}
+                  className="h-auto w-full min-w-0 flex-col items-start whitespace-normal break-words p-3 text-left"
+                  onClick={() => setSelected(ticket)}
+                >
+                  <span className="text-xs text-muted-foreground">
+                    {ticket.ref} · {statuses[ticket.status]}
+                  </span>
+                  <span className="max-w-full break-words">{ticket.title}</span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div data-testid="board-columns" className="flex min-h-full gap-3">
+            {TICKET_STATUSES.map((status) => (
+              <section key={status} className="min-w-40 flex-1 space-y-2">
+                <h2 className="px-1 text-sm font-medium">{statuses[status]}</h2>
+                {tickets
+                  .filter((ticket) => ticket.status === status)
+                  .map((ticket) => (
+                    <Button
+                      key={ticket.id}
+                      data-testid={`board-card-${ticket.id}`}
+                      variant="outline"
+                      className="h-auto w-full flex-col items-start gap-1 whitespace-normal p-3 text-left font-normal"
+                      onClick={() => setSelected(ticket)}
+                    >
+                      <span className="text-xs text-muted-foreground">{ticket.ref}</span>
+                      <span>{ticket.title}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {bots.find((bot) => bot.id === ticket.assigneeBotId)?.name}
+                      </span>
+                    </Button>
+                  ))}
+              </section>
+            ))}
+          </div>
+        )}
         {tickets.length === 0 && !error ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
             <Trans>No tickets yet</Trans>
@@ -157,10 +253,8 @@ export function BoardPage() {
           key={selected === "new" ? "new" : selected.id}
           ticket={selected === "new" ? null : selected}
           bots={bots}
-          commentRevision={
-            (commentRefresh["*"] ?? 0) +
-            (selected === "new" ? 0 : (commentRefresh[selected.id] ?? 0))
-          }
+          projects={data?.projects ?? []}
+          commentRevision={data}
           onClose={() => setSelected(null)}
           onSaved={reload}
         />
@@ -175,8 +269,10 @@ function TicketDialog({
   onClose,
   onSaved,
   commentRevision,
+  projects,
 }: {
-  commentRevision?: number;
+  projects: Project[];
+  commentRevision?: unknown;
   ticket: Ticket | null;
   bots: Bot[];
   onClose: () => void;
@@ -191,6 +287,26 @@ function TicketDialog({
   const [owner, setOwner] = useState(ticket?.assigneeBotId ?? bots[0]?.id ?? "");
   const [status, setStatus] = useState<TicketStatus>(ticket?.status ?? "todo");
   const [priority, setPriority] = useState<TicketPriority>(ticket?.priority ?? "normal");
+  const [projectId, setProjectId] = useState(ticket?.projectId ?? "");
+  const [milestoneId, setMilestoneId] = useState(ticket?.milestoneId ?? "");
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  useEffect(() => {
+    let active = true;
+    setMilestones([]);
+    if (projectId && projects.some((project) => project.id === projectId && !project.archived)) {
+      void rpc.milestones
+        .list({ projectId, archived: false })
+        .then((rows) => {
+          if (active) setMilestones(rows.filter((row) => !row.archived));
+        })
+        .catch((cause) => {
+          if (active) setError(errorText(cause));
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [projectId, projects]);
   const [comments, setComments] = useState<TicketComment[]>([]);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -226,8 +342,21 @@ function TicketDialog({
             : {}),
           ...(status !== ticket.status ? { status } : {}),
           ...(priority !== ticket.priority ? { priority } : {}),
+          ...(projectId !== (ticket.projectId ?? "")
+            ? { projectId: projectId || null, milestoneId: milestoneId || null }
+            : milestoneId !== (ticket.milestoneId ?? "")
+              ? { milestoneId: milestoneId || null }
+              : {}),
         });
-      else await rpc.tickets.create({ title, description, assigneeBotId: owner, priority });
+      else
+        await rpc.tickets.create({
+          title,
+          description,
+          assigneeBotId: owner,
+          priority,
+          ...(projectId ? { projectId } : {}),
+          ...(milestoneId ? { milestoneId } : {}),
+        });
       await onSaved();
       onClose();
     } catch (cause) {
@@ -330,6 +459,51 @@ function TicketDialog({
               </NativeSelect>
             </label>
           ) : null}
+          <div className="block space-y-1 text-sm">
+            <label htmlFor={`${formId}-project`}>
+              <span>
+                <Trans>Project</Trans>
+              </span>
+            </label>
+            <NativeSelect
+              id={`${formId}-project`}
+              className="w-full"
+              value={projectId}
+              onChange={(event) => {
+                setProjectId(event.target.value);
+                setMilestoneId("");
+              }}
+            >
+              <NativeSelectOption value="">{t`Unassociated`}</NativeSelectOption>
+              {projects
+                .filter((project) => !project.archived)
+                .map((project) => (
+                  <NativeSelectOption key={project.id} value={project.id}>
+                    {project.name}
+                  </NativeSelectOption>
+                ))}
+            </NativeSelect>
+          </div>
+          <div className="block space-y-1 text-sm">
+            <label htmlFor={`${formId}-milestone`}>
+              <span>
+                <Trans>Milestone</Trans>
+              </span>
+            </label>
+            <NativeSelect
+              id={`${formId}-milestone`}
+              className="w-full"
+              value={milestoneId}
+              onChange={(event) => setMilestoneId(event.target.value)}
+            >
+              <NativeSelectOption value="">{t`Unassociated`}</NativeSelectOption>
+              {milestones.map((milestone) => (
+                <NativeSelectOption key={milestone.id} value={milestone.id}>
+                  {milestone.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
           <label htmlFor={`${formId}-priority`} className="block space-y-1 text-sm">
             <span>
               <Trans>Priority</Trans>
@@ -353,6 +527,9 @@ function TicketDialog({
             </Button>
           </div>
         </form>
+        {ticket ? (
+          <TicketDependencies ticketId={ticket.id} revision={commentRevision} onSaved={onSaved} />
+        ) : null}
         {ticket ? (
           <div data-testid="ticket-comments" className="space-y-3 border-t pt-3">
             {comments.map((row) => (

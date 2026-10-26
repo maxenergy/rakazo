@@ -1,5 +1,7 @@
+import { AI_DISCLOSURE_VERSION } from "@rakazo/contracts";
+import type { PrismaClient } from "@rakazo/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { aiRecipient } from "./ai-consent.js";
+import { aiRecipient, requireBackupModelConsent } from "./ai-consent.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -47,4 +49,31 @@ describe("mobile AI recipient disclosure", () => {
     ).toContain("http://127.0.0.1:11434");
     expect(fetch).not.toHaveBeenCalled();
   });
+});
+
+describe("backup execution consent", () => {
+  it.each([null, { version: "outdated" }, { version: AI_DISCLOSURE_VERSION }])(
+    "permits execution only with current scoped consent: %j",
+    async (consent) => {
+      const findUnique = vi.fn().mockResolvedValue(consent);
+      const prisma = { aiDataConsent: { findUnique } } as unknown as PrismaClient;
+      const scope = { userId: "run-user", spaceId: "run-space" };
+      const model = { provider: "openai", id: "test-model" };
+      const result = requireBackupModelConsent(prisma, scope, model);
+      if (consent?.version === AI_DISCLOSURE_VERSION) await expect(result).resolves.toBeUndefined();
+      else await expect(result).rejects.toThrow("requires current AI data-sharing consent");
+      expect(findUnique).toHaveBeenCalledWith({
+        where: {
+          userId_spaceId_recipientKey: {
+            ...scope,
+            recipientKey: aiRecipient({
+              provider: model.provider,
+              modelId: model.id,
+              use: "model",
+            })!.key,
+          },
+        },
+      });
+    },
+  );
 });

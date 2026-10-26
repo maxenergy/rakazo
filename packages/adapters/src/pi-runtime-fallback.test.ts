@@ -11,6 +11,8 @@ import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-s
 import type { AgentRunRequest, AgentRuntimeEvent, ModelCallObserver } from "@rakazo/adapter-kit";
 import type * as Core from "@rakazo/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BudgetExceededError } from "./budget-observer.js";
+import { currentBudgetScope } from "./budget-scope.js";
 
 const providerState = vi.hoisted(() => ({
   models: new Map<string, Record<string, unknown>>(),
@@ -51,6 +53,10 @@ vi.mock("@earendil-works/pi-ai/providers/all", () => ({
 }));
 
 vi.mock("./pi-current-models.js", () => ({ supplementPiModels: (models: unknown) => models }));
+vi.mock("./cli-model-provider.js", () => ({
+  registerCliModelProviders: (models: unknown) => models,
+}));
+
 vi.mock("./pi-local-provider.js", () => ({ registerLocalProvider: (models: unknown) => models }));
 vi.mock("./pi-openai-compatible-provider.js", () => ({
   OPENAI_COMPATIBLE_PROVIDER_ID: "openai-compatible",
@@ -489,6 +495,75 @@ describe("Pi runtime ordered model fallback", () => {
     },
   );
 
+  it("skips a cooling primary across runs and retries it after expiry", async () => {
+    const runtime = new PiAgentRuntime();
+    let now = 1_800_000_000_000;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", "429 rate_limit_error"))
+        : stream(target, message(target, [{ type: "text", text: "answer" }], "stop")),
+    );
+    const input = () => {
+      const value = request([{ provider: backupA.provider, id: backupA.id }]);
+      value.resolveFallbackModel = async () => ({
+        provider: backupA.provider,
+        id: backupA.id,
+        apiKey: "fake-backup-key",
+      });
+      return value;
+    };
+    const called = () =>
+      providerState.stream.mock.calls.map(
+        ([target]) => (target as Model<"openai-completions">).provider,
+      );
+    try {
+      await run(input(), [], runtime);
+      expect(called()).toEqual([primary.provider, backupA.provider]);
+      providerState.stream.mockClear();
+      await run(input(), [], runtime);
+      expect(called()).toEqual([backupA.provider]);
+      providerState.stream.mockClear();
+      now += 29_000;
+      await run(input(), [], runtime);
+      expect(called()).toEqual([backupA.provider]);
+      providerState.stream.mockClear();
+      now += 2_000;
+      await run(input(), [], runtime);
+      expect(called()).toEqual([primary.provider, backupA.provider]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("retries a cooling primary when its backup credential is unavailable", async () => {
+    const runtime = new PiAgentRuntime();
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", "429 rate limit"))
+        : stream(target, message(target, [{ type: "text", text: "backup" }], "stop")),
+    );
+    await run(
+      request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]),
+      [],
+      runtime,
+    );
+    providerState.stream.mockClear();
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [{ type: "text", text: "primary recovered" }], "stop")),
+    );
+    const input = request([{ provider: backupA.provider, id: backupA.id }]);
+    input.resolveFallbackModel = async () => {
+      throw new Error("Credential disconnected");
+    };
+    await run(input, [], runtime);
+    expect(
+      providerState.stream.mock.calls.map(
+        ([target]) => (target as Model<"openai-completions">).provider,
+      ),
+    ).toEqual([primary.provider]);
+  });
+
   it("preserves OAuth getApiKey behavior with no backup list", async () => {
     const input = request();
     delete input.fallbackModels;
@@ -544,13 +619,20 @@ describe("Pi runtime ordered model fallback", () => {
   it.each([false, true])(
     "bills configured model ids with switched=%s despite provider response ids",
     async (switched) => {
-      const beforeCall = vi.fn<ModelCallObserver["beforeCall"]>(async () => "reservation");
+      const observedScopes: unknown[] = [];
+      const scope = { spaceId: "scope-space", projectId: "original-project" };
+      const beforeCall = vi.fn<ModelCallObserver["beforeCall"]>(async () => {
+        observedScopes.push(currentBudgetScope());
+        scope.projectId = "mutated-project";
+        return "reservation";
+      });
       const afterCall = vi.fn<ModelCallObserver["afterCall"]>(async () => undefined);
       const onUsage = vi.fn<NonNullable<AgentRunRequest["onUsage"]>>(async () => undefined);
       const input = request(
         switched ? [{ provider: backupA.provider, id: backupA.id, apiKey: "backup-key" }] : [],
       );
       input.onUsage = onUsage;
+      input.budgetScope = scope;
       providerState.stream.mockImplementation((target: Model<"openai-completions">) => {
         const failure = switched && target.provider === primary.provider;
         const result = message(
@@ -570,6 +652,13 @@ describe("Pi runtime ordered model fallback", () => {
         new PiAgentRuntime({ modelCallObserver: { beforeCall, afterCall } }),
       );
       const targets = switched ? [primary, backupA] : [primary];
+      expect(observedScopes).toEqual(
+        targets.map(() => ({
+          spaceId: "scope-space",
+          projectId: "original-project",
+        })),
+      );
+      expect(currentBudgetScope()).toBeNull();
       expect(beforeCall.mock.calls.map(([call]) => call)).toEqual(
         targets.map((target) =>
           expect.objectContaining({ provider: target.provider, modelId: target.id }),
@@ -584,6 +673,15 @@ describe("Pi runtime ordered model fallback", () => {
             outputTokens: 2,
           }),
         ),
+      );
+      const physicalCalls = onUsage.mock.calls.map(([event]) => event.callId);
+      expect(beforeCall.mock.calls.map(([call]) => call.callId)).toEqual(physicalCalls);
+      expect(physicalCalls.every((callId) => typeof callId === "string" && callId.length > 0)).toBe(
+        true,
+      );
+      expect(new Set(physicalCalls).size).toBe(targets.length);
+      expect(events.filter((event) => event.type === "usage").map((event) => event.callId)).toEqual(
+        physicalCalls,
       );
       expect(afterCall).toHaveBeenCalledTimes(targets.length);
       expect(events.filter((event) => event.type === "usage")).toEqual(
@@ -623,6 +721,73 @@ describe("Pi runtime ordered model fallback", () => {
       expect(beforeCall).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("pauses on budget denial without invoking primary or backup models", async () => {
+    const beforeCall = vi.fn<ModelCallObserver["beforeCall"]>(async () => {
+      throw new BudgetExceededError("insufficient", 2n, {
+        spaceId: "space",
+        projectId: "project",
+        callId: "call",
+        amountMicroUsd: 5n,
+      });
+    });
+    const afterCall = vi.fn();
+    const events = await run(
+      request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-backup-key" }]),
+      [],
+      new PiAgentRuntime({ modelCallObserver: { beforeCall, afterCall } }),
+    );
+    expect(events.filter((event) => event.type === "budget_pause")).toEqual([
+      {
+        type: "budget_pause",
+        reason: "insufficient",
+        availableMicroUsd: "2",
+        call: { spaceId: "space", projectId: "project", callId: "call", amountMicroUsd: "5" },
+      },
+    ]);
+    expect(events.some((event) => event.type === "done")).toBe(false);
+    expect(beforeCall).toHaveBeenCalledTimes(1);
+    expect(providerState.stream).not.toHaveBeenCalled();
+    expect(afterCall).not.toHaveBeenCalled();
+  });
+
+  it("does not start a backup provider when its budget start gate denies", async () => {
+    const beforeCall = vi
+      .fn<ModelCallObserver["beforeCall"]>()
+      .mockResolvedValueOnce("primary-reservation")
+      .mockResolvedValueOnce("backup-reservation");
+    const startCall = vi
+      .fn<NonNullable<ModelCallObserver["startCall"]>>()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        new BudgetExceededError("insufficient", 2n, {
+          spaceId: "space",
+          projectId: "project",
+          callId: "backup-call",
+          amountMicroUsd: 5n,
+        }),
+      );
+    const afterCall = vi.fn<ModelCallObserver["afterCall"]>(async () => {});
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [], "error", "503 provider unavailable")),
+    );
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "backup-key" },
+      { provider: backupB.provider, id: backupB.id, apiKey: "other-backup-key" },
+    ]);
+    const events = await run(
+      input,
+      [],
+      new PiAgentRuntime({
+        modelCallObserver: { beforeCall, startCall, afterCall },
+      }),
+    );
+    expect(beforeCall).toHaveBeenCalledTimes(2);
+    expect(startCall.mock.calls).toEqual([["primary-reservation"], ["backup-reservation"]]);
+    expect(providerState.stream).toHaveBeenCalledTimes(1);
+    expect(afterCall).toHaveBeenCalledWith("backup-reservation", null, { started: false });
+    expect(events.some((event) => event.type === "budget_pause")).toBe(true);
+  });
 
   it("advances after a provider stream throws before output", async () => {
     providerState.stream.mockImplementation((target: Model<"openai-completions">) => {

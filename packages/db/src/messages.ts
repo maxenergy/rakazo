@@ -1,5 +1,6 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import type { Prisma, PrismaClient } from "./client.js";
+import { assertExecutionFence, type ExecutionFence } from "./execution-fence.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 /** Group turns use channel inputs and their own outputs, never private thread history. */
@@ -43,6 +44,7 @@ export function loadRunHistoryMessages(
 }
 
 export interface CreateThreadMessageInput {
+  executionFence?: ExecutionFence;
   threadId: string;
   role: "user" | "bot" | "system";
   blocks: MessageBlock[];
@@ -76,6 +78,11 @@ export async function createThreadMessageInTransaction(
     },
     select: { nextMessageSeq: true },
   });
+  if (input.executionFence) {
+    if (input.runId !== input.executionFence.runId)
+      throw new Error("Message execution fence must match run");
+    await assertExecutionFence(tx, input.executionFence);
+  }
   await assertRunCanWriteHistory(tx, input.runId, { allowCancelled: input.allowCancelledRun });
   return tx.message.create({
     data: {

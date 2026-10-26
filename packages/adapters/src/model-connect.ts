@@ -7,14 +7,11 @@ import {
   isCloudflareAiGatewayProvider,
   modelOutputLeavesInputRoom,
 } from "@rakazo/contracts";
+import { isCliModelProvider } from "./cli-model-process.js";
 import { modelIdSupportsImages, updateModelImageCapabilities } from "./model-vision.js";
 import { modelCredentialAuthKind } from "./pi-catalog-availability.js";
-import {
-  CHATGPT_OAUTH_PROVIDER,
-  parseModelSecret,
-  type StoredModelSecret,
-  serializeModelSecret,
-} from "./pi-oauth.js";
+import type { StoredModelSecret } from "./pi-oauth.js";
+import { CHATGPT_OAUTH_PROVIDER, parseModelSecret, serializeModelSecret } from "./pi-oauth.js";
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   openAiCompatibleModel,
@@ -31,6 +28,14 @@ export function buildModelConnectPlaintext(
   previousPlaintext?: string,
   options?: BuildModelConnectOptions,
 ): string {
+  if (isCliModelProvider(input.provider)) {
+    const previous = tryParseModelSecret(previousPlaintext);
+    if (input.apiKey || previous?.kind !== "cli")
+      throw new Error("Sign in with the official CLI for this connection.");
+    if (input.maxTokens != null)
+      throw new Error("Output-token limits are managed by the official CLI.");
+    return serializeModelSecret({ kind: "cli", credential: previous.credential });
+  }
   const previous = tryParseModelSecret(previousPlaintext);
   const inherited = previous?.kind === "api_key" ? previous : undefined;
   const cacheCapabilities = input.cacheCapabilities ?? inherited?.cacheCapabilities;
@@ -241,7 +246,7 @@ export function modelCredentialDto(
       ...credential,
       authKind: modelCredentialAuthKind(parsed),
       ...(parsed.maxTokens !== undefined ? { maxTokens: parsed.maxTokens } : {}),
-      ...(parsed.kind !== "oauth"
+      ...(parsed.kind === "api_key" || parsed.kind === "openai_compatible"
         ? {
             cacheCapabilities: parsed.cacheCapabilities,
             contextWindow: parsed.contextWindow,

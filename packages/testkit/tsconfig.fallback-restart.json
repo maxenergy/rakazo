@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": [
+    "src/fallback-restart.postgres.test.ts",
+    "src/fallback-restart-process-barrier.ts",
+    "src/postgres-integration-list.test.ts",
+    "vitest.fallback-restart-process.config.ts"
+  ],
+  "exclude": []
+}

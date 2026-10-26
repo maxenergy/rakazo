@@ -86,6 +86,21 @@ describe("computer lifecycle command guard", () => {
     expect(isProtectedComputerLifecycleCommand(command)).toBe(true);
   });
 
+  it.each([
+    "mkdir -p /tmp/rak3/source && tar -xzf src.tar.gz -C /tmp/rak3/source",
+    "ls /home/rakazo/workspace/source",
+    "pnpm test; echo exit=$?",
+    'echo "args=$# pid=$$ last=$!"',
+  ])("allows source-tree paths and numeric shell parameters: %s", (command) => {
+    expect(protectedComputerLifecycleRefusal(command)).toBeUndefined();
+  });
+
+  it("still refuses the bare source and eval builtins", () => {
+    expect(protectedComputerLifecycleRefusal("source /tmp/rak3/source/run.sh")).toBe("source");
+    expect(protectedComputerLifecycleRefusal('eval "$CMD"')).toBeDefined();
+    expect(protectedComputerLifecycleRefusal("echo $NAME")).toBe("unresolved variable $NAME");
+  });
+
   it("names the trigger that the desktop-protection guard refused", () => {
     expect(protectedComputerLifecycleRefusal("pkill chromium")).toBe("protected command pkill");
     expect(protectedComputerLifecycleRefusal("kill -9 1234")).toBe("protected command kill");

@@ -42,6 +42,7 @@ function deps(
   const tx = {
     $queryRaw: vi.fn().mockResolvedValue([{ id: "thread" }]),
     run: {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       findFirst: vi
         .fn()
         .mockResolvedValue(options.senderRunning === false ? null : { id: "run-1" }),
@@ -262,7 +263,15 @@ describe("messaging another bot", () => {
       { allowTerminalSource: true },
     );
     expect(sent.ok).toBe(true);
-    expect(harness.tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(
+      harness.tx.$queryRaw.mock.calls.map(([sql, id]) => ({ sql: sql.join("?"), id })),
+    ).toEqual([
+      { sql: "SELECT id FROM spaces WHERE id = ? FOR KEY SHARE", id: run.spaceId },
+      { sql: "SELECT id FROM bots WHERE id = ? FOR UPDATE", id: run.botId },
+      { sql: "SELECT id FROM bots WHERE id = ? FOR UPDATE", id: "bot-target" },
+      { sql: "SELECT id FROM threads WHERE id = ? FOR UPDATE", id: run.threadId },
+      { sql: "SELECT id FROM threads WHERE id = ? FOR UPDATE", id: "thread-target" },
+    ]);
     expect(harness.tx.message.create).toHaveBeenLastCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -722,5 +731,29 @@ describe("automatic outcome return", () => {
     expect(returned).toBe(true);
     expect(harness.enqueue).not.toHaveBeenCalled();
     expect(harness.deps.prisma.run.updateMany).toHaveBeenCalled();
+  });
+});
+
+describe("peer delivery execution fence", () => {
+  it("rejects a stale worker before messages, tasks, events or wakeups", async () => {
+    const harness = deps();
+    harness.tx.run.updateMany.mockResolvedValue({ count: 0 });
+    await expect(
+      messageBot(
+        harness.deps,
+        {
+          ...run,
+          executionFence: { runId: run.id, leaseOwner: "old-worker", leaseFence: 1 },
+        },
+        sender,
+        { bot_id: "bot-target", message: "stale delivery" },
+      ),
+    ).rejects.toMatchObject({ name: "StaleExecutionFenceError" });
+    expect(harness.tx.message.create).not.toHaveBeenCalled();
+    expect(harness.tx.task.create).not.toHaveBeenCalled();
+    expect(harness.tx.run.create).not.toHaveBeenCalled();
+    expect(harness.tx.event.create).not.toHaveBeenCalled();
+    expect(harness.enqueue).not.toHaveBeenCalled();
+    expect(harness.notify).not.toHaveBeenCalled();
   });
 });

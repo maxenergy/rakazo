@@ -41,6 +41,7 @@ import {
   modelPreflightTestingLabel,
 } from "../components/ModelConnectionPreflightNotice";
 import { useCopyText } from "../lib/copy-text";
+import { localizedSignInLabel } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry } from "../lib/model-auth";
 import { thinkingLevelLabel } from "../lib/model-catalog";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
@@ -167,6 +168,7 @@ export function OnboardingPage() {
     pasteCode,
     setPasteCode,
     oauthPending,
+    oauthCodeSubmitting,
     popupBlocked,
     cancelOAuthAttempt,
     startSubscriptionSignIn,
@@ -246,7 +248,7 @@ export function OnboardingPage() {
       : [];
   const subscriptionSignIn = selected?.signIn !== undefined;
   const acceptsKey = selected?.auth !== "oauth";
-  const signInLabel = selected?.oauthLabel ?? t`Sign in`;
+  const signInLabel = localizedSignInLabel(selected?.oauthLabel);
   const openAiCompatibleReady = openAiCompatibleConnectReady({
     baseUrl,
     modelId,
@@ -815,6 +817,7 @@ export function OnboardingPage() {
                         <div className="mt-3 flex items-center gap-2">
                           <Input
                             value={pasteCode}
+                            disabled={oauthCodeSubmitting}
                             onChange={(e) => setPasteCode(e.target.value)}
                             aria-label={t`Authorization code or callback URL`}
                             autoComplete="off"
@@ -822,10 +825,14 @@ export function OnboardingPage() {
                             placeholder="http://localhost:53692/callback?code=…"
                           />
                           <Button
-                            disabled={!pasteCode.trim()}
+                            disabled={oauthCodeSubmitting || !pasteCode.trim()}
                             onClick={() => void submitOAuthCode()}
                           >
-                            <Trans>Submit</Trans>
+                            {oauthCodeSubmitting ? (
+                              <Trans>Connecting…</Trans>
+                            ) : (
+                              <Trans>Submit</Trans>
+                            )}
                           </Button>
                         </div>
                         <p className="mt-2 text-sm text-muted-foreground">
@@ -836,6 +843,15 @@ export function OnboardingPage() {
                           />
                         </p>
                       </>
+                    ) : oauth.mode === "browser" ? (
+                      <a
+                        href={oauth.verificationUri}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-foreground underline"
+                      >
+                        <Trans>Continue sign-in</Trans>
+                      </a>
                     ) : (
                       <>
                         <p className="text-sm text-muted-foreground">

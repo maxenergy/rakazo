@@ -1392,6 +1392,7 @@ msgstr "Connection test failed."
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "Connection to {0} is still pending. You can close this and check again."
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Container"
 msgstr "Container"
@@ -1660,6 +1661,7 @@ msgstr "Could not load commands"
 msgid "Could not load credentials."
 msgstr "Could not load credentials."
 
+#: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Could not load host audit"
 msgstr "Could not load host audit"
@@ -2707,6 +2709,7 @@ msgstr "High"
 msgid "Historical runs stay with their original project."
 msgstr "Historical runs stay with their original project."
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Host"
 msgstr "Host"
@@ -5056,6 +5059,7 @@ msgstr "This file is not valid UTF-8 text."
 msgid "this Mac"
 msgstr "this Mac"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/work-location.tsx
 msgid "This Mac"
 msgstr "This Mac"

@@ -19,7 +19,7 @@ msgstr " (읽지 않음)"
 
 #: src/pages/shell/work-location.tsx
 msgid "—"
-msgstr ""
+msgstr "—"
 
 #. placeholder {0}: group.entries.length
 #: src/pages/ModelSettingsOverlay.tsx
@@ -346,7 +346,7 @@ msgstr "인증 정보 추가"
 
 #: src/pages/shell/work-location.tsx
 msgid "Add directory"
-msgstr ""
+msgstr "Add directory"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
@@ -727,7 +727,7 @@ msgstr "에이전트가 도구를 사용할 수 있도록 이 서버에 권한�
 
 #: src/pages/shell/work-location.tsx
 msgid "Authorized {grantedAt} by {grantedBy}"
-msgstr ""
+msgstr "Authorized {grantedAt} by {grantedBy}"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
@@ -972,7 +972,7 @@ msgstr "비밀번호 변경"
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
-msgstr ""
+msgstr "Changing work location can allow irreversible operations on the host. Continue?"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Changing…"
@@ -1392,9 +1392,10 @@ msgstr "연결 테스트에 실패했습니다."
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "{0} 연결이 아직 진행 중입니다. 이 창을 닫고 나중에 다시 확인할 수 있습니다."
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Container"
-msgstr ""
+msgstr "Container"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1660,9 +1661,10 @@ msgstr "명령을 불러올 수 없습니다"
 msgid "Could not load credentials."
 msgstr "인증 정보를 불러올 수 없습니다."
 
+#: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Could not load host audit"
-msgstr ""
+msgstr "Could not load host audit"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -1842,7 +1844,7 @@ msgstr "선택 내용을 저장하지 못했습니다."
 
 #: src/pages/shell/work-location.tsx
 msgid "Could not save work location"
-msgstr ""
+msgstr "Could not save work location"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not search catalog"
@@ -2329,7 +2331,7 @@ msgstr "Bot 정보 수정"
 
 #: src/pages/shell/work-location.tsx
 msgid "Effective location:"
-msgstr ""
+msgstr "Effective location:"
 
 #: src/pages/Auth.tsx
 msgid "Email"
@@ -2443,7 +2445,7 @@ msgstr "Executor 토큰"
 #. placeholder {0}: entry.exitCode
 #: src/pages/shell/work-location.tsx
 msgid "Exit code {0}"
-msgstr ""
+msgstr "Exit code {0}"
 
 #: src/pages/shell/message-cards.tsx
 msgid "Expand"
@@ -2510,7 +2512,7 @@ msgstr "실패했을 때 처리"
 
 #: src/pages/shell/work-location.tsx
 msgid "File delete"
-msgstr ""
+msgstr "File delete"
 
 #: src/components/computer/FilesApp.tsx
 msgid "File is too large to upload."
@@ -2518,7 +2520,7 @@ msgstr "파일이 너무 커서 업로드할 수 없습니다."
 
 #: src/pages/shell/work-location.tsx
 msgid "File write"
-msgstr ""
+msgstr "File write"
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Files"
@@ -2707,34 +2709,35 @@ msgstr "높음"
 msgid "Historical runs stay with their original project."
 msgstr "이전 실행은 원래 프로젝트에 그대로 유지됩니다."
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Host"
-msgstr ""
+msgstr "Host"
 
 #: src/pages/shell/work-location.tsx
 msgid "Host access granted"
-msgstr ""
+msgstr "Host access granted"
 
 #: src/pages/shell/work-location.tsx
 msgid "Host access revoked"
-msgstr ""
+msgstr "Host access revoked"
 
 #: src/pages/shell/work-location.tsx
 msgid "Host audit"
-msgstr ""
+msgstr "Host audit"
 
 #: src/pages/shell/work-location.tsx
 msgid "Host command"
-msgstr ""
+msgstr "Host command"
 
 #: src/pages/shell/work-location.tsx
 msgid "Host directories (up to 10)"
-msgstr ""
+msgstr "Host directories (up to 10)"
 
 #. placeholder {0}: index + 1
 #: src/pages/shell/work-location.tsx
 msgid "Host directory {0}"
-msgstr ""
+msgstr "Host directory {0}"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -3005,7 +3008,7 @@ msgstr "로컬 서버 설정"
 
 #: src/pages/shell/work-location.tsx
 msgid "Location"
-msgstr ""
+msgstr "Location"
 
 #: src/pages/Paywall.tsx
 #: src/pages/Shell.tsx
@@ -3453,11 +3456,11 @@ msgstr "아직 그룹 채팅이 없습니다."
 
 #: src/pages/shell/work-location.tsx
 msgid "No host audit entries"
-msgstr ""
+msgstr "No host audit entries"
 
 #: src/pages/shell/work-location.tsx
 msgid "No host authorization"
-msgstr ""
+msgstr "No host authorization"
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
@@ -4118,7 +4121,7 @@ msgstr "{secretName}을(를) 삭제할까요? 이 봇은 더 이상 사용할 �
 
 #: src/pages/shell/work-location.tsx
 msgid "Remove directory"
-msgstr ""
+msgstr "Remove directory"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove Git event"
@@ -4425,7 +4428,7 @@ msgstr "작업 공간을 저장하고 최신 소프트웨어를 설치합니다.
 
 #: src/pages/shell/work-location.tsx
 msgid "Save work location"
-msgstr ""
+msgstr "Save work location"
 
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
@@ -5056,9 +5059,10 @@ msgstr "이 파일은 유효한 UTF-8 텍스트가 아닙니다."
 msgid "this Mac"
 msgstr "이 Mac"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/work-location.tsx
 msgid "This Mac"
-msgstr ""
+msgstr "This Mac"
 
 #: src/pages/Artifacts.tsx
 msgid "This month"
@@ -5467,7 +5471,7 @@ msgstr "진행하지 않음"
 
 #: src/pages/shell/work-location.tsx
 msgid "Work location"
-msgstr ""
+msgstr "Work location"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

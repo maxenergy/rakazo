@@ -104,7 +104,6 @@ import {
   toolEffectIdempotencyKey,
 } from "@rakazo/core/node/approval-effect-key";
 import type { ExecutionFence, McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
-import { executionLocationForComputer } from "./host-aware-sandbox.js";
 import {
   appendEventInTransaction,
   assertExecutionFence,
@@ -288,6 +287,7 @@ import {
   selectCompactedHistory,
   shouldEnqueueCompaction,
 } from "./history-compaction.js";
+import { executionLocationForComputer } from "./host-aware-sandbox.js";
 import {
   assertConnectorToolArgs,
   CATALOG_EXECUTE,

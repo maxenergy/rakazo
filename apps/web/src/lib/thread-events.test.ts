@@ -1226,7 +1226,7 @@ describe("thread event reduction", () => {
           kind: "progress",
           text: "Let me check Slack ",
           pendingToolNames: ["SLACK_FIND_CHANNELS"],
-            pendingToolLocations: [null],
+          pendingToolLocations: [null],
         },
       ]),
     ]);
@@ -1254,7 +1254,7 @@ describe("thread event reduction", () => {
           kind: "progress",
           text: "Old unfinished narration ",
           pendingToolNames: ["SLACK_FIND_CHANNELS"],
-            pendingToolLocations: [null],
+          pendingToolLocations: [null],
         },
       ]),
     ]);

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { commitSpaceRename, sidebarExecutionLocation, sidebarGroupsForSpaces } from "./space-sidebar";
+import {
+  commitSpaceRename,
+  sidebarExecutionLocation,
+  sidebarGroupsForSpaces,
+} from "./space-sidebar";
 
 function chat(id: string, name: string) {
   return {
@@ -34,9 +38,12 @@ describe("sidebar execution location badge", () => {
     ["host", "this-mac", "host"],
     ["container", "this-mac", "this-mac"],
     ["container", "docker", "container"],
-  ] as const)("resolves configured location %s / host %s", (workLocation, computerHost, expected) => {
-    expect(sidebarExecutionLocation(workLocation, computerHost)).toBe(expected);
-  });
+  ] as const)(
+    "resolves configured location %s / host %s",
+    (workLocation, computerHost, expected) => {
+      expect(sidebarExecutionLocation(workLocation, computerHost)).toBe(expected);
+    },
+  );
 });
 
 describe("sidebarGroupsForSpaces", () => {

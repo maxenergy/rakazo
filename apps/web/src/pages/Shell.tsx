@@ -2,7 +2,6 @@ import { i18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/web";
-import { WorkLocationBadge } from "../components/WorkLocationBadge";
 import type {
   AgentSkillCatalogEntry,
   Bot,
@@ -166,6 +165,7 @@ import { SkillDraftCard } from "../components/teach/SkillDraftCard";
 import { TeachCaptureOverlay } from "../components/teach/TeachCaptureOverlay";
 import { TeachComputerOverlayControl } from "../components/teach/TeachComputerOverlay";
 import { TeachRecordingChrome, TeachStopButton } from "../components/teach/TeachRecordingChrome";
+import { WorkLocationBadge } from "../components/WorkLocationBadge";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
@@ -294,7 +294,11 @@ import {
   McpApprovalCard,
 } from "./shell/message-cards";
 import { PendingApprovalsLink } from "./shell/pending-approvals-link";
-import { commitSpaceRename, sidebarExecutionLocation, sidebarGroupsForSpaces } from "./shell/space-sidebar";
+import {
+  commitSpaceRename,
+  sidebarExecutionLocation,
+  sidebarGroupsForSpaces,
+} from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
 const BotContextMenu = lazyOverlay(() =>

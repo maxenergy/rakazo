@@ -16,7 +16,7 @@ describe("WorkLocationBadge", () => {
     ["container", "Container"],
   ] as const)("shows the execution location %s", (location, label) => {
     const html = renderToStaticMarkup(createElement(WorkLocationBadge, { location }));
-    expect(html).toContain("data-testid=\"work-location-badge\"");
+    expect(html).toContain('data-testid="work-location-badge"');
     expect(html).toContain(label);
   });
 });

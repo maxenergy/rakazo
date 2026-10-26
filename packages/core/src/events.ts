@@ -102,7 +102,9 @@ export function projectMessages(
       live.blocks = reduceLiveMessageBlocks(live.blocks, {
         type: "tool",
         name: String(payload.name ?? ""),
-        ...(payload.location === "host" || payload.location === "this-mac" || payload.location === "container"
+        ...(payload.location === "host" ||
+        payload.location === "this-mac" ||
+        payload.location === "container"
           ? { location: payload.location }
           : {}),
       });
@@ -274,7 +276,11 @@ export function reduceLiveMessageBlocks(
   if (pendingToolNames.length > 0 && endsSentence(tailText)) {
     let next = activity ? [...segments] : appendTextSegment(segments, tailText);
     for (let i = 0; i < pendingToolNames.length; i += 1) {
-      next = appendToolCallSegment(next, pendingToolNames[i]!, pendingToolLocations[i] ?? undefined);
+      next = appendToolCallSegment(
+        next,
+        pendingToolNames[i]!,
+        pendingToolLocations[i] ?? undefined,
+      );
     }
     return next;
   }
@@ -308,7 +314,10 @@ export function appendToolStep(
   const label = humanizeToolName(toolName);
   const last = steps.at(-1);
   if (last && last.label === label && last.location === location) {
-    return [...steps.slice(0, -1), { label, count: last.count + 1, ...(location ? { location } : {}) }];
+    return [
+      ...steps.slice(0, -1),
+      { label, count: last.count + 1, ...(location ? { location } : {}) },
+    ];
   }
   return [...steps, { label, count: 1, ...(location ? { location } : {}) }];
 }

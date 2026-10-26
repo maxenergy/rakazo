@@ -8,7 +8,13 @@ export function WorkLocationBadge({ location }: { location: WorkLocation }) {
       className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
       data-testid="work-location-badge"
     >
-      {location === "host" ? <Trans>Host</Trans> : location === "this-mac" ? <Trans>This Mac</Trans> : <Trans>Container</Trans>}
+      {location === "host" ? (
+        <Trans>Host</Trans>
+      ) : location === "this-mac" ? (
+        <Trans>This Mac</Trans>
+      ) : (
+        <Trans>Container</Trans>
+      )}
     </span>
   );
 }

@@ -200,6 +200,7 @@ describe("CLI failure classification", () => {
     );
     expect(classifyCliFailure("You've hit your usage limit")).toBe("rate_limited");
     expect(classifyCliFailure("401 Unauthorized")).toBe("auth");
+    expect(classifyCliFailure("API Error: 403 Request not allowed")).toBe("network");
     expect(
       classifyCliFailure(
         '{"type":"turn.failed","error":{"message":"workspace routing discovery failed"}}',

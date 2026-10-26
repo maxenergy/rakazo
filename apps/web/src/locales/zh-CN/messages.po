@@ -17,6 +17,10 @@ msgstr ""
 msgid " (unread)"
 msgstr "（未读）"
 
+#: src/pages/shell/work-location.tsx
+msgid "—"
+msgstr "—"
+
 #. placeholder {0}: group.entries.length
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "{0, plural, one {# model} other {# models}}"
@@ -339,6 +343,10 @@ msgstr "添加已连接模型作为备用模型。"
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
 msgstr "添加凭据"
+
+#: src/pages/shell/work-location.tsx
+msgid "Add directory"
+msgstr "添加目录"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
@@ -717,6 +725,10 @@ msgstr "授权"
 msgid "Authorize this server so agents can use its tools. A popup opens."
 msgstr "授权此服务器后，Agent 才能使用其工具。将打开弹窗。"
 
+#: src/pages/shell/work-location.tsx
+msgid "Authorized {grantedAt} by {grantedBy}"
+msgstr "授权时间：{grantedAt}；授权人：{grantedBy}"
+
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
 msgstr "自动化发送者"
@@ -957,6 +969,10 @@ msgstr "卡片视图"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "修改密码"
+
+#: src/pages/shell/work-location.tsx
+msgid "Changing work location can allow irreversible operations on the host. Continue?"
+msgstr "切换工作位置可能会允许在宿主机上执行不可逆操作。继续吗？"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Changing…"
@@ -1376,6 +1392,11 @@ msgstr "连接测试失败。"
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "与 {0} 的连接仍在等待。可以关闭此窗口稍后再看。"
 
+#: src/pages/Shell.tsx
+#: src/pages/shell/work-location.tsx
+msgid "Container"
+msgstr "容器"
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Context limit"
@@ -1640,6 +1661,11 @@ msgstr "无法加载命令"
 msgid "Could not load credentials."
 msgstr "无法加载凭据。"
 
+#: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/work-location.tsx
+msgid "Could not load host audit"
+msgstr "无法加载宿主机审计记录"
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not load integrations"
@@ -1815,6 +1841,10 @@ msgstr "无法保存凭据"
 #: src/pages/shell/message-cards.tsx
 msgid "Could not save this choice"
 msgstr "无法保存此选择"
+
+#: src/pages/shell/work-location.tsx
+msgid "Could not save work location"
+msgstr "无法保存工作位置"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not search catalog"
@@ -2299,6 +2329,10 @@ msgstr "编辑关键结果"
 msgid "Edit Profile"
 msgstr "编辑资料"
 
+#: src/pages/shell/work-location.tsx
+msgid "Effective location:"
+msgstr "当前生效位置："
+
 #: src/pages/Auth.tsx
 msgid "Email"
 msgstr "邮箱"
@@ -2408,6 +2442,11 @@ msgstr "每周"
 msgid "Executor token"
 msgstr "Executor 令牌"
 
+#. placeholder {0}: entry.exitCode
+#: src/pages/shell/work-location.tsx
+msgid "Exit code {0}"
+msgstr "退出码 {0}"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Expand"
 msgstr "展开"
@@ -2471,9 +2510,17 @@ msgstr "失败。"
 msgid "Failure handling"
 msgstr "失败处理"
 
+#: src/pages/shell/work-location.tsx
+msgid "File delete"
+msgstr "删除文件"
+
 #: src/components/computer/FilesApp.tsx
 msgid "File is too large to upload."
 msgstr "文件太大，无法上传。"
+
+#: src/pages/shell/work-location.tsx
+msgid "File write"
+msgstr "写入文件"
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Files"
@@ -2661,6 +2708,36 @@ msgstr "高"
 #: src/components/ProjectMembers.tsx
 msgid "Historical runs stay with their original project."
 msgstr "历史运行仍归属原项目。"
+
+#: src/pages/Shell.tsx
+#: src/pages/shell/work-location.tsx
+msgid "Host"
+msgstr "宿主机"
+
+#: src/pages/shell/work-location.tsx
+msgid "Host access granted"
+msgstr "已授权宿主机访问"
+
+#: src/pages/shell/work-location.tsx
+msgid "Host access revoked"
+msgstr "已撤销宿主机访问"
+
+#: src/pages/shell/work-location.tsx
+msgid "Host audit"
+msgstr "宿主机审计"
+
+#: src/pages/shell/work-location.tsx
+msgid "Host command"
+msgstr "宿主机命令"
+
+#: src/pages/shell/work-location.tsx
+msgid "Host directories (up to 10)"
+msgstr "宿主机目录（最多 10 个）"
+
+#. placeholder {0}: index + 1
+#: src/pages/shell/work-location.tsx
+msgid "Host directory {0}"
+msgstr "宿主机目录 {0}"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2861,6 +2938,7 @@ msgid "Load earlier messages"
 msgstr "加载更早的消息"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "加载更多"
 
@@ -2927,6 +3005,10 @@ msgstr "本地访问权限允许 Bot 无需询问就执行命令。请勿在共�
 #: src/pages/LocalSettings.tsx
 msgid "Local Server Settings"
 msgstr "本地服务器设置"
+
+#: src/pages/shell/work-location.tsx
+msgid "Location"
+msgstr "位置"
 
 #: src/pages/Paywall.tsx
 #: src/pages/Shell.tsx
@@ -3371,6 +3453,14 @@ msgstr "暂无目标"
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "还没有群聊。"
+
+#: src/pages/shell/work-location.tsx
+msgid "No host audit entries"
+msgstr "暂无宿主机审计记录"
+
+#: src/pages/shell/work-location.tsx
+msgid "No host authorization"
+msgstr "尚未授权宿主机访问"
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
@@ -4011,6 +4101,7 @@ msgstr "释放已中断的电脑？"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/shell/work-location.tsx
 #: src/pages/TicketDependencies.tsx
 msgid "Remove"
 msgstr "移除"
@@ -4027,6 +4118,10 @@ msgstr "移除 {full}"
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
 msgstr "移除 {secretName}？此机器人将无法继续使用它。"
+
+#: src/pages/shell/work-location.tsx
+msgid "Remove directory"
+msgstr "移除目录"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove Git event"
@@ -4330,6 +4425,10 @@ msgstr "保存新值"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Save the workspace and install current software."
 msgstr "保存工作区并安装最新软件。"
+
+#: src/pages/shell/work-location.tsx
+msgid "Save work location"
+msgstr "保存工作位置"
 
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
@@ -4960,6 +5059,11 @@ msgstr "此文件不是有效的 UTF-8 文本。"
 msgid "this Mac"
 msgstr "这台 Mac"
 
+#: src/pages/Shell.tsx
+#: src/pages/shell/work-location.tsx
+msgid "This Mac"
+msgstr "本机"
+
 #: src/pages/Artifacts.tsx
 msgid "This month"
 msgstr "本月"
@@ -5364,6 +5468,10 @@ msgstr "Bot 应在哪里运行？"
 #: src/lib/ticket-status.ts
 msgid "Won't do"
 msgstr "不处理"
+
+#: src/pages/shell/work-location.tsx
+msgid "Work location"
+msgstr "工作位置"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

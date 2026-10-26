@@ -8,6 +8,7 @@ type SidebarChat = {
   pinned: boolean;
   sectionId: string | null;
   parentBotId?: string | null;
+  workLocation?: "container" | "host";
 };
 
 type SidebarSpace<TBot extends SidebarChat, TGroup extends SidebarChat> = {

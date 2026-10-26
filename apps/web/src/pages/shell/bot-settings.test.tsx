@@ -143,6 +143,7 @@ async function renderSettings(onSave: (patch: SavePatch) => Promise<void>, curre
         bot={currentBot}
         memoryProviderConfigured={false}
         onSkillsChange={() => undefined}
+        onRefresh={async () => undefined}
         onSave={onSave}
         onExport={async () => undefined}
         onClear={() => undefined}

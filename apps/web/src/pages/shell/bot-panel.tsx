@@ -40,6 +40,8 @@ import { rpc } from "../../lib/rpc";
 import { errorText } from "../../lib/user-error";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
 import { BotCredentialsSection } from "./bot-credentials";
+import type { HostAuditEntry } from "./work-location";
+import { WorkLocationSection } from "./work-location";
 
 const ScratchpadSection = lazy(() =>
   import("../ScratchpadSection").then((module) => ({ default: module.ScratchpadSection })),
@@ -203,6 +205,7 @@ export function BotSettings({
   memoryProviderConfigured,
   onSkillsChange,
   onSave,
+  onRefresh,
   onExport,
   onClear,
 }: {
@@ -225,6 +228,7 @@ export function BotSettings({
     thinkingLevel?: ThinkingLevel | null;
     disabledBuiltinTools?: string[];
   }) => Promise<void>;
+  onRefresh: () => Promise<void>;
   onExport: () => Promise<void>;
   onClear: () => void;
 }) {
@@ -540,6 +544,12 @@ export function BotSettings({
           }}
         />
       </div>
+      <WorkLocationSettings
+        bot={bot}
+        canEdit={me?.isDeploymentOwner === true}
+        computerHost={me?.computerHost ?? null}
+        onRefresh={onRefresh}
+      />
       <details
         data-testid="bot-settings-advanced"
         className="group mt-5"
@@ -752,6 +762,86 @@ export function BotSettings({
         </Button>
       </div>
     </div>
+  );
+}
+
+function WorkLocationSettings({
+  bot,
+  canEdit,
+  computerHost,
+  onRefresh,
+}: {
+  bot: Bot;
+  canEdit: boolean;
+  computerHost: Me["computerHost"];
+  onRefresh: () => Promise<void>;
+}) {
+  const { t } = useLingui();
+  const [audit, setAudit] = useState<HostAuditEntry[]>([]);
+  const [auditCursor, setAuditCursor] = useState<string | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setAudit([]);
+    setAuditCursor(null);
+    setAuditError(null);
+    if (!canEdit)
+      return () => {
+        active = false;
+      };
+
+    void rpc.bots
+      .hostAuditLogs({ botId: bot.id, limit: 50 })
+      .then((page) => {
+        if (!active) return;
+        setAudit(page.items);
+        setAuditCursor(page.nextCursor);
+      })
+      .catch((cause: unknown) => {
+        if (active) setAuditError(errorText(cause, t`Could not load host audit`));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [bot.id, canEdit, t]);
+
+  async function loadMoreAudit() {
+    if (!auditCursor) return;
+    const page = await rpc.bots.hostAuditLogs({
+      botId: bot.id,
+      cursor: auditCursor,
+      limit: 50,
+    });
+    setAudit((current) => [...current, ...page.items]);
+    setAuditCursor(page.nextCursor);
+  }
+
+  return (
+    <WorkLocationSection
+      location={bot.workLocation}
+      effectiveLocation={
+        bot.workLocation === "host"
+          ? "host"
+          : computerHost === "this-mac"
+            ? "this-mac"
+            : "container"
+      }
+      hostRoots={bot.hostRoots}
+      grantedAt={bot.hostGrantedAt}
+      grantedBy={(bot as Bot & { hostGrantedByUserId?: string | null }).hostGrantedByUserId ?? null}
+      canEdit={canEdit}
+      audit={audit}
+      hasMoreAudit={auditCursor !== null}
+      auditError={auditError}
+      validationError={null}
+      onSave={async (input) => {
+        await rpc.bots.setWorkLocation({ botId: bot.id, ...input });
+        await onRefresh();
+      }}
+      onLoadMoreAudit={loadMoreAudit}
+    />
   );
 }
 

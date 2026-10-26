@@ -946,6 +946,7 @@ export type MobileBot = Pick<
   | "unread"
   | "updatedAt"
   | "computerMode"
+  | "workLocation"
   | "modelProvider"
   | "modelId"
   | "thinkingLevel"
@@ -968,6 +969,7 @@ export type MobileMe = Pick<
   | "needsModel"
   | "avatarStyle"
   | "isDeploymentOwner"
+  | "computerHost"
 >;
 
 export type MobileModel = ModelCatalogEntry;

@@ -28,7 +28,7 @@ test("homepage screenshots", async ({ page }, testInfo) => {
   await page.locator("[data-get-started-open]").first().click();
   await page.locator("dialog[data-get-started-dialog]").waitFor({ state: "visible" });
   await captureScreenshot(page, testInfo, "02-marketing-get-started");
-  await page.locator("[data-get-started-close]").click();
+  await page.locator("[data-get-started-close]").first().click();
 
   await page
     .locator('.product-demo[data-product-demo-ready="true"]')

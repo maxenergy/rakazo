@@ -1392,7 +1392,7 @@ msgstr "连接测试失败。"
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "与 {0} 的连接仍在等待。可以关闭此窗口稍后再看。"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Container"
 msgstr "容器"
@@ -2709,7 +2709,7 @@ msgstr "高"
 msgid "Historical runs stay with their original project."
 msgstr "历史运行仍归属原项目。"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Host"
 msgstr "宿主机"
@@ -5059,7 +5059,7 @@ msgstr "此文件不是有效的 UTF-8 文本。"
 msgid "this Mac"
 msgstr "这台 Mac"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "This Mac"
 msgstr "本机"

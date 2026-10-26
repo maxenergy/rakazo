@@ -1392,7 +1392,7 @@ msgstr "कनेक्शन परीक्षण विफल रहा।"
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "{0} से कनेक्शन अभी लंबित है। आप इसे बंद करके बाद में जांच सकते हैं।"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Container"
 msgstr "Container"
@@ -2709,7 +2709,7 @@ msgstr "उच्च"
 msgid "Historical runs stay with their original project."
 msgstr "पुराने रन अपने मूल प्रोजेक्ट के साथ ही रहेंगे।"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Host"
 msgstr "Host"
@@ -5059,7 +5059,7 @@ msgstr "यह फ़ाइल मान्य UTF-8 टेक्स्ट न�
 msgid "this Mac"
 msgstr "यह Mac"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "This Mac"
 msgstr "This Mac"

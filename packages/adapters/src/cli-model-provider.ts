@@ -386,7 +386,8 @@ function trimLatestMessage(message: TranscriptMessage, limit: number): Transcrip
 /**
  * Fit the conversation into a character budget: shorten text in older messages,
  * then drop the oldest steps after the first user message, marking the gap.
- * System messages are always kept whole; the most recent messages are trimmed only when
+ * System messages and the latest user message, which holds the request this turn is
+ * working on, are always kept whole; the most recent messages are trimmed only when
  * they alone overflow the budget.
  */
 export function boundCliMessages(
@@ -397,8 +398,9 @@ export function boundCliMessages(
     list.reduce((sum, message) => sum + messageSize(message), 0);
   if (total(messages) <= budgetChars) return [...messages];
   const recentFrom = Math.max(0, messages.length - CLI_RECENT_MESSAGES);
+  const latestUser = messages.findLastIndex((message) => message.role === "user");
   const shortened = messages.map((message, index) =>
-    index < recentFrom ? shortenOldMessage(message) : message,
+    index < recentFrom && index !== latestUser ? shortenOldMessage(message) : message,
   );
   if (total(shortened) <= budgetChars) return shortened;
   const firstUser = shortened.findIndex((message) => message.role === "user");
@@ -409,7 +411,11 @@ export function boundCliMessages(
   for (let index = 0; index < shortened.length; index += 1) {
     const message = shortened[index]!;
     const droppable =
-      index >= keepHead && index < recentFrom && message.role !== "system" && size > budgetChars;
+      index >= keepHead &&
+      index < recentFrom &&
+      index !== latestUser &&
+      message.role !== "system" &&
+      size > budgetChars;
     if (droppable) {
       size -= messageSize(message);
       dropped += 1;
@@ -420,7 +426,7 @@ export function boundCliMessages(
   // Recent steps alone can still overflow; shorten all but the latest two.
   if (size > budgetChars) {
     for (let index = 0; index < kept.length - 2; index += 1) {
-      kept[index] = shortenOldMessage(kept[index]!);
+      if (kept[index] !== shortened[latestUser]) kept[index] = shortenOldMessage(kept[index]!);
     }
     // A single huge tool result (a full diff or CI log) can overflow on its own, and
     // the CLI then rejects the whole prompt. Keep its start and end within budget.

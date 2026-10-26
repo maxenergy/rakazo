@@ -310,6 +310,27 @@ describe("subscription CLI provider conformance", () => {
     expect(JSON.stringify(bounded)).toContain(`output 60 ${"x".repeat(5_000)}`);
   });
 
+  it("keeps the latest user request when older steps are dropped", () => {
+    const step = (index: number) => ({
+      role: "toolResult" as const,
+      toolCallId: `call-${index}`,
+      toolName: "shell",
+      content: [{ type: "text" as const, text: `output ${index} ${"x".repeat(5_000)}` }],
+      isError: false,
+      timestamp: index,
+    });
+    const request = `Use your own test database ${"y".repeat(3_000)}`;
+    const messages = [
+      { role: "user" as const, content: "Earlier chat", timestamp: 0 },
+      ...Array.from({ length: 20 }, (_, index) => step(index + 1)),
+      { role: "user" as const, content: [{ type: "text" as const, text: request }], timestamp: 21 },
+      ...Array.from({ length: 40 }, (_, index) => step(index + 22)),
+    ];
+    const bounded = boundCliMessages(messages, 60_000);
+    expect(bounded).toContainEqual(messages[21]);
+    expect(JSON.stringify(bounded)).not.toContain("output 22 ");
+  });
+
   it("replays repeated system messages into one with the current sections and tools", () => {
     const tool = (name: string) => ({
       name,

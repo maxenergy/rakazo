@@ -64,6 +64,9 @@ function mapBot(
     updatedAt: Date;
     thread: { id: string; unread: boolean } | null;
     computer: { scope: string } | null;
+    workLocation?: "container" | "host";
+    hostRoots?: string[];
+    hostGrantedAt?: Date | null;
     voiceId?: string | null;
     autoSpeak?: boolean;
     modelProvider?: string | null;
@@ -105,6 +108,9 @@ function mapBot(
     status,
     runErrorId,
     computerMode: bot.computer ? parseComputerMode(bot.computer.scope) : "team",
+    workLocation: bot.workLocation ?? "container",
+    hostRoots: bot.hostRoots ?? [],
+    hostGrantedAt: bot.hostGrantedAt?.toISOString() ?? null,
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
     voiceId: bot.voiceId ?? null,

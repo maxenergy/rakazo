@@ -17,6 +17,14 @@ import { DesktopSandboxProvider } from "./desktop-sandbox.js";
 import { EmployeeHostSandbox } from "./employee-host-sandbox.js";
 import { createSandboxProvider, type SandboxProviderOptions } from "./sandbox-factory.js";
 
+export function executionLocationForComputer(
+  computerKind: string,
+  employeeHost: boolean,
+): "host" | "this-mac" | "container" {
+  if (employeeHost) return "host";
+  return computerKind === "desktop" ? "this-mac" : "container";
+}
+
 export function sandboxKindForBot(
   envKind: string,
   computerHost: string | null | undefined,

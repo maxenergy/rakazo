@@ -999,7 +999,7 @@ describe("thread event reduction", () => {
         type: "agent.tool.called",
         seq: 4,
         runId: "run-1",
-        payload: { name: "SLACK_FIND_CHANNELS" },
+        payload: { name: "SLACK_FIND_CHANNELS", location: "host" },
       }),
     );
     const second = reduceThreadSnapshot(
@@ -1028,7 +1028,7 @@ describe("thread event reduction", () => {
           {
             kind: "steps",
             steps: [
-              { label: "Slack find channels", count: 1 },
+              { label: "Slack find channels", count: 1, location: "host" },
               { label: "Slack fetch conversation history", count: 2 },
             ],
           },
@@ -1093,6 +1093,7 @@ describe("thread event reduction", () => {
             kind: "progress",
             text: "Let me check Slack ",
             pendingToolNames: ["SLACK_FIND_CHANNELS"],
+            pendingToolLocations: [null],
           },
         ],
       }),
@@ -1211,6 +1212,7 @@ describe("thread event reduction", () => {
             kind: "progress",
             text: "Let me check Slack Found it, now sanding",
             pendingToolNames: ["SLACK_FIND_CHANNELS"],
+            pendingToolLocations: [null],
           },
         ],
       }),
@@ -1224,6 +1226,7 @@ describe("thread event reduction", () => {
           kind: "progress",
           text: "Let me check Slack ",
           pendingToolNames: ["SLACK_FIND_CHANNELS"],
+            pendingToolLocations: [null],
         },
       ]),
     ]);
@@ -1251,6 +1254,7 @@ describe("thread event reduction", () => {
           kind: "progress",
           text: "Old unfinished narration ",
           pendingToolNames: ["SLACK_FIND_CHANNELS"],
+            pendingToolLocations: [null],
         },
       ]),
     ]);

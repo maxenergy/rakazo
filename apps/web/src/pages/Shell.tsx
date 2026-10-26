@@ -2,6 +2,7 @@ import { i18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/web";
+import { WorkLocationBadge } from "../components/WorkLocationBadge";
 import type {
   AgentSkillCatalogEntry,
   Bot,
@@ -293,7 +294,7 @@ import {
   McpApprovalCard,
 } from "./shell/message-cards";
 import { PendingApprovalsLink } from "./shell/pending-approvals-link";
-import { commitSpaceRename, sidebarGroupsForSpaces } from "./shell/space-sidebar";
+import { commitSpaceRename, sidebarExecutionLocation, sidebarGroupsForSpaces } from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
 const BotContextMenu = lazyOverlay(() =>
@@ -3280,15 +3281,12 @@ export function ShellPage() {
                                       {item.chat.name}
                                     </span>
                                     {locationBot ? (
-                                      <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                        {locationBot.workLocation === "host" ? (
-                                          <Trans>Host</Trans>
-                                        ) : bootstrapMe?.computerHost === "this-mac" ? (
-                                          <Trans>This Mac</Trans>
-                                        ) : (
-                                          <Trans>Container</Trans>
+                                      <WorkLocationBadge
+                                        location={sidebarExecutionLocation(
+                                          locationBot.workLocation,
+                                          bootstrapMe?.computerHost,
                                         )}
-                                      </span>
+                                      />
                                     ) : null}
                                     {item.chat.unread ? (
                                       <span className="sr-only">

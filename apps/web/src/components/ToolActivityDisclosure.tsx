@@ -2,6 +2,7 @@ import { Plural } from "@lingui/react/macro";
 import type { ThreadMessage } from "@rakazo/contracts";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
+import { WorkLocationBadge } from "./WorkLocationBadge";
 import { formatToolActivityDuration, toolStepCount } from "../lib/tool-activity-view";
 
 type ToolStep = Extract<ThreadMessage["blocks"][number], { kind: "steps" }>["steps"][number];
@@ -48,6 +49,7 @@ export function ToolSteps({
               {step.label}
               {step.count > 1 ? ` ×${step.count}` : ""}
             </span>
+            {step.location ? <WorkLocationBadge location={step.location} /> : null}
           </div>
         );
       })}

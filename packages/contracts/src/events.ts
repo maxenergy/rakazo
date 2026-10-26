@@ -178,10 +178,15 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     /** Provider-generated tool status rather than assistant-authored narration. */
     activity: z.literal(true).optional(),
     pendingToolNames: z.array(z.string()).optional(),
+    pendingToolLocations: z.array(z.enum(["host", "this-mac", "container"]).nullable()).optional(),
   }),
   z.object({
     kind: z.literal("steps"),
-    steps: z.array(z.object({ label: z.string(), count: z.number().int().positive() })),
+    steps: z.array(z.object({
+      label: z.string(),
+      count: z.number().int().positive(),
+      location: z.enum(["host", "this-mac", "container"]).optional(),
+    })),
     durationMs: z.number().int().nonnegative().optional(),
   }),
   z.object({

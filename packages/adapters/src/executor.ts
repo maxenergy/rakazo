@@ -104,6 +104,7 @@ import {
   toolEffectIdempotencyKey,
 } from "@rakazo/core/node/approval-effect-key";
 import type { ExecutionFence, McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+import { executionLocationForComputer } from "./host-aware-sandbox.js";
 import {
   appendEventInTransaction,
   assertExecutionFence,
@@ -7684,7 +7685,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 botId: bot.id,
                 type: "agent.tool.called",
                 runId,
-                payload: { name: event.name, executionId: event.executionId },
+                payload: {
+                  name: event.name,
+                  executionId: event.executionId,
+                  location: executionLocationForComputer(computer.kind, employeeHost),
+                },
               });
               pendingToolNames.push(event.name);
               tryFlushPendingTools();

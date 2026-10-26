@@ -23,9 +23,9 @@ const cluster = await startDisposableCluster();
 async function diagnostic(url: string, label: string, transition?: () => Promise<void>) {
   let { prisma: p, pool } = createDb(url);
   trackPool(pool);
-  const s = "diag-" + label,
-    project = s + "-project",
-    callId = s + "-call";
+  const s = `diag-${label}`,
+    project = `${s}-project`,
+    callId = `${s}-call`;
   try {
     await p.organization.create({
       data: { id: s, name: "Synthetic diagnostic", slug: s, createdAt: new Date() },
@@ -62,10 +62,10 @@ async function diagnostic(url: string, label: string, transition?: () => Promise
       },
     });
     if (label === "upgrade") {
-      await p.$executeRaw`INSERT INTO project_budgets (id, "spaceId", "projectId", version, "limitMicroUsd", "reservedMicroUsd", "settledMicroUsd", "updatedAt") VALUES (${s + "-budget"}, ${s}, ${project}, 1, 1000000, 0, 125000, CURRENT_TIMESTAMP)`;
-      await p.$executeRaw`INSERT INTO project_budget_versions ("budgetId", version, "limitMicroUsd") VALUES (${s + "-budget"}, 1, 1000000)`;
-      await p.$executeRaw`INSERT INTO budget_reservations (id, "budgetId", "spaceId", "projectId", "budgetVersion", "callId", "amountMicroUsd", "settledMicroUsd", status, "expiresAt", "closedAt") VALUES (${s + "-reservation"}, ${s + "-budget"}, ${s}, ${project}, 1, ${callId}, 500000, 125000, 'settled', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
-      await p.$executeRaw`INSERT INTO usage_records (id, "spaceId", "userId", provider, model, "inputTokens", "outputTokens", "costUsd", "callId") VALUES (${s + "-usage"}, ${s}, 'synthetic-user', 'synthetic', 'fake', 10, 2, 0.125, ${callId})`;
+      await p.$executeRaw`INSERT INTO project_budgets (id, "spaceId", "projectId", version, "limitMicroUsd", "reservedMicroUsd", "settledMicroUsd", "updatedAt") VALUES (${`${s}-budget`}, ${s}, ${project}, 1, 1000000, 0, 125000, CURRENT_TIMESTAMP)`;
+      await p.$executeRaw`INSERT INTO project_budget_versions ("budgetId", version, "limitMicroUsd") VALUES (${`${s}-budget`}, 1, 1000000)`;
+      await p.$executeRaw`INSERT INTO budget_reservations (id, "budgetId", "spaceId", "projectId", "budgetVersion", "callId", "amountMicroUsd", "settledMicroUsd", status, "expiresAt", "closedAt") VALUES (${`${s}-reservation`}, ${`${s}-budget`}, ${s}, ${project}, 1, ${callId}, 500000, 125000, 'settled', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
+      await p.$executeRaw`INSERT INTO usage_records (id, "spaceId", "userId", provider, model, "inputTokens", "outputTokens", "costUsd", "callId") VALUES (${`${s}-usage`}, ${s}, 'synthetic-user', 'synthetic', 'fake', 10, 2, 0.125, ${callId})`;
     } else {
       await setProjectBudget(p, { spaceId: s, projectId: project, limitMicroUsd: 1000000n });
       await reserveBudget(p, { spaceId: s, projectId: project, callId, amountMicroUsd: 500000n });
@@ -157,24 +157,24 @@ async function diagnostic(url: string, label: string, transition?: () => Promise
       trackPool(reopened.pool);
       p = reopened.prisma;
       pool = reopened.pool;
-      assert.deepEqual(await snapshot(p), before, label + " retained feature rows");
+      assert.deepEqual(await snapshot(p), before, `${label} retained feature rows`);
       console.log(JSON.stringify({ label, retainedRowsEqual: true }));
     }
-    const userId = s + "-owner";
+    const userId = `${s}-owner`;
     await p.user.create({
-      data: { id: userId, name: "Synthetic owner", email: userId + "@example.invalid" },
+      data: { id: userId, name: "Synthetic owner", email: `${userId}@example.invalid` },
     });
     await p.member.create({
-      data: { id: s + "-member", organizationId: s, userId, role: "owner", createdAt: new Date() },
+      data: { id: `${s}-member`, organizationId: s, userId, role: "owner", createdAt: new Date() },
     });
-    const fallback = s + "-fallback";
+    const fallback = `${s}-fallback`;
     await p.space.create({
       data: { id: fallback, organizationId: s, name: "Synthetic fallback", isDefault: true },
     });
     for (const spaceId of [s, fallback])
       await p.spaceMember.create({
         data: {
-          id: spaceId + "-membership",
+          id: `${spaceId}-membership`,
           spaceId,
           organizationId: s,
           userId,
@@ -190,10 +190,10 @@ async function diagnostic(url: string, label: string, transition?: () => Promise
     );
     for (const { table_name } of tables) {
       const rows = await p.$queryRawUnsafe<Array<{ n: bigint }>>(
-        'SELECT count(*) AS n FROM "' + table_name.replaceAll('"', '""') + '" WHERE "spaceId"=$1',
+        `SELECT count(*) AS n FROM "${table_name.replaceAll('"', '""')}" WHERE "spaceId"=$1`,
         s,
       );
-      assert.equal(rows[0]!.n, 0n, "orphan rows in " + table_name);
+      assert.equal(rows[0]!.n, 0n, `orphan rows in ${table_name}`);
     }
     await p.organization.delete({ where: { id: s } });
     await p.user.delete({ where: { id: userId } });
@@ -207,7 +207,7 @@ async function diagnostic(url: string, label: string, transition?: () => Promise
 }
 try {
   const fresh = await cluster.createDatabase("diagnostic_fresh");
-  console.log("disposablePort=" + new URL(cluster.url(fresh)).port);
+  console.log(`disposablePort=${new URL(cluster.url(fresh)).port}`);
   await cluster.migrate(fresh);
   await diagnostic(cluster.url(fresh), "fresh");
   const upgrade = await cluster.createDatabase("diagnostic_upgrade");

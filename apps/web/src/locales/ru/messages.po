@@ -1392,7 +1392,7 @@ msgstr "Тест соединения не удался."
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "Соединение с {0} все еще не завершено. Вы можете закрыть это и проверить еще раз."
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Container"
 msgstr "Container"
@@ -2709,7 +2709,7 @@ msgstr "Высокий"
 msgid "Historical runs stay with their original project."
 msgstr "История запусков остаётся в исходном проекте."
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Host"
 msgstr "Host"
@@ -5059,7 +5059,7 @@ msgstr "Этот файл не является корректным текст�
 msgid "this Mac"
 msgstr "этот Mac"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "This Mac"
 msgstr "This Mac"

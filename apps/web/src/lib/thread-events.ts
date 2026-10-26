@@ -424,6 +424,11 @@ export function reduceThreadSnapshot(
     const blocks = reduceLiveMessageBlocks(previous?.blocks ?? [], {
       type: "tool",
       name: String(event.payload.name ?? ""),
+      ...(event.payload.location === "host" ||
+      event.payload.location === "this-mac" ||
+      event.payload.location === "container"
+        ? { location: event.payload.location }
+        : {}),
     });
     const next: ThreadMessage = {
       id: liveId,

@@ -34,10 +34,10 @@ describePostgres("project links (PostgreSQL)", () => {
       data: { id: organizationId, name: "Link tests", slug: organizationId, createdAt: new Date() },
     });
     const local = await prisma.space.create({
-      data: { id: "links-local-" + suffix, organizationId, name: "Local" },
+      data: { id: `links-local-${suffix}`, organizationId, name: "Local" },
     });
     const foreign = await prisma.space.create({
-      data: { id: "links-foreign-" + suffix, organizationId, name: "Foreign" },
+      data: { id: `links-foreign-${suffix}`, organizationId, name: "Foreign" },
     });
     spaceId = local.id;
     foreignSpaceId = foreign.id;

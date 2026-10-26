@@ -8,7 +8,12 @@ import { ComputerBrowserProvider } from "./computer-browser.js";
 import { DesktopSandboxProvider } from "./desktop-sandbox.js";
 import { DockerSandboxProvider } from "./docker-sandbox.js";
 import { FakeSandboxProvider } from "./fake-sandbox.js";
-import { createRunSandbox, HostAwareSandbox, sandboxKindForBot } from "./host-aware-sandbox.js";
+import {
+  createRunSandbox,
+  executionLocationForComputer,
+  HostAwareSandbox,
+  sandboxKindForBot,
+} from "./host-aware-sandbox.js";
 
 const ctx = {
   operationId: "1",
@@ -17,6 +22,16 @@ const ctx = {
   userId: "u",
   signal: new AbortController().signal,
 };
+
+describe("execution location", () => {
+  it.each([
+    ["desktop", true, "host"],
+    ["desktop", false, "this-mac"],
+    ["docker", false, "container"],
+  ] as const)("labels %s (employee host: %s) as %s", (kind, employeeHost, expected) => {
+    expect(executionLocationForComputer(kind, employeeHost)).toBe(expected);
+  });
+});
 
 describe("host-aware sandbox", () => {
   const hostRoot = mkdtempSync(path.join(tmpdir(), "rakazo-host-root-"));

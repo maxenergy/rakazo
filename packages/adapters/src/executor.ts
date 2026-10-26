@@ -287,6 +287,7 @@ import {
   selectCompactedHistory,
   shouldEnqueueCompaction,
 } from "./history-compaction.js";
+import { executionLocationForComputer } from "./host-aware-sandbox.js";
 import {
   assertConnectorToolArgs,
   CATALOG_EXECUTE,
@@ -7684,7 +7685,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 botId: bot.id,
                 type: "agent.tool.called",
                 runId,
-                payload: { name: event.name, executionId: event.executionId },
+                payload: {
+                  name: event.name,
+                  executionId: event.executionId,
+                  location: executionLocationForComputer(computer.kind, employeeHost),
+                },
               });
               pendingToolNames.push(event.name);
               tryFlushPendingTools();

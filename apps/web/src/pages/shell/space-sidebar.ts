@@ -1,5 +1,12 @@
 import { groupBotsForSidebar } from "@rakazo/core";
 
+export function sidebarExecutionLocation(
+  workLocation: "container" | "host" | undefined,
+  computerHost: "docker" | "this-mac" | null | undefined,
+): "host" | "this-mac" | "container" {
+  return workLocation === "host" ? "host" : computerHost === "this-mac" ? "this-mac" : "container";
+}
+
 type SidebarChat = {
   id: string;
   name: string;

@@ -165,6 +165,7 @@ import { SkillDraftCard } from "../components/teach/SkillDraftCard";
 import { TeachCaptureOverlay } from "../components/teach/TeachCaptureOverlay";
 import { TeachComputerOverlayControl } from "../components/teach/TeachComputerOverlay";
 import { TeachRecordingChrome, TeachStopButton } from "../components/teach/TeachRecordingChrome";
+import { WorkLocationBadge } from "../components/WorkLocationBadge";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
@@ -293,7 +294,11 @@ import {
   McpApprovalCard,
 } from "./shell/message-cards";
 import { PendingApprovalsLink } from "./shell/pending-approvals-link";
-import { commitSpaceRename, sidebarGroupsForSpaces } from "./shell/space-sidebar";
+import {
+  commitSpaceRename,
+  sidebarExecutionLocation,
+  sidebarGroupsForSpaces,
+} from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
 const BotContextMenu = lazyOverlay(() =>
@@ -3280,15 +3285,12 @@ export function ShellPage() {
                                       {item.chat.name}
                                     </span>
                                     {locationBot ? (
-                                      <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                        {locationBot.workLocation === "host" ? (
-                                          <Trans>Host</Trans>
-                                        ) : bootstrapMe?.computerHost === "this-mac" ? (
-                                          <Trans>This Mac</Trans>
-                                        ) : (
-                                          <Trans>Container</Trans>
+                                      <WorkLocationBadge
+                                        location={sidebarExecutionLocation(
+                                          locationBot.workLocation,
+                                          bootstrapMe?.computerHost,
                                         )}
-                                      </span>
+                                      />
                                     ) : null}
                                     {item.chat.unread ? (
                                       <span className="sr-only">

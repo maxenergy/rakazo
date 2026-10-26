@@ -1392,7 +1392,7 @@ msgstr "Bağlantı testi başarısız."
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "{0} bağlantısı hâlâ beklemede. Bunu kapatıp daha sonra tekrar kontrol edebilirsin."
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Container"
 msgstr "Container"
@@ -2709,7 +2709,7 @@ msgstr "Yüksek"
 msgid "Historical runs stay with their original project."
 msgstr "Geçmiş çalıştırmalar özgün projelerinde kalır."
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Host"
 msgstr "Host"
@@ -5059,7 +5059,7 @@ msgstr "Bu dosya geçerli UTF-8 metni değil."
 msgid "this Mac"
 msgstr "bu Mac"
 
-#: src/pages/Shell.tsx
+#: src/components/WorkLocationBadge.tsx
 #: src/pages/shell/work-location.tsx
 msgid "This Mac"
 msgstr "This Mac"

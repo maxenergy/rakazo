@@ -12,6 +12,7 @@ import { getLogger } from "@rakazo/logging";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isApprovalPausedResult } from "./approval-effect.js";
 import { MAX_SHARED_MEMORY_CHARS } from "./builtin-tools.js";
+import { CLI_NETWORK_FAILURE } from "./cli-model-process.js";
 import type * as ComputerLifecycleModule from "./computer-lifecycle.js";
 import { createRunExecutor } from "./executor.js";
 import { catalogEntries, resolveCatalogCall } from "./lazy-tool-catalog.js";
@@ -234,6 +235,7 @@ function fixture({
     return true;
   });
   const finalizeRun = vi.fn(async () => ({ continuationRunId: null }));
+  const jobs = { enqueue: vi.fn(async (_job: unknown) => undefined) };
   const execute = vi.fn(async function* (call: ConnectorCall) {
     yield { type: "result" as const, data: { item: call.args.id } };
   });
@@ -323,7 +325,7 @@ function fixture({
     },
     memoryProviders: { resolve: async () => null },
     events: { append: vi.fn(async () => undefined), pauseRunForInput, finalizeRun },
-    jobs: { enqueue: vi.fn(async () => undefined) },
+    jobs,
     secrets,
     autoReview: autoReviewProvider,
     shutdownSignal,
@@ -332,6 +334,7 @@ function fixture({
     prisma,
     runtimeRun,
     finalizeRun,
+    jobs,
     continueRun: () => executor.continueRun(run.id, "worker-1"),
     effects,
     results,
@@ -738,6 +741,24 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect(f.execute).not.toHaveBeenCalled();
       expect(f.pauseRunForInput).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("network loss", () => {
+  it("requeues a run whose CLI lost its connection instead of failing it", async () => {
+    const f = fixture({
+      runtimeProbe: async () => {
+        throw new Error(CLI_NETWORK_FAILURE);
+      },
+    });
+    await f.continueRun();
+    expect(f.finalizeRun).not.toHaveBeenCalled();
+    expect(f.prisma.run.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "queued" }) }),
+    );
+    const requeued = f.jobs.enqueue.mock.calls.at(-1)?.[0] as { availableAt?: Date };
+    expect(requeued).toMatchObject({ name: "run.continue", replaceKey: "run:run-1" });
+    expect(requeued.availableAt!.getTime()).toBeGreaterThan(Date.now() + 60_000);
   });
 });
 

@@ -834,4 +834,9 @@ export const DE_MESSAGES: Record<string, string> = {
     "Melde dich bei deinem bestehenden Konto an, um SSO zu verknüpfen",
   "SSO is temporarily unavailable. Try again.":
     "SSO ist vorübergehend nicht verfügbar. Versuche es erneut.",
+  "Work location": "Arbeitsort",
+  Host: "Host",
+  Container: "Container",
+  "This Mac": "Dieser Mac",
+  "Change work location on Web": "Ändere den Arbeitsort im Web.",
 };

@@ -93,6 +93,10 @@ function bot(description = "Billing"): Bot {
     status: "idle",
     runErrorId: null,
     computerMode: "team",
+    workLocation: "container",
+    hostRoots: [],
+    hostGrantedAt: null,
+    hostGrantedByUserId: null,
     updatedAt: "2026-09-01T00:00:00.000Z",
     createdAt: "2026-09-01T00:00:00.000Z",
     voiceId: null,
@@ -124,6 +128,7 @@ async function render(description = "Billing") {
         bot={bot(description)}
         memoryProviderConfigured={false}
         onSkillsChange={() => undefined}
+        onRefresh={async () => undefined}
         onSave={onSave}
         onExport={async () => undefined}
         onClear={() => undefined}

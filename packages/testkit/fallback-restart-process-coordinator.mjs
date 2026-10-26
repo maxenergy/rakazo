@@ -60,8 +60,7 @@ try {
     await delay(100);
   }
   if (
-    !barrier ||
-    barrier.type !== "RAK19_USAGE_COMMITTED" ||
+    barrier?.type !== "RAK19_USAGE_COMMITTED" ||
     typeof barrier.callId !== "string" ||
     !barrier.callId ||
     !Number.isInteger(barrier.pid) ||

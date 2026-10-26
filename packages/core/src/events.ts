@@ -102,6 +102,11 @@ export function projectMessages(
       live.blocks = reduceLiveMessageBlocks(live.blocks, {
         type: "tool",
         name: String(payload.name ?? ""),
+        ...(payload.location === "host" ||
+        payload.location === "this-mac" ||
+        payload.location === "container"
+          ? { location: payload.location }
+          : {}),
       });
       live.meta = {
         ...live.meta,
@@ -238,7 +243,7 @@ export function runFailureError(event: {
 
 export type LiveMessageUpdate =
   | { type: "progress"; payload: Record<string, unknown> | undefined }
-  | { type: "tool"; name: string };
+  | { type: "tool"; name: string; location?: "host" | "this-mac" | "container" };
 
 export function reduceLiveMessageBlocks(
   blocks: readonly MessageBlock[],
@@ -259,6 +264,10 @@ export function reduceLiveMessageBlocks(
     ...(tail?.kind === "progress" ? (tail.pendingToolNames ?? []) : []),
     ...(update.type === "tool" ? [update.name] : []),
   ];
+  const pendingToolLocations = [
+    ...(tail?.kind === "progress" ? (tail.pendingToolLocations ?? []) : []),
+    ...(update.type === "tool" ? [update.location ?? null] : []),
+  ];
   const activity =
     update.type === "progress"
       ? update.payload?.activity === true
@@ -266,7 +275,13 @@ export function reduceLiveMessageBlocks(
 
   if (pendingToolNames.length > 0 && endsSentence(tailText)) {
     let next = activity ? [...segments] : appendTextSegment(segments, tailText);
-    for (const name of pendingToolNames) next = appendToolCallSegment(next, name);
+    for (let i = 0; i < pendingToolNames.length; i += 1) {
+      next = appendToolCallSegment(
+        next,
+        pendingToolNames[i]!,
+        pendingToolLocations[i] ?? undefined,
+      );
+    }
     return next;
   }
   if (!tailText) return [...segments];
@@ -276,7 +291,7 @@ export function reduceLiveMessageBlocks(
       kind: "progress",
       text: tailText,
       ...(activity ? { activity: true as const } : {}),
-      ...(pendingToolNames.length > 0 ? { pendingToolNames } : {}),
+      ...(pendingToolNames.length > 0 ? { pendingToolNames, pendingToolLocations } : {}),
     },
   ];
 }
@@ -288,15 +303,23 @@ function liveMessageText(blocks: readonly MessageBlock[]): string {
     .join("");
 }
 
-export type ToolStep = { label: string; count: number };
+export type ToolLocation = "host" | "this-mac" | "container";
+export type ToolStep = { label: string; count: number; location?: ToolLocation };
 
-export function appendToolStep(steps: readonly ToolStep[], toolName: string): ToolStep[] {
+export function appendToolStep(
+  steps: readonly ToolStep[],
+  toolName: string,
+  location?: ToolLocation,
+): ToolStep[] {
   const label = humanizeToolName(toolName);
   const last = steps.at(-1);
-  if (last && last.label === label) {
-    return [...steps.slice(0, -1), { label, count: last.count + 1 }];
+  if (last && last.label === label && last.location === location) {
+    return [
+      ...steps.slice(0, -1),
+      { label, count: last.count + 1, ...(location ? { location } : {}) },
+    ];
   }
-  return [...steps, { label, count: 1 }];
+  return [...steps, { label, count: 1, ...(location ? { location } : {}) }];
 }
 
 export type ToolCallStreak = { key: string | undefined; count: number };
@@ -335,10 +358,11 @@ export function appendTextSegment(segments: readonly MessageBlock[], text: strin
 export function appendToolCallSegment(
   segments: readonly MessageBlock[],
   toolName: string,
+  location?: ToolLocation,
 ): MessageBlock[] {
   const last = segments.at(-1);
   const priorSteps = last?.kind === "steps" ? last.steps : [];
-  const steps = appendToolStep(priorSteps, toolName);
+  const steps = appendToolStep(priorSteps, toolName, location);
   if (last?.kind === "steps") {
     return [...segments.slice(0, -1), { kind: "steps", steps }];
   }

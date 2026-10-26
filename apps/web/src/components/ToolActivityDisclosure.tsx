@@ -3,6 +3,7 @@ import type { ThreadMessage } from "@rakazo/contracts";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatToolActivityDuration, toolStepCount } from "../lib/tool-activity-view";
+import { WorkLocationBadge } from "./WorkLocationBadge";
 
 type ToolStep = Extract<ThreadMessage["blocks"][number], { kind: "steps" }>["steps"][number];
 
@@ -48,6 +49,7 @@ export function ToolSteps({
               {step.label}
               {step.count > 1 ? ` ×${step.count}` : ""}
             </span>
+            {step.location ? <WorkLocationBadge location={step.location} /> : null}
           </div>
         );
       })}

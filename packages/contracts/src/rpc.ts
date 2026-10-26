@@ -338,6 +338,43 @@ export const appContract = {
       .output(z.object({ ok: z.literal(true) })),
   },
   bots: {
+    /** Owner human session only. hostRoots limits tool paths/cwd, not shell OS permissions. */
+    setWorkLocation: oc
+      .input(
+        z.object({
+          botId: Id,
+          workLocation: z.enum(["container", "host"]),
+          hostRoots: z.array(z.string().min(1)).max(10).default([]),
+        }),
+      )
+      .output(BotSchema),
+    hostAuditLogs: oc
+      .input(
+        z.object({
+          botId: Id,
+          cursor: Id.optional(),
+          limit: z.number().int().min(1).max(100).default(50),
+        }),
+      )
+      .output(
+        z.object({
+          items: z.array(
+            z.object({
+              id: Id,
+              botId: Id,
+              runId: Id.nullable(),
+              userId: Id.nullable(),
+              /** file.delete is reserved; shell deletes are recorded as exec. */
+              kind: z.enum(["exec", "file.write", "file.delete", "grant", "revoke"]),
+              target: z.string(),
+              command: z.string().nullable(),
+              exitCode: z.number().int().nullable(),
+              createdAt: z.string(),
+            }),
+          ),
+          nextCursor: Id.nullable(),
+        }),
+      ),
     backups: oc.input(botId).output(ModelBackupListSchema),
     setBackups: oc
       .input(z.object({ botId: Id, models: ModelBackupListSchema }))

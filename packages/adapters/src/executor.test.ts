@@ -2528,6 +2528,7 @@ description: Prepare standup notes
         return callback(this);
       }),
       externalEffect: { findMany: vi.fn(async () => []) },
+      routine: { findUnique: vi.fn(async () => ({ crons: ["0 9 * * *"] })) },
       run: {
         findUnique: vi.fn(async () => run),
         findUniqueOrThrow: vi.fn(async () => ({ status: "leased", startedAt: null })),

@@ -165,6 +165,7 @@ import { SkillDraftCard } from "../components/teach/SkillDraftCard";
 import { TeachCaptureOverlay } from "../components/teach/TeachCaptureOverlay";
 import { TeachComputerOverlayControl } from "../components/teach/TeachComputerOverlay";
 import { TeachRecordingChrome, TeachStopButton } from "../components/teach/TeachRecordingChrome";
+import { WorkLocationBadge } from "../components/WorkLocationBadge";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
@@ -293,7 +294,11 @@ import {
   McpApprovalCard,
 } from "./shell/message-cards";
 import { PendingApprovalsLink } from "./shell/pending-approvals-link";
-import { commitSpaceRename, sidebarGroupsForSpaces } from "./shell/space-sidebar";
+import {
+  commitSpaceRename,
+  sidebarExecutionLocation,
+  sidebarGroupsForSpaces,
+} from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
 const BotContextMenu = lazyOverlay(() =>
@@ -3098,6 +3103,10 @@ export function ShellPage() {
                           (item.kind === "bot" && !inGroup && active?.id === item.chat.id) ||
                           (item.kind === "group" && inGroup && activeGroup?.id === item.chat.id);
                         const compact = botsSidebarDensity === "compact";
+                        const locationBot =
+                          item.kind === "bot"
+                            ? bots.find((bot) => bot.id === item.chat.id)
+                            : undefined;
                         const workStatusLabel =
                           item.kind === "bot" ? rosterWorkStatusLabel(item.chat.status) : null;
                         const rowError =
@@ -3275,6 +3284,14 @@ export function ShellPage() {
                                     >
                                       {item.chat.name}
                                     </span>
+                                    {locationBot ? (
+                                      <WorkLocationBadge
+                                        location={sidebarExecutionLocation(
+                                          locationBot.workLocation,
+                                          bootstrapMe?.computerHost,
+                                        )}
+                                      />
+                                    ) : null}
                                     {item.chat.unread ? (
                                       <span className="sr-only">
                                         <Trans> (unread)</Trans>
@@ -4026,6 +4043,7 @@ export function ShellPage() {
                 bot={active}
                 memoryProviderConfigured={memoryProviderConfig != null}
                 onSkillsChange={setAgentSkills}
+                onRefresh={() => refreshBots()}
                 onSave={async ({ computerMode, ...patch }) => {
                   if (computerMode !== active.computerMode) {
                     await rpc.bots.setComputer({

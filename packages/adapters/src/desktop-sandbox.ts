@@ -62,7 +62,9 @@ interface DesktopBox {
 export class DesktopSandboxProvider implements SandboxProvider {
   readonly boxes = new Map<string, DesktopBox>();
 
-  constructor(private readonly opts: { root?: string; hostRoots?: string[] } = {}) {}
+  constructor(
+    private readonly opts: { root?: string; hostRoots?: string[]; employeeHost?: boolean } = {},
+  ) {}
 
   describe() {
     return {
@@ -84,11 +86,13 @@ export class DesktopSandboxProvider implements SandboxProvider {
     request: { botId: string; homePath: string },
     _context: AdapterContext,
   ): Promise<ComputerRef> {
-    const home = path.resolve(
-      this.opts.root ?? path.join(process.cwd(), "data"),
-      "desktop-computers",
-      request.botId,
-    );
+    const home = this.opts.employeeHost
+      ? this.opts.hostRoots![0]!
+      : path.resolve(
+          this.opts.root ?? path.join(process.cwd(), "data"),
+          "desktop-computers",
+          request.botId,
+        );
     const existing = [...this.boxes.values()].find(
       (box) => box.ref.botId === request.botId || box.home === home,
     );
@@ -129,7 +133,11 @@ export class DesktopSandboxProvider implements SandboxProvider {
       yield { type: "exit", code: 1 };
       return;
     }
-    const cwd = resolveExecuteCwd(request.cwd, box.home);
+    const requestedCwd = resolveExecuteCwd(request.cwd, box.home);
+    if (this.opts.employeeHost && /(^|[/\\])\.\.([/\\]|$)/u.test(request.cwd ?? "")) {
+      throw new Error("Parent traversal is not allowed");
+    }
+    const cwd = this.opts.employeeHost ? await realpath(requestedCwd) : requestedCwd;
     if (!isAllowedDesktopPath(cwd, this.allowedRoots(box.home))) {
       yield { type: "stderr", data: "path is outside this computer's home" };
       yield { type: "exit", code: 1 };
@@ -302,7 +310,7 @@ export class DesktopSandboxProvider implements SandboxProvider {
   }
 
   private allowedRoots(home: string) {
-    return [home, ...(this.opts.hostRoots ?? [])];
+    return this.opts.employeeHost ? this.opts.hostRoots! : [home, ...(this.opts.hostRoots ?? [])];
   }
 }
 

@@ -83,6 +83,7 @@ export * from "./graphql-connectors.js";
 export * from "./group-handoff.js";
 export * from "./home.js";
 export * from "./host-aware-sandbox.js";
+export * from "./host-roots.js";
 export * from "./infisical-secret-store.js";
 export * from "./installed-connectors.js";
 export * from "./integration-provider-settings.js";

@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@lingui/react/macro", () => ({
   Plural: ({ value, one, other }: { value: number; one: string; other: string }) =>
     (value === 1 ? one : other).replace("#", String(value)),
+  Trans: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 import {
@@ -152,6 +153,14 @@ describe("ToolSteps", () => {
       <ToolSteps steps={stepsOf(LIVE_TOOL_STEP_WINDOW + 1)} limit={LIVE_TOOL_STEP_WINDOW} />,
     );
     expect(html).toContain("+1 earlier step<");
+  });
+
+  it("shows a trusted execution-location badge on a tool step", () => {
+    const html = renderToStaticMarkup(
+      <ToolSteps steps={[{ label: "Shell", count: 1, location: "host" }]} />,
+    );
+    expect(html).toContain('data-testid="work-location-badge"');
+    expect(html).toContain("Host");
   });
 
   it("exposes the full label as the title of a truncated step", () => {

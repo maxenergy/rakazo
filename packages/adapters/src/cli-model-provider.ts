@@ -15,6 +15,7 @@ import { getLogger } from "@rakazo/logging";
 import type { CliModelProvider } from "./cli-model-process.js";
 import {
   CLI_MODEL_PROVIDERS,
+  CLI_NETWORK_FAILURE,
   CliProcessError,
   classifyCliFailure,
   isCliProfileId,
@@ -926,12 +927,14 @@ function streamCliModel(
       }
       message.stopReason = reply.calls.length ? "toolUse" : "stop";
       stream.push({ type: "done", reason: message.stopReason, message });
-    } catch {
+    } catch (error) {
       // Native CLI output may contain account details or credentials. Never forward it.
       message.stopReason = options?.signal?.aborted ? "aborted" : "error";
       message.errorMessage = options?.signal?.aborted
         ? "CLI request cancelled."
-        : "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.";
+        : cliFailureReason(error) === "network"
+          ? CLI_NETWORK_FAILURE
+          : "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.";
       stream.push({ type: "error", reason: message.stopReason, error: message });
     } finally {
       // On Windows a CLI child can still hold the directory (EBUSY); a leftover temp

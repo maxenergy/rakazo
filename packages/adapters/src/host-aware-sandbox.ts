@@ -14,10 +14,24 @@ import type {
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { DesktopSandboxProvider } from "./desktop-sandbox.js";
+import { EmployeeHostSandbox } from "./employee-host-sandbox.js";
 import { createSandboxProvider, type SandboxProviderOptions } from "./sandbox-factory.js";
 
-export function sandboxKindForBot(envKind: string, computerHost: string | null | undefined) {
-  if (envKind === "docker" && computerHost === "this-mac") return "desktop";
+export function executionLocationForComputer(
+  computerKind: string,
+  employeeHost: boolean,
+): "host" | "this-mac" | "container" {
+  if (employeeHost) return "host";
+  return computerKind === "desktop" ? "this-mac" : "container";
+}
+
+export function sandboxKindForBot(
+  envKind: string,
+  computerHost: string | null | undefined,
+  workLocation?: string,
+) {
+  if (envKind === "docker" && (computerHost === "this-mac" || workLocation === "host"))
+    return "desktop";
   return envKind;
 }
 
@@ -26,18 +40,22 @@ export function createRunSandbox(
   opts: SandboxProviderOptions & { prisma?: PrismaClient },
 ): SandboxProvider {
   if (kind === "desktop") {
-    return new DesktopSandboxProvider({
-      root: opts.dataDir,
-      hostRoots: [homedir()],
-    });
+    return opts.prisma
+      ? new EmployeeHostSandbox(opts.prisma, {
+          root: opts.dataDir,
+          hostRoots: [homedir()],
+          legacy: true,
+        })
+      : new DesktopSandboxProvider({ root: opts.dataDir, hostRoots: [homedir()] });
   }
   const primary = createSandboxProvider(kind, opts);
   if (kind !== "docker" || !opts.prisma) return primary;
   return new HostAwareSandbox(
     primary,
-    new DesktopSandboxProvider({
+    new EmployeeHostSandbox(opts.prisma, {
       root: opts.dataDir,
       hostRoots: [homedir()],
+      legacy: true,
     }),
     async () => {
       const settings = await opts.prisma!.deploymentSettings.findUnique({
@@ -45,16 +63,19 @@ export function createRunSandbox(
       });
       return settings?.computerHost === "this-mac";
     },
+    { prisma: opts.prisma, dataDir: opts.dataDir },
   );
 }
 
 export class HostAwareSandbox implements SandboxProvider {
+  private readonly employeeHosts = new Map<string, SandboxProvider>();
   readonly pageBrowser?: SandboxProvider["pageBrowser"];
 
   constructor(
     private readonly isolated: SandboxProvider,
     private readonly host: SandboxProvider,
     private readonly hostEnabled: () => Promise<boolean>,
+    private readonly employeeOptions?: { prisma: PrismaClient; dataDir?: string },
   ) {
     if (isolated.pageBrowser || host.pageBrowser) {
       this.pageBrowser = (computer, request, context) => {
@@ -76,7 +97,13 @@ export class HostAwareSandbox implements SandboxProvider {
   }
 
   private route(computer: ComputerRef) {
-    return computer.kind === "desktop" ? this.host : this.isolated;
+    if (computer.id.startsWith("employee-host-") && !this.employeeHosts.has(computer.id)) {
+      throw new Error("Employee host run is no longer active");
+    }
+    return (
+      this.employeeHosts.get(computer.id) ??
+      (computer.kind === "desktop" ? this.host : this.isolated)
+    );
   }
 
   async provision(
@@ -88,6 +115,22 @@ export class HostAwareSandbox implements SandboxProvider {
     },
     context: AdapterContext,
   ) {
+    const bot =
+      context.botId && this.employeeOptions
+        ? await this.employeeOptions.prisma.bot.findFirst({
+            where: { id: context.botId, spaceId: context.spaceId },
+            select: { workLocation: true, hostRoots: true },
+          })
+        : null;
+    if (bot?.workLocation === "host") {
+      const provider = new EmployeeHostSandbox(this.employeeOptions!.prisma, {
+        hostRoots: bot.hostRoots.length ? bot.hostRoots : [homedir()],
+      });
+      const ref = await provider.provision({ ...request, botId: context.botId! }, context);
+      ref.id = `employee-host-${context.botId}-${context.runId ?? context.operationId}`;
+      this.employeeHosts.set(ref.id, provider);
+      return ref;
+    }
     const provider = (await this.hostEnabled()) ? this.host : this.isolated;
     const providerKind = provider.describe().id;
     return provider.provision(
@@ -100,7 +143,9 @@ export class HostAwareSandbox implements SandboxProvider {
   }
 
   async isRunning(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
-    const provider = (await this.hostEnabled()) ? this.host : this.isolated;
+    const provider =
+      this.employeeHosts.get(computer.id) ??
+      ((await this.hostEnabled()) ? this.host : this.isolated);
     if (provider.describe().id !== computer.kind) return false;
     return provider.isRunning?.(computer, context) ?? false;
   }
@@ -183,8 +228,12 @@ export class HostAwareSandbox implements SandboxProvider {
     return this.route(computer).keepAlive?.(computer) ?? Promise.resolve();
   }
 
-  releaseScreen(computer: ComputerRef, context: AdapterContext) {
-    return this.route(computer).releaseScreen?.(computer, context) ?? Promise.resolve();
+  async releaseScreen(computer: ComputerRef, context: AdapterContext) {
+    try {
+      await this.route(computer).releaseScreen?.(computer, context);
+    } finally {
+      this.employeeHosts.delete(computer.id);
+    }
   }
 
   setScreenControl(

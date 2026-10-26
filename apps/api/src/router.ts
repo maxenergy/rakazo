@@ -125,6 +125,7 @@ import {
   UNAVAILABLE_MODEL_FOR_AUTH_MESSAGE,
   updateTicket,
   validateConnectedModelChoice,
+  validateHostRoots,
   validateModelAuthAvailability,
   validateStoredModelAuth,
   verifyMcpInstall,
@@ -277,6 +278,7 @@ import {
 } from "./artifacts.js";
 import type { BillingService } from "./billing.js";
 import { botProfileLabelsChanged, commitBotUpdate } from "./bot-update.js";
+import { requireHostOwnerSession } from "./bot-work-location.js";
 import {
   executionBlocksUserTakeover,
   resolveBusyBotName,
@@ -1670,6 +1672,80 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     bots: {
+      setWorkLocation: authed.bots.setWorkLocation.handler(async ({ context, input }) => {
+        await requireHostOwnerSession(deps.prisma, context.actor, context.sessionId);
+        if (deps.env.sandboxProvider !== "docker") throw new ORPCError("FORBIDDEN");
+        await repos.getBot(context.actor, input.botId);
+        let hostRoots: string[];
+        try {
+          hostRoots = await validateHostRoots(input.hostRoots);
+        } catch (error) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: error instanceof Error ? error.message : "Invalid host roots",
+          });
+        }
+        const host = input.workLocation === "host";
+        await deps.prisma.$transaction(async (tx) => {
+          const updated = await tx.bot.updateMany({
+            where: {
+              id: input.botId,
+              spaceId: context.actor.spaceId,
+              userId: context.actor.userId,
+              archivedAt: null,
+            },
+            data: {
+              workLocation: input.workLocation,
+              hostRoots,
+              hostGrantedAt: host ? new Date() : null,
+              hostGrantedByUserId: host ? context.actor.userId : null,
+            },
+          });
+          if (updated.count !== 1) throw new IsolationError();
+          await tx.hostAuditLog.create({
+            data: {
+              botId: input.botId,
+              userId: context.actor.userId,
+              kind: host ? "grant" : "revoke",
+              target: JSON.stringify({ workLocation: input.workLocation, hostRoots }),
+            },
+          });
+        });
+        const result = (await repos.listBots(context.actor)).find((bot) => bot.id === input.botId);
+        if (!result) throw new IsolationError();
+        return result;
+      }),
+      hostAuditLogs: authed.bots.hostAuditLogs.handler(async ({ context, input }) => {
+        await requireHostOwnerSession(deps.prisma, context.actor, context.sessionId);
+        await repos.getBot(context.actor, input.botId);
+        if (
+          input.cursor &&
+          !(await deps.prisma.hostAuditLog.findFirst({
+            where: { id: input.cursor, botId: input.botId },
+            select: { id: true },
+          }))
+        )
+          throw new IsolationError();
+        const rows = await deps.prisma.hostAuditLog.findMany({
+          where: { botId: input.botId },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: input.limit + 1,
+          ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+        });
+        const page = rows.slice(0, input.limit);
+        return {
+          items: page.map((row) => ({
+            ...row,
+            kind:
+              row.kind === "file_write"
+                ? ("file.write" as const)
+                : row.kind === "file_delete"
+                  ? ("file.delete" as const)
+                  : row.kind,
+            createdAt: row.createdAt.toISOString(),
+          })),
+          nextCursor: rows.length > input.limit ? page.at(-1)!.id : null,
+        };
+      }),
       backups: authed.bots.backups.handler(async ({ context, input }) =>
         listBotBackupModels(deps.prisma, { ...context.actor, botId: input.botId }),
       ),
@@ -7108,6 +7184,7 @@ async function spaceNavigationDto(
           preview: bot.preview,
           status: bot.status,
           runErrorId: bot.runErrorId,
+          workLocation: bot.workLocation,
           updatedAt: bot.updatedAt,
         })),
         groups: spaceGroups.map((group) => ({

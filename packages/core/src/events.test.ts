@@ -330,7 +330,7 @@ describe("projectMessages", () => {
         seq: 0,
         type: "agent.tool.called",
         runId: "r1",
-        payload: { name: "SLACK_FETCH_CONVERSATION_HISTORY" },
+        payload: { name: "SLACK_FETCH_CONVERSATION_HISTORY", location: "container" },
         createdAt: "2026-01-01T00:00:00.000Z",
       },
       {
@@ -339,7 +339,7 @@ describe("projectMessages", () => {
         seq: 1,
         type: "agent.tool.called",
         runId: "r1",
-        payload: { name: "SLACK_FETCH_CONVERSATION_HISTORY" },
+        payload: { name: "SLACK_FETCH_CONVERSATION_HISTORY", location: "container" },
         createdAt: "2026-01-01T00:00:01.000Z",
       },
       {
@@ -356,7 +356,7 @@ describe("projectMessages", () => {
     expect(messages[0]?.blocks[0]).toEqual({
       kind: "steps",
       steps: [
-        { label: "Slack fetch conversation history", count: 2 },
+        { label: "Slack fetch conversation history", count: 2, location: "container" },
         { label: "Slack find channels", count: 1 },
       ],
     });
@@ -466,6 +466,7 @@ describe("projectMessages", () => {
         kind: "progress",
         text: "Let me check what I have locally and try the GitHub API",
         pendingToolNames: ["shell"],
+        pendingToolLocations: [null],
       },
     ]);
   });
@@ -583,6 +584,14 @@ describe("appendToolStep", () => {
   it("starts a new step for the first call", () => {
     expect(appendToolStep([], "SLACK_FIND_CHANNELS")).toEqual([
       { label: "Slack find channels", count: 1 },
+    ]);
+  });
+
+  it("keeps identical tools in separate steps when their execution locations differ", () => {
+    const host = appendToolStep([], "shell", "host");
+    expect(appendToolStep(host, "shell", "container")).toEqual([
+      { label: "Shell", count: 1, location: "host" },
+      { label: "Shell", count: 1, location: "container" },
     ]);
   });
 

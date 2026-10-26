@@ -836,4 +836,9 @@ export const RU_MESSAGES: Record<string, string> = {
   "Sign in to your existing account to link SSO":
     "Войдите в существующий аккаунт, чтобы привязать SSO",
   "SSO is temporarily unavailable. Try again.": "SSO временно недоступен. Попробуйте снова.",
+  "Work location": "Рабочая среда",
+  Host: "Хост",
+  Container: "Контейнер",
+  "This Mac": "Этот Mac",
+  "Change work location on Web": "Измените рабочую среду в веб-версии.",
 };

@@ -176,7 +176,7 @@ export default function ProjectsScreen() {
           <View style={[styles.card, { backgroundColor: tokens.card }]}>
             <Text style={{ color: tokens.foreground }}>
               {selected.status === "paused" ? t("Paused") : t("Active")}
-              {selected.pausedAt ? " · " + new Date(selected.pausedAt).toLocaleString() : ""}
+              {selected.pausedAt ? ` · ${new Date(selected.pausedAt).toLocaleString()}` : ""}
             </Text>
             <Pressable
               accessibilityRole="button"

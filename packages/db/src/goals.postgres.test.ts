@@ -37,12 +37,12 @@ const enabled = process.env.VERIFY_DATABASE === "1" && process.env.DATABASE_URL;
     });
     spaceId = (
       await prisma.space.create({
-        data: { id: organizationId + "-local", organizationId, name: "Local" },
+        data: { id: `${organizationId}-local`, organizationId, name: "Local" },
       })
     ).id;
     foreignSpaceId = (
       await prisma.space.create({
-        data: { id: organizationId + "-foreign", organizationId, name: "Foreign" },
+        data: { id: `${organizationId}-foreign`, organizationId, name: "Foreign" },
       })
     ).id;
   });

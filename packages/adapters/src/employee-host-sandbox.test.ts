@@ -61,6 +61,8 @@ describe("employee host runs", () => {
       ctx,
     );
     expect(await readFile(path.join(home, "result.txt"), "utf8")).toBe("host");
+    await sandbox.releaseScreen(ref, ctx);
+    expect(() => sandbox.listFiles(ref, "", ctx)).toThrow("no longer active");
     prisma.bot.findFirst.mockResolvedValue({ workLocation: "container", hostRoots: [] });
     const container = await sandbox.provision({ botId: "shared-home", homePath: home }, ctx);
     expect(container.kind).toBe("fake");
@@ -112,5 +114,42 @@ describe("employee host runs", () => {
     expect(prisma.hostAuditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ kind: "exec" }) }),
     );
+  });
+  it("audits the user command instead of the shell launcher and truncates at 2KB without splitting UTF-8", async () => {
+    const home = await root();
+    const outside = await root();
+    const prisma = db();
+    const sandbox = new EmployeeHostSandbox(prisma as unknown as PrismaClient, {
+      hostRoots: [home],
+    });
+    const ref = await sandbox.provision({ botId: ctx.botId, homePath: "" }, ctx);
+    const command = `echo ${"测".repeat(1000)}`;
+    for await (const _event of sandbox.execute(
+      ref,
+      {
+        argv: [
+          "bash",
+          "-c",
+          "launcher",
+          "rakazo-background-launch",
+          "computer",
+          "run",
+          "random",
+          command,
+        ],
+        cwd: outside,
+      },
+      ctx,
+    )) {
+      /* Rejected before starting a process. */
+    }
+    const recorded = prisma.hostAuditLog.create.mock.calls[0]![0].data.command as string;
+    expect(recorded.startsWith("echo ")).toBe(true);
+    expect(Buffer.byteLength(recorded)).toBeLessThanOrEqual(2048);
+    expect(recorded).not.toContain("\ufffd");
+    expect(prisma.hostAuditLog.update).toHaveBeenCalledWith({
+      where: { id: "audit" },
+      data: { exitCode: 1 },
+    });
   });
 });

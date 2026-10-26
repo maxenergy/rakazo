@@ -40,12 +40,12 @@ describePostgres("project archive (PostgreSQL)", () => {
     });
     spaceId = (
       await prisma.space.create({
-        data: { id: "archive-local-" + suffix, organizationId, name: "Local" },
+        data: { id: `archive-local-${suffix}`, organizationId, name: "Local" },
       })
     ).id;
     foreignSpaceId = (
       await prisma.space.create({
-        data: { id: "archive-foreign-" + suffix, organizationId, name: "Foreign" },
+        data: { id: `archive-foreign-${suffix}`, organizationId, name: "Foreign" },
       })
     ).id;
     boardId = (await ensureBoard(prisma, spaceId)).id;

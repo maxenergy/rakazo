@@ -11,7 +11,7 @@ import {
 
 describe("execution fence history boundaries", () => {
   for (const boundary of ["message", "event"] as const) {
-    it("rejects stale " + boundary + " writes before creating history rows", async () => {
+    it(`rejects stale ${boundary} writes before creating history rows`, async () => {
       const tx = {
         run: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         thread: { update: vi.fn().mockResolvedValue({ nextMessageSeq: 2, nextEventSeq: 2 }) },
@@ -51,7 +51,7 @@ describe("execution fence history boundaries", () => {
 
 describe("execution fence budget boundaries", () => {
   for (const boundary of ["reserve", "start", "release", "settle"] as const) {
-    it("rejects stale " + boundary + " before touching budget rows", async () => {
+    it(`rejects stale ${boundary} before touching budget rows`, async () => {
       const tx = {
         run: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $queryRaw: vi.fn().mockResolvedValue([]),

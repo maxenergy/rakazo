@@ -7184,6 +7184,7 @@ async function spaceNavigationDto(
           preview: bot.preview,
           status: bot.status,
           runErrorId: bot.runErrorId,
+          workLocation: bot.workLocation,
           updatedAt: bot.updatedAt,
         })),
         groups: spaceGroups.map((group) => ({

@@ -64,6 +64,10 @@ function mapBot(
     updatedAt: Date;
     thread: { id: string; unread: boolean } | null;
     computer: { scope: string } | null;
+    workLocation?: "container" | "host";
+    hostRoots?: string[];
+    hostGrantedAt?: Date | null;
+    hostGrantedByUserId?: string | null;
     voiceId?: string | null;
     autoSpeak?: boolean;
     modelProvider?: string | null;
@@ -105,6 +109,10 @@ function mapBot(
     status,
     runErrorId,
     computerMode: bot.computer ? parseComputerMode(bot.computer.scope) : "team",
+    workLocation: bot.workLocation ?? "container",
+    hostRoots: bot.hostRoots ?? [],
+    hostGrantedAt: bot.hostGrantedAt?.toISOString() ?? null,
+    hostGrantedByUserId: bot.hostGrantedByUserId ?? null,
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
     voiceId: bot.voiceId ?? null,
@@ -162,6 +170,7 @@ export function createRepos(prisma: PrismaClient) {
         sectionId: true,
         updatedAt: true,
         parentBotId: true,
+        workLocation: true,
         thread: {
           select: {
             unread: true,
@@ -189,6 +198,7 @@ export function createRepos(prisma: PrismaClient) {
         pinned: bot.pinned,
         sectionId: bot.sectionId,
         unread: bot.thread.unread,
+        workLocation: bot.workLocation,
         parentBotId: bot.parentBotId,
         preview: previewFromBlocks(bot.thread.messages[0]?.blocks),
         status: rosterActiveRun(bot.runs)?.status ?? "idle",

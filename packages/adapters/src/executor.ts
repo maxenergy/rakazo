@@ -3543,7 +3543,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       }
       const leaseTarget = await deps.prisma.bot.findUniqueOrThrow({
         where: { id: run.botId },
-        select: { computerId: true, computerSwitching: true },
+        select: { computerId: true, computerSwitching: true, workLocation: true },
       });
       if (!leaseTarget.computerId) throw new Error("Bot has no computer");
       if (leaseTarget.computerSwitching) {
@@ -3552,12 +3552,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
       }
       let computerLease: ComputerExecutionLease | null = null;
       try {
-        computerLease = await acquireComputerExecutionLease(deps.prisma, {
-          computerId: leaseTarget.computerId,
-          runId,
-          botId: run.botId,
-          resumeHeldLease,
-        });
+        computerLease =
+          leaseTarget.workLocation === "host" && deps.sandbox.describe().id === "docker"
+            ? null
+            : await acquireComputerExecutionLease(deps.prisma, {
+                computerId: leaseTarget.computerId,
+                runId,
+                botId: run.botId,
+                resumeHeldLease,
+              });
       } catch (error) {
         if (!(error instanceof ComputerBusyError)) throw error;
         await requeueComputerRun(deps, runId, workerId, fence, resumeCheckpoint, heldForTakeover);
@@ -4018,12 +4021,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
 
         if (!bot.computer) throw new Error("Bot has no computer");
         const storedComputer = bot.computer;
-        const computerMode = parseComputerMode(storedComputer.scope);
-        const computer = await provisionComputer(deps, storedComputer.id, context, "bot");
+        const employeeHost = bot.workLocation === "host" && deps.sandbox.describe().id === "docker";
+        const computerMode = employeeHost
+          ? ("dedicated" as const)
+          : parseComputerMode(storedComputer.scope);
+        const computer = employeeHost
+          ? await deps.sandbox.provision({ botId: bot.id, homePath: "" }, context)
+          : await provisionComputer(deps, storedComputer.id, context, "bot");
+        if (employeeHost) await deps.sandbox.prepare(computer, context);
         screenRelease = { computer, context };
-        scheduleComputerSleep(deps.jobs, storedComputer.id);
+        if (!employeeHost) scheduleComputerSleep(deps.jobs, storedComputer.id);
         const workspaceCheckpoint = createRunWorkspaceCheckpoint(() =>
-          checkpointRunComputerWorkspace(deps, storedComputer, computer, context),
+          employeeHost
+            ? Promise.resolve()
+            : checkpointRunComputerWorkspace(deps, storedComputer, computer, context),
         );
         const graphical =
           computer.kind !== "desktop" && deps.sandbox.describe().capabilities.graphical;
@@ -5216,7 +5227,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
           if (name === "write_file") {
             const filePath = String(args.path ?? "notes/result.txt");
-            if (graphical) {
+            if (requiresDesktopProtection(graphical, computer.kind)) {
               const activateRefusal = protectedActivateScriptWriteRefusal(filePath);
               if (activateRefusal) {
                 return finish({ error: desktopProtectionGuardMessage(activateRefusal) });
@@ -5377,7 +5388,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (name === "shell") {
             const command = String(args.command ?? args.cmd ?? "");
             const refusal = protectedComputerLifecycleRefusal(command);
-            if (graphical && refusal) {
+            if (requiresDesktopProtection(graphical, computer.kind) && refusal) {
               return finish({ error: desktopProtectionGuardMessage(refusal) });
             }
             const cwd = resolveBotWorkspaceCwd(
@@ -9986,4 +9997,8 @@ export async function recoverUnfinishedEffects(
       });
     }
   });
+}
+
+export function requiresDesktopProtection(graphical: boolean, kind: ComputerRef["kind"]): boolean {
+  return graphical || kind === "desktop";
 }

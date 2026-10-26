@@ -70,6 +70,10 @@ export const BotSchema = z.object({
   status: z.string(),
   runErrorId: Id.nullable().default(null),
   computerMode: ComputerModeSchema,
+  workLocation: z.enum(["container", "host"]).default("container"),
+  hostRoots: z.array(z.string()).default([]),
+  hostGrantedAt: z.string().nullable().default(null),
+  hostGrantedByUserId: Id.nullable().default(null),
   updatedAt: z.string(),
   createdAt: z.string(),
   voiceId: z.string().nullable(),
@@ -175,6 +179,7 @@ export type BotSection = z.infer<typeof BotSectionSchema>;
  * those bots access to the currently active space.
  */
 export const SpaceBotSchema = BotSchema.pick({
+  workLocation: true,
   id: true,
   spaceId: true,
   name: true,

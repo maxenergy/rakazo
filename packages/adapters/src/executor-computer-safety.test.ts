@@ -4,6 +4,7 @@ import {
   isProtectedComputerLifecycleCommand,
   protectedActivateScriptWriteRefusal,
   protectedComputerLifecycleRefusal,
+  requiresDesktopProtection,
 } from "./executor.js";
 
 describe("computer lifecycle command guard", () => {
@@ -606,5 +607,13 @@ describe("computer lifecycle command guard", () => {
     ]) {
       expect(protectedComputerLifecycleRefusal(command), command).toBe("heredoc");
     }
+  });
+});
+
+describe("host desktop protection", () => {
+  it("protects derived desktop refs even without graphical capability", () => {
+    expect(requiresDesktopProtection(false, "desktop")).toBe(true);
+    expect(requiresDesktopProtection(false, "docker")).toBe(false);
+    expect(requiresDesktopProtection(true, "docker")).toBe(true);
   });
 });

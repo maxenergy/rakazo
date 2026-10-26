@@ -38,6 +38,7 @@ import { stopVoicePlayback } from "../lib/voice";
 
 type BotSettingsRecord = MobileBot & {
   description?: string;
+  workLocation?: "container" | "host";
 };
 
 export default function BotSettingsScreen() {
@@ -478,6 +479,19 @@ export default function BotSettingsScreen() {
           ))}
         </ScrollView>
         <ComputerModePicker value={computerMode} onChange={setComputerMode} />
+        <View accessibilityLabel={t("Work location")} style={{ marginTop: 20 }}>
+          <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{t("Work location")}</Text>
+          <Text style={{ color: tokens.foreground, marginTop: 6, fontSize: 15 }}>
+            {bot?.workLocation === "host"
+              ? t("Host")
+              : me?.computerHost === "this-mac"
+                ? t("This Mac")
+                : t("Container")}
+          </Text>
+          <Text style={{ color: tokens.mutedForeground, marginTop: 4, fontSize: 13 }}>
+            {t("Change work location on Web")}
+          </Text>
+        </View>
         <View style={[styles.row, { marginTop: 20 }]}>
           <Text style={[styles.rowLabel, { color: tokens.mutedForeground }]}>
             {t("Read replies aloud")}

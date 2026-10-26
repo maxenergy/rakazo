@@ -968,6 +968,7 @@ export type MobileMe = Pick<
   | "needsModel"
   | "avatarStyle"
   | "isDeploymentOwner"
+  | "computerHost"
 >;
 
 export type MobileModel = ModelCatalogEntry;

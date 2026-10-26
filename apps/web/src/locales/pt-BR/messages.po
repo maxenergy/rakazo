@@ -17,6 +17,10 @@ msgstr ""
 msgid " (unread)"
 msgstr " (não lido)"
 
+#: src/pages/shell/work-location.tsx
+msgid "—"
+msgstr ""
+
 #. placeholder {0}: group.entries.length
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "{0, plural, one {# model} other {# models}}"
@@ -339,6 +343,10 @@ msgstr "Adicione modelos conectados para usá-los como backups."
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
 msgstr "Adicionar credencial"
+
+#: src/pages/shell/work-location.tsx
+msgid "Add directory"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
@@ -717,6 +725,10 @@ msgstr "Autorizar"
 msgid "Authorize this server so agents can use its tools. A popup opens."
 msgstr "Autorize este servidor para que os agentes usem suas ferramentas. Uma janela pop-up será aberta."
 
+#: src/pages/shell/work-location.tsx
+msgid "Authorized {grantedAt} by {grantedBy}"
+msgstr ""
+
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
 msgstr "Remetentes automáticos"
@@ -957,6 +969,10 @@ msgstr "Visualização em cartões"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "Alterar senha"
+
+#: src/pages/shell/work-location.tsx
+msgid "Changing work location can allow irreversible operations on the host. Continue?"
+msgstr ""
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Changing…"
@@ -1376,6 +1392,10 @@ msgstr "O teste de conexão falhou."
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "A conexão com o {0} ainda está pendente. Você pode fechar isso e verificar novamente."
 
+#: src/pages/shell/work-location.tsx
+msgid "Container"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Context limit"
@@ -1640,6 +1660,10 @@ msgstr "Não foi possível carregar os comandos"
 msgid "Could not load credentials."
 msgstr "Não foi possível carregar as credenciais."
 
+#: src/pages/shell/work-location.tsx
+msgid "Could not load host audit"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not load integrations"
@@ -1815,6 +1839,10 @@ msgstr "Não foi possível salvar a credencial"
 #: src/pages/shell/message-cards.tsx
 msgid "Could not save this choice"
 msgstr "Não foi possível salvar esta opção"
+
+#: src/pages/shell/work-location.tsx
+msgid "Could not save work location"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not search catalog"
@@ -2299,6 +2327,10 @@ msgstr "Editar resultado-chave"
 msgid "Edit Profile"
 msgstr "Editar Perfil"
 
+#: src/pages/shell/work-location.tsx
+msgid "Effective location:"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Email"
 msgstr "E-mail"
@@ -2408,6 +2440,11 @@ msgstr "A cada semana"
 msgid "Executor token"
 msgstr "Token do Executor"
 
+#. placeholder {0}: entry.exitCode
+#: src/pages/shell/work-location.tsx
+msgid "Exit code {0}"
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "Expand"
 msgstr "Expandir"
@@ -2471,9 +2508,17 @@ msgstr "Falhou."
 msgid "Failure handling"
 msgstr "Tratamento de falhas"
 
+#: src/pages/shell/work-location.tsx
+msgid "File delete"
+msgstr ""
+
 #: src/components/computer/FilesApp.tsx
 msgid "File is too large to upload."
 msgstr "O arquivo é grande demais para enviar."
+
+#: src/pages/shell/work-location.tsx
+msgid "File write"
+msgstr ""
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Files"
@@ -2661,6 +2706,35 @@ msgstr "Alto"
 #: src/components/ProjectMembers.tsx
 msgid "Historical runs stay with their original project."
 msgstr "As execuções anteriores permanecem no projeto original."
+
+#: src/pages/shell/work-location.tsx
+msgid "Host"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host access granted"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host access revoked"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host audit"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host command"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host directories (up to 10)"
+msgstr ""
+
+#. placeholder {0}: index + 1
+#: src/pages/shell/work-location.tsx
+msgid "Host directory {0}"
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2861,6 +2935,7 @@ msgid "Load earlier messages"
 msgstr "Carregar mensagens anteriores..."
 
 #: src/pages/Artifacts.tsx
+#: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "Carregar mais"
 
@@ -2927,6 +3002,10 @@ msgstr "O acesso local permite que os bots executem comandos sem perguntar. Evit
 #: src/pages/LocalSettings.tsx
 msgid "Local Server Settings"
 msgstr "Configurações do servidor local"
+
+#: src/pages/shell/work-location.tsx
+msgid "Location"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 #: src/pages/Shell.tsx
@@ -3371,6 +3450,14 @@ msgstr "Sem objetivos"
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "Ainda não há chats de grupo."
+
+#: src/pages/shell/work-location.tsx
+msgid "No host audit entries"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "No host authorization"
+msgstr ""
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
@@ -4011,6 +4098,7 @@ msgstr "Liberar o computador interrompido?"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/shell/work-location.tsx
 #: src/pages/TicketDependencies.tsx
 msgid "Remove"
 msgstr "Remover"
@@ -4027,6 +4115,10 @@ msgstr "Remover {full}"
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
 msgstr "Remover {secretName}? Este bot não poderá mais usá-lo."
+
+#: src/pages/shell/work-location.tsx
+msgid "Remove directory"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove Git event"
@@ -4330,6 +4422,10 @@ msgstr "Salvar novo valor"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Save the workspace and install current software."
 msgstr "Salvar o espaço de trabalho e instalar o software atual."
+
+#: src/pages/shell/work-location.tsx
+msgid "Save work location"
+msgstr ""
 
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
@@ -4960,6 +5056,10 @@ msgstr "Este arquivo não é um texto UTF-8 válido."
 msgid "this Mac"
 msgstr "esse Mac"
 
+#: src/pages/shell/work-location.tsx
+msgid "This Mac"
+msgstr ""
+
 #: src/pages/Artifacts.tsx
 msgid "This month"
 msgstr "Este mês"
@@ -5364,6 +5464,10 @@ msgstr "Onde os bots devem ser executados?"
 #: src/lib/ticket-status.ts
 msgid "Won't do"
 msgstr "Não será feito"
+
+#: src/pages/shell/work-location.tsx
+msgid "Work location"
+msgstr ""
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

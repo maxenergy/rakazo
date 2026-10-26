@@ -827,4 +827,9 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Send deletion code": "发送删除验证码",
   "Sign in to your existing account to link SSO": "请登录现有账户以关联 SSO",
   "SSO is temporarily unavailable. Try again.": "SSO 暂时不可用，请重试。",
+  "Work location": "工作位置",
+  Host: "宿主机",
+  Container: "容器",
+  "This Mac": "这台 Mac",
+  "Change work location on Web": "请前往 Web 修改工作位置。",
 };

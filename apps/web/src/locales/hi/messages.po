@@ -17,6 +17,10 @@ msgstr ""
 msgid " (unread)"
 msgstr " (अपठित)"
 
+#: src/pages/shell/work-location.tsx
+msgid "—"
+msgstr ""
+
 #. placeholder {0}: group.entries.length
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "{0, plural, one {# model} other {# models}}"
@@ -339,6 +343,10 @@ msgstr "बैकअप के रूप में उपयोग करने 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
 msgstr "क्रेडेंशियल जोड़ें"
+
+#: src/pages/shell/work-location.tsx
+msgid "Add directory"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
@@ -717,6 +725,10 @@ msgstr "ऑथराइज़ करें"
 msgid "Authorize this server so agents can use its tools. A popup opens."
 msgstr "एजेंटों को इसके टूल का उपयोग करने देने के लिए इस सर्वर को ऑथराइज़ करें। एक पॉपअप खुलता है।"
 
+#: src/pages/shell/work-location.tsx
+msgid "Authorized {grantedAt} by {grantedBy}"
+msgstr ""
+
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
 msgstr "स्वचालित प्रेषक"
@@ -957,6 +969,10 @@ msgstr "कार्ड दृश्य"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "पासवर्ड बदलें"
+
+#: src/pages/shell/work-location.tsx
+msgid "Changing work location can allow irreversible operations on the host. Continue?"
+msgstr ""
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Changing…"
@@ -1376,6 +1392,10 @@ msgstr "कनेक्शन परीक्षण विफल रहा।"
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "{0} से कनेक्शन अभी लंबित है। आप इसे बंद करके बाद में जांच सकते हैं।"
 
+#: src/pages/shell/work-location.tsx
+msgid "Container"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Context limit"
@@ -1640,6 +1660,10 @@ msgstr "कमांड लोड नहीं कर सके"
 msgid "Could not load credentials."
 msgstr "क्रेडेंशियल लोड नहीं कर सके।"
 
+#: src/pages/shell/work-location.tsx
+msgid "Could not load host audit"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not load integrations"
@@ -1815,6 +1839,10 @@ msgstr "क्रेडेंशियल नहीं सहेज सके"
 #: src/pages/shell/message-cards.tsx
 msgid "Could not save this choice"
 msgstr "यह विकल्प सहेजा नहीं जा सका"
+
+#: src/pages/shell/work-location.tsx
+msgid "Could not save work location"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not search catalog"
@@ -2299,6 +2327,10 @@ msgstr "मुख्य परिणाम संपादित करें"
 msgid "Edit Profile"
 msgstr "प्रोफ़ाइल संपादित करें"
 
+#: src/pages/shell/work-location.tsx
+msgid "Effective location:"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Email"
 msgstr "ईमेल"
@@ -2408,6 +2440,11 @@ msgstr "हर सप्ताह"
 msgid "Executor token"
 msgstr "Executor टोकन"
 
+#. placeholder {0}: entry.exitCode
+#: src/pages/shell/work-location.tsx
+msgid "Exit code {0}"
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "Expand"
 msgstr "विस्तृत करें"
@@ -2471,9 +2508,17 @@ msgstr "विफल।"
 msgid "Failure handling"
 msgstr "विफलता प्रबंधन"
 
+#: src/pages/shell/work-location.tsx
+msgid "File delete"
+msgstr ""
+
 #: src/components/computer/FilesApp.tsx
 msgid "File is too large to upload."
 msgstr "फ़ाइल अपलोड करने के लिए बहुत बड़ी है।"
+
+#: src/pages/shell/work-location.tsx
+msgid "File write"
+msgstr ""
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Files"
@@ -2661,6 +2706,35 @@ msgstr "उच्च"
 #: src/components/ProjectMembers.tsx
 msgid "Historical runs stay with their original project."
 msgstr "पुराने रन अपने मूल प्रोजेक्ट के साथ ही रहेंगे।"
+
+#: src/pages/shell/work-location.tsx
+msgid "Host"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host access granted"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host access revoked"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host audit"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host command"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "Host directories (up to 10)"
+msgstr ""
+
+#. placeholder {0}: index + 1
+#: src/pages/shell/work-location.tsx
+msgid "Host directory {0}"
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
@@ -2861,6 +2935,7 @@ msgid "Load earlier messages"
 msgstr "पुराने संदेश लोड करें"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "और लोड करें"
 
@@ -2927,6 +3002,10 @@ msgstr "स्थानीय पहुँच मिलने पर बॉट�
 #: src/pages/LocalSettings.tsx
 msgid "Local Server Settings"
 msgstr "स्थानीय सर्वर सेटिंग्स"
+
+#: src/pages/shell/work-location.tsx
+msgid "Location"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 #: src/pages/Shell.tsx
@@ -3371,6 +3450,14 @@ msgstr "कोई लक्ष्य नहीं"
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "अभी कोई समूह चैट नहीं है।"
+
+#: src/pages/shell/work-location.tsx
+msgid "No host audit entries"
+msgstr ""
+
+#: src/pages/shell/work-location.tsx
+msgid "No host authorization"
+msgstr ""
 
 #: src/pages/TicketDependencies.tsx
 msgid "No incomplete prerequisites"
@@ -4011,6 +4098,7 @@ msgstr "बाधित कंप्यूटर मुक्त करें?"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/shell/work-location.tsx
 #: src/pages/TicketDependencies.tsx
 msgid "Remove"
 msgstr "हटाएं"
@@ -4027,6 +4115,10 @@ msgstr "{full} हटाएँ"
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
 msgstr "{secretName} हटाएँ? यह बॉट फिर इसका इस्तेमाल नहीं कर सकेगा।"
+
+#: src/pages/shell/work-location.tsx
+msgid "Remove directory"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove Git event"
@@ -4330,6 +4422,10 @@ msgstr "नया मान सहेजें"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Save the workspace and install current software."
 msgstr "कार्यक्षेत्र सहेजें और नवीनतम सॉफ़्टवेयर इंस्टॉल करें।"
+
+#: src/pages/shell/work-location.tsx
+msgid "Save work location"
+msgstr ""
 
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
@@ -4960,6 +5056,10 @@ msgstr "यह फ़ाइल मान्य UTF-8 टेक्स्ट न�
 msgid "this Mac"
 msgstr "यह Mac"
 
+#: src/pages/shell/work-location.tsx
+msgid "This Mac"
+msgstr ""
+
 #: src/pages/Artifacts.tsx
 msgid "This month"
 msgstr "इस महीने"
@@ -5364,6 +5464,10 @@ msgstr "बॉट कहां चलने चाहिए?"
 #: src/lib/ticket-status.ts
 msgid "Won't do"
 msgstr "नहीं करना है"
+
+#: src/pages/shell/work-location.tsx
+msgid "Work location"
+msgstr ""
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

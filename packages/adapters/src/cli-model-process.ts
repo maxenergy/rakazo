@@ -180,6 +180,12 @@ export type CliFailureCause =
   | "network"
   | "exit_code";
 
+/**
+ * A CLI turn that still had no connection after its retries. The executor requeues the run
+ * instead of failing it, so the work continues once the connection returns.
+ */
+export const CLI_NETWORK_FAILURE = "CLI request failed: the network is unavailable.";
+
 /** A CLI that exited with an error, with a coarse cause read from its own output. */
 export class CliProcessError extends Error {
   constructor(
@@ -200,7 +206,9 @@ export function classifyCliFailure(output: string): CliFailureCause {
   )
     return "context_too_long";
   if (
-    /routing discovery failed|request timed out|reconnecting|connection (reset|refused|closed)|econn|enotfound|etimedout|network error|stream disconnected|dns/.test(
+    // "Request not allowed" is the provider refusing a connection from an unsupported
+    // network path, which is what a CLI hits when the host's proxy drops out.
+    /routing discovery failed|request timed out|reconnecting|connection (reset|refused|closed|error)|econn|enotfound|etimedout|network error|stream disconnected|dns|request not allowed/.test(
       text,
     )
   )

@@ -227,6 +227,7 @@ import {
   isNewCodexCliModel,
   MODEL_NOT_DISCOVERED,
 } from "./cli-model-admission.js";
+import { CLI_NETWORK_FAILURE } from "./cli-model-process.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
 import { executeCloudAgentTool } from "./cloud-agent-service.js";
@@ -8033,6 +8034,28 @@ export function createRunExecutor(deps: ExecutorDeps) {
             error instanceof Error ? error.message : String(error),
             runSecrets,
           );
+          // A CLI that lost its connection did nothing wrong: put the run back in the queue
+          // so it continues once the network returns. The run deadline still bounds it.
+          if (message === CLI_NETWORK_FAILURE) {
+            const released = await writeComputerRunRequeue(
+              deps,
+              runId,
+              workerId,
+              fence,
+              null,
+              false,
+              null,
+              attempt.id,
+            );
+            if (released) {
+              getLogger().warn("run.network_requeued", { "run.id": runId });
+              await deps.jobs.enqueue({
+                ...runContinueJob(runId),
+                availableAt: new Date(Date.now() + NETWORK_REQUEUE_DELAY_MS),
+              });
+              return;
+            }
+          }
           const failed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -8284,6 +8307,9 @@ async function renewRunLease(
   });
   return renewed.count === 1;
 }
+
+/** How long a run that lost its model connection waits before trying again. */
+const NETWORK_REQUEUE_DELAY_MS = 2 * 60_000;
 
 function computerRetryDelay(fence: number): number {
   return Math.min(10_000, 250 * 2 ** Math.min(Math.max(fence - 1, 0), 5));

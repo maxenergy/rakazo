@@ -24,6 +24,7 @@ function bot(id = "bot-1"): Bot {
     workLocation: "container",
     hostRoots: [],
     hostGrantedAt: null,
+    hostGrantedByUserId: null,
     modelProvider: null,
     modelId: null,
     thinkingLevel: null,

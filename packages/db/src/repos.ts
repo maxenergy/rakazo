@@ -67,6 +67,7 @@ function mapBot(
     workLocation?: "container" | "host";
     hostRoots?: string[];
     hostGrantedAt?: Date | null;
+    hostGrantedByUserId?: string | null;
     voiceId?: string | null;
     autoSpeak?: boolean;
     modelProvider?: string | null;
@@ -111,6 +112,7 @@ function mapBot(
     workLocation: bot.workLocation ?? "container",
     hostRoots: bot.hostRoots ?? [],
     hostGrantedAt: bot.hostGrantedAt?.toISOString() ?? null,
+    hostGrantedByUserId: bot.hostGrantedByUserId ?? null,
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
     voiceId: bot.voiceId ?? null,

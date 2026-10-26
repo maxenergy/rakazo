@@ -96,6 +96,7 @@ function bot(description = "Billing"): Bot {
     workLocation: "container",
     hostRoots: [],
     hostGrantedAt: null,
+    hostGrantedByUserId: null,
     updatedAt: "2026-09-01T00:00:00.000Z",
     createdAt: "2026-09-01T00:00:00.000Z",
     voiceId: null,

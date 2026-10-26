@@ -346,6 +346,7 @@ import { parseProposalArgs } from "./proposal-tools.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
+import { onceFollowUpSuperseded } from "./routine-follow-ups.js";
 import {
   commitConsumedRunSecret,
   normalizeSecretAskPurpose,
@@ -3508,7 +3509,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
       // An org bot's later turn already had this message in its history. Settle it
       // before waiting for the bot's computer: while the bot works one long turn, its
       // colleagues' messages queue up, and each would otherwise wait for its own turn.
-      if (run.trigger === "bot_message" && (await peerMessageAlreadySeen(deps.prisma, run))) {
+      // Likewise, an older one-time follow-up is settled when a newer one is queued.
+      const superseded =
+        run.trigger === "routine" && (await onceFollowUpSuperseded(deps.prisma, run));
+      const peerSeen =
+        run.trigger === "bot_message" && (await peerMessageAlreadySeen(deps.prisma, run));
+      if (superseded || peerSeen) {
         const attempt = await withExecutionFence(deps, run.executionFence, (tx) =>
           tx.attempt.create({
             data: { runId, fence, status: "running" },
@@ -3527,7 +3533,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           blocks: [],
         });
         if (!skipped) return;
-        await markPeerMessageSeen(deps.prisma, runId);
+        if (peerSeen) await markPeerMessageSeen(deps.prisma, runId);
         if (skipped.continuationRunId) {
           await deps.jobs
             .enqueue(runContinueJob(skipped.continuationRunId))

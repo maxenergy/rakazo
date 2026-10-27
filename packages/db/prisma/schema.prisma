@@ -411,6 +411,8 @@ enum WorkLocation {
 }
 
 enum HostAuditKind {
+  location_switch
+  file_transfer
   exec
   file_write  @map("file.write")
   file_delete @map("file.delete")

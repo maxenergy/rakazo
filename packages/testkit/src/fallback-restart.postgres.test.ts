@@ -510,7 +510,11 @@ describe.skipIf(!enabled)("fallback billing PostgreSQL", () => {
                 throw new Error("Executor must supply executeTool");
               const effect = await recoveredRequest.executeTool(
                 "write_file",
-                { path: "fallback-restart-effect.txt", content: "completed" },
+                {
+                  location: "container",
+                  path: "fallback-restart-effect.txt",
+                  content: "completed",
+                },
                 "fallback-restart-completed-action",
               );
               expect(effect).not.toHaveProperty("error");

@@ -10,6 +10,7 @@ export const BUILTIN_TOOL_NAMES = [
   "list_files",
   "read_file",
   "write_file",
+  "transfer_file",
   "attach_file",
   "shell",
   "open_path",

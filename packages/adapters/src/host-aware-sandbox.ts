@@ -142,6 +142,30 @@ export class HostAwareSandbox implements SandboxProvider {
     );
   }
 
+  async provisionLocation(
+    request: {
+      location: "host" | "container";
+      botId: string;
+      homePath: string;
+      hostRoots: string[];
+      providerRef?: string;
+      providerKind?: ComputerRef["kind"];
+    },
+    context: AdapterContext,
+  ): Promise<ComputerRef> {
+    if (await this.hostEnabled())
+      throw new Error("Sequential container calls are unavailable in this-mac mode");
+    if (request.location === "container") return this.isolated.provision(request, context);
+    if (!this.employeeOptions) throw new Error("Employee host access is unavailable");
+    const provider = new EmployeeHostSandbox(this.employeeOptions.prisma, {
+      hostRoots: request.hostRoots,
+    });
+    const ref = await provider.provision({ ...request, homePath: "" }, context);
+    ref.id = `employee-host-${context.botId}-${context.runId ?? context.operationId}`;
+    this.employeeHosts.set(ref.id, provider);
+    return ref;
+  }
+
   async isRunning(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
     const provider =
       this.employeeHosts.get(computer.id) ??

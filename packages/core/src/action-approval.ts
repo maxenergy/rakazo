@@ -11,6 +11,7 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "read_history",
   "search_history",
   "write_file",
+  "transfer_file",
   "shell",
   "open_path",
   "launch_app",

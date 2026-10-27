@@ -131,7 +131,7 @@ test("message hover shows beside-bubble actions; reply links to parent", async (
 
   const parentRow = transcript
     .locator(`[data-message-id]`)
-    .filter({ has: transcript.getByText(parentText, { exact: true }) })
+    .filter({ has: page.getByText(parentText, { exact: true }) })
     .first();
   await expect(parentRow).toBeVisible({ timeout: 20_000 });
 
@@ -315,7 +315,7 @@ test("reply preview jumps to parent outside the loaded page", async ({ page }) =
   const transcript = page.getByTestId("transcript");
   const parentRow = transcript
     .locator(`[data-message-id]`)
-    .filter({ has: transcript.getByText(parentText, { exact: true }) })
+    .filter({ has: page.getByText(parentText, { exact: true }) })
     .first();
   await expect(parentRow).toBeVisible({ timeout: 20_000 });
   const parentId = await parentRow.getAttribute("data-message-id");

@@ -179,6 +179,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     activity: z.literal(true).optional(),
     pendingToolNames: z.array(z.string()).optional(),
     pendingToolLocations: z.array(z.enum(["host", "this-mac", "container"]).nullable()).optional(),
+    pendingToolExecutionIds: z.array(z.string().nullable()).optional(),
   }),
   z.object({
     kind: z.literal("steps"),
@@ -187,6 +188,9 @@ export const MessageBlock = z.discriminatedUnion("kind", [
         label: z.string(),
         count: z.number().int().positive(),
         location: z.enum(["host", "this-mac", "container"]).optional(),
+        executionId: z.string().optional(),
+        outcome: z.enum(["succeeded", "error", "paused"]).optional(),
+        error: z.string().optional(),
       }),
     ),
     durationMs: z.number().int().nonnegative().optional(),

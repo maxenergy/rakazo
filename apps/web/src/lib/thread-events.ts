@@ -429,6 +429,9 @@ export function reduceThreadSnapshot(
       event.payload.location === "container"
         ? { location: event.payload.location }
         : {}),
+      ...(typeof event.payload.executionId === "string"
+        ? { executionId: event.payload.executionId }
+        : {}),
     });
     const next: ThreadMessage = {
       id: liveId,
@@ -443,7 +446,39 @@ export function reduceThreadSnapshot(
     return { ...prev, cursor: event.seq, messages: [...remaining, next] };
   }
   if (event.type === "agent.tool.completed") {
-    return { ...prev, cursor: event.seq };
+    const executionId = event.payload.executionId;
+    const outcome = event.payload.outcome;
+    const error = event.payload.error;
+    const liveId = progressMessageId(event);
+    const messages = prev.messages.map((message) => {
+      if (message.id !== liveId || typeof executionId !== "string") return message;
+      return {
+        ...message,
+        blocks: message.blocks.map((block) =>
+          block.kind !== "steps"
+            ? block
+            : {
+                ...block,
+                steps: block.steps.map((step) =>
+                  step.executionId !== executionId
+                    ? step
+                    : {
+                        ...step,
+                        ...(outcome === "succeeded"
+                          ? { outcome: "succeeded" as const }
+                          : outcome === "error"
+                            ? { outcome: "error" as const }
+                            : outcome === "paused"
+                              ? { outcome: "paused" as const }
+                              : {}),
+                        ...(typeof error === "string" ? { error } : {}),
+                      },
+                ),
+              },
+        ),
+      };
+    });
+    return { ...prev, cursor: event.seq, messages };
   }
   if (event.type === "thread.subagent") {
     const block = subagentBlockFromPayload(event.payload);

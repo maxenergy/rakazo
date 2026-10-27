@@ -829,6 +829,39 @@ describe("Pi connector tool dispatch", () => {
     },
   );
 
+  it.each(["shell", "write_file", "read_file", "list_files"])(
+    "preserves explicit location through %s argument preparation",
+    async (name) => {
+      const args = { location: "host", command: "pwd", path: "notes/result.txt", content: "hello" };
+      fakeAgentState.invoke = { name, args };
+      const executeTool = vi.fn(async () => ({ ok: true }));
+      const runtime = new PiAgentRuntime();
+      const tool = builtinAgentTools.find((candidate) => candidate.name === name)!;
+      for await (const _event of runtime.run(
+        {
+          botId: "b",
+          threadId: "t",
+          runId: "r",
+          prompt: "Use the computer.",
+          instructions: "Use the requested location.",
+          history: [],
+          tools: [tool],
+          model: { provider: "test", id: "dispatch-test-model" },
+          executeTool,
+        },
+        { signal: new AbortController().signal },
+      )) {
+      }
+      expect(executeTool).toHaveBeenCalledWith(
+        name,
+        expect.objectContaining({ location: "host" }),
+        expect.any(String),
+        undefined,
+        expect.any(Object),
+      );
+    },
+  );
+
   it("exposes a provider-safe name while executing the original connector name", async () => {
     const executeTool = vi.fn(async () => ({ ok: true }));
     const runtime = new PiAgentRuntime();

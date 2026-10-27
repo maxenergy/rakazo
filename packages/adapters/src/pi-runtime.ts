@@ -1199,118 +1199,126 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
     parameters: parametersFor(tool),
     prepareArguments: (args: unknown) => {
       const raw = args && typeof args === "object" ? (args as Record<string, unknown>) : {};
-      if (tool.name === "destination.write") {
-        return {
-          collection: String(raw.collection ?? "notes"),
-          title: String(raw.title ?? "Rakazo result"),
-          body: String(raw.body ?? ""),
-        };
-      }
-      if (tool.name === "remember") {
-        return {
-          content: String(raw.content ?? ""),
-          path: String(raw.path ?? "MEMORY.md"),
-        };
-      }
-      if (tool.name === "request_takeover") {
-        return { reason: String(raw.reason ?? "I need you on the screen.") };
-      }
-      if (tool.name === "ask_user") {
-        const options = Array.isArray(raw.options) ? raw.options.map(String) : raw.options;
-        return {
-          question: String(raw.question ?? "What should I use?"),
-          // Keep a missing/invalid options value as-is so schema minItems can reject it;
-          // do not coerce to [] (that used to look like a valid empty list upstream).
-          options,
-        };
-      }
-      if (tool.name === "request_secret") {
-        return prepareRequestSecretArguments(raw);
-      }
-      if (tool.name === "write_file") {
-        return {
-          path: String(raw.path ?? "notes/result.txt"),
-          content: textContentArg(raw.content, ""),
-        };
-      }
-      if (tool.name === "computer_act") {
-        return {
-          actions: Array.isArray(raw.actions) ? raw.actions : [],
-          observe: raw.observe === undefined ? true : Boolean(raw.observe),
-          settle_ms: Number(raw.settle_ms ?? 350),
-        };
-      }
-      if (tool.name === "list_files") return { path: String(raw.path ?? "") };
-      if (tool.name === "read_file" || tool.name === "open_path") {
-        return { path: String(raw.path ?? "") };
-      }
-      if (tool.name === "launch_app") {
-        return {
-          application: String(raw.application ?? ""),
-          uri: raw.uri ? String(raw.uri) : "",
-        };
-      }
-      if (tool.name === "shell") {
-        return {
-          command: String(raw.command ?? ""),
-          // The executor chooses the bot-scoped default, including Team workspaces.
-          ...(raw.cwd ? { cwd: String(raw.cwd) } : {}),
-        };
-      }
-      if (tool.name === "run_subagent") {
-        return {
-          name: String(raw.name ?? "helper"),
-          task: String(raw.task ?? ""),
-          instructions: raw.instructions ? String(raw.instructions) : "",
-          model_provider: raw.model_provider ? String(raw.model_provider) : "",
-          model_id: raw.model_id ? String(raw.model_id) : "",
-        };
-      }
-      if (tool.name === "spawn_bot") {
-        return {
-          name: String(raw.name ?? ""),
-          title: raw.title ? String(raw.title) : "",
-          instructions: raw.instructions ? String(raw.instructions) : "",
-          prompt: raw.prompt ? String(raw.prompt) : "",
-          computer_mode: String(raw.computer_mode ?? "").trim() || "team",
-          ...(raw.model_provider != null ? { model_provider: raw.model_provider } : {}),
-          ...(raw.model_id != null ? { model_id: raw.model_id } : {}),
-          role: raw.role ? String(raw.role) : "",
-          team: raw.team ? String(raw.team) : "",
-        };
-      }
-      if (tool.name === "set_bot_model") {
-        const botId = typeof raw.bot_id === "string" ? raw.bot_id.trim() : raw.bot_id;
-        return {
-          ...(botId != null && botId !== "" ? { bot_id: botId } : {}),
-          model_provider: raw.model_provider,
-          model_id: raw.model_id,
-        };
-      }
-      if (tool.name === "update_bot") {
-        const notifyRaw = raw.notifyOnFinish ?? raw.notify_on_finish;
-        return {
-          ...(raw.name !== undefined ? { name: String(raw.name) } : {}),
-          ...(raw.title !== undefined ? { title: String(raw.title) } : {}),
-          ...(raw.description !== undefined ? { description: String(raw.description) } : {}),
-          ...(raw.color !== undefined ? { color: String(raw.color) } : {}),
-          ...(raw.artifact_id !== undefined ? { artifact_id: String(raw.artifact_id) } : {}),
-          ...(raw.use_attached_image !== undefined
-            ? { use_attached_image: raw.use_attached_image }
-            : {}),
-          ...(notifyRaw !== undefined ? { notifyOnFinish: notifyRaw } : {}),
-        };
-      }
-      if (tool.name === "create_space") {
-        return { name: String(raw.name ?? "") };
-      }
-      if (tool.name === "archive_bot" || tool.name === "delete_bot") {
-        return {
-          confirm_name: String(raw.confirm_name ?? raw.confirmName ?? ""),
-          bot_id: raw.bot_id ? String(raw.bot_id) : raw.botId ? String(raw.botId) : "",
-        };
-      }
-      return raw as never;
+      const prepared = (() => {
+        if (tool.name === "destination.write") {
+          return {
+            collection: String(raw.collection ?? "notes"),
+            title: String(raw.title ?? "Rakazo result"),
+            body: String(raw.body ?? ""),
+          };
+        }
+        if (tool.name === "remember") {
+          return {
+            content: String(raw.content ?? ""),
+            path: String(raw.path ?? "MEMORY.md"),
+          };
+        }
+        if (tool.name === "request_takeover") {
+          return { reason: String(raw.reason ?? "I need you on the screen.") };
+        }
+        if (tool.name === "ask_user") {
+          const options = Array.isArray(raw.options) ? raw.options.map(String) : raw.options;
+          return {
+            question: String(raw.question ?? "What should I use?"),
+            // Keep a missing/invalid options value as-is so schema minItems can reject it;
+            // do not coerce to [] (that used to look like a valid empty list upstream).
+            options,
+          };
+        }
+        if (tool.name === "request_secret") {
+          return prepareRequestSecretArguments(raw);
+        }
+        if (tool.name === "write_file") {
+          return {
+            path: String(raw.path ?? "notes/result.txt"),
+            content: textContentArg(raw.content, ""),
+          };
+        }
+        if (tool.name === "computer_act") {
+          return {
+            actions: Array.isArray(raw.actions) ? raw.actions : [],
+            observe: raw.observe === undefined ? true : Boolean(raw.observe),
+            settle_ms: Number(raw.settle_ms ?? 350),
+          };
+        }
+        if (tool.name === "list_files") return { path: String(raw.path ?? "") };
+        if (tool.name === "read_file" || tool.name === "open_path") {
+          return { path: String(raw.path ?? "") };
+        }
+        if (tool.name === "launch_app") {
+          return {
+            application: String(raw.application ?? ""),
+            uri: raw.uri ? String(raw.uri) : "",
+          };
+        }
+        if (tool.name === "shell") {
+          return {
+            command: String(raw.command ?? ""),
+            // The executor chooses the bot-scoped default, including Team workspaces.
+            ...(raw.cwd ? { cwd: String(raw.cwd) } : {}),
+          };
+        }
+        if (tool.name === "run_subagent") {
+          return {
+            name: String(raw.name ?? "helper"),
+            task: String(raw.task ?? ""),
+            instructions: raw.instructions ? String(raw.instructions) : "",
+            model_provider: raw.model_provider ? String(raw.model_provider) : "",
+            model_id: raw.model_id ? String(raw.model_id) : "",
+          };
+        }
+        if (tool.name === "spawn_bot") {
+          return {
+            name: String(raw.name ?? ""),
+            title: raw.title ? String(raw.title) : "",
+            instructions: raw.instructions ? String(raw.instructions) : "",
+            prompt: raw.prompt ? String(raw.prompt) : "",
+            computer_mode: String(raw.computer_mode ?? "").trim() || "team",
+            ...(raw.model_provider != null ? { model_provider: raw.model_provider } : {}),
+            ...(raw.model_id != null ? { model_id: raw.model_id } : {}),
+            role: raw.role ? String(raw.role) : "",
+            team: raw.team ? String(raw.team) : "",
+          };
+        }
+        if (tool.name === "set_bot_model") {
+          const botId = typeof raw.bot_id === "string" ? raw.bot_id.trim() : raw.bot_id;
+          return {
+            ...(botId != null && botId !== "" ? { bot_id: botId } : {}),
+            model_provider: raw.model_provider,
+            model_id: raw.model_id,
+          };
+        }
+        if (tool.name === "update_bot") {
+          const notifyRaw = raw.notifyOnFinish ?? raw.notify_on_finish;
+          return {
+            ...(raw.name !== undefined ? { name: String(raw.name) } : {}),
+            ...(raw.title !== undefined ? { title: String(raw.title) } : {}),
+            ...(raw.description !== undefined ? { description: String(raw.description) } : {}),
+            ...(raw.color !== undefined ? { color: String(raw.color) } : {}),
+            ...(raw.artifact_id !== undefined ? { artifact_id: String(raw.artifact_id) } : {}),
+            ...(raw.use_attached_image !== undefined
+              ? { use_attached_image: raw.use_attached_image }
+              : {}),
+            ...(notifyRaw !== undefined ? { notifyOnFinish: notifyRaw } : {}),
+          };
+        }
+        if (tool.name === "create_space") {
+          return { name: String(raw.name ?? "") };
+        }
+        if (tool.name === "archive_bot" || tool.name === "delete_bot") {
+          return {
+            confirm_name: String(raw.confirm_name ?? raw.confirmName ?? ""),
+            bot_id: raw.bot_id ? String(raw.bot_id) : raw.botId ? String(raw.botId) : "",
+          };
+        }
+        return raw as never;
+      })();
+      return {
+        ...prepared,
+        ...((tool.inputSchema as { properties?: Record<string, unknown> })?.properties?.location
+          ? { location: raw.location }
+          : {}),
+      };
     },
     execute: async (toolCallId, params): Promise<AgentToolResult<unknown>> => {
       host.signal.throwIfAborted();

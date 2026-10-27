@@ -25,6 +25,7 @@ describe.skipIf(!databaseAvailable)("offline Pi computer approval", () => {
     async (answer) => {
       let sandbox: FakeSandboxProvider;
       const approvedArgs = {
+        location: "container",
         actions: [{ kind: "type", text: "approved clipboard content" }],
         observe: false,
         settle_ms: 0,

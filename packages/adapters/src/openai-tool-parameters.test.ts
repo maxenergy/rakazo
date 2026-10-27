@@ -252,10 +252,8 @@ describe("computer tool locations", () => {
     expect(schema.required).toContain("location");
     expect((schema.properties as Record<string, unknown>).location).toEqual(
       expect.objectContaining({
-        anyOf: [
-          { const: "host", type: "string" },
-          { const: "container", type: "string" },
-        ],
+        type: "string",
+        enum: ["host", "container"],
       }),
     );
   });

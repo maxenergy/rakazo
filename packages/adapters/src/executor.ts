@@ -4041,7 +4041,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           initialLocation: computer.kind === "desktop" ? "host" : "container",
           markerId: storedComputer.id,
           containerHome: "",
-          hostRoots: [...bot.hostRoots],
+          hostRoots: [...(bot.hostRoots ?? [])],
           provisionContainer: async () => {
             if (!deps.sandbox.provisionLocation)
               throw new Error("Container location is unavailable");

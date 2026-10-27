@@ -384,6 +384,7 @@ describe("connector read-only metadata and approval enforcement", () => {
         trigger: "webhook",
         rules: [{ effect: "always_allow", matchKind: "tool", matchValue: name }],
       });
+      f.setCalls([{ args: { id: "item-1", location: "container" }, executionId: "call-1" }]);
       await f.run();
       expect(f.pauseRunForInput).toHaveBeenCalledOnce();
       expect(isApprovalPausedResult(f.results[0])).toBe(true);

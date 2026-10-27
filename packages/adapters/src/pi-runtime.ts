@@ -1778,7 +1778,16 @@ async function executeSubagent(host: ToolHost, executionId: string, args: Record
 
 /** Build AgentTool.parameters for a connector tool, including OpenAI wire fidelity. */
 export function parametersFor(tool: ConnectorTool) {
-  const builtin = builtinParameters(tool);
+  let builtin: ReturnType<typeof Type.Object> | undefined = builtinParameters(tool);
+  if (
+    builtin &&
+    (tool.inputSchema as { properties?: Record<string, unknown> })?.properties?.location
+  ) {
+    builtin = Type.Object({
+      ...builtin.properties,
+      location: Type.Union([Type.Literal("host"), Type.Literal("container")]),
+    });
+  }
   const schema = builtin
     ? withDeclaredDescriptions(builtin, tool.inputSchema)
     : safeJsonSchemaParameters(tool);

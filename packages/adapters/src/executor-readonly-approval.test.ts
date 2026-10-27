@@ -20,7 +20,7 @@ import { catalogEntries, resolveCatalogCall } from "./lazy-tool-catalog.js";
 vi.mock("./computer-lifecycle.js", async (importOriginal) => ({
   ...(await importOriginal<typeof ComputerLifecycleModule>()),
   acquireComputerExecutionLease: async () => null,
-  provisionComputer: async () => ({ id: "computer-1", kind: "desktop" }),
+  provisionComputer: async () => ({ id: "computer-1", kind: "docker" }),
 }));
 
 const reviewMock = vi.fn();

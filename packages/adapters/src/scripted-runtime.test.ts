@@ -144,6 +144,22 @@ describe("inferScript login request_secret", () => {
 });
 
 describe("inferScript write_file", () => {
+  it("attaches from the same explicit location as the written file", () => {
+    const steps = inferScript("write notes/result.txt and attach it to the thread");
+    const calls = steps.flatMap((step) => step.toolCalls ?? []);
+    expect(calls).toEqual([
+      {
+        name: "write_file",
+        args: {
+          location: "container",
+          path: "notes/result.txt",
+          content: "write notes/result.txt and attach it to the thread\n",
+        },
+      },
+      { name: "attach_file", args: { location: "container", path: "notes/result.txt" } },
+    ]);
+  });
+
   it("posts the reply after the tool so a routine run still has a durable final", () => {
     expect(
       inferScript("write a file in your home called notes/result.txt that says routine-ok"),

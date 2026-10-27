@@ -527,7 +527,10 @@ code-b
           { name: "write_file", args: { location: "container", path: filePath, content } },
         ],
       },
-      { toolCalls: [{ name: "attach_file", args: { path: filePath } }], complete: true },
+      {
+        toolCalls: [{ name: "attach_file", args: { location: "container", path: filePath } }],
+        complete: true,
+      },
     ];
   }
   if (

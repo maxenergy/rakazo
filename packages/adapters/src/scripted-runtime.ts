@@ -176,7 +176,7 @@ export function inferScript(
     return [
       {
         assistant: "running it on my computer.",
-        toolCalls: [{ name: "shell", args: { command: shellCommand } }],
+        toolCalls: [{ name: "shell", args: { location: "container", command: shellCommand } }],
         complete: true,
       },
     ];
@@ -522,7 +522,11 @@ code-b
       /(?:called|named|path|file)\s+([A-Za-z0-9._/-]+)/i.exec(prompt)?.[1] ?? "notes/result.txt";
     return [
       { assistant: "writing that into my home and attaching it to the thread." },
-      { toolCalls: [{ name: "write_file", args: { path: filePath, content } }] },
+      {
+        toolCalls: [
+          { name: "write_file", args: { location: "container", path: filePath, content } },
+        ],
+      },
       { toolCalls: [{ name: "attach_file", args: { path: filePath } }], complete: true },
     ];
   }
@@ -565,7 +569,11 @@ code-b
     const filePath =
       /(?:called|named)\s+([A-Za-z0-9._/-]+)/i.exec(prompt)?.[1] ?? "notes/result.txt";
     return [
-      { toolCalls: [{ name: "write_file", args: { path: filePath, content } }] },
+      {
+        toolCalls: [
+          { name: "write_file", args: { location: "container", path: filePath, content } },
+        ],
+      },
       { assistant: "writing that into my home now.", complete: true },
     ];
   }

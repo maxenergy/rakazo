@@ -378,7 +378,7 @@ function findActiveRun(prisma: PrismaClient, computerId: string, statuses: reado
   });
 }
 
-async function hasActiveBackgroundWork(
+export async function hasActiveBackgroundWork(
   sandbox: SandboxProvider,
   computer: ReturnType<typeof toComputerRef>,
   context: AdapterContext,

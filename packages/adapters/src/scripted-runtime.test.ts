@@ -78,7 +78,9 @@ describe("inferScript shell", () => {
     expect(inferScript("run the shell command echo sign in && ls -la")).toEqual([
       {
         assistant: "running it on my computer.",
-        toolCalls: [{ name: "shell", args: { command: "echo sign in && ls -la" } }],
+        toolCalls: [
+          { name: "shell", args: { location: "container", command: "echo sign in && ls -la" } },
+        ],
         complete: true,
       },
     ]);
@@ -148,7 +150,10 @@ describe("inferScript write_file", () => {
     ).toEqual([
       {
         toolCalls: [
-          { name: "write_file", args: { path: "notes/result.txt", content: "routine-ok\n" } },
+          {
+            name: "write_file",
+            args: { location: "container", path: "notes/result.txt", content: "routine-ok\n" },
+          },
         ],
       },
       { assistant: "writing that into my home now.", complete: true },

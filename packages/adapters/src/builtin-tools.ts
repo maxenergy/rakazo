@@ -11,6 +11,7 @@ import { z } from "zod";
 import { archivedBotToolInputs } from "./archived-bot-tools.js";
 import { allowPrivateHttpSecretOrigins } from "./bot-secrets.js";
 import { goalToolInputs } from "./goal-tools.js";
+import { LOCATION_TOOL_NAMES } from "./run-locations.js";
 
 // The owner flag can land in process.env after static imports run (loadRootEnv
 // parses .env once the entry module is already executing), so the model-facing
@@ -147,7 +148,7 @@ const scheduleCreateInputSchema = {
   ],
 };
 
-export const builtinAgentTools: ConnectorTool[] = [
+const baseAgentTools: ConnectorTool[] = [
   ...Object.entries(archivedBotToolInputs).map(
     ([name, schema]): ConnectorTool => ({
       name,
@@ -1398,6 +1399,40 @@ export const builtinAgentTools: ConnectorTool[] = [
     },
   },
 ];
+baseAgentTools.push({
+  name: "transfer_file",
+  description:
+    "Transfer one non-secret file between host and container sequentially, through an existing hostRoots exchange directory. Paths are explicit; destination must not exist; limit 10 MiB.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      sourceLocation: { type: "string", enum: ["host", "container"] },
+      targetLocation: { type: "string", enum: ["host", "container"] },
+      sourcePath: { type: "string" },
+      targetPath: { type: "string" },
+      exchangeDirectory: { type: "string" },
+    },
+    required: ["sourceLocation", "targetLocation", "sourcePath", "targetPath", "exchangeDirectory"],
+  },
+});
+export const builtinAgentTools: ConnectorTool[] = baseAgentTools.map((tool) => {
+  if (!LOCATION_TOOL_NAMES.has(tool.name)) return tool;
+  const schema = tool.inputSchema as { properties?: Record<string, unknown>; required?: string[] };
+  return {
+    ...tool,
+    description:
+      tool.description +
+      " Choose location explicitly on every call; calls at different locations run sequentially.",
+    inputSchema: {
+      ...tool.inputSchema,
+      properties: {
+        ...schema.properties,
+        location: { type: "string", enum: ["host", "container"] },
+      },
+      required: [...(schema.required ?? []), "location"],
+    },
+  };
+});
 
 /** Agent-connection tools, exposed only when the messaging surface is enabled. */
 export const agentConnectionTools: ConnectorTool[] = [

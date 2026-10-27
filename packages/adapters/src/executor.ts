@@ -349,6 +349,7 @@ import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
 import { onceFollowUpSuperseded } from "./routine-follow-ups.js";
+import { LOCATION_TOOL_NAMES, RunLocations } from "./run-locations.js";
 import {
   commitConsumedRunSecret,
   normalizeSecretAskPurpose,
@@ -3581,6 +3582,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       let lastLeaseCheckAt = 0;
       let retainComputerLease = false;
       let storageGuard: StorageGuard | undefined;
+      let runLocations: RunLocations | undefined;
       let screenRelease: { computer: ComputerRef; context: AdapterContext } | undefined;
       let runAbortController: AbortController | null = null;
       let detachShutdown: (() => void) | undefined;
@@ -4031,12 +4033,63 @@ export function createRunExecutor(deps: ExecutorDeps) {
           ? await deps.sandbox.provision({ botId: bot.id, homePath: "" }, context)
           : await provisionComputer(deps, storedComputer.id, context, "bot");
         if (employeeHost) await deps.sandbox.prepare(computer, context);
+        runLocations = new RunLocations({
+          sandbox: deps.sandbox,
+          prisma: deps.prisma,
+          context,
+          initial: computer,
+          initialLocation: computer.kind === "desktop" ? "host" : "container",
+          markerId: storedComputer.id,
+          containerHome: "",
+          hostRoots: [...bot.hostRoots],
+          provisionContainer: async () => {
+            if (!deps.sandbox.provisionLocation)
+              throw new Error("Container location is unavailable");
+            if (!computerLease) {
+              computerLease = await acquireComputerExecutionLease(deps.prisma, {
+                computerId: storedComputer.id,
+                runId,
+                botId: bot.id,
+                resumeHeldLease,
+              });
+            }
+            const sandbox = new Proxy(deps.sandbox, {
+              get(target, property) {
+                if (property === "provision")
+                  return (
+                    request: Parameters<SandboxProvider["provision"]>[0],
+                    ctx: AdapterContext,
+                  ) =>
+                    target.provisionLocation!(
+                      { ...request, location: "container", hostRoots: [] },
+                      ctx,
+                    );
+                const value = Reflect.get(target, property);
+                return typeof value === "function" ? value.bind(target) : value;
+              },
+            });
+            const ref = await provisionComputer(
+              { ...deps, sandbox },
+              storedComputer.id,
+              context,
+              "bot",
+            );
+            scheduleComputerSleep(deps.jobs, storedComputer.id);
+            return ref;
+          },
+        });
+
         screenRelease = { computer, context };
         if (!employeeHost) scheduleComputerSleep(deps.jobs, storedComputer.id);
         const workspaceCheckpoint = createRunWorkspaceCheckpoint(() =>
-          employeeHost
-            ? Promise.resolve()
-            : checkpointRunComputerWorkspace(deps, storedComputer, computer, context),
+          runLocations?.containerRef()
+            ? checkpointRunComputerWorkspace(
+                deps,
+                storedComputer,
+                runLocations.containerRef()!,
+                context,
+              )
+            : Promise.resolve(),
         );
         const graphical =
           computer.kind !== "desktop" && deps.sandbox.describe().capabilities.graphical;
@@ -4402,13 +4455,18 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return occurrence;
         };
 
-        const applyTool = async (
+        const applyToolAtComputer = async (
           name: string,
           args: Record<string, unknown>,
           executionId: string,
           _route?: unknown,
           observer?: AgentToolExecutionObserver,
+          selectedComputer = computer,
+          selectedLocation?: "host" | "container",
         ) => {
+          const computer = selectedComputer;
+          const computerMode =
+            selectedLocation === "host" ? "dedicated" : parseComputerMode(storedComputer.scope);
           context.signal.throwIfAborted();
           if (run.deadlineAt && Date.now() >= run.deadlineAt.getTime()) {
             throw new Error("deadline_exceeded");
@@ -5106,7 +5164,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 botId: bot.id,
                 runId,
                 type: "computer.command",
-                payload,
+                payload: {
+                  ...payload,
+                  ...(selectedLocation ? { location: selectedLocation } : {}),
+                },
               })
               // The Activity feed is a view; losing an entry must not fail the tool.
               .catch((error: unknown) => getLogger().error("computer command event", error));
@@ -5126,6 +5187,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
               output: outcome.error ? redactSecrets(outcome.error, runSecrets) : "",
               ...(outcome.bytes === undefined ? {} : { bytes: outcome.bytes }),
             });
+          if (name === "transfer_file") {
+            workspaceCheckpoint.markDirty();
+            return finish(
+              await runLocations!.transfer(args, (value) =>
+                resolveBotWorkspacePath(parseComputerMode(storedComputer.scope), bot.id, value),
+              ),
+            );
+          }
           if (name === "computer_observe") {
             if (heldForTakeover) {
               return { error: DESKTOP_HELD_FOR_TAKEOVER_MESSAGE };
@@ -5498,6 +5567,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   });
                   return final;
                 });
+                runLocations!.track(completion);
                 void completion.catch(() => undefined);
                 publishRunning(commandOutput(observed.result, true), true);
                 const returned = await finish({
@@ -7054,6 +7124,24 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return finish({ error: `unknown tool ${name}` });
         };
 
+        const applyTool = async (
+          name: string,
+          args: Record<string, unknown>,
+          executionId: string,
+          route?: unknown,
+          observer?: AgentToolExecutionObserver,
+        ) => {
+          try {
+            if (!LOCATION_TOOL_NAMES.has(name))
+              return await applyToolAtComputer(name, args, executionId, route, observer);
+            return await runLocations!.call(args.location, (ref, location) =>
+              applyToolAtComputer(name, args, executionId, route, observer, ref, location),
+            );
+          } catch (error) {
+            return { error: error instanceof Error ? error.message : String(error) };
+          }
+        };
+
         const pluginLine =
           connectedPlugins.length > 0
             ? `Connected plugins: ${connectedPlugins.map((row) => `${row.displayName} (${row.connectorId}:${row.provider})`).join(", ")}. Prefer those plugin tools over the computer browser or web search when reading app data (repos, releases, mail, calendar, and similar).`
@@ -7688,7 +7776,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 payload: {
                   name: event.name,
                   executionId: event.executionId,
-                  location: executionLocationForComputer(computer.kind, employeeHost),
+                  location:
+                    LOCATION_TOOL_NAMES.has(event.name) &&
+                    (event.args.location === "host" || event.args.location === "container")
+                      ? event.args.location
+                      : executionLocationForComputer(computer.kind, employeeHost),
                 },
               });
               pendingToolNames.push(event.name);
@@ -8144,6 +8236,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         detachShutdown?.();
         clearInterval(heartbeat);
         if (!retainComputerLease) {
+          await runLocations?.release();
           if (screenRelease) {
             await deps.sandbox
               .releaseScreen?.(screenRelease.computer, screenRelease.context)

@@ -319,6 +319,7 @@ export const ComputerCommandKind = z.enum([
 export type ComputerCommandKind = z.infer<typeof ComputerCommandKind>;
 export const ComputerCommandSchema = z.object({
   executionId: z.string(),
+  location: z.enum(["host", "container"]).optional(),
   kind: ComputerCommandKind,
   command: z.string(),
   cwd: z.string(),

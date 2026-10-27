@@ -2520,7 +2520,7 @@ msgstr "El archivo es demasiado grande para subirlo."
 
 #: src/pages/shell/work-location.tsx
 msgid "File transfer"
-msgstr ""
+msgstr "Transferencia de archivos"
 
 #: src/pages/shell/work-location.tsx
 msgid "File write"
@@ -5479,7 +5479,7 @@ msgstr "Work location"
 
 #: src/pages/shell/work-location.tsx
 msgid "Work location switch"
-msgstr ""
+msgstr "Cambio de ubicación de trabajo"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

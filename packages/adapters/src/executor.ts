@@ -7131,13 +7131,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
           route?: unknown,
           observer?: AgentToolExecutionObserver,
         ) => {
+          if (!LOCATION_TOOL_NAMES.has(name))
+            return await applyToolAtComputer(name, args, executionId, route, observer);
           try {
-            if (!LOCATION_TOOL_NAMES.has(name))
-              return await applyToolAtComputer(name, args, executionId, route, observer);
             return await runLocations!.call(args.location, (ref, location) =>
               applyToolAtComputer(name, args, executionId, route, observer, ref, location),
             );
           } catch (error) {
+            if (error instanceof StaleExecutionFenceError) throw error;
             return { error: error instanceof Error ? error.message : String(error) };
           }
         };

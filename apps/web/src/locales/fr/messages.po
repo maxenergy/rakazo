@@ -2520,7 +2520,7 @@ msgstr "Ce fichier est trop volumineux pour être envoyé."
 
 #: src/pages/shell/work-location.tsx
 msgid "File transfer"
-msgstr ""
+msgstr "Transfert de fichiers"
 
 #: src/pages/shell/work-location.tsx
 msgid "File write"
@@ -5479,7 +5479,7 @@ msgstr "Work location"
 
 #: src/pages/shell/work-location.tsx
 msgid "Work location switch"
-msgstr ""
+msgstr "Changement de lieu de travail"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

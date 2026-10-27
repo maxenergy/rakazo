@@ -2520,7 +2520,7 @@ msgstr "Dosya yüklemek için çok büyük."
 
 #: src/pages/shell/work-location.tsx
 msgid "File transfer"
-msgstr ""
+msgstr "Dosya aktarımı"
 
 #: src/pages/shell/work-location.tsx
 msgid "File write"
@@ -5479,7 +5479,7 @@ msgstr "Work location"
 
 #: src/pages/shell/work-location.tsx
 msgid "Work location switch"
-msgstr ""
+msgstr "Çalışma konumunu değiştir"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

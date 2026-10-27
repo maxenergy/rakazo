@@ -2520,7 +2520,7 @@ msgstr "फ़ाइल अपलोड करने के लिए बहु�
 
 #: src/pages/shell/work-location.tsx
 msgid "File transfer"
-msgstr ""
+msgstr "फ़ाइल स्थानांतरण"
 
 #: src/pages/shell/work-location.tsx
 msgid "File write"
@@ -5479,7 +5479,7 @@ msgstr "Work location"
 
 #: src/pages/shell/work-location.tsx
 msgid "Work location switch"
-msgstr ""
+msgstr "कार्य स्थान बदलें"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

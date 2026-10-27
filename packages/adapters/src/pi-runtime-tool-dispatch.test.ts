@@ -389,6 +389,7 @@ import {
   maxToolCallsPerTurn,
   PiAgentRuntime,
   providerFailureText,
+  withoutTrailingFailure,
 } from "./pi-runtime.js";
 import { TOOL_RESULT_TEXT_LIMIT } from "./pi-runtime-limits.js";
 
@@ -1218,6 +1219,22 @@ describe("Pi connector tool dispatch", () => {
         errorMessage: "upstream unavailable",
       }),
     ).toBe("upstream unavailable");
+  });
+
+  it("drops a trailing failed model call from a resumed segment so the model is called again", () => {
+    const toolResult = { role: "toolResult", toolCallId: "call-1", content: [] };
+    const failed = {
+      role: "assistant",
+      content: [],
+      stopReason: "error",
+      errorMessage: "CLI request failed: the network is unavailable.",
+    };
+    const segment = { messages: [toolResult, failed], toolCallSeq: 3, seenSteeringIds: [] };
+    expect(withoutTrailingFailure(segment)).toEqual({ ...segment, messages: [toolResult] });
+    const finished = { role: "assistant", content: [{ type: "text", text: "Done." }] };
+    const complete = { ...segment, messages: [toolResult, finished] };
+    expect(withoutTrailingFailure(complete)).toBe(complete);
+    expect(withoutTrailingFailure(undefined)).toBeUndefined();
   });
 
   it("fails when tools succeeded and the final assistant content is an empty provider error", async () => {

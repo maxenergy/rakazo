@@ -31,7 +31,7 @@ describe.skipIf(!databaseAvailable)("offline Pi product journey", () => {
             type: "tool",
             id: "product-write",
             name: "write_file",
-            arguments: { path: "notes/result.txt", content: "hello" },
+            arguments: { location: "container", path: "notes/result.txt", content: "hello" },
           },
         },
         {
@@ -47,7 +47,7 @@ describe.skipIf(!databaseAvailable)("offline Pi product journey", () => {
             type: "tool",
             id: "product-shell",
             name: "shell",
-            arguments: { command: "wc -c notes/result.txt" },
+            arguments: { location: "container", command: "wc -c notes/result.txt" },
           },
         },
         {

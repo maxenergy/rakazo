@@ -8,7 +8,14 @@ export type WorkLocation = "container" | "host";
 export type HostAuditEntry = {
   id: string;
   createdAt: string;
-  kind: "exec" | "file.write" | "file.delete" | "grant" | "revoke";
+  kind:
+    | "exec"
+    | "file.write"
+    | "file.delete"
+    | "grant"
+    | "revoke"
+    | "location_switch"
+    | "file_transfer";
   target: string;
   exitCode: number | null;
 };
@@ -242,6 +249,10 @@ function AuditKind({ kind }: { kind: HostAuditEntry["kind"] }) {
       return <Trans>File write</Trans>;
     case "file.delete":
       return <Trans>File delete</Trans>;
+    case "location_switch":
+      return <Trans>Work location switch</Trans>;
+    case "file_transfer":
+      return <Trans>File transfer</Trans>;
     case "grant":
       return <Trans>Host access granted</Trans>;
     case "revoke":

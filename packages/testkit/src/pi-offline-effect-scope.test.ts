@@ -11,7 +11,7 @@ it("isolates main and sibling effects with identical wire IDs and reconciles a c
       type: "tool" as const,
       id: "call_1",
       name: "write_file",
-      arguments: { path: "fixture.txt", content },
+      arguments: { location: "container", path: "fixture.txt", content },
     },
   });
   const delegate = (id: string) => ({

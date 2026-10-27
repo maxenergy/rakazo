@@ -42,7 +42,11 @@ describe("CLI group ownership transfer through real Pi", () => {
   it("ends after a successful handoff without another CLI request or final-answer recovery", async () => {
     vi.mocked(runCliProcess).mockResolvedValueOnce(
       reply("", [
-        { name: "write_file", argumentsJson: '{"path":"shared/plan.md","content":"Generic plan"}' },
+        {
+          name: "write_file",
+          argumentsJson:
+            '{"location":"container","path":"shared/plan.md","content":"Generic plan"}',
+        },
         {
           name: "handoff_to_bot",
           argumentsJson: '{"confirm_name":"Coordinator","message":"Review the completed plan."}',

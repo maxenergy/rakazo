@@ -53,6 +53,7 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
     async (answer) => {
       let sandbox: FakeSandboxProvider;
       const approvedArgs = {
+        location: "container",
         actions: [{ kind: "type", text: "approved clipboard content" }],
         observe: false,
         settle_ms: 0,
@@ -281,6 +282,7 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
       const db = createDb(databaseUrl);
       const dataDir = await mkdtemp(path.join(tmpdir(), "rak-budget-recovery-"));
       const args = {
+        location: "container",
         actions: [{ kind: "type", text: "completed budget effect" }],
         observe: false,
         settle_ms: 0,

@@ -244,3 +244,17 @@ describe("parametersFor OpenAI wire fidelity", () => {
     }
   });
 });
+
+describe("computer tool locations", () => {
+  it.each(["shell", "write_file"])("keeps explicit location in %s runtime parameters", (name) => {
+    const tool = builtinAgentTools.find((candidate) => candidate.name === name)!;
+    const schema = parametersFor(tool);
+    expect(schema.required).toContain("location");
+    expect((schema.properties as Record<string, unknown>).location).toEqual(
+      expect.objectContaining({
+        type: "string",
+        enum: ["host", "container"],
+      }),
+    );
+  });
+});

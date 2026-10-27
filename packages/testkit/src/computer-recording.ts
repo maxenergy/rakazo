@@ -89,6 +89,11 @@ export function createContactsRecorder(
     },
     async executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       context.signal.throwIfAborted();
+      if (args.location !== undefined) {
+        assert.equal(args.location, "container");
+        const { location: _location, ...toolArgs } = args;
+        args = toolArgs;
+      }
       assert.ok(steps.length < 40, "Recording exceeds its tool budget");
       let intent: Intent;
       let result: unknown;
@@ -259,7 +264,12 @@ export function contactsReplaySteps(record: ContactsRecording): ModelEmulatorSte
           args = { actions: [{ kind: "click", ref: candidates![0]!.ref }] };
         }
       }
-      return { type: "tool" as const, id: `recorded-${index}`, name, arguments: args };
+      return {
+        type: "tool" as const,
+        id: `recorded-${index}`,
+        name,
+        arguments: { ...args, location: "container" },
+      };
     },
   }));
 }

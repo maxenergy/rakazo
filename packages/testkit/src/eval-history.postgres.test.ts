@@ -25,7 +25,7 @@ describe.skipIf(!databaseAvailable)("eval history accounting", () => {
               type: "tool" as const,
               id: `${turn}-write`,
               name: "write_file",
-              arguments: { path: `results/${turn}.txt`, content: turn },
+              arguments: { location: "container", path: `results/${turn}.txt`, content: turn },
             },
           },
           {

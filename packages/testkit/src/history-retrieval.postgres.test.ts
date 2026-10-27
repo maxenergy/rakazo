@@ -82,6 +82,7 @@ describe.skipIf(!enabled)("history retrieval through executor", () => {
               id: proposalCallId,
               name: "write_file",
               arguments: {
+                location: "container",
                 path: "notes/proposal.txt",
                 content: "batch=37; approval=pending; mode=proposal",
               },
@@ -294,6 +295,7 @@ describe.skipIf(!enabled)("history retrieval through executor", () => {
           .toBe("completed");
         const proposal = await rpc<{ content: string }>("computer/readFile", {
           botId: bot.id,
+          location: "container",
           path: "notes/proposal.txt",
         });
         expect(proposal.content).toBe("batch=37; approval=pending; mode=proposal");

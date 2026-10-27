@@ -43,7 +43,12 @@ export async function runComputerReplay(
     id: string,
     name: string,
     args: Record<string, unknown>,
-  ): ModelEmulatorResponse => ({ type: "tool", id, name, arguments: args });
+  ): ModelEmulatorResponse => ({
+    type: "tool",
+    id,
+    name,
+    arguments: { location: "container", ...args },
+  });
   const step = (
     response: ModelEmulatorStep["response"],
     expectedId?: string,

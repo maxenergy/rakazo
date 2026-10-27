@@ -365,7 +365,15 @@ export const appContract = {
               runId: Id.nullable(),
               userId: Id.nullable(),
               /** file.delete is reserved; shell deletes are recorded as exec. */
-              kind: z.enum(["exec", "file.write", "file.delete", "grant", "revoke"]),
+              kind: z.enum([
+                "exec",
+                "file.write",
+                "file.delete",
+                "grant",
+                "revoke",
+                "location_switch",
+                "file_transfer",
+              ]),
               target: z.string(),
               command: z.string().nullable(),
               exitCode: z.number().int().nullable(),

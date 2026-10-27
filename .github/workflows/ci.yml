@@ -148,6 +148,7 @@ jobs:
         shell: bash
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           base="$BEFORE_SHA"
@@ -214,6 +215,14 @@ jobs:
               echo
               echo "This revision changes native-sensitive mobile configuration, dependencies, modules, assets, or workflow files. Create new iOS and Android builds instead of publishing it to an older native runtime."
             } >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$publish" == true && -z "$EXPO_TOKEN" ]]; then
+            # Forks and mirrors have no access to the Expo project; nothing to publish to.
+            publish=false
+            {
+              echo "### Mobile OTA skipped"
+              echo
+              echo "No \`EXPO_TOKEN\` repository secret is set, so this repository cannot publish to the Expo project."
+            } >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$publish" == true ]]; then
             {
               echo "### Mobile OTA eligible"
@@ -228,16 +237,6 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
-
-      - name: Require Expo automation token
-        if: steps.ota.outputs.publish == 'true'
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [[ -z "$EXPO_TOKEN" ]]; then
-            echo "Add an EXPO_TOKEN repository secret with access to the inbox-zero/rakazo Expo project." >&2
-            exit 1
-          fi
 
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         if: steps.ota.outputs.publish == 'true'

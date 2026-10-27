@@ -254,7 +254,7 @@ export class PiAgentRuntime implements AgentRuntime {
           apiKey,
           credentials: selectedModel.credentials,
         };
-        const resumeSegment = decodePiSegment(request.segmentCheckpoint);
+        const resumeSegment = withoutTrailingFailure(decodePiSegment(request.segmentCheckpoint));
         const host: ToolHost = {
           queue,
           context,
@@ -2239,6 +2239,21 @@ function messageHasToolCall(message: unknown): boolean {
 }
 
 /** Provider failure. Aborts stay on the existing cancel path. */
+/**
+ * A segment saved after a failed model call ends with that failure. A requeued run
+ * (for example after a lost connection) must call the model again, not replay it.
+ */
+export function withoutTrailingFailure<T extends { messages: unknown[] }>(
+  segment: T | undefined,
+): T | undefined {
+  if (!segment) return segment;
+  let end = segment.messages.length;
+  while (end > 0 && providerFailureText(segment.messages[end - 1])) end -= 1;
+  return end === segment.messages.length
+    ? segment
+    : ({ ...segment, messages: segment.messages.slice(0, end) } as T);
+}
+
 export function providerFailureText(message: unknown): string | undefined {
   if (!message || typeof message !== "object") return undefined;
   if (!("role" in message) || message.role !== "assistant") return undefined;

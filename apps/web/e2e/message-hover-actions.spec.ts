@@ -129,7 +129,7 @@ test("message hover shows beside-bubble actions; reply links to parent", async (
   await expect(composer).toBeVisible();
   await sendComposerMessage(page, composer, parentText);
 
-  const parentRow = transcript.locator(`[data-message-id]`).filter({ hasText: parentText }).first();
+  const parentRow = transcript.locator(`[data-message-id]`).filter({ has: transcript.getByText(parentText, { exact: true }) }).first();
   await expect(parentRow).toBeVisible({ timeout: 20_000 });
 
   const rail = await revealHoverRail(parentRow);
@@ -310,7 +310,7 @@ test("reply preview jumps to parent outside the loaded page", async ({ page }) =
   await sendComposerMessage(page, composer, parentText);
 
   const transcript = page.getByTestId("transcript");
-  const parentRow = transcript.locator(`[data-message-id]`).filter({ hasText: parentText }).first();
+  const parentRow = transcript.locator(`[data-message-id]`).filter({ has: transcript.getByText(parentText, { exact: true }) }).first();
   await expect(parentRow).toBeVisible({ timeout: 20_000 });
   const parentId = await parentRow.getAttribute("data-message-id");
   expect(parentId).toBeTruthy();

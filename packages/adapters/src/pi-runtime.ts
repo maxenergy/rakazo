@@ -1793,7 +1793,7 @@ export function parametersFor(tool: ConnectorTool) {
   ) {
     builtin = Type.Object({
       ...builtin.properties,
-      location: stringEnum(["host", "container"]),
+      location: stringEnum(["host", "container"], {}),
     });
   }
   const schema = builtin

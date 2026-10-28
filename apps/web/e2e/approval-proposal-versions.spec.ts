@@ -63,6 +63,7 @@ test("shows proposal revisions and invalidates an older approval", async ({ page
   await completeOnboarding(page);
   await page.goto("/app/approvals");
 
+  await page.getByText("Decided", { exact: true }).click();
   await expect(page.getByText("Version 3", { exact: false })).toBeVisible();
   await expect(
     page.getByText("Previous approval is no longer valid because this proposal has changed."),

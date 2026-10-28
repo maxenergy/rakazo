@@ -3909,6 +3909,10 @@ msgstr "{0} का प्रीव्यू"
 msgid "Preview isn't available for this file type — download it to view it."
 msgstr "इस फ़ाइल प्रकार का पूर्वावलोकन उपलब्ध नहीं है — देखने के लिए डाउनलोड करें।"
 
+#: src/pages/Approvals.tsx
+msgid "Previous approval is no longer valid because this proposal has changed."
+msgstr ""
+
 #: src/pages/Board.tsx
 msgid "Priority"
 msgstr "प्राथमिकता"
@@ -5098,6 +5102,10 @@ msgstr "इससे आपका खाता और डेटा स्था�
 msgid "This permanently removes every message and stops current work. The chat remains available."
 msgstr "यह सभी संदेश स्थायी रूप से हटाता है और चालू काम रोकता है। चैट उपलब्ध रहती है।"
 
+#: src/pages/Approvals.tsx
+msgid "This proposal changed. Refresh it before deciding."
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."
 msgstr "इस प्रोवाइडर का परीक्षण सहेजे बिना नहीं हो सकता।"
@@ -5395,6 +5403,7 @@ msgstr "पुष्टि करके जोड़ें"
 msgid "Verifying…"
 msgstr "पुष्टि की जा रही है…"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Artifacts.tsx
 msgid "Version"
 msgstr "संस्करण"

@@ -3909,6 +3909,10 @@ msgstr "Pré-visualizar {0}"
 msgid "Preview isn't available for this file type — download it to view it."
 msgstr "A prévia não está disponível para este tipo de arquivo — baixe-o para visualizar."
 
+#: src/pages/Approvals.tsx
+msgid "Previous approval is no longer valid because this proposal has changed."
+msgstr ""
+
 #: src/pages/Board.tsx
 msgid "Priority"
 msgstr "Prioridade"
@@ -5098,6 +5102,10 @@ msgstr "Isso exclui permanentemente sua conta e seus dados."
 msgid "This permanently removes every message and stops current work. The chat remains available."
 msgstr "Isso remove permanentemente todas as mensagens e interrompe o trabalho atual. O chat permanece disponível."
 
+#: src/pages/Approvals.tsx
+msgid "This proposal changed. Refresh it before deciding."
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."
 msgstr "Este provedor não pode ser testado sem salvar."
@@ -5395,6 +5403,7 @@ msgstr "Verificar e adicionar"
 msgid "Verifying…"
 msgstr "Verificando…"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Artifacts.tsx
 msgid "Version"
 msgstr "Versão"

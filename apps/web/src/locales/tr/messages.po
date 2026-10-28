@@ -579,6 +579,7 @@ msgid "Approval boundaries"
 msgstr "Onay sınırları"
 
 #: src/pages/Approvals.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/pending-approvals-link.tsx
 msgid "Approvals"
@@ -959,6 +960,7 @@ msgstr "iptal edildi"
 #: src/components/AskCard.tsx
 #: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Cancelled"
 msgstr "İptal edildi"
 
@@ -2256,6 +2258,7 @@ msgstr "Hesabın yok mu?"
 
 #: src/lib/ticket-status.ts
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
@@ -2489,6 +2492,7 @@ msgid "failed"
 msgstr "başarısız"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 msgid "Failed"
 msgstr "Başarısız"
@@ -3351,10 +3355,12 @@ msgid "Needs an answer"
 msgstr "Yanıt bekliyor"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs input"
 msgstr "Girdi bekliyor"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs takeover"
 msgstr "Devralma bekliyor"
 
@@ -3960,6 +3966,7 @@ msgid "Pull request"
 msgstr "Çekme isteği"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Queued"
 msgstr "Kuyrukta"
 
@@ -4064,6 +4071,7 @@ msgstr "Bilgisayar yeniden oluşturuluyor"
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
 #: src/pages/RoutineRunHistory.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Refresh"
 msgstr "Yenile"
 
@@ -4360,6 +4368,14 @@ msgstr "Çalışma zamanı"
 msgid "Run history"
 msgstr "Çalışma geçmişi"
 
+#: src/pages/RunDiagnostics.tsx
+msgid "Run status"
+msgstr "Çalıştırma durumu"
+
+#: src/pages/RunTask.tsx
+msgid "Run task"
+msgstr "Çalıştırma görevi"
+
 #: src/pages/Shell.tsx
 msgid "Run time must be in the future."
 msgstr "Çalışma zamanı gelecekte olmalıdır."
@@ -4369,6 +4385,7 @@ msgid "running"
 msgstr "çalışıyor"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Running"
 msgstr "Çalışıyor"
 
@@ -4830,6 +4847,7 @@ msgid "Start recording"
 msgstr "Kaydı başlat"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Starting"
 msgstr "Başlıyor"
 
@@ -5399,6 +5417,14 @@ msgstr "Sesli sohbet"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "Biraz bekle ve yeniden test et."
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for approval"
+msgstr "Onay bekleniyor"
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for budget"
+msgstr "Bütçe bekleniyor"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Waiting for the API to come back…"

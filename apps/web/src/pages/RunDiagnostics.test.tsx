@@ -3,6 +3,12 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 
+vi.mock("@lingui/react/macro", () => ({
+  useLingui: () => ({
+    t: (parts: TemplateStringsArray, ...values: unknown[]) =>
+      parts.reduce((text, part, index) => text + (index ? values[index - 1] : "") + part, ""),
+  }),
+}));
 const diagnostics = vi.hoisted(() => vi.fn());
 vi.mock("../lib/rpc", () => ({ rpc: { runs: { diagnostics } } }));
 
@@ -27,7 +33,11 @@ it("shows uncertain evidence, paginates, and resets the cursor on category chang
     expect(container.textContent).toContain("Run status: uncertain");
     expect(container.textContent).toContain("Missing evidence does not establish success.");
     expect(container.textContent).toContain("No recorded evidence in this window.");
-    await act(async () => container.querySelector<HTMLButtonElement>("button")!.click());
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Older evidence")!
+        .click(),
+    );
     expect(diagnostics).toHaveBeenLastCalledWith({
       runId: "run-1",
       section: "attempts",
@@ -182,6 +192,51 @@ it("renders recorded usage, derived changes, recovery and source navigation", as
     expect(container.textContent).toContain("Review: approved");
     expect(container.textContent).toContain("backup");
     expect(container.querySelector("a")?.getAttribute("href")).toBe("/app/bot-1?m=message-1");
+  } finally {
+    await act(async () => root.unmount());
+    diagnostics.mockReset();
+    vi.unstubAllGlobals();
+  }
+});
+
+it.each([
+  ["running", "Running"],
+  ["waiting_approval", "Waiting for approval"],
+  ["failed", "Failed"],
+  ["waiting_input", "Needs input"],
+  ["waiting_takeover", "Needs takeover"],
+  ["completed", "Done"],
+])("renders authoritative %s and refreshes after a persisted transition", async (status, label) => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const page = {
+    runId: "run-1",
+    status,
+    persistedStatus: "completed",
+    pendingApprovalIds: status === "waiting_approval" ? ["approval-1"] : [],
+    section: "attempts",
+    entries: [],
+    nextCursor: null,
+    windowStartedAt: "2026-10-22T05:00:00.000Z",
+    historyMayBeIncomplete: true,
+  };
+  diagnostics.mockResolvedValue(page);
+  try {
+    await act(async () => root.render(<RunDiagnostics runId="run-1" />));
+    expect(container.textContent).toContain(`Run status: ${label}`);
+    expect(container.querySelector('a[href="/app/approvals"]') !== null).toBe(
+      status === "waiting_approval",
+    );
+    expect(container.textContent).not.toContain("Replay");
+    diagnostics.mockResolvedValue({ ...page, status: "completed", pendingApprovalIds: [] });
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Refresh")!
+        .click(),
+    );
+    expect(container.textContent).toContain("Run status: Done");
+    expect(container.querySelector('a[href="/app/approvals"]')).toBeNull();
   } finally {
     await act(async () => root.unmount());
     diagnostics.mockReset();

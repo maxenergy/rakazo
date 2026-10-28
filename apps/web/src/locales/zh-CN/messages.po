@@ -579,6 +579,7 @@ msgid "Approval boundaries"
 msgstr "审批边界"
 
 #: src/pages/Approvals.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/pending-approvals-link.tsx
 msgid "Approvals"
@@ -959,6 +960,7 @@ msgstr "已取消"
 #: src/components/AskCard.tsx
 #: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Cancelled"
 msgstr "已取消"
 
@@ -2256,6 +2258,7 @@ msgstr "还没有账户？"
 
 #: src/lib/ticket-status.ts
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
@@ -2489,6 +2492,7 @@ msgid "failed"
 msgstr "失败"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 msgid "Failed"
 msgstr "失败"
@@ -3351,10 +3355,12 @@ msgid "Needs an answer"
 msgstr "等待答复"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs input"
 msgstr "需要输入"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs takeover"
 msgstr "需要接管"
 
@@ -3960,6 +3966,7 @@ msgid "Pull request"
 msgstr "拉取请求"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Queued"
 msgstr "排队中"
 
@@ -4064,6 +4071,7 @@ msgstr "正在重新创建电脑"
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
 #: src/pages/RoutineRunHistory.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Refresh"
 msgstr "刷新"
 
@@ -4360,6 +4368,14 @@ msgstr "运行时间"
 msgid "Run history"
 msgstr "运行记录"
 
+#: src/pages/RunDiagnostics.tsx
+msgid "Run status"
+msgstr "运行状态"
+
+#: src/pages/RunTask.tsx
+msgid "Run task"
+msgstr "运行任务"
+
 #: src/pages/Shell.tsx
 msgid "Run time must be in the future."
 msgstr "运行时间必须是将来的时间。"
@@ -4369,6 +4385,7 @@ msgid "running"
 msgstr "运行中"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Running"
 msgstr "运行中"
 
@@ -4830,6 +4847,7 @@ msgid "Start recording"
 msgstr "开始录制"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Starting"
 msgstr "正在开始"
 
@@ -5399,6 +5417,14 @@ msgstr "语音聊天"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "请稍候并重新测试。"
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for approval"
+msgstr "等待审批"
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for budget"
+msgstr "等待预算"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Waiting for the API to come back…"

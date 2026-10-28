@@ -3909,6 +3909,10 @@ msgstr "{0} önizle"
 msgid "Preview isn't available for this file type — download it to view it."
 msgstr "Bu dosya türü için önizleme yok — görüntülemek için indirin."
 
+#: src/pages/Approvals.tsx
+msgid "Previous approval is no longer valid because this proposal has changed."
+msgstr "Bu teklif değiştiği için önceki onay artık geçerli değil."
+
 #: src/pages/Board.tsx
 msgid "Priority"
 msgstr "Öncelik"
@@ -5098,6 +5102,10 @@ msgstr "Bu işlem hesabınızı ve verilerinizi kalıcı olarak siler."
 msgid "This permanently removes every message and stops current work. The chat remains available."
 msgstr "Bu işlem tüm mesajları kalıcı olarak kaldırır ve mevcut işi durdurur. Sohbet kullanılabilir kalır."
 
+#: src/pages/Approvals.tsx
+msgid "This proposal changed. Refresh it before deciding."
+msgstr "Bu teklif değişti. Karar vermeden önce yenileyin."
+
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."
 msgstr "Bu sağlayıcı kaydetmeden test edilemez."
@@ -5395,6 +5403,7 @@ msgstr "Doğrula ve ekle"
 msgid "Verifying…"
 msgstr "Doğrulanıyor…"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Artifacts.tsx
 msgid "Version"
 msgstr "Sürüm"

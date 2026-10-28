@@ -97,10 +97,17 @@ export function ApprovalsPage() {
                       </span>
                     </div>
                     <div className="text-muted-foreground">
-                      {proposal.botName}
+                      <Trans>Version</Trans> {proposal.version} · {proposal.botName}
                       {proposal.chosenOption ? ` · ${proposal.chosenOption}` : ""}
                       {proposal.comment ? ` · ${proposal.comment}` : ""}
                     </div>
+                    {hasInvalidApproval(proposal) ? (
+                      <p role="alert" className="mt-1 text-sm text-destructive">
+                        <Trans>
+                          Previous approval is no longer valid because this proposal has changed.
+                        </Trans>
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -141,7 +148,11 @@ function PendingProposal({
       });
       await onDecided();
     } catch (cause) {
-      setError(errorText(cause));
+      setError(
+        isVersionConflict(cause)
+          ? t`This proposal changed. Refresh it before deciding.`
+          : errorText(cause),
+      );
       setBusy(false);
     }
   }
@@ -156,12 +167,17 @@ function PendingProposal({
         <p className="text-xs text-muted-foreground">
           {proposal.botName} ·{" "}
           {proposal.kind === "plan" ? <Trans>Plan</Trans> : <Trans>Decision</Trans>} ·{" "}
-          {formatRelativeTime(proposal.createdAt)}
+          {formatRelativeTime(proposal.createdAt)} · <Trans>Version</Trans> {proposal.version}
         </p>
       </header>
       <div className="text-sm">
         <ChatMarkdown>{proposal.summary}</ChatMarkdown>
       </div>
+      {hasInvalidApproval(proposal) ? (
+        <p role="alert" className="text-sm text-destructive">
+          <Trans>Previous approval is no longer valid because this proposal has changed.</Trans>
+        </p>
+      ) : null}
       {proposal.recommendation ? (
         <div className="rounded-md bg-muted p-3 text-sm">
           <ChatMarkdown>{proposal.recommendation}</ChatMarkdown>
@@ -208,4 +224,23 @@ function PendingProposal({
       </div>
     </article>
   );
+}
+
+function hasInvalidApproval(proposal: Proposal): boolean {
+  return (
+    proposal.approvedVersion !== null &&
+    proposal.approvedContentHash !== null &&
+    (proposal.approvedVersion !== proposal.version ||
+      proposal.approvedContentHash !== proposal.contentHash)
+  );
+}
+
+function isVersionConflict(error: unknown): boolean {
+  let current = error;
+  for (let depth = 0; current && typeof current === "object" && depth < 4; depth += 1) {
+    const value = current as { status?: unknown; statusCode?: unknown; cause?: unknown };
+    if (value.status === 409 || value.statusCode === 409) return true;
+    current = value.cause;
+  }
+  return false;
 }

@@ -85,6 +85,7 @@ it("approves a pending proposal with the chosen option and comment", async () =>
 
   const card = container.querySelector('[data-testid="proposal-p1"]');
   expect(card?.textContent).toContain("Plan p1");
+  expect(card?.textContent).toContain("Version 1");
   expect(container.querySelector('[data-testid="proposal-decided-p2"]')).not.toBeNull();
 
   await act(async () => {
@@ -133,6 +134,65 @@ it("renders expired and stale proposals without decision controls", async () => 
     ).toContain("Stale");
     expect(container.querySelector("textarea")).toBeNull();
     expect(container.querySelector("select")).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
+});
+
+it("warns when an approved version no longer matches the proposal", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const changed = {
+    ...proposal("changed", "approved"),
+    version: 2,
+    contentHash: "b".repeat(64),
+    approvedVersion: 1,
+    approvedContentHash: "a".repeat(64),
+  };
+  api.proposals.list.mockResolvedValue([changed]);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <MemoryRouter>
+          <ApprovalsPage />
+        </MemoryRouter>,
+      ),
+    );
+    const row = container.querySelector('[data-testid="proposal-decided-changed"]');
+    expect(row?.textContent).toContain("Version 2");
+    expect(row?.textContent).toContain("Previous approval is no longer valid");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
+});
+
+it("shows a refresh message when the decision conflicts with a changed version", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  api.proposals.list.mockResolvedValue([proposal("p409", "pending")]);
+  api.proposals.decide.mockRejectedValue(Object.assign(new Error("Conflict"), { status: 409 }));
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <MemoryRouter>
+          <ApprovalsPage />
+        </MemoryRouter>,
+      ),
+    );
+    const card = container.querySelector('[data-testid="proposal-p409"]');
+    const approve = [...(card?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === "Approve",
+    );
+    await act(async () => approve?.click());
+    expect(card?.querySelector('[role="alert"]')?.textContent).toContain(
+      "This proposal changed. Refresh it before deciding.",
+    );
   } finally {
     await act(async () => root.unmount());
     container.remove();

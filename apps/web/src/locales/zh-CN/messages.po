@@ -3909,6 +3909,10 @@ msgstr "预览 {0}"
 msgid "Preview isn't available for this file type — download it to view it."
 msgstr "此文件类型无法预览，请下载后查看。"
 
+#: src/pages/Approvals.tsx
+msgid "Previous approval is no longer valid because this proposal has changed."
+msgstr "此提案已更改，之前的批准不再有效。"
+
 #: src/pages/Board.tsx
 msgid "Priority"
 msgstr "优先级"
@@ -5098,6 +5102,10 @@ msgstr "此操作将永久删除您的账户和数据。"
 msgid "This permanently removes every message and stops current work. The chat remains available."
 msgstr "将永久删除全部消息并停止当前工作。聊天仍可使用。"
 
+#: src/pages/Approvals.tsx
+msgid "This proposal changed. Refresh it before deciding."
+msgstr "此提案已更改，请刷新后再决定。"
+
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."
 msgstr "此提供方必须先保存才能测试。"
@@ -5395,6 +5403,7 @@ msgstr "校验并添加"
 msgid "Verifying…"
 msgstr "正在校验…"
 
+#: src/pages/Approvals.tsx
 #: src/pages/Artifacts.tsx
 msgid "Version"
 msgstr "版本"

@@ -130,6 +130,7 @@ import {
   StaleExecutionFenceError,
   saveRunSegment,
   searchHistory,
+  withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { parse as parseShellCommand } from "shell-quote";
@@ -4178,29 +4179,32 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // Replace this sink with the shared fenced publisher after RAK-46 merges.
           events: {
             publish: async (type, decision) => {
-              const event = await deps.prisma.$transaction(async (tx) => {
-                // Match finalizeRun and clearThread: lock Thread before Run.
-                await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
-                const owned = await tx.run.updateMany({
-                  where: {
-                    id: runId,
-                    status: "running",
-                    leaseOwner: workerId,
-                    leaseFence: fence,
-                    leaseExpiresAt: { gt: new Date() },
-                  },
-                  data: { leaseFence: fence },
-                });
-                if (owned.count !== 1) throw new Error("Storage event execution lease lost");
-                return appendEventInTransaction(tx, {
-                  spaceId: run.spaceId,
-                  threadId: thread.id,
-                  botId: bot.id,
-                  runId,
-                  type,
-                  payload: decision,
-                });
-              });
+              // Concurrent writers in one thread can deadlock on the thread row.
+              const event = await withTransactionRetry(() =>
+                deps.prisma.$transaction(async (tx) => {
+                  // Match finalizeRun and clearThread: lock Thread before Run.
+                  await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
+                  const owned = await tx.run.updateMany({
+                    where: {
+                      id: runId,
+                      status: "running",
+                      leaseOwner: workerId,
+                      leaseFence: fence,
+                      leaseExpiresAt: { gt: new Date() },
+                    },
+                    data: { leaseFence: fence },
+                  });
+                  if (owned.count !== 1) throw new Error("Storage event execution lease lost");
+                  return appendEventInTransaction(tx, {
+                    spaceId: run.spaceId,
+                    threadId: thread.id,
+                    botId: bot.id,
+                    runId,
+                    type,
+                    payload: decision,
+                  });
+                }),
+              );
               await deps.events.notify(thread.id, event.seq);
             },
           },
@@ -9190,28 +9194,31 @@ async function postOrgGroupReport(
   if (!group?.thread) return null;
   const threadId = group.thread.id;
   const blocks: MessageBlock[] = [{ kind: "text", text }];
-  const event = await deps.prisma.$transaction(async (tx) => {
-    const existing = await tx.message.findUnique({
-      where: { threadId_clientNonce: { threadId, clientNonce } },
-      select: { id: true },
-    });
-    if (existing) return null;
-    const message = await createThreadMessageInTransaction(tx, {
-      threadId,
-      role: "bot",
-      blocks,
-      botId: bot.id,
-      markUnread: true,
-      clientNonce,
-    });
-    return appendEventInTransaction(tx, {
-      spaceId: bot.spaceId,
-      threadId,
-      botId: bot.id,
-      type: "thread.message.created",
-      payload: { messageId: message.id, role: "bot", blocks },
-    });
-  });
+  // The shared group thread has many concurrent writers; retry deadlocks.
+  const event = await withTransactionRetry(() =>
+    deps.prisma.$transaction(async (tx) => {
+      const existing = await tx.message.findUnique({
+        where: { threadId_clientNonce: { threadId, clientNonce } },
+        select: { id: true },
+      });
+      if (existing) return null;
+      const message = await createThreadMessageInTransaction(tx, {
+        threadId,
+        role: "bot",
+        blocks,
+        botId: bot.id,
+        markUnread: true,
+        clientNonce,
+      });
+      return appendEventInTransaction(tx, {
+        spaceId: bot.spaceId,
+        threadId,
+        botId: bot.id,
+        type: "thread.message.created",
+        payload: { messageId: message.id, role: "bot", blocks },
+      });
+    }),
+  );
   if (event) {
     await deps.events.notify(threadId, event.seq).catch((error) => {
       getLogger().error("org group report notification", error);
@@ -9232,8 +9239,10 @@ async function publishMessage(
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
     if (blocks.length === 0) return null;
   }
-  const committed = await deps.prisma.$transaction((tx) =>
-    persistMessageInTransaction(tx, run, role, blocks, markUnread, clientNonce),
+  const committed = await withTransactionRetry(() =>
+    deps.prisma.$transaction((tx) =>
+      persistMessageInTransaction(tx, run, role, blocks, markUnread, clientNonce),
+    ),
   );
   await deps.events.notify(run.threadId, committed.eventSeq).catch((error) => {
     getLogger().error("thread message realtime notification", error);

@@ -218,13 +218,60 @@ export class DesktopSandboxProvider implements SandboxProvider {
     return listed;
   }
 
+  async supportsSecureFileTransfer() {
+    return O_NOFOLLOW !== 0;
+  }
+
   async readFile(
     computer: ComputerRef,
     filePath: string,
     _context?: AdapterContext,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; noFollow?: boolean },
   ) {
     const box = this.requiredBox(computer);
+    if (options?.noFollow) {
+      if (!O_NOFOLLOW) throw new Error("Secure file transfers are unsupported on this platform");
+      const target = await localWorkspaceTarget(box.home, filePath, true, true);
+      const parent = await open(
+        path.dirname(target),
+        constants.O_RDONLY | (constants.O_DIRECTORY ?? 0),
+      );
+      let handle: Awaited<ReturnType<typeof open>> | undefined;
+      try {
+        handle = await open(
+          childPathViaDirFd(parent.fd, path.basename(target)) ?? target,
+          constants.O_RDONLY | O_NOFOLLOW | (constants.O_NONBLOCK ?? 0),
+        );
+        const info = await handle.stat();
+        if (!info.isFile()) throw new Error("Transfer source must be a regular file");
+        await assertContainedFileHandle(
+          handle,
+          await realpath(box.home),
+          parent,
+          path.dirname(target),
+          path.basename(target),
+        );
+        if (options.maxBytes !== undefined && info.size > options.maxBytes) {
+          throw new Error(`computer file exceeds ${options.maxBytes} bytes`);
+        }
+        const content = Buffer.alloc(
+          options.maxBytes === undefined ? info.size + 1 : options.maxBytes + 1,
+        );
+        let bytesRead = 0;
+        while (bytesRead < content.length) {
+          const part = await handle.read(content, bytesRead, content.length - bytesRead, bytesRead);
+          if (!part.bytesRead) break;
+          bytesRead += part.bytesRead;
+        }
+        if (options.maxBytes !== undefined && bytesRead > options.maxBytes) {
+          throw new Error(`computer file exceeds ${options.maxBytes} bytes`);
+        }
+        return new Uint8Array(content.subarray(0, bytesRead));
+      } finally {
+        await handle?.close();
+        await parent.close();
+      }
+    }
     const target = await localWorkspaceTarget(box.home, filePath, true);
     const info = await stat(target);
     if (options?.maxBytes !== undefined && info.size > options.maxBytes) {
@@ -233,13 +280,21 @@ export class DesktopSandboxProvider implements SandboxProvider {
     return new Uint8Array(await readFile(target));
   }
 
-  async writeFile(computer: ComputerRef, file: PortableFile) {
+  async writeFile(
+    computer: ComputerRef,
+    file: PortableFile,
+    _context?: AdapterContext,
+    options?: { exclusive?: boolean },
+  ) {
+    if (options?.exclusive && !O_NOFOLLOW)
+      throw new Error("Secure file transfers are unsupported on this platform");
     const box = this.requiredBox(computer);
     const target = await localWorkspaceTarget(box.home, file.path, false);
     const handle = await openContainedWorkspaceFile(
       box.home,
       target,
       file.executable ? 0o700 : 0o600,
+      options?.exclusive,
     );
     try {
       await handle.truncate(0);
@@ -314,7 +369,12 @@ export class DesktopSandboxProvider implements SandboxProvider {
   }
 }
 
-async function localWorkspaceTarget(home: string, relative: string, mustExist: boolean) {
+async function localWorkspaceTarget(
+  home: string,
+  relative: string,
+  mustExist: boolean,
+  noFollow = false,
+) {
   const normalized = normalizeDesktopWorkspacePath(relative);
   const candidate = path.resolve(home, normalized);
   if (!isAllowedDesktopPath(candidate, [home]))
@@ -415,13 +475,20 @@ async function localWorkspaceTarget(home: string, relative: string, mustExist: b
       await parentHandle.close().catch(() => undefined);
     }
   }
-  const resolved = await realpath(candidate);
+  const resolved = noFollow
+    ? path.join(await realpath(path.dirname(candidate)), path.basename(candidate))
+    : await realpath(candidate);
   if (!isAllowedDesktopPath(resolved, [resolvedHome]))
     throw new Error("Path escapes the computer workspace");
   return resolved;
 }
 
-async function openContainedWorkspaceFile(home: string, target: string, mode: number) {
+async function openContainedWorkspaceFile(
+  home: string,
+  target: string,
+  mode: number,
+  exclusive = false,
+) {
   const resolvedHome = await realpath(home);
   const parentPath = path.dirname(target);
   const name = path.basename(target);
@@ -474,7 +541,12 @@ async function openContainedWorkspaceFile(home: string, target: string, mode: nu
 
       try {
         // Opening without O_TRUNC makes following a Windows reparse point non-destructive.
-        handle = await open(openedPath, constants.O_WRONLY | O_NOFOLLOW);
+        handle = await open(
+          openedPath,
+          constants.O_WRONLY | O_NOFOLLOW | (exclusive ? constants.O_CREAT | constants.O_EXCL : 0),
+          mode,
+        );
+        created = exclusive;
       } catch (error) {
         if (!hasErrorCode(error, "ENOENT")) throw error;
         handle = await open(

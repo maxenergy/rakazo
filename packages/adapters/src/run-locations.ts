@@ -225,31 +225,27 @@ export class RunLocations {
       )
         throw new Error("Host file must be inside the exchange directory without junctions");
       const from = await this.select(source);
+      const to = await this.select(target);
+      for (const ref of [from, to]) {
+        if (!(await this.options.sandbox.supportsSecureFileTransfer?.(ref, this.options.context))) {
+          throw new Error("Sandbox does not support secure file transfers");
+        }
+      }
       const fromPath = source === "host" ? sourcePath : resolveContainerPath(sourcePath);
       const content = await this.options.sandbox.readFile(from, fromPath, this.options.context, {
         maxBytes: MAX_TRANSFER_BYTES,
+        noFollow: true,
       });
       if (content.byteLength > MAX_TRANSFER_BYTES) throw new Error("Transfer exceeds 10 MiB");
-      const to = await this.select(target);
       const toPath = target === "host" ? targetPath : resolveContainerPath(targetPath);
-      const parent = target === "host" ? path.dirname(toPath) : path.posix.dirname(toPath);
-      const basename = target === "host" ? path.basename(toPath) : path.posix.basename(toPath);
-      const entries = await this.options.sandbox.listFiles(to, parent, this.options.context);
-      if (
-        entries.some(
-          (entry) =>
-            entry.path === basename ||
-            entry.path === toPath ||
-            path.posix.basename(entry.path) === basename,
-        )
-      ) {
-        throw new Error("Transfer destination already exists");
-      }
       // Revocation may have happened while reading the other location.
       await this.authorizeHost();
-      await this.options.sandbox.writeFile(to, { path: toPath, content }, this.options.context);
+      await this.options.sandbox.writeFile(to, { path: toPath, content }, this.options.context, {
+        exclusive: true,
+      });
       const written = await this.options.sandbox.readFile(to, toPath, this.options.context, {
         maxBytes: MAX_TRANSFER_BYTES,
+        noFollow: true,
       });
       const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
       if (digest(written) !== digest(content)) throw new Error("Transfer integrity check failed");

@@ -24,6 +24,25 @@ describe("Docker sandbox", () => {
     vi.unstubAllGlobals();
   });
 
+  it("refuses transfer writes against an older files API before posting content", async () => {
+    const fetchMock = vi.fn(async (_input: string | URL | Request) => Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+    const computer = {
+      id: "computer",
+      botId: "bot",
+      kind: "docker",
+      providerRef: "computer",
+    } as const;
+    await expect(
+      provider.writeFile(computer, { path: "target", content: new Uint8Array([1]) }, context, {
+        exclusive: true,
+      }),
+    ).rejects.toThrow("unsupported");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("mode=capabilities");
+  });
+
   it("sends the bounded timeout to the supervisor and preserves its honest result", async () => {
     const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
       Response.json({

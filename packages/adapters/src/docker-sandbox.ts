@@ -448,17 +448,29 @@ export class DockerSandboxProvider implements SandboxProvider {
     return readSandboxJson<ComputerFileEntry[]>(res, context.signal);
   }
 
+  async supportsSecureFileTransfer(computer: ComputerRef, context: AdapterContext) {
+    const res = await fetch(this.url(`/computers/${computer.id}/files?mode=capabilities`), {
+      headers: this.headers(context, computer.botId),
+      signal: context.signal,
+    });
+    if (!res.ok) return false;
+    const body = await readSandboxJson<{ secureTransfer?: number }>(res, context.signal);
+    return body.secureTransfer === 1;
+  }
+
   async readFile(
     computer: ComputerRef,
     filePath: string,
     context: AdapterContext,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; noFollow?: boolean },
   ) {
+    if (options?.noFollow && !(await this.supportsSecureFileTransfer(computer, context)))
+      throw new Error("Secure file transfers are unsupported");
     const path = normalizeWorkspacePath(filePath);
     const maxBytes = options?.maxBytes;
     const res = await fetch(
       this.url(
-        `/computers/${computer.id}/files?path=${encodeURIComponent(path)}&mode=read${maxBytes === undefined ? "" : `&maxBytes=${maxBytes}`}`,
+        `/computers/${computer.id}/files?path=${encodeURIComponent(path)}&mode=read${options?.noFollow ? "&noFollow=true" : ""}${maxBytes === undefined ? "" : `&maxBytes=${maxBytes}`}`,
       ),
       { headers: this.headers(context, computer.botId), signal: context.signal },
     );
@@ -474,7 +486,14 @@ export class DockerSandboxProvider implements SandboxProvider {
     return Uint8Array.from(Buffer.from(body.content, "base64"));
   }
 
-  async writeFile(computer: ComputerRef, file: PortableFile, context: AdapterContext) {
+  async writeFile(
+    computer: ComputerRef,
+    file: PortableFile,
+    context: AdapterContext,
+    options?: { exclusive?: boolean },
+  ) {
+    if (options?.exclusive && !(await this.supportsSecureFileTransfer(computer, context)))
+      throw new Error("Secure file transfers are unsupported");
     const res = await fetch(this.url(`/computers/${computer.id}/files`), {
       method: "POST",
       headers: { ...this.headers(context, computer.botId), "content-type": "application/json" },
@@ -482,6 +501,7 @@ export class DockerSandboxProvider implements SandboxProvider {
         path: normalizeWorkspacePath(file.path),
         content: Buffer.from(file.content).toString("base64"),
         executable: file.executable === true,
+        ...(options?.exclusive ? { exclusive: true } : {}),
       }),
       signal: context.signal,
     });

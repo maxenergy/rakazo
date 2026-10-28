@@ -103,21 +103,26 @@ export class EmployeeHostSandbox extends DesktopSandboxProvider {
     computer: ComputerRef,
     filePath: string,
     context?: AdapterContext,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; noFollow?: boolean },
   ) {
     if (this.config.legacy) return super.readFile(computer, filePath, context, options);
     const target = await this.fileTarget(computer, filePath);
     return super.readFile(target.computer, target.relative, context, options);
   }
 
-  override async writeFile(computer: ComputerRef, file: PortableFile, context?: AdapterContext) {
+  override async writeFile(
+    computer: ComputerRef,
+    file: PortableFile,
+    context?: AdapterContext,
+    options?: { exclusive?: boolean },
+  ) {
     if (!context) throw new Error("Host writes require run context");
     const entry = await this.audit(context, "file_write", file.path, null, null);
     try {
       const target = this.config.legacy
         ? { computer, relative: file.path }
         : await this.fileTarget(computer, file.path);
-      await super.writeFile(target.computer, { ...file, path: target.relative });
+      await super.writeFile(target.computer, { ...file, path: target.relative }, context, options);
       await this.prisma.hostAuditLog.update({ where: { id: entry.id }, data: { exitCode: 0 } });
     } catch (error) {
       await this.prisma.hostAuditLog.update({ where: { id: entry.id }, data: { exitCode: 1 } });

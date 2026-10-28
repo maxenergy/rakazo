@@ -219,17 +219,26 @@ export class HostAwareSandbox implements SandboxProvider {
     return this.route(computer).listFiles(computer, path, context);
   }
 
+  async supportsSecureFileTransfer(computer: ComputerRef, context: AdapterContext) {
+    return (await this.route(computer).supportsSecureFileTransfer?.(computer, context)) === true;
+  }
+
   readFile(
     computer: ComputerRef,
     path: string,
     context: AdapterContext,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; noFollow?: boolean },
   ) {
     return this.route(computer).readFile(computer, path, context, options);
   }
 
-  writeFile(computer: ComputerRef, file: PortableFile, context: AdapterContext) {
-    return this.route(computer).writeFile(computer, file, context);
+  writeFile(
+    computer: ComputerRef,
+    file: PortableFile,
+    context: AdapterContext,
+    options?: { exclusive?: boolean },
+  ) {
+    return this.route(computer).writeFile(computer, file, context, options);
   }
 
   exportWorkspace(computer: ComputerRef, context: AdapterContext) {

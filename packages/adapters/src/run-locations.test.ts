@@ -35,6 +35,7 @@ async function fixture() {
   };
   const data = new TextEncoder().encode("payload");
   const sandbox = {
+    supportsSecureFileTransfer: vi.fn(async () => true),
     provisionLocation: vi.fn(async () => host),
     prepare: vi.fn(),
     inspectBackgroundWork: vi.fn(async () => "idle"),
@@ -128,6 +129,13 @@ describe("sequential run locations", () => {
     await Promise.resolve();
     await expect(session.call("host", async () => "ok")).resolves.toBe("ok");
   });
+  it("rejects providers without secure transfer support", async () => {
+    const { session, sandbox, args } = await fixture();
+    sandbox.supportsSecureFileTransfer.mockResolvedValue(false);
+    await expect(session.transfer(args, (p) => p)).rejects.toThrow("does not support");
+    expect(sandbox.readFile).not.toHaveBeenCalled();
+    expect(sandbox.writeFile).not.toHaveBeenCalled();
+  });
   it("transfers bytes and records a successful audit", async () => {
     const { session, args, sandbox, prisma } = await fixture();
     const result = await session.transfer(args, (p) => p);
@@ -156,9 +164,14 @@ describe("sequential run locations", () => {
     ]) {
       await expect(session.transfer({ ...args, exchangeDirectory }, (p) => p)).rejects.toThrow();
     }
-    sandbox.listFiles.mockResolvedValue([{ path: "target" }] as never);
+    sandbox.writeFile.mockRejectedValue(new Error("destination already exists"));
     await expect(session.transfer(args, (p) => p)).rejects.toThrow("already exists");
-    expect(sandbox.writeFile).not.toHaveBeenCalled();
+    expect(sandbox.writeFile).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      { exclusive: true },
+    );
     expect(prisma.hostAuditLog.update).toHaveBeenLastCalledWith({
       where: { id: "audit" },
       data: { exitCode: 1 },

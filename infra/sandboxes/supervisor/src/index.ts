@@ -52,6 +52,7 @@ import {
   screenUrlWithToken,
   xdotoolCommand,
 } from "./computer-spec.js";
+import { fileReadScript, fileWriteScript } from "./file-transfer.js";
 import { assertComputerHomeWritable } from "./home-ownership.js";
 import {
   assertRequestIdentity,
@@ -634,6 +635,7 @@ app.get("/computers/:id/files", async (c) => {
       c.req.header("x-rakazo-bot-id"),
       c.req.header("x-rakazo-space-id"),
     );
+    if (c.req.query("mode") === "capabilities") return c.json({ secureTransfer: 1 });
     const relative = normalizeWorkspaceRelative(c.req.query("path") ?? "");
     const target = workspaceTarget(relative);
     if (c.req.query("mode") === "read") {
@@ -642,14 +644,7 @@ app.get("/computers/:id/files", async (c) => {
       if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 0)) {
         return c.json({ error: "invalid maxBytes" }, 400);
       }
-      const script = [
-        "import base64, sys",
-        "target, limit = sys.argv[1], int(sys.argv[2])",
-        "with open(target, 'rb') as source:",
-        "  content = source.read() if limit < 0 else source.read(limit + 1)",
-        "if limit >= 0 and len(content) > limit: sys.exit(42)",
-        "sys.stdout.write(base64.b64encode(content).decode())",
-      ].join("\n");
+      const script = fileReadScript(c.req.query("noFollow") === "true");
       const result = await runContainerCommand(container, [
         "python3",
         "-c",
@@ -695,6 +690,7 @@ app.post("/computers/:id/files", async (c) => {
       path: z.string(),
       content: z.string().max(16 * 1024 * 1024),
       executable: z.boolean().optional(),
+      exclusive: z.boolean().optional(),
     })
     .parse(await c.req.json());
   try {
@@ -709,6 +705,7 @@ app.post("/computers/:id/files", async (c) => {
       target,
       Buffer.from(body.content, "base64"),
       body.executable,
+      body.exclusive,
     );
     return c.json({ ok: true });
   } catch (error) {
@@ -1891,13 +1888,14 @@ async function writeContainerFile(
   target: string,
   content: Buffer,
   executable = false,
+  exclusive = false,
 ) {
   const script = [
     "import os, sys",
     "target = sys.argv[1]",
     "os.makedirs(os.path.dirname(target), exist_ok=True)",
-    "with open(target, 'wb') as f: f.write(sys.stdin.buffer.read())",
-    `os.chmod(target, ${executable ? "0o700" : "0o600"})`,
+    fileWriteScript(exclusive, executable),
+    ...(exclusive ? [] : [`os.chmod(target, ${executable ? "0o700" : "0o600"})`]),
   ].join("\n");
   const exec = await container.exec({
     Cmd: ["python3", "-c", script, target],

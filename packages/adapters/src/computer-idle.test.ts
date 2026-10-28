@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import type { AgentHomeStore, JobPublisher, SandboxProvider } from "@rakazo/adapter-kit";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
+import { getLogger } from "@rakazo/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BACKGROUND_WORK_LAUNCH,
@@ -73,6 +74,28 @@ describe("sandbox idle", () => {
     expect(harness.jobs.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ availableAt: new Date(now + Number(value)) }),
     );
+  });
+
+  it("warns without an unhandled rejection when idle sleep enqueue fails", async () => {
+    const harness = idleHarness();
+    const error = new Error("enqueue unavailable");
+    harness.jobs.enqueue.mockRejectedValueOnce(error);
+    const warn = vi.spyOn(getLogger(), "warn").mockImplementation(() => {});
+    const unhandledRejection = vi.fn();
+    process.on("unhandledRejection", unhandledRejection);
+
+    try {
+      scheduleComputerSleep(harness.deps.jobs, harness.computer.id);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(warn).toHaveBeenCalledExactlyOnceWith("computer idle sleep enqueue", {
+        computerId: harness.computer.id,
+        enqueueError: expect.objectContaining({ message: error.message }),
+      });
+      expect(unhandledRejection).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandledRejection);
+    }
   });
 
   it("does not suspend a computer while a run is active", async () => {

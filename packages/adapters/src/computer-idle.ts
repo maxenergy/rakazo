@@ -176,8 +176,8 @@ export function computerIdleSleepEnabled(): boolean {
 
 export function scheduleComputerSleep(jobs: JobPublisher, computerId: string): void {
   if (!computerId || !computerIdleSleepEnabled()) return;
-  void jobs
-    .enqueue(computerSleepJob(computerId, new Date(Date.now() + sandboxIdleMs())))
+  void Promise.resolve()
+    .then(() => jobs.enqueue(computerSleepJob(computerId, new Date(Date.now() + sandboxIdleMs()))))
     .catch((error) => {
       getLogger().warn("computer idle sleep enqueue", {
         computerId,

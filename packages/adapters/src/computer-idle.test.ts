@@ -61,7 +61,7 @@ describe("sandbox idle", () => {
     },
   );
 
-  it.each(["30000", "900000"])("schedules idle sleep using %s ms", (value) => {
+  it.each(["30000", "900000"])("schedules idle sleep using %s ms", async (value) => {
     vi.stubEnv("SANDBOX_IDLE_MS", value);
     const harness = idleHarness();
     const now = new Date("2026-01-01T00:00:00.000Z").getTime();
@@ -70,6 +70,7 @@ describe("sandbox idle", () => {
     expect(computerIdleSleepEnabled()).toBe(true);
     expect(sandboxIdleMs()).toBe(Number(value));
     scheduleComputerSleep(harness.deps.jobs, harness.computer.id);
+    await Promise.resolve();
 
     expect(harness.jobs.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ availableAt: new Date(now + Number(value)) }),
@@ -96,6 +97,21 @@ describe("sandbox idle", () => {
     } finally {
       process.off("unhandledRejection", unhandledRejection);
     }
+  });
+
+  it("does not throw when idle sleep enqueue throws synchronously", async () => {
+    const harness = idleHarness();
+    const error = new Error("enqueue threw");
+    harness.jobs.enqueue.mockImplementationOnce(() => {
+      throw error;
+    });
+    const warn = vi.spyOn(getLogger(), "warn").mockImplementation(() => {});
+    expect(() => scheduleComputerSleep(harness.deps.jobs, harness.computer.id)).not.toThrow();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(warn).toHaveBeenCalledExactlyOnceWith("computer idle sleep enqueue", {
+      computerId: harness.computer.id,
+      enqueueError: expect.objectContaining({ message: error.message }),
+    });
   });
 
   it("does not suspend a computer while a run is active", async () => {

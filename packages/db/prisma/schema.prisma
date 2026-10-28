@@ -1668,6 +1668,10 @@ model TicketComment {
 
 /// A plan or decision a bot asks the user to approve before acting on it.
 model Proposal {
+  version Int @default(1)
+  contentHash String @default("")
+  approvedVersion Int?
+  approvedContentHash String?
   id             String    @id @default(cuid())
   spaceId        String
   space          Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)

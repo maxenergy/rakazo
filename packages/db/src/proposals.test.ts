@@ -1,11 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "./client.js";
-import { createProposal, decideProposal, ProposalDecisionError } from "./proposals.js";
+import {
+  assertProposalApproval,
+  createProposal,
+  decideProposal,
+  ProposalDecisionError,
+  proposalContentHash,
+} from "./proposals.js";
 
 const scope = { userId: "user-1", spaceId: "space-1" };
 
 function row(overrides: Record<string, unknown> = {}) {
+  const content = {
+    kind: "plan",
+    title: "Plan",
+    summary: "Summary",
+    options: ["A", "B"],
+    recommendation: "",
+  };
   return {
+    version: 1,
+    contentHash: proposalContentHash(content),
+    approvedVersion: null,
+    approvedContentHash: null,
     id: "p-1",
     botId: "ceo-1",
     kind: "plan",
@@ -56,7 +73,7 @@ describe("proposals", () => {
       $transaction: async (callback: (tx: PrismaClient) => Promise<unknown>) => callback(prisma),
       budgetOverrunApproval: { findFirst: vi.fn().mockResolvedValue(null) },
       proposal: {
-        findFirst: vi.fn().mockResolvedValue({ options: ["A", "B"] }),
+        findFirst: vi.fn().mockResolvedValue(row()),
         updateMany,
         findFirstOrThrow: vi
           .fn()
@@ -67,7 +84,13 @@ describe("proposals", () => {
     } as unknown as PrismaClient;
 
     await expect(
-      decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve", option: "B" }),
+      decideProposal(prisma, scope, {
+        proposalId: "p-1",
+        decision: "approve",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+        option: "B",
+      }),
     ).resolves.toMatchObject({ status: "approved", chosenOption: "B" });
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -76,7 +99,12 @@ describe("proposals", () => {
       }),
     );
     await expect(
-      decideProposal(prisma, scope, { proposalId: "p-1", decision: "reject" }),
+      decideProposal(prisma, scope, {
+        proposalId: "p-1",
+        decision: "reject",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+      }),
     ).rejects.toThrow("This proposal was already decided");
   });
 
@@ -86,17 +114,25 @@ describe("proposals", () => {
       $executeRaw: vi.fn().mockResolvedValue(1),
       $transaction: async (callback: (tx: PrismaClient) => Promise<unknown>) => callback(prisma),
       proposal: {
-        findFirst: vi
-          .fn()
-          .mockResolvedValueOnce({ options: ["A"] })
-          .mockResolvedValueOnce(null),
+        findFirst: vi.fn().mockResolvedValueOnce(row()).mockResolvedValueOnce(null),
       },
     } as unknown as PrismaClient;
     await expect(
-      decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve", option: "Z" }),
+      decideProposal(prisma, scope, {
+        proposalId: "p-1",
+        decision: "approve",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+        option: "Z",
+      }),
     ).rejects.toBeInstanceOf(ProposalDecisionError);
     await expect(
-      decideProposal(prisma, scope, { proposalId: "p-9", decision: "approve" }),
+      decideProposal(prisma, scope, {
+        proposalId: "p-9",
+        decision: "approve",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+      }),
     ).rejects.toThrow("Proposal not found");
   });
 
@@ -179,9 +215,15 @@ describe("budget approval recovery", () => {
               : [{ id: "locked" }],
         ),
       proposal: {
-        findFirst: vi.fn().mockResolvedValue({ options: [] }),
+        findFirst: vi.fn().mockResolvedValue(row()),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        findFirstOrThrow: vi.fn().mockResolvedValue(row({ status: "approved" })),
+        findFirstOrThrow: vi.fn().mockResolvedValue(
+          row({
+            status: "approved",
+            approvedVersion: 1,
+            approvedContentHash: proposalContentHash(row()),
+          }),
+        ),
       },
       budgetOverrunApproval: {
         findFirst: vi.fn().mockResolvedValue(approval),
@@ -213,7 +255,12 @@ describe("budget approval recovery", () => {
       ...approval,
       expiresAt: new Date(0),
     } as never);
-    await decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" });
+    await decideProposal(prisma, scope, {
+      proposalId: "p-1",
+      decision: "approve",
+      expectedVersion: 1,
+      expectedHash: row().contentHash,
+    });
     expect(tx.proposal.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({ data: { status: "expired", chosenOption: null } }),
     );
@@ -223,7 +270,12 @@ describe("budget approval recovery", () => {
 
   it("raises the bound budget and queues its paused run", async () => {
     const { tx, prisma } = fixture();
-    await decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" });
+    await decideProposal(prisma, scope, {
+      proposalId: "p-1",
+      decision: "approve",
+      expectedVersion: 1,
+      expectedHash: row().contentHash,
+    });
     expect(tx.projectBudget.update).toHaveBeenCalledWith({
       where: { id: "budget-1" },
       data: { version: 2, limitMicroUsd: 110n },
@@ -238,7 +290,12 @@ describe("budget approval recovery", () => {
     async (status) => {
       const { tx, prisma } = fixture(status);
       await expect(
-        decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" }),
+        decideProposal(prisma, scope, {
+          proposalId: "p-1",
+          decision: "approve",
+          expectedVersion: 1,
+          expectedHash: row().contentHash,
+        }),
       ).rejects.toThrow("no longer matches");
       expect(tx.projectBudget.update).not.toHaveBeenCalled();
       expect(tx.run.updateMany).not.toHaveBeenCalled();
@@ -249,7 +306,12 @@ describe("budget approval recovery", () => {
     const { tx, prisma } = fixture();
     tx.attempt.findFirst.mockResolvedValueOnce(null as never);
     await expect(
-      decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" }),
+      decideProposal(prisma, scope, {
+        proposalId: "p-1",
+        decision: "approve",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+      }),
     ).rejects.toThrow("no longer matches");
     expect(tx.attempt.findFirst).toHaveBeenCalledWith({
       where: { id: "attempt-1", runId: "run-1", fence: 3, status: "waiting_budget" },
@@ -262,7 +324,12 @@ describe("budget approval recovery", () => {
   it("rejects a checkpoint bound to another approval", async () => {
     const { tx, prisma } = fixture("waiting_budget", { approvalId: "another-approval" });
     await expect(
-      decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" }),
+      decideProposal(prisma, scope, {
+        proposalId: "p-1",
+        decision: "approve",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+      }),
     ).rejects.toThrow("no longer matches");
     expect(tx.projectBudget.update).not.toHaveBeenCalled();
     expect(tx.run.updateMany).not.toHaveBeenCalled();
@@ -270,7 +337,12 @@ describe("budget approval recovery", () => {
 
   it("does not raise the budget or resume after rejection", async () => {
     const { tx, prisma } = fixture();
-    await decideProposal(prisma, scope, { proposalId: "p-1", decision: "reject" });
+    await decideProposal(prisma, scope, {
+      proposalId: "p-1",
+      decision: "reject",
+      expectedVersion: 1,
+      expectedHash: row().contentHash,
+    });
     expect(tx.budgetOverrunApproval.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "rejected" }) }),
     );
@@ -280,7 +352,12 @@ describe("budget approval recovery", () => {
 
   it("marks an approval stale without resuming when the budget version changed", async () => {
     const { tx, prisma } = fixture("waiting_budget", {}, 2);
-    await decideProposal(prisma, scope, { proposalId: "p-1", decision: "approve" });
+    await decideProposal(prisma, scope, {
+      proposalId: "p-1",
+      decision: "approve",
+      expectedVersion: 1,
+      expectedHash: row().contentHash,
+    });
     expect(tx.budgetOverrunApproval.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "stale" }) }),
     );
@@ -289,5 +366,57 @@ describe("budget approval recovery", () => {
     );
     expect(tx.projectBudget.update).not.toHaveBeenCalled();
     expect(tx.run.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("proposal content binding", () => {
+  it("rejects an old approval after the content changes", () => {
+    const original = row();
+    const approved = {
+      ...original,
+      status: "approved",
+      approvedVersion: 1,
+      approvedContentHash: original.contentHash,
+    };
+    expect(() => assertProposalApproval(approved)).not.toThrow();
+    const edited = { ...approved, summary: "Changed", version: 2 };
+    edited.contentHash = proposalContentHash(edited);
+    expect(() => assertProposalApproval(edited)).toThrow(ProposalDecisionError);
+    expect(() => assertProposalApproval({ ...approved, summary: "Unversioned edit" })).toThrow(
+      ProposalDecisionError,
+    );
+  });
+
+  it("hashes every execution-relevant content field deterministically", () => {
+    const original = row();
+    expect(proposalContentHash({ ...original })).toBe(original.contentHash);
+    for (const change of [
+      { kind: "decision" },
+      { title: "Changed" },
+      { summary: "Changed" },
+      { options: ["B", "A"] },
+      { recommendation: "B" },
+    ]) {
+      expect(proposalContentHash({ ...original, ...change })).not.toBe(original.contentHash);
+    }
+  });
+
+  it("rejects a stale client version before writing a decision", async () => {
+    const updateMany = vi.fn();
+    const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      $transaction: async (callback: (tx: PrismaClient) => Promise<unknown>) => callback(prisma),
+      proposal: { findFirst: vi.fn().mockResolvedValue(row({ version: 2 })), updateMany },
+    } as unknown as PrismaClient;
+    await expect(
+      decideProposal(prisma, scope, {
+        proposalId: "p-1",
+        decision: "approve",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+      }),
+    ).rejects.toThrow(ProposalDecisionError);
+    expect(updateMany).not.toHaveBeenCalled();
   });
 });

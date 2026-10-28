@@ -36,6 +36,10 @@ function proposal(
 ) {
   return {
     id,
+    version: 1,
+    contentHash: "abc",
+    approvedVersion: null,
+    approvedContentHash: null,
     botId: "ceo-1",
     botName: "CEO",
     kind: "plan" as const,
@@ -94,6 +98,8 @@ it("approves a pending proposal with the chosen option and comment", async () =>
 
   expect(api.proposals.decide).toHaveBeenCalledWith({
     proposalId: "p1",
+    expectedVersion: 1,
+    expectedHash: "abc",
     decision: "approve",
     option: "Cheap",
     comment: "Keep it under budget",

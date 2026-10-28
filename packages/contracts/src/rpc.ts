@@ -135,7 +135,12 @@ import {
   UpdateMilestoneInput,
   UpdateProjectInput,
 } from "./projects.js";
-import { DecideProposalInput, ListProposalsInput, ProposalSchema } from "./proposals.js";
+import {
+  DecideProposalInput,
+  ListProposalsInput,
+  ProposalSchema,
+  UpdateProposalInput,
+} from "./proposals.js";
 import { MessageReactionSchema } from "./reactions.js";
 import { RunDiagnosticsInputSchema, RunDiagnosticsOutputSchema } from "./run-diagnostics.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
@@ -708,6 +713,7 @@ export const appContract = {
     list: oc.input(ListProposalsInput).output(z.array(ProposalSchema)),
     /** Approve or reject a pending proposal, then wake the bot that sent it. */
     decide: oc.input(DecideProposalInput).output(ProposalSchema),
+    update: oc.input(UpdateProposalInput).output(ProposalSchema),
   },
   goals: {
     list: oc.input(ListGoalsInput).output(z.array(GoalSchema)),

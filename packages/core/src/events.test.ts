@@ -362,6 +362,47 @@ describe("projectMessages", () => {
     });
   });
 
+  it("attaches tool completion errors to the matching execution step", () => {
+    const messages = projectMessages([
+      {
+        id: "e1",
+        threadId: "t1",
+        seq: 0,
+        type: "agent.tool.called",
+        runId: "r1",
+        payload: { name: "shell", location: "host", executionId: "call-1" },
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "e2",
+        threadId: "t1",
+        seq: 1,
+        type: "agent.tool.completed",
+        runId: "r1",
+        payload: {
+          name: "shell",
+          executionId: "call-1",
+          outcome: "error",
+          error: "Host access was revoked.",
+        },
+        createdAt: "2026-01-01T00:00:01.000Z",
+      },
+    ]);
+    expect(messages[0]?.blocks[0]).toEqual({
+      kind: "steps",
+      steps: [
+        {
+          label: "Shell",
+          count: 1,
+          location: "host",
+          executionId: "call-1",
+          outcome: "error",
+          error: "Host access was revoked.",
+        },
+      ],
+    });
+  });
+
   it("holds a tool call that lands mid-sentence until the sentence completes", () => {
     const messages = projectMessages([
       {

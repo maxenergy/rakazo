@@ -1042,7 +1042,12 @@ describe("thread event reduction", () => {
       [
         message(
           "progress:run-1",
-          [{ kind: "steps", steps: [{ label: "Slack find channels", count: 1 }] }],
+          [
+            {
+              kind: "steps",
+              steps: [{ label: "Slack find channels", count: 1, executionId: "call-1" }],
+            },
+          ],
           4,
         ),
       ],
@@ -1054,12 +1059,30 @@ describe("thread event reduction", () => {
         type: "agent.tool.completed",
         seq: 5,
         runId: "run-1",
-        payload: { name: "SLACK_FIND_CHANNELS", outcome: "succeeded" },
+        payload: {
+          name: "SLACK_FIND_CHANNELS",
+          executionId: "call-1",
+          outcome: "error",
+          error: "Host access was revoked.",
+        },
       }),
     );
 
     expect(next?.cursor).toBe(5);
-    expect(next?.messages).toEqual(initial.messages);
+    expect(next?.messages[0]?.blocks).toEqual([
+      {
+        kind: "steps",
+        steps: [
+          {
+            label: "Slack find channels",
+            count: 1,
+            executionId: "call-1",
+            outcome: "error",
+            error: "Host access was revoked.",
+          },
+        ],
+      },
+    ]);
   });
 
   it("holds a tool call that lands mid-sentence until the sentence completes", () => {

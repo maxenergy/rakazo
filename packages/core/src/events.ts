@@ -107,6 +107,7 @@ export function projectMessages(
         payload.location === "container"
           ? { location: payload.location }
           : {}),
+        ...(typeof payload.executionId === "string" ? { executionId: payload.executionId } : {}),
       });
       live.meta = {
         ...live.meta,
@@ -114,6 +115,33 @@ export function projectMessages(
         botId: event.botId ?? undefined,
         createdAt,
       };
+      continue;
+    }
+    if (event.type === "agent.tool.completed") {
+      const live = liveById.get(progressMessageId(event));
+      const executionId = payload.executionId;
+      if (live && typeof executionId === "string") {
+        live.blocks = live.blocks.map((block) =>
+          block.kind !== "steps"
+            ? block
+            : {
+                ...block,
+                steps: block.steps.map((step) =>
+                  step.executionId !== executionId
+                    ? step
+                    : {
+                        ...step,
+                        ...(payload.outcome === "succeeded" ||
+                        payload.outcome === "error" ||
+                        payload.outcome === "paused"
+                          ? { outcome: payload.outcome }
+                          : {}),
+                        ...(typeof payload.error === "string" ? { error: payload.error } : {}),
+                      },
+                ),
+              },
+        );
+      }
       continue;
     }
     if (event.type === "thread.cleared") {
@@ -243,7 +271,12 @@ export function runFailureError(event: {
 
 export type LiveMessageUpdate =
   | { type: "progress"; payload: Record<string, unknown> | undefined }
-  | { type: "tool"; name: string; location?: "host" | "this-mac" | "container" };
+  | {
+      type: "tool";
+      name: string;
+      location?: "host" | "this-mac" | "container";
+      executionId?: string;
+    };
 
 export function reduceLiveMessageBlocks(
   blocks: readonly MessageBlock[],
@@ -264,6 +297,10 @@ export function reduceLiveMessageBlocks(
     ...(tail?.kind === "progress" ? (tail.pendingToolNames ?? []) : []),
     ...(update.type === "tool" ? [update.name] : []),
   ];
+  const pendingToolExecutionIds = [
+    ...(tail?.kind === "progress" ? (tail.pendingToolExecutionIds ?? []) : []),
+    ...(update.type === "tool" ? [update.executionId ?? null] : []),
+  ];
   const pendingToolLocations = [
     ...(tail?.kind === "progress" ? (tail.pendingToolLocations ?? []) : []),
     ...(update.type === "tool" ? [update.location ?? null] : []),
@@ -280,6 +317,7 @@ export function reduceLiveMessageBlocks(
         next,
         pendingToolNames[i]!,
         pendingToolLocations[i] ?? undefined,
+        pendingToolExecutionIds[i] ?? undefined,
       );
     }
     return next;
@@ -291,7 +329,15 @@ export function reduceLiveMessageBlocks(
       kind: "progress",
       text: tailText,
       ...(activity ? { activity: true as const } : {}),
-      ...(pendingToolNames.length > 0 ? { pendingToolNames, pendingToolLocations } : {}),
+      ...(pendingToolNames.length > 0
+        ? {
+            pendingToolNames,
+            pendingToolLocations,
+            ...(pendingToolExecutionIds.some((id) => id !== null)
+              ? { pendingToolExecutionIds }
+              : {}),
+          }
+        : {}),
     },
   ];
 }
@@ -304,14 +350,24 @@ function liveMessageText(blocks: readonly MessageBlock[]): string {
 }
 
 export type ToolLocation = "host" | "this-mac" | "container";
-export type ToolStep = { label: string; count: number; location?: ToolLocation };
+export type ToolStep = {
+  label: string;
+  count: number;
+  location?: ToolLocation;
+  executionId?: string;
+  outcome?: "succeeded" | "error" | "paused";
+  error?: string;
+};
 
 export function appendToolStep(
   steps: readonly ToolStep[],
   toolName: string,
   location?: ToolLocation,
+  executionId?: string,
 ): ToolStep[] {
   const label = humanizeToolName(toolName);
+  if (executionId)
+    return [...steps, { label, count: 1, executionId, ...(location ? { location } : {}) }];
   const last = steps.at(-1);
   if (last && last.label === label && last.location === location) {
     return [
@@ -359,10 +415,11 @@ export function appendToolCallSegment(
   segments: readonly MessageBlock[],
   toolName: string,
   location?: ToolLocation,
+  executionId?: string,
 ): MessageBlock[] {
   const last = segments.at(-1);
   const priorSteps = last?.kind === "steps" ? last.steps : [];
-  const steps = appendToolStep(priorSteps, toolName, location);
+  const steps = appendToolStep(priorSteps, toolName, location, executionId);
   if (last?.kind === "steps") {
     return [...segments.slice(0, -1), { kind: "steps", steps }];
   }

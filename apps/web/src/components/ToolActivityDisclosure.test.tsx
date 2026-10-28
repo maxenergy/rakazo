@@ -163,6 +163,17 @@ describe("ToolSteps", () => {
     expect(html).toContain("Host");
   });
 
+  it("shows a failed tool result with its sanitized error as a tooltip", () => {
+    const html = renderToStaticMarkup(
+      <ToolSteps
+        steps={[{ label: "Shell", count: 1, outcome: "error", error: "Host access was revoked." }]}
+      />,
+    );
+    expect(html).toContain('data-testid="tool-step-error"');
+    expect(html).toContain("Failed");
+    expect(html).toContain('title="Host access was revoked."');
+  });
+
   it("exposes the full label as the title of a truncated step", () => {
     const label = "Read apps/web/src/components/ToolActivityDisclosure.tsx";
     const html = renderToStaticMarkup(<ToolSteps steps={[{ label, count: 2 }]} />);

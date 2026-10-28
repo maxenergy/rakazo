@@ -49,6 +49,15 @@ export function ToolSteps({
               {step.label}
               {step.count > 1 ? ` ×${step.count}` : ""}
             </span>
+            {step.outcome === "error" ? (
+              <span
+                className="shrink-0 text-[11px] font-medium text-destructive"
+                data-testid="tool-step-error"
+                title={step.error}
+              >
+                Failed
+              </span>
+            ) : null}
             {step.location ? <WorkLocationBadge location={step.location} /> : null}
           </div>
         );

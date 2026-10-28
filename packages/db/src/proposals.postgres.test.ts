@@ -42,7 +42,7 @@ const enabled = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATAB
         "SELECT proposal_content_hash($1::text,$2::text,$3::text,$4::text[],$5::text) AS hash",
         [input.kind, input.title, input.summary, input.options, input.recommendation],
       );
-      expect(result.rows[0].hash).toBe(
+      expect(result.rows[0]?.hash).toBe(
         proposalContentHash(input as unknown as Parameters<typeof proposalContentHash>[0]),
       );
     }
@@ -51,7 +51,7 @@ const enabled = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATAB
       "SELECT proposal_content_hash($1::text,$2::text,$3::text,$4::text[],$5::text) AS hash",
       [input.kind, input.title, input.summary, input.options, input.recommendation],
     );
-    expect(result.rows[0].hash).toBe(
+    expect(result.rows[0]?.hash).toBe(
       proposalContentHash(input as unknown as Parameters<typeof proposalContentHash>[0]),
     );
   });

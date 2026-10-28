@@ -259,6 +259,7 @@ import {
   updateKeyResult,
   updateMilestone,
   updateProject,
+  updateProposal,
   validateProjectFilter,
   withTransactionRetry,
 } from "@rakazo/db";
@@ -4503,6 +4504,15 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     proposals: {
+      update: authed.proposals.update.handler(async ({ context, input }) => {
+        try {
+          return await updateProposal(deps.prisma, context.actor, input);
+        } catch (error) {
+          if (error instanceof ProposalDecisionError)
+            throw new ORPCError("CONFLICT", { message: error.message });
+          throw error;
+        }
+      }),
       list: authed.proposals.list.handler(async ({ context, input }) =>
         listProposals(deps.prisma, context.actor, input.status),
       ),
@@ -4512,7 +4522,7 @@ export function createRouter(deps: RouterDeps) {
           proposal = await decideProposal(deps.prisma, context.actor, input);
         } catch (error) {
           if (error instanceof ProposalDecisionError) {
-            throw new ORPCError("BAD_REQUEST", { message: error.message });
+            throw new ORPCError("CONFLICT", { message: error.message });
           }
           throw error;
         }
@@ -4550,7 +4560,7 @@ export function createRouter(deps: RouterDeps) {
           });
           await sendThreadMessage(deps, context.actor, target, {
             text: proposalDecisionText({ ...proposal, status: proposal.status }),
-            clientNonce: `proposal-decision:${proposal.id}`,
+            clientNonce: `proposal-decision:${proposal.id}:${proposal.version}`,
           });
         } catch (error) {
           getLogger().error("proposal decision delivery", error);

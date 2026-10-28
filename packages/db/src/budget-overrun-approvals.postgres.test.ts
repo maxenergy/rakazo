@@ -113,6 +113,8 @@ describePostgres("budget overrun approvals", () => {
         { spaceId, userId },
         {
           proposalId: proposal.id,
+          expectedVersion: proposal.version,
+          expectedHash: proposal.contentHash,
           decision: "approve",
         },
       ),
@@ -397,7 +399,16 @@ describePostgres("budget overrun approvals", () => {
         cancelRunsInTransaction(tx, [{ id: run.id, taskId: task.id }], cancelledAt),
       );
     await expect(
-      decideProposal(prisma, { spaceId, userId }, { proposalId: proposal.id, decision: "approve" }),
+      decideProposal(
+        prisma,
+        { spaceId, userId },
+        {
+          proposalId: proposal.id,
+          expectedVersion: proposal.version,
+          expectedHash: proposal.contentHash,
+          decision: "approve",
+        },
+      ),
     ).rejects.toThrow("no longer matches");
     expect(await prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
       status: "cancelled",
@@ -515,7 +526,16 @@ describePostgres("budget overrun approvals", () => {
       prisma.$transaction((tx) =>
         cancelRunsInTransaction(tx, [{ id: run.id, taskId: task.id }], new Date()),
       ),
-      decideProposal(prisma, { spaceId, userId }, { proposalId: proposal.id, decision: "approve" }),
+      decideProposal(
+        prisma,
+        { spaceId, userId },
+        {
+          proposalId: proposal.id,
+          expectedVersion: proposal.version,
+          expectedHash: proposal.contentHash,
+          decision: "approve",
+        },
+      ),
     ]);
     expect(results[0].status).toBe("fulfilled");
     expect(await prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
@@ -622,7 +642,12 @@ describePostgres("budget overrun approvals", () => {
     await decideProposal(
       prisma,
       { spaceId, userId },
-      { proposalId: proposal.id, decision: "approve" },
+      {
+        proposalId: proposal.id,
+        expectedVersion: proposal.version,
+        expectedHash: proposal.contentHash,
+        decision: "approve",
+      },
     );
     expect(await prisma.run.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({
       status: "queued",

@@ -173,7 +173,16 @@ describePostgres("budget overrun approvals", () => {
       chosenOption: null,
     });
     await expect(
-      decideProposal(prisma, { spaceId, userId }, { proposalId: proposal.id, decision: "approve" }),
+      decideProposal(
+        prisma,
+        { spaceId, userId },
+        {
+          proposalId: proposal.id,
+          expectedVersion: proposal.version,
+          expectedHash: proposal.contentHash,
+          decision: "approve",
+        },
+      ),
     ).rejects.toThrow("already decided");
     expect(
       await decideOverrunApproval(prisma, {

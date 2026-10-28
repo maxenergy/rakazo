@@ -3089,7 +3089,12 @@ describe.skipIf(!available)("execution fence PostgreSQL acceptance", () => {
         decideProposal(
           instrumented,
           { spaceId: space.id, userId: id },
-          { proposalId: proposal.id, decision: "reject" },
+          {
+            proposalId: proposal.id,
+            expectedVersion: proposal.version,
+            expectedHash: proposal.contentHash,
+            decision: "reject",
+          },
         );
       const settle = (promise: Promise<any>) =>
         promise.then(

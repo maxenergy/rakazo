@@ -133,6 +133,8 @@ function PendingProposal({
     try {
       await rpc.proposals.decide({
         proposalId: proposal.id,
+        expectedVersion: proposal.version,
+        expectedHash: proposal.contentHash,
         decision,
         ...(decision === "approve" && option ? { option } : {}),
         ...(comment.trim() ? { comment: comment.trim() } : {}),

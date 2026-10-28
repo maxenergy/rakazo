@@ -38,10 +38,14 @@ describe("submit_proposal arguments", () => {
       proposalDecisionText({
         title: "Launch plan",
         status: "approved",
+        approvedVersion: 2,
+        approvedContentHash: "abc",
         chosenOption: "Fast",
         comment: "Watch cost",
       }),
-    ).toBe("Approved: Launch plan\nChosen option: Fast\nComment: Watch cost\nGo ahead with it.");
+    ).toBe(
+      "Approved: Launch plan\napprovedVersion: 2; approvedContentHash: abc\nChosen option: Fast\nComment: Watch cost\nGo ahead with it.",
+    );
     expect(
       proposalDecisionText({
         title: "Launch plan",

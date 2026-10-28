@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import type {
   Actor,
   DecideProposalInput,
   Proposal,
   ProposalKind,
   ProposalStatus,
+  UpdateProposalInput,
 } from "@rakazo/contracts";
 import { ProposalKindSchema, ProposalStatusSchema } from "@rakazo/contracts";
 import { decideOverrunApprovalInTransaction } from "./budget-overrun-approvals.js";
@@ -16,6 +18,10 @@ import {
 import { lockTicketSpace } from "./ticket-space-lock.js";
 
 type ProposalRow = {
+  version: number;
+  contentHash: string;
+  approvedVersion: number | null;
+  approvedContentHash: string | null;
   id: string;
   botId: string;
   kind: string;
@@ -32,10 +38,53 @@ type ProposalRow = {
   bot: { name: string };
 };
 
+type ProposalContent = Pick<
+  ProposalRow,
+  "kind" | "title" | "summary" | "options" | "recommendation"
+>;
+
+export function proposalContentHash(content: ProposalContent): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        content.kind,
+        content.title,
+        content.summary,
+        content.options,
+        content.recommendation,
+      ]),
+    )
+    .digest("hex");
+}
+
+/** Reject a stale decision before performing its side effect. */
+export function assertProposalApproval(
+  proposal: ProposalContent & {
+    status: string;
+    version: number;
+    contentHash: string;
+    approvedVersion: number | null;
+    approvedContentHash: string | null;
+  },
+): void {
+  if (
+    proposal.status !== "approved" ||
+    proposal.approvedVersion !== proposal.version ||
+    proposal.approvedContentHash !== proposal.contentHash ||
+    proposal.contentHash !== proposalContentHash(proposal)
+  ) {
+    throw new ProposalDecisionError("Proposal approval no longer matches its content");
+  }
+}
+
 const withBotName = { bot: { select: { name: true } } } as const;
 
 export function mapProposal(row: ProposalRow): Proposal {
   return {
+    version: row.version,
+    contentHash: row.contentHash,
+    approvedVersion: row.approvedVersion,
+    approvedContentHash: row.approvedContentHash,
     id: row.id,
     botId: row.botId,
     botName: row.bot.name,
@@ -115,9 +164,12 @@ export async function createProposalInTransaction(
       spaceId: scope.spaceId,
       userId: scope.userId,
       ...fields,
+      contentHash: proposalContentHash(fields),
       ...(teamDecision
         ? {
             status: "approved",
+            approvedVersion: 1,
+            approvedContentHash: proposalContentHash(fields),
             decidedBy: "team",
             decidedAt: new Date(),
             chosenOption: teamDecision.chosenOption,
@@ -145,6 +197,23 @@ export async function listProposals(
 
 export class ProposalDecisionError extends Error {}
 
+export async function updateProposal(
+  prisma: PrismaClient,
+  scope: Pick<Actor, "userId" | "spaceId">,
+  input: UpdateProposalInput,
+): Promise<Proposal> {
+  return prisma.$transaction(async (tx) => {
+    await lockTicketSpace(tx, scope.spaceId);
+    const { proposalId, ...content } = input;
+    const where = { id: proposalId, spaceId: scope.spaceId, userId: scope.userId };
+    const found = await tx.proposal.findFirst({ where });
+    if (!found) throw new ProposalDecisionError("Proposal not found");
+    // The migration trigger versions content and invalidates the previous decision.
+    await tx.proposal.updateMany({ where, data: content });
+    return mapProposal(await tx.proposal.findFirstOrThrow({ where, include: withBotName }));
+  });
+}
+
 /**
  * Record the user's decision on a pending proposal. Only the first decision
  * lands, so a double click or a second device cannot flip it.
@@ -166,9 +235,16 @@ export async function decideProposalInTransaction(
   await lockTicketSpace(tx, scope.spaceId);
   const found = await tx.proposal.findFirst({
     where: { id: input.proposalId, spaceId: scope.spaceId, userId: scope.userId },
-    select: { options: true },
+    include: withBotName,
   });
   if (!found) throw new ProposalDecisionError("Proposal not found");
+  if (
+    input.expectedVersion !== found.version ||
+    input.expectedHash !== found.contentHash ||
+    found.contentHash !== proposalContentHash(found)
+  ) {
+    throw new ProposalDecisionError("Proposal content changed; reload before deciding");
+  }
   if (input.option && !found.options.includes(input.option)) {
     throw new ProposalDecisionError("Choose one of the proposal's options");
   }
@@ -178,12 +254,16 @@ export async function decideProposalInTransaction(
       spaceId: scope.spaceId,
       userId: scope.userId,
       status: "pending",
+      version: found.version,
+      contentHash: found.contentHash,
     },
     data: {
       status: input.decision === "approve" ? "approved" : "rejected",
       chosenOption: input.option ?? null,
       comment: input.comment?.trim() || null,
       decidedAt: new Date(),
+      approvedVersion: input.decision === "approve" ? found.version : null,
+      approvedContentHash: input.decision === "approve" ? found.contentHash : null,
     },
   });
   if (updated.count === 0) throw new ProposalDecisionError("This proposal was already decided");
@@ -231,6 +311,13 @@ export async function decideProposalInTransaction(
       BigInt(checkpoint.call.amountMicroUsd) === approval.amountMicroUsd;
     if (input.decision === "approve" && !valid) {
       throw new ProposalDecisionError("Budget approval no longer matches the paused run");
+    }
+    if (input.decision === "approve") {
+      const approved = await tx.proposal.findFirstOrThrow({
+        where: { id: input.proposalId, spaceId: scope.spaceId, userId: scope.userId },
+        include: withBotName,
+      });
+      assertProposalApproval(approved);
     }
     const result = await decideOverrunApprovalInTransaction(tx, {
       spaceId: scope.spaceId,

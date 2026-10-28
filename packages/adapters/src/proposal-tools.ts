@@ -60,6 +60,8 @@ export function parseProposalArgs(
 
 /** The message a bot wakes to once the user decides its proposal. */
 export function proposalDecisionText(proposal: {
+  approvedVersion?: number | null;
+  approvedContentHash?: string | null;
   title: string;
   status: "approved" | "rejected" | "expired" | "stale";
   chosenOption: string | null;
@@ -67,6 +69,9 @@ export function proposalDecisionText(proposal: {
 }) {
   return [
     `${{ approved: "Approved", rejected: "Rejected", expired: "Expired", stale: "Stale" }[proposal.status]}: ${proposal.title}`,
+    proposal.status === "approved"
+      ? `approvedVersion: ${proposal.approvedVersion}; approvedContentHash: ${proposal.approvedContentHash}`
+      : undefined,
     proposal.chosenOption ? `Chosen option: ${proposal.chosenOption}` : undefined,
     proposal.comment ? `Comment: ${proposal.comment}` : undefined,
     proposal.status === "approved"

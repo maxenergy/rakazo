@@ -579,6 +579,7 @@ msgid "Approval boundaries"
 msgstr "승인이 필요한 범위"
 
 #: src/pages/Approvals.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/pending-approvals-link.tsx
 msgid "Approvals"
@@ -959,6 +960,7 @@ msgstr "취소됨"
 #: src/components/AskCard.tsx
 #: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Cancelled"
 msgstr "취소됨"
 
@@ -2256,6 +2258,7 @@ msgstr "계정이 없나요?"
 
 #: src/lib/ticket-status.ts
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
@@ -2489,6 +2492,7 @@ msgid "failed"
 msgstr "실패"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 msgid "Failed"
 msgstr "실패"
@@ -3351,10 +3355,12 @@ msgid "Needs an answer"
 msgstr "답변 필요"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs input"
 msgstr "입력 필요"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs takeover"
 msgstr "인수 필요"
 
@@ -3960,6 +3966,7 @@ msgid "Pull request"
 msgstr "풀 리퀘스트"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Queued"
 msgstr "대기 중"
 
@@ -4064,6 +4071,7 @@ msgstr "컴퓨터 다시 만드는 중"
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
 #: src/pages/RoutineRunHistory.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Refresh"
 msgstr "새로고침"
 
@@ -4360,6 +4368,14 @@ msgstr "실행 시간"
 msgid "Run history"
 msgstr "실행 기록"
 
+#: src/pages/RunDiagnostics.tsx
+msgid "Run status"
+msgstr "실행 상태"
+
+#: src/pages/RunTask.tsx
+msgid "Run task"
+msgstr "실행 작업"
+
 #: src/pages/Shell.tsx
 msgid "Run time must be in the future."
 msgstr "실행 시간은 미래여야 합니다."
@@ -4369,6 +4385,7 @@ msgid "running"
 msgstr "실행 중"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Running"
 msgstr "실행 중"
 
@@ -4830,6 +4847,7 @@ msgid "Start recording"
 msgstr "작업 녹화 시작"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Starting"
 msgstr "시작 중"
 
@@ -5399,6 +5417,14 @@ msgstr "음성 대화"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "잠시 기다린 뒤 다시 테스트하세요."
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for approval"
+msgstr "승인 대기 중"
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for budget"
+msgstr "예산 대기 중"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Waiting for the API to come back…"

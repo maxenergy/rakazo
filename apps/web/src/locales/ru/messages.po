@@ -579,6 +579,7 @@ msgid "Approval boundaries"
 msgstr "Границы одобрения"
 
 #: src/pages/Approvals.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/pending-approvals-link.tsx
 msgid "Approvals"
@@ -959,6 +960,7 @@ msgstr "отменен"
 #: src/components/AskCard.tsx
 #: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Cancelled"
 msgstr "Отменено"
 
@@ -2256,6 +2258,7 @@ msgstr "У вас нет учетной записи?"
 
 #: src/lib/ticket-status.ts
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
@@ -2489,6 +2492,7 @@ msgid "failed"
 msgstr "неуспешный"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 msgid "Failed"
 msgstr "Ошибка"
@@ -3351,10 +3355,12 @@ msgid "Needs an answer"
 msgstr "Требуется ответ"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs input"
 msgstr "Требуется ввод данных"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs takeover"
 msgstr "Требуется передача управления"
 
@@ -3960,6 +3966,7 @@ msgid "Pull request"
 msgstr "Запрос на слияние"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Queued"
 msgstr "В очереди"
 
@@ -4064,6 +4071,7 @@ msgstr "Повторное создание компьютера"
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
 #: src/pages/RoutineRunHistory.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Refresh"
 msgstr "Обновить"
 
@@ -4360,6 +4368,14 @@ msgstr "Запустить в"
 msgid "Run history"
 msgstr "История запуска"
 
+#: src/pages/RunDiagnostics.tsx
+msgid "Run status"
+msgstr "Статус запуска"
+
+#: src/pages/RunTask.tsx
+msgid "Run task"
+msgstr "Задача запуска"
+
 #: src/pages/Shell.tsx
 msgid "Run time must be in the future."
 msgstr "Время выполнения должно быть в будущем."
@@ -4369,6 +4385,7 @@ msgid "running"
 msgstr "выполняется"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Running"
 msgstr "Выполняется"
 
@@ -4830,6 +4847,7 @@ msgid "Start recording"
 msgstr "Начать запись"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Starting"
 msgstr "Запуск"
 
@@ -5399,6 +5417,14 @@ msgstr "Голосовой чат"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "Подождите немного и повторите тест."
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for approval"
+msgstr "Ожидание одобрения"
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for budget"
+msgstr "Ожидание бюджета"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Waiting for the API to come back…"

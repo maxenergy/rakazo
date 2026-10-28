@@ -579,6 +579,7 @@ msgid "Approval boundaries"
 msgstr "Approval boundaries"
 
 #: src/pages/Approvals.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/pending-approvals-link.tsx
 msgid "Approvals"
@@ -959,6 +960,7 @@ msgstr "cancelled"
 #: src/components/AskCard.tsx
 #: src/components/GoalEditor.tsx
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Cancelled"
 msgstr "Cancelled"
 
@@ -2256,6 +2258,7 @@ msgstr "Don’t have an account?"
 
 #: src/lib/ticket-status.ts
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
@@ -2489,6 +2492,7 @@ msgid "failed"
 msgstr "failed"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 #: src/pages/Shell.tsx
 msgid "Failed"
 msgstr "Failed"
@@ -3351,10 +3355,12 @@ msgid "Needs an answer"
 msgstr "Needs an answer"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs input"
 msgstr "Needs input"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Needs takeover"
 msgstr "Needs takeover"
 
@@ -3960,6 +3966,7 @@ msgid "Pull request"
 msgstr "Pull request"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Queued"
 msgstr "Queued"
 
@@ -4064,6 +4071,7 @@ msgstr "Recreating the computer"
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
 #: src/pages/RoutineRunHistory.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Refresh"
 msgstr "Refresh"
 
@@ -4360,6 +4368,14 @@ msgstr "Run at"
 msgid "Run history"
 msgstr "Run history"
 
+#: src/pages/RunDiagnostics.tsx
+msgid "Run status"
+msgstr "Run status"
+
+#: src/pages/RunTask.tsx
+msgid "Run task"
+msgstr "Run task"
+
 #: src/pages/Shell.tsx
 msgid "Run time must be in the future."
 msgstr "Run time must be in the future."
@@ -4369,6 +4385,7 @@ msgid "running"
 msgstr "running"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Running"
 msgstr "Running"
 
@@ -4830,6 +4847,7 @@ msgid "Start recording"
 msgstr "Start recording"
 
 #: src/pages/ActivityList.tsx
+#: src/pages/RunDiagnostics.tsx
 msgid "Starting"
 msgstr "Starting"
 
@@ -5399,6 +5417,14 @@ msgstr "Voice chat"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "Wait a moment and test again."
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for approval"
+msgstr "Waiting for approval"
+
+#: src/pages/RunDiagnostics.tsx
+msgid "Waiting for budget"
+msgstr "Waiting for budget"
 
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Waiting for the API to come back…"

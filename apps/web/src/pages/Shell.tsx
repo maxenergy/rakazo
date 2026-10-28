@@ -270,6 +270,7 @@ import {
   routineFinished,
   routineNeedsOneShotArm,
 } from "./RoutineEditor";
+import { RunTask } from "./RunTask";
 import type { SettingsSection } from "./SettingsOverlay";
 import { SpaceSearchResults } from "./SpaceSearch";
 import { BotSettings, CreateBotForm } from "./shell/bot-panel";
@@ -5328,6 +5329,7 @@ const Transcript = memo(function Transcript({
                       onOpenComputer={onOpenComputer}
                       showToolActivity={showToolActivity}
                     />
+                    {!peerReceipt && message.runId ? <RunTask runId={message.runId} /> : null}
                     {peerReceipt ? null : (
                       <MessageHoverActions
                         message={message}

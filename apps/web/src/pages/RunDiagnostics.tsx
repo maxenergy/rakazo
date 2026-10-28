@@ -1,9 +1,12 @@
+import { useLingui } from "@lingui/react/macro";
 import type { RunDiagnosticsOutput } from "@rakazo/contracts";
 import { useEffect, useState } from "react";
 import { rpc } from "../lib/rpc";
 
 type Section = "attempts" | "events" | "effects" | "usage";
 export function RunDiagnostics({ runId }: { runId: string }) {
+  const { t } = useLingui();
+  const [refresh, setRefresh] = useState(0);
   const [section, setSection] = useState<Section>("attempts");
   const [page, setPage] = useState<RunDiagnosticsOutput | null>(null);
   const [before, setBefore] = useState<{ at: string; id: string }>();
@@ -30,7 +33,33 @@ export function RunDiagnostics({ runId }: { runId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [runId, section, before]);
+  }, [runId, section, before, refresh]);
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "running":
+        return t`Running`;
+      case "leased":
+        return t`Starting`;
+      case "queued":
+        return t`Queued`;
+      case "waiting_approval":
+        return t`Waiting for approval`;
+      case "waiting_input":
+        return t`Needs input`;
+      case "waiting_takeover":
+        return t`Needs takeover`;
+      case "waiting_budget":
+        return t`Waiting for budget`;
+      case "failed":
+        return t`Failed`;
+      case "completed":
+        return t`Done`;
+      case "cancelled":
+        return t`Cancelled`;
+      default:
+        return status;
+    }
+  };
   return (
     <section aria-label="Run diagnostics" className="rounded-lg border p-3 text-sm">
       <label>
@@ -48,11 +77,26 @@ export function RunDiagnostics({ runId }: { runId: string }) {
           <option value="usage">Model calls and usage</option>
         </select>
       </label>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => {
+          setBefore(undefined);
+          setRefresh((value) => value + 1);
+        }}
+      >
+        {t`Refresh`}
+      </button>
       {loading ? <p role="status">Loading diagnostics…</p> : null}
       {error ? <p role="alert">Diagnostics could not be loaded.</p> : null}
       {page ? (
         <>
-          <p>Run status: {page.status}</p>
+          <p>
+            {t`Run status`}: {statusLabel(page.status)}
+          </p>
+          {page.status === "waiting_approval" && page.pendingApprovalIds?.length ? (
+            <a href="/app/approvals">{t`Approvals`}</a>
+          ) : null}
           {page.runContext ? (
             <p>
               Run model: {page.runContext.modelProvider ?? "unrecorded"} /{" "}

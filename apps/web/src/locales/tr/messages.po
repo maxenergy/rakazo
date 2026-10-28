@@ -3911,7 +3911,7 @@ msgstr "Bu dosya türü için önizleme yok — görüntülemek için indirin."
 
 #: src/pages/Approvals.tsx
 msgid "Previous approval is no longer valid because this proposal has changed."
-msgstr ""
+msgstr "Bu teklif değiştiği için önceki onay artık geçerli değil."
 
 #: src/pages/Board.tsx
 msgid "Priority"
@@ -5104,7 +5104,7 @@ msgstr "Bu işlem tüm mesajları kalıcı olarak kaldırır ve mevcut işi durd
 
 #: src/pages/Approvals.tsx
 msgid "This proposal changed. Refresh it before deciding."
-msgstr ""
+msgstr "Bu teklif değişti. Karar vermeden önce yenileyin."
 
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."

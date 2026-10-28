@@ -3911,7 +3911,7 @@ msgstr "이 파일 형식은 미리보기를 지원하지 않습니다. 다운�
 
 #: src/pages/Approvals.tsx
 msgid "Previous approval is no longer valid because this proposal has changed."
-msgstr ""
+msgstr "이 제안이 변경되어 이전 승인은 더 이상 유효하지 않습니다."
 
 #: src/pages/Board.tsx
 msgid "Priority"
@@ -5104,7 +5104,7 @@ msgstr "모든 메시지를 영구적으로 삭제하고 진행 중인 작업을
 
 #: src/pages/Approvals.tsx
 msgid "This proposal changed. Refresh it before deciding."
-msgstr ""
+msgstr "이 제안이 변경되었습니다. 결정하기 전에 새로고침하세요."
 
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."

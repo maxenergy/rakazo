@@ -3911,7 +3911,7 @@ msgstr "No hay vista previa para este tipo de archivo — descárgalo para verlo
 
 #: src/pages/Approvals.tsx
 msgid "Previous approval is no longer valid because this proposal has changed."
-msgstr ""
+msgstr "La aprobación anterior ya no es válida porque esta propuesta ha cambiado."
 
 #: src/pages/Board.tsx
 msgid "Priority"
@@ -5104,7 +5104,7 @@ msgstr "Esto elimina de forma permanente todos los mensajes y detiene el trabajo
 
 #: src/pages/Approvals.tsx
 msgid "This proposal changed. Refresh it before deciding."
-msgstr ""
+msgstr "Esta propuesta ha cambiado. Actualízala antes de decidir."
 
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."

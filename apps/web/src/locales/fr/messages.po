@@ -3911,7 +3911,7 @@ msgstr "L'aperçu n'est pas disponible pour ce type de fichier — téléchargez
 
 #: src/pages/Approvals.tsx
 msgid "Previous approval is no longer valid because this proposal has changed."
-msgstr ""
+msgstr "L’approbation précédente n’est plus valide car cette proposition a changé."
 
 #: src/pages/Board.tsx
 msgid "Priority"
@@ -5104,7 +5104,7 @@ msgstr "Ceci supprime définitivement tous les messages et arrête les travaux e
 
 #: src/pages/Approvals.tsx
 msgid "This proposal changed. Refresh it before deciding."
-msgstr ""
+msgstr "Cette proposition a changé. Actualisez-la avant de décider."
 
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."

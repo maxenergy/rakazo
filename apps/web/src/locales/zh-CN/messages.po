@@ -3911,7 +3911,7 @@ msgstr "此文件类型无法预览，请下载后查看。"
 
 #: src/pages/Approvals.tsx
 msgid "Previous approval is no longer valid because this proposal has changed."
-msgstr ""
+msgstr "此提案已更改，之前的批准不再有效。"
 
 #: src/pages/Board.tsx
 msgid "Priority"
@@ -5104,7 +5104,7 @@ msgstr "将永久删除全部消息并停止当前工作。聊天仍可使用。
 
 #: src/pages/Approvals.tsx
 msgid "This proposal changed. Refresh it before deciding."
-msgstr ""
+msgstr "此提案已更改，请刷新后再决定。"
 
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."

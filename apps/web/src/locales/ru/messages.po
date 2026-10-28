@@ -3911,7 +3911,7 @@ msgstr "Предпросмотр этого типа файла недоступ
 
 #: src/pages/Approvals.tsx
 msgid "Previous approval is no longer valid because this proposal has changed."
-msgstr ""
+msgstr "Предыдущее одобрение больше не действует, поскольку это предложение изменилось."
 
 #: src/pages/Board.tsx
 msgid "Priority"
@@ -5104,7 +5104,7 @@ msgstr "Это навсегда удалит все сообщения и ост
 
 #: src/pages/Approvals.tsx
 msgid "This proposal changed. Refresh it before deciding."
-msgstr ""
+msgstr "Это предложение изменилось. Обновите его перед принятием решения."
 
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."

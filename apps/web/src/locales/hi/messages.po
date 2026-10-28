@@ -3911,7 +3911,7 @@ msgstr "इस फ़ाइल प्रकार का पूर्वाव�
 
 #: src/pages/Approvals.tsx
 msgid "Previous approval is no longer valid because this proposal has changed."
-msgstr ""
+msgstr "यह प्रस्ताव बदल गया है, इसलिए पिछली स्वीकृति अब मान्य नहीं है।"
 
 #: src/pages/Board.tsx
 msgid "Priority"
@@ -5104,7 +5104,7 @@ msgstr "यह सभी संदेश स्थायी रूप से ह
 
 #: src/pages/Approvals.tsx
 msgid "This proposal changed. Refresh it before deciding."
-msgstr ""
+msgstr "यह प्रस्ताव बदल गया है। निर्णय लेने से पहले इसे रीफ़्रेश करें।"
 
 #: src/lib/model-connection-preflight.ts
 msgid "This provider cannot be tested without saving."

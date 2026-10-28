@@ -69,7 +69,10 @@ export const RunDiagnosticsOutputSchema = z.object({
       leaseFence: z.number().int(),
     })
     .optional(),
+  // Derived diagnostic status; waiting_approval is not an executable run transition.
   status: z.string(),
+  persistedStatus: z.string().optional(),
+  pendingApprovalIds: z.array(Id).optional(),
   section: RunDiagnosticSectionSchema,
   entries: z.array(RunDiagnosticEntrySchema).max(100),
   nextCursor: z.object({ at: IsoDate, id: Id }).nullable(),

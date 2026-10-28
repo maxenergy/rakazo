@@ -91,6 +91,49 @@ describe("run diagnostics disposable PostgreSQL", () => {
     }
     if (cluster) await cluster.stop();
   });
+  it("reconstructs completion, approval and interruption recovery with a fresh client", async () => {
+    const p = db.prisma;
+    await p.run.update({ where: { id: "diagnostics-run" }, data: { status: "completed" } });
+    const read = () =>
+      getRunDiagnostics(
+        p,
+        actor,
+        { runId: "diagnostics-run", section: "attempts", limit: 25 },
+        now,
+      );
+    expect((await read()).status).toBe("completed");
+    await p.proposal.create({
+      data: {
+        id: "diagnostics-approval",
+        spaceId: actor.spaceId,
+        userId: actor.userId,
+        botId: "diagnostics-bot",
+        kind: "plan",
+        title: "Fixture",
+        summary: "Fixture",
+        submitKey: "diagnostics-run:submit_proposal:fixture",
+        status: "pending",
+      },
+    });
+    // Reconnect rather than relying on any in-memory run/approval state.
+    await p.$disconnect();
+    expect(await read()).toMatchObject({
+      status: "waiting_approval",
+      persistedStatus: "completed",
+      pendingApprovalIds: ["diagnostics-approval"],
+    });
+    await p.proposal.update({
+      where: { id: "diagnostics-approval" },
+      data: { status: "approved" },
+    });
+    expect((await read()).status).toBe("completed");
+    for (const status of ["failed", "queued", "running", "completed"]) {
+      await p.run.update({ where: { id: "diagnostics-run" }, data: { status } });
+      await p.$disconnect();
+      expect((await read()).status).toBe(status);
+    }
+    await p.run.update({ where: { id: "diagnostics-run" }, data: { status: "leased" } });
+  });
   it("paginates equal timestamps, preserves retention and performs no writes", async () => {
     const before = await db.prisma.run.findUniqueOrThrow({ where: { id: "diagnostics-run" } });
     const attempts = await db.prisma.attempt.findMany({ orderBy: { id: "asc" } });

@@ -17,6 +17,7 @@ function fixture() {
   const rows = vi.fn().mockResolvedValue([]);
   const prisma = {
     run: { findFirst: run },
+    proposal: { findMany: vi.fn().mockResolvedValue([]) },
     attempt: { findMany: rows },
     event: { findMany: rows },
     externalEffect: { findMany: rows },
@@ -26,6 +27,57 @@ function fixture() {
 }
 
 describe("run diagnostics", () => {
+  it("reads completion, approval and recovery from persisted state after restart", async () => {
+    const { prisma, run } = fixture();
+    const approvals = vi.mocked(prisma.proposal.findMany);
+    const input = { runId: "run-1", section: "attempts" as const, limit: 25 };
+    const read = () => getRunDiagnostics(prisma, actor, input, now);
+    expect((await read()).status).toBe("completed");
+    approvals.mockResolvedValue([{ id: "proposal-1" }] as never);
+    const waiting = await read();
+    expect(waiting).toMatchObject({
+      status: "waiting_approval",
+      persistedStatus: "completed",
+      pendingApprovalIds: ["proposal-1"],
+    });
+    expect(RunDiagnosticsOutputSchema.safeParse(waiting).success).toBe(true);
+    expect(approvals).toHaveBeenLastCalledWith({
+      where: {
+        spaceId: actor.spaceId,
+        userId: actor.userId,
+        status: "pending",
+        submitKey: { startsWith: "run-1:submit_proposal:" },
+      },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+    approvals.mockResolvedValue([]);
+    expect((await read()).status).toBe("completed");
+    for (const status of ["failed", "queued", "running", "completed"]) {
+      run.mockResolvedValue({ id: "run-1", threadId: "thread-1", status });
+      expect((await read()).status).toBe(status);
+    }
+  });
+
+  it.each(["running", "failed", "cancelled", "uncertain"])(
+    "does not hide persisted %s behind an approval",
+    async (status) => {
+      const { prisma, run } = fixture();
+      run.mockResolvedValue({ id: "run-1", threadId: "thread-1", status });
+      vi.mocked(prisma.proposal.findMany).mockResolvedValue([{ id: "proposal-1" }] as never);
+      expect(
+        (
+          await getRunDiagnostics(
+            prisma,
+            actor,
+            { runId: "run-1", section: "attempts", limit: 25 },
+            now,
+          )
+        ).status,
+      ).toBe(status);
+    },
+  );
+
   it("returns only allowlisted run model and lease context", async () => {
     const { prisma, run } = fixture();
     run.mockResolvedValue({

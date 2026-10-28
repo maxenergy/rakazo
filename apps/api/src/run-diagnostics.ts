@@ -13,6 +13,7 @@ const SAFE_STATUSES = new Set([
   "blocked",
   "uncertain",
   "waiting_budget",
+  "waiting_approval",
   "waiting_input",
   "waiting_takeover",
   "queued",
@@ -45,6 +46,22 @@ export async function getRunDiagnostics(
     },
   });
   if (!run) throw new ORPCError("NOT_FOUND");
+  // Read persisted approvals on every request, including after a restart.
+  const pendingApprovals = await prisma.proposal.findMany({
+    where: {
+      spaceId: actor.spaceId,
+      userId: actor.userId,
+      status: "pending",
+      submitKey: { startsWith: `${run.id}:submit_proposal:` },
+    },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  const persistedStatus = statusOf(run.status);
+  const status =
+    pendingApprovals.length > 0 && ["completed", "waiting_approval"].includes(run.status)
+      ? "waiting_approval"
+      : persistedStatus;
   const threadPath = run.thread?.groupId
     ? `/app/g/${encodeURIComponent(run.thread.groupId)}`
     : run.thread?.botId
@@ -286,7 +303,9 @@ export async function getRunDiagnostics(
   const last = entries.at(-1);
   return {
     runId: run.id,
-    status: statusOf(run.status),
+    status,
+    persistedStatus,
+    pendingApprovalIds: pendingApprovals.map((approval) => approval.id),
     runContext: {
       modelProvider: run.modelProvider ?? null,
       modelId: run.modelId ?? null,

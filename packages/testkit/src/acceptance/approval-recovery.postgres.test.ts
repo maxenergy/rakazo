@@ -473,8 +473,13 @@ describe.skipIf(!databaseAvailable)("approval recovery after runtime restart", (
           await expireOverrunApprovals(handles.prisma);
           await expireOverrunApprovals(handles.prisma);
         } else {
+          const proposal = await handles.prisma.proposal.findUniqueOrThrow({
+            where: { id: approval.proposalId! },
+          });
           await rpc(handles.app, cookie, "proposals/decide", {
             proposalId: approval.proposalId,
+            expectedVersion: proposal.version,
+            expectedHash: proposal.contentHash,
             decision: decision === "approve" ? "approve" : "reject",
           });
         }

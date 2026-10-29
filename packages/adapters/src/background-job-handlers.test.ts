@@ -21,6 +21,49 @@ vi.mock("./messaging-delivery.js", () => ({
 }));
 
 describe("createBackgroundJobHandlers", () => {
+  it.each([false, true])(
+    "keeps delivery after mirror failure, compensation enqueue fails: %s",
+    async (enqueueFails) => {
+      const enqueue = vi.fn(async (job: { name: string }) => {
+        if (enqueueFails && job.name === "messaging.mirror") throw new Error("queue unavailable");
+      });
+      const continueRun = vi.fn(async () => undefined);
+      const handlers = createBackgroundJobHandlers({
+        executor: { continueRun } as unknown as ReturnType<typeof createRunExecutor>,
+        prisma: {} as unknown as PrismaClient,
+        sandbox: {} as unknown as SandboxProvider,
+        home: {} as unknown as AgentHomeStore,
+        jobs: { enqueue } as unknown as JobPublisher,
+        events: {} as unknown as ThreadEvents,
+        workerId: "worker-1",
+        runtime: {} as unknown as AgentRuntime,
+        secretStore: {} as unknown as EncryptedSecretStore,
+        memoryProviders: { resolve: vi.fn(async () => null) },
+        messaging: {} as unknown as MessagingSurface,
+      });
+      vi.mocked(mirrorMessagingOutbound).mockRejectedValueOnce(new Error("mirror unavailable"));
+      await expect(handlers["run.continue"]({ runId: "run-1" })).resolves.toBeUndefined();
+      expect(continueRun).toHaveBeenCalledOnce();
+      expect(enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "messaging.mirror",
+          payload: { runId: "run-1" },
+          replaceKey: "messaging.mirror:run-1",
+        }),
+      );
+      expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ name: "messaging.deliver" }));
+      if (!enqueueFails) {
+        await handlers["messaging.mirror"]({ runId: "run-1" });
+        expect(enqueue).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            name: "messaging.deliver",
+            payload: { runId: "run-1" },
+          }),
+        );
+      }
+    },
+  );
+
   it("delivers directly when shutdown rejects a completed run's mirror job", async () => {
     const enqueueError = new Error("Background job publisher is closing");
     const jobs = {

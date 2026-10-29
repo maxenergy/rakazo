@@ -165,6 +165,30 @@ describe("subscription CLI provider conformance", () => {
     expect(cliRetryAttempts("bad_arguments")).toBe(3);
   });
 
+  it("cancels during network backoff without starting another CLI turn", async () => {
+    const controller = new AbortController();
+    vi.mocked(runCliProcess).mockRejectedValue(
+      new CliProcessError("Network unavailable", "network"),
+    );
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("claude-code")!.getModels()[0]!;
+    const result = models
+      .streamSimple(
+        model,
+        { messages: [] },
+        {
+          apiKey: profileId,
+          signal: controller.signal,
+        },
+      )
+      .result();
+    // Let the rejection reach the backoff timer, then cancel the waiting turn.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    controller.abort();
+    expect((await result).stopReason).toBe("aborted");
+    expect(runCliProcess).toHaveBeenCalledTimes(1);
+  });
+
   it("does not retry a turn that hit the subscription limit", async () => {
     vi.mocked(runCliProcess).mockRejectedValue(
       new CliProcessError("CLI request failed.", "rate_limited"),

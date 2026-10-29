@@ -310,10 +310,12 @@ export async function commentTicket(
   const ticket = await findTicket(deps.prisma, input.spaceId, board, { id: input.id });
   if (!ticket) return { error: "Ticket not found." };
   const row = await deps.prisma.$transaction(async (tx) => {
-    if (deps.executionFence) {
-      await lockTicketSpace(tx, input.spaceId);
-      await assertExecutionFence(tx, deps.executionFence);
-    }
+    await lockTicketSpace(tx, input.spaceId);
+    if (deps.executionFence) await assertExecutionFence(tx, deps.executionFence);
+    const current = await tx.ticket.findFirst({
+      where: { id: ticket.id, spaceId: input.spaceId, boardId: board.id },
+    });
+    if (!current) return null;
     const comment = await tx.ticketComment.create({
       include: { authorBot: { select: { name: true } }, authorUser: { select: { name: true } } },
       data: {
@@ -325,16 +327,17 @@ export async function commentTicket(
       },
     });
     await tx.ticket.update({ where: { id: ticket.id }, data: { updatedAt: new Date() } });
-    return comment;
+    return { comment, assigneeBotId: current.assigneeBotId };
   });
+  if (!row) return { error: "Ticket not found." };
   await deps.onTicketChange?.({
     spaceId: input.spaceId,
     boardId: board.id,
     ticketId: ticket.id,
-    assigneeBotId: ticket.assigneeBotId,
+    assigneeBotId: row.assigneeBotId,
     // A review or answer left on the ticket is work for its owner; without a wake
     // the owner never sees it and the ticket stalls.
-    wakeAssignee: ticket.assigneeBotId !== null && ticket.assigneeBotId !== input.botId,
+    wakeAssignee: row.assigneeBotId !== null && row.assigneeBotId !== input.botId,
   });
-  return { comment: toTicketCommentDto(row) };
+  return { comment: toTicketCommentDto(row.comment) };
 }

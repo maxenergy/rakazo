@@ -914,12 +914,17 @@ const baseAgentTools: ConnectorTool[] = [
   {
     name: "ticket_worktree",
     description:
-      "Create or strictly reuse a ticket git worktree. Pass its returned absolute path as shell cwd. Existing workspaces are never migrated or overwritten.",
+      "Create or strictly reuse a ticket git worktree. New worktrees fetch origin/feat/company-os with a 30s timeout by default; baseBranch overrides the branch, or baseSha uses a verified local commit without fetching. Existing worktrees are verified without fetching or changing branches. Returns the actual baseSha for creation and headSha. Pass the returned absolute path as shell cwd.",
     inputSchema: {
       type: "object",
       properties: {
         ref: { type: "string" },
         repoPath: { type: "string" },
+        baseBranch: {
+          type: "string",
+          description: "Remote base branch; defaults to feat/company-os.",
+        },
+        baseSha: { type: "string", description: "Optional local commit SHA; bypasses fetch." },
         location: { type: "string", enum: ["host", "container"] },
       },
       required: ["ref", "repoPath", "location"],

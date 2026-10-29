@@ -218,21 +218,23 @@ describePostgres("memory commits (PostgreSQL)", () => {
         code: "P2034",
       },
     );
-    expect(attempts).toBe(3);
+    expect(attempts).toBe(5);
     const current = await document(path);
-    expect(current).toMatchObject({ revision: 4, content: "winner-3" });
+    expect(current).toMatchObject({ revision: 6, content: "winner-5" });
     expect(current.revisions.map(({ revision, content }) => ({ revision, content }))).toEqual([
       { revision: 1, content: "initial" },
       { revision: 2, content: "winner-1" },
       { revision: 3, content: "winner-2" },
       { revision: 4, content: "winner-3" },
+      { revision: 5, content: "winner-4" },
+      { revision: 6, content: "winner-5" },
     ]);
 
     const retried = await store.commit(request(path, "rejected"), context);
-    expect(retried.revision).toBe(5);
+    expect(retried.revision).toBe(7);
     const afterRetry = await document(path);
-    expect(afterRetry).toMatchObject({ revision: 5, content: "rejected" });
-    expect(afterRetry.revisions).toHaveLength(5);
-    expect(afterRetry.revisions.at(-1)).toMatchObject({ revision: 5, content: "rejected" });
+    expect(afterRetry).toMatchObject({ revision: 7, content: "rejected" });
+    expect(afterRetry.revisions).toHaveLength(7);
+    expect(afterRetry.revisions.at(-1)).toMatchObject({ revision: 7, content: "rejected" });
   });
 });

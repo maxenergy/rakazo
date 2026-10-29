@@ -20,7 +20,7 @@ describe("withSerializableRetry", () => {
       .mockRejectedValueOnce(serializationConflict())
       .mockResolvedValue("ok");
 
-    await expect(withSerializableRetry(operation)).resolves.toBe("ok");
+    await expect(withSerializableRetry(operation, async () => {})).resolves.toBe("ok");
     expect(operation).toHaveBeenCalledTimes(3);
   });
 
@@ -32,7 +32,7 @@ describe("withSerializableRetry", () => {
         .mockRejectedValueOnce(adapterConflict(databaseCode))
         .mockResolvedValue("ok");
 
-      await expect(withSerializableRetry(operation)).resolves.toBe("ok");
+      await expect(withSerializableRetry(operation, async () => {})).resolves.toBe("ok");
       expect(operation).toHaveBeenCalledTimes(2);
     },
   );
@@ -41,7 +41,7 @@ describe("withSerializableRetry", () => {
     const error = new Error("unrelated failure");
     const operation = vi.fn<() => Promise<never>>().mockRejectedValue(error);
 
-    await expect(withSerializableRetry(operation)).rejects.toBe(error);
+    await expect(withSerializableRetry(operation, async () => {})).rejects.toBe(error);
     expect(operation).toHaveBeenCalledTimes(1);
   });
 
@@ -49,7 +49,7 @@ describe("withSerializableRetry", () => {
     const error = Object.assign(new Error("external connector error"), { code: "P2039" });
     const operation = vi.fn<() => Promise<never>>().mockRejectedValue(error);
 
-    await expect(withSerializableRetry(operation)).rejects.toBe(error);
+    await expect(withSerializableRetry(operation, async () => {})).rejects.toBe(error);
     expect(operation).toHaveBeenCalledTimes(1);
   });
 
@@ -57,7 +57,7 @@ describe("withSerializableRetry", () => {
     const error = serializationConflict();
     const operation = vi.fn<() => Promise<never>>().mockRejectedValue(error);
 
-    await expect(withSerializableRetry(operation)).rejects.toBe(error);
-    expect(operation).toHaveBeenCalledTimes(3);
+    await expect(withSerializableRetry(operation, async () => {})).rejects.toBe(error);
+    expect(operation).toHaveBeenCalledTimes(5);
   });
 });

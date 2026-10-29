@@ -28,6 +28,33 @@ const enabled = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATAB
       await db.pool.end();
     }
   });
+  it("matches application hashes for null, empty and populated options", async () => {
+    const content = {
+      kind: "plan",
+      title: '中文 "quoted"\\\n',
+      summary: "Résumé 😀",
+      options: [] as string[],
+      recommendation: "A",
+    };
+    for (const options of [null, [], ["A", "B"]]) {
+      const input = { ...content, options };
+      const result = await db.pool.query<{ hash: string }>(
+        "SELECT proposal_content_hash($1::text,$2::text,$3::text,$4::text[],$5::text) AS hash",
+        [input.kind, input.title, input.summary, input.options, input.recommendation],
+      );
+      expect(result.rows[0]?.hash).toBe(
+        proposalContentHash(input as unknown as Parameters<typeof proposalContentHash>[0]),
+      );
+    }
+    const input = { ...content, recommendation: null };
+    const result = await db.pool.query<{ hash: string }>(
+      "SELECT proposal_content_hash($1::text,$2::text,$3::text,$4::text[],$5::text) AS hash",
+      [input.kind, input.title, input.summary, input.options, input.recommendation],
+    );
+    expect(result.rows[0]?.hash).toBe(
+      proposalContentHash(input as unknown as Parameters<typeof proposalContentHash>[0]),
+    );
+  });
   it("versions content edits and rejects the previous approval", async () => {
     const original = await db.prisma.proposal.create({
       data: {

@@ -50,7 +50,7 @@ export function proposalContentHash(content: ProposalContent): string {
         content.kind,
         content.title,
         content.summary,
-        content.options,
+        content.options ?? [],
         content.recommendation,
       ]),
     )

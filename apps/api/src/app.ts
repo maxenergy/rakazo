@@ -1129,6 +1129,13 @@ function sessionHeaders(request: Request) {
  * "fetch failed" and keep the host and errno one level down.
  */
 export function logUnexpectedRpcError(error: unknown, path: readonly string[]): void {
+  if (
+    error instanceof IsolationError ||
+    (error instanceof ORPCError && error.cause instanceof IsolationError)
+  ) {
+    getLogger().warn(`rpc ${path.join("/")} conflict`, { error });
+    return;
+  }
   if (error instanceof ORPCError) return;
   const where = `rpc ${path.join("/")} failed`;
   getLogger().error(where, error);

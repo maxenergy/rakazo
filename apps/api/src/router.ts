@@ -802,14 +802,28 @@ async function resolveSpaceBoard(
 }
 
 export function createRouter(deps: RouterDeps) {
-  const os = implement(appContract).$context<{
-    actor: Actor | null;
-    /** The signed-in session, so a push token ends with the session that registered it. */
-    sessionId?: string;
-    signal?: AbortSignal;
-    /** Re-runs the request's auth so a long-lived stream notices sign-out and revocation. */
-    stillAuthorized?: () => Promise<boolean>;
-  }>();
+  const os = implement(appContract)
+    .$context<{
+      actor: Actor | null;
+      /** The signed-in session, so a push token ends with the session that registered it. */
+      sessionId?: string;
+      signal?: AbortSignal;
+      /** Re-runs the request's auth so a long-lived stream notices sign-out and revocation. */
+      stillAuthorized?: () => Promise<boolean>;
+    }>()
+    .use(async ({ next }) => {
+      try {
+        return await next();
+      } catch (error) {
+        if (error instanceof IsolationError) {
+          throw new ORPCError("CONFLICT", {
+            message: "Concurrent change; retry the request.",
+            cause: error,
+          });
+        }
+        throw error;
+      }
+    });
   const repos = createRepos(deps.prisma);
   const onboardingDeps = { prisma: deps.prisma, events: deps.events, connectors: deps.connectors };
   const mcpOAuth = deps.mcpOAuth ?? new McpOAuthBroker(deps.prisma, deps.secrets);
@@ -4637,6 +4651,23 @@ export function createRouter(deps: RouterDeps) {
       ),
       list: boardEnabled.tickets.list.handler(async ({ context, input }) => {
         const board = await resolveSpaceBoard(deps.prisma, context.actor.spaceId, input.boardId);
+        let cursor: { updatedAt: string; id: string } | undefined;
+        if (input.cursor !== undefined) {
+          if (input.limit === undefined) throw new ORPCError("BAD_REQUEST");
+          try {
+            const parsed = JSON.parse(Buffer.from(input.cursor, "base64url").toString("utf8"));
+            if (
+              typeof parsed.id !== "string" ||
+              !parsed.id ||
+              typeof parsed.updatedAt !== "string" ||
+              new Date(parsed.updatedAt).toISOString() !== parsed.updatedAt
+            )
+              throw new Error("Invalid cursor");
+            cursor = parsed;
+          } catch {
+            throw new ORPCError("BAD_REQUEST", { message: "Invalid ticket cursor." });
+          }
+        }
         const q = input.q?.trim();
         const refMatch = q?.match(/^(.+)-(\d+)$/);
         const referenceNumber =
@@ -4669,14 +4700,40 @@ export function createRouter(deps: RouterDeps) {
                   ...where,
                   ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
                   ...(input.milestoneId !== undefined ? { milestoneId: input.milestoneId } : {}),
+                  ...(cursor
+                    ? {
+                        AND: [
+                          {
+                            OR: [
+                              { updatedAt: { lt: new Date(cursor.updatedAt) } },
+                              { updatedAt: new Date(cursor.updatedAt), id: { lt: cursor.id } },
+                            ],
+                          },
+                        ],
+                      }
+                    : {}),
                 },
+                ...(input.limit !== undefined ? { take: input.limit + 1 } : {}),
                 orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
               });
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
           ),
         );
-        return { tickets: rows.map((row) => toTicketDto(row, board.ticketPrefix)) };
+        if (input.limit === undefined) {
+          return { tickets: rows.map((row) => toTicketDto(row, board.ticketPrefix)) };
+        }
+        const items = rows.slice(0, input.limit);
+        const last = items.at(-1);
+        return {
+          items: items.map((row) => toTicketDto(row, board.ticketPrefix)),
+          nextCursor:
+            rows.length > input.limit && last
+              ? Buffer.from(
+                  JSON.stringify({ updatedAt: last.updatedAt.toISOString(), id: last.id }),
+                ).toString("base64url")
+              : null,
+        };
       }),
       get: boardEnabled.tickets.get.handler(async ({ context, input }) => {
         const board = await ensureBoard(deps.prisma, context.actor.spaceId);

@@ -242,7 +242,11 @@ describePostgres("project and milestone API isolation", () => {
     });
     const plain = await api.tickets.create({ title: "Needle plain", assigneeBotId: botId });
     const ids = async (filter: Parameters<typeof api.tickets.list>[0]) =>
-      (await api.tickets.list(filter)).tickets.map((row) => row.id);
+      api.tickets
+        .list(filter)
+        .then((result) =>
+          ("tickets" in result ? result.tickets : result.items).map((row) => row.id),
+        );
     expect(await ids({ q: "Needle" })).toEqual(expect.arrayContaining([linked.id, plain.id]));
     expect(await ids({ q: "Needle", projectId: a.id })).toEqual([linked.id]);
     expect(await ids({ q: "Needle", projectId: null })).toEqual([plain.id]);

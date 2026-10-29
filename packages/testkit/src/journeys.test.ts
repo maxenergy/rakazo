@@ -509,10 +509,19 @@ describeJourneys("required product journeys", () => {
       path: "notes/result.txt",
     });
     expect(persisted.content).toContain("isolation-ok");
-    const coderMem = await rpc<Array<{ content: string }>>(app, ada, "memory/list", {
+    const coderMem = await rpc<Array<{ path: string }>>(app, ada, "memory/list", {
       botId: coder.id,
     });
-    expect(coderMem.some((m) => m.content.toLowerCase().includes("rust"))).toBe(true);
+    const coderDocs = await Promise.all(
+      coderMem.map((memory) =>
+        rpc<{ content: string }>(app, ada, "memory/read", {
+          scope: "bot",
+          botId: coder.id,
+          path: memory.path,
+        }),
+      ),
+    );
+    expect(coderDocs.some((memory) => memory.content.toLowerCase().includes("rust"))).toBe(true);
     const dedicated = await rpc<Bot>(app, ada, "bots/setComputer", {
       botId: coder.id,
       mode: "dedicated",
@@ -547,7 +556,7 @@ describeJourneys("required product journeys", () => {
       bot.id,
       "write a file in your home called notes/result.txt that says kept-after-clear",
     );
-    const memories = await rpc<Array<{ id: string }>>(app, cookie, "memory/list", {
+    const memories = await rpc<Array<{ id: string; path: string }>>(app, cookie, "memory/list", {
       botId: bot.id,
     });
     await rpc(app, cookie, "memory/update", {
@@ -625,10 +634,15 @@ describeJourneys("required product journeys", () => {
       await rpc(app, cookie, "computer/readFile", { botId: bot.id, path: "notes/result.txt" }),
     ).toMatchObject({ content: expect.stringContaining("kept-after-clear") });
     expect(await rpc(app, cookie, "memory/list", { botId: bot.id })).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ content: expect.stringContaining("Remember this") }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ id: memories[0]!.id })]),
     );
+    expect(
+      await rpc(app, cookie, "memory/read", {
+        scope: "bot",
+        botId: bot.id,
+        path: memories[0]!.path,
+      }),
+    ).toMatchObject({ content: expect.stringContaining("Remember this") });
     expect(await rpc(app, cookie, "routines/list", { botId: bot.id })).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: routine.id })]),
     );

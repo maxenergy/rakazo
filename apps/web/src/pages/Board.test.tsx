@@ -421,7 +421,8 @@ it("sends unassociated and status filters explicitly", async () => {
 
 it("loads more tickets, deduplicates by id, and shows the loaded count", async () => {
   api.bots.list.mockResolvedValue([]);
-  api.tickets.list.mockReset()
+  api.tickets.list
+    .mockReset()
     .mockResolvedValueOnce({ items: [ticket("First", "ticket-1")], nextCursor: "opaque-next" })
     .mockResolvedValueOnce({
       items: [ticket("Changed title", "ticket-1"), ticket("Second", "ticket-2")],
@@ -430,16 +431,30 @@ it("loads more tickets, deduplicates by id, and shows the loaded count", async (
   const page = await renderBoard();
   try {
     expect(page.container.textContent).toContain("Loaded 1");
-    expect(api.tickets.list).toHaveBeenNthCalledWith(1, { limit: 100 }, { context: { spaceId: "space-1" } });
+    expect(api.tickets.list).toHaveBeenNthCalledWith(
+      1,
+      { limit: 100 },
+      { context: { spaceId: "space-1" } },
+    );
     await act(async () => {
-      Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Load more")!.click();
+      Array.from(page.container.querySelectorAll("button"))
+        .find((button) => button.textContent === "Load more")!
+        .click();
     });
-    expect(api.tickets.list).toHaveBeenNthCalledWith(2, { limit: 100, cursor: "opaque-next" }, { context: { spaceId: "space-1" } });
+    expect(api.tickets.list).toHaveBeenNthCalledWith(
+      2,
+      { limit: 100, cursor: "opaque-next" },
+      { context: { spaceId: "space-1" } },
+    );
     expect(page.container.textContent).toContain("Loaded 2");
     expect(page.container.querySelectorAll('[data-testid^="board-card-"]')).toHaveLength(2);
     expect(page.container.textContent).toContain("First");
     expect(page.container.textContent).toContain("Second");
-    expect(Array.from(page.container.querySelectorAll("button")).some((button) => button.textContent === "Load more")).toBe(false);
+    expect(
+      Array.from(page.container.querySelectorAll("button")).some(
+        (button) => button.textContent === "Load more",
+      ),
+    ).toBe(false);
   } finally {
     await page.cleanup();
   }

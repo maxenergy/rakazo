@@ -118,9 +118,12 @@ export function BoardPage() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const result = await rpc.tickets.list({ ...filters(), limit: 100, cursor: nextCursor }, {
-        context: { spaceId: selectedSpaceId() },
-      });
+      const result = await rpc.tickets.list(
+        { ...filters(), limit: 100, cursor: nextCursor },
+        {
+          context: { spaceId: selectedSpaceId() },
+        },
+      );
       if ("items" in result) {
         setTickets((current) => {
           const ids = new Set(current.map((ticket) => ticket.id));
@@ -244,7 +247,9 @@ export function BoardPage() {
         </div>
       </div>
       <main className="relative min-h-0 min-w-0 flex-1 overflow-auto p-4">
-        <p className="mb-3 text-sm text-muted-foreground"><Trans>Loaded {tickets.length}</Trans></p>
+        <p className="mb-3 text-sm text-muted-foreground">
+          <Trans>Loaded {tickets.length}</Trans>
+        </p>
         {listView ? (
           <ul data-testid="ticket-list" className="min-w-0 space-y-2">
             {tickets.map((ticket) => (

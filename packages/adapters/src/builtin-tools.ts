@@ -914,7 +914,7 @@ const baseAgentTools: ConnectorTool[] = [
   {
     name: "ticket_worktree",
     description:
-      "Create or strictly reuse a ticket git worktree. New worktrees fetch origin/feat/company-os with a 30s timeout by default; baseBranch overrides the branch, or baseSha uses a verified local commit without fetching. Existing worktrees are verified without fetching or changing branches. Returns the actual baseSha for creation and headSha. Pass the returned absolute path as shell cwd.",
+      "Create or strictly reuse a ticket git worktree. New worktrees fetch origin/feat/company-os with a 30s timeout by default; baseBranch overrides the branch, or baseSha uses a verified local commit without fetching. Checkout defaults to 120s, configurable via checkoutTimeoutMs; timed-out partial worktrees are retained. Existing worktrees are verified without fetching or changing branches. Returns the actual baseSha for creation and headSha. Pass the returned absolute path as shell cwd.",
     inputSchema: {
       type: "object",
       properties: {
@@ -925,6 +925,14 @@ const baseAgentTools: ConnectorTool[] = [
           description: "Remote base branch; defaults to feat/company-os.",
         },
         baseSha: { type: "string", description: "Optional local commit SHA; bypasses fetch." },
+        checkoutTimeoutMs: {
+          type: "integer",
+          minimum: 1,
+          maximum: 600_000,
+          default: 120_000,
+          description:
+            "Checkout timeout in milliseconds; defaults to 120000. Fetch timeout is unchanged.",
+        },
         location: { type: "string", enum: ["host", "container"] },
       },
       required: ["ref", "repoPath", "location"],

@@ -15,7 +15,7 @@ type Deps = {
   computer: string;
   location: "host" | "container";
   workspace: string;
-  execute: (argv: string[], cwd: string) => AsyncIterable<ProcessEvent>;
+  execute: (argv: string[], cwd: string, timeoutMs: number) => AsyncIterable<ProcessEvent>;
 };
 
 // All paths are resolved by the selected execution endpoint, never by the worker.
@@ -115,13 +115,36 @@ git -C "$repo" worktree list --porcelain | grep -Fqx -- "worktree $target"
 git -C "$target" rev-parse HEAD
 `;
 
-async function command(deps: Deps, script: string, args: string[]) {
+const CHECKOUT = `
+set -eu
+target=$2
+timeout_seconds=$8
+set -m
+bash -c "$7" ticket-worktree "$@" &
+checkout_pid=$!
+(
+  sleep "$timeout_seconds"
+  echo "Worktree checkout timed out after $timeout_seconds seconds; partial worktree retained at $target." >&2
+  kill -KILL -- "-$checkout_pid" 2>/dev/null || :
+) </dev/null &
+timer_pid=$!
+cleanup() { kill -TERM -- "-$checkout_pid" "-$timer_pid" 2>/dev/null || :; }
+trap cleanup EXIT
+status=0
+wait "$checkout_pid" || status=$?
+kill -TERM -- "-$timer_pid" 2>/dev/null || :
+wait "$timer_pid" 2>/dev/null || :
+exit "$status"
+`;
+
+async function command(deps: Deps, script: string, args: string[], timeoutMs = 35_000) {
   let stdout = "";
   let stderr = "";
   let code: number | undefined;
   for await (const event of deps.execute(
     ["bash", "-c", script, "ticket-worktree", ...args],
     deps.workspace,
+    timeoutMs,
   )) {
     if (event.type === "stdout") stdout += event.data;
     if (event.type === "stderr") stderr += event.data;
@@ -149,6 +172,14 @@ export async function ticketWorktree(deps: Deps, input: Record<string, unknown>)
     (typeof input.baseSha !== "string" || !/^[a-fA-F0-9]{7,64}$/.test(input.baseSha))
   )
     return { error: "baseSha must be a commit SHA available locally." };
+  const checkoutTimeoutMs = input.checkoutTimeoutMs ?? 120_000;
+  if (
+    typeof checkoutTimeoutMs !== "number" ||
+    !Number.isSafeInteger(checkoutTimeoutMs) ||
+    checkoutTimeoutMs < 1 ||
+    checkoutTimeoutMs > 600_000
+  )
+    return { error: "checkoutTimeoutMs must be an integer between 1 and 600000." };
   const board = await ensureBoard(deps.prisma, deps.spaceId, deps.executionFence);
   const ticket = await findTicket(deps.prisma, deps.spaceId, board, { ref: input.ref });
   if (!ticket) return { error: "Ticket not found." };
@@ -194,14 +225,21 @@ export async function ticketWorktree(deps: Deps, input: Record<string, unknown>)
             },
           });
         }
-        const headSha = await command(deps, WORKTREE, [
-          repo,
-          path,
-          branch,
-          existing ? "verify" : "create",
-          ref,
-          baseSha ?? "",
-        ]);
+        const headSha = await command(
+          deps,
+          CHECKOUT,
+          [
+            repo,
+            path,
+            branch,
+            existing ? "verify" : "create",
+            ref,
+            baseSha ?? "",
+            WORKTREE,
+            String(checkoutTimeoutMs / 1000),
+          ],
+          checkoutTimeoutMs + 5_000,
+        );
         if (deps.executionFence) await assertExecutionFence(tx, deps.executionFence);
         return {
           path,
@@ -212,7 +250,7 @@ export async function ticketWorktree(deps: Deps, input: Record<string, unknown>)
           ...(baseSha ? { baseSha } : {}),
         };
       },
-      { timeout: 45_000 },
+      { timeout: checkoutTimeoutMs + 45_000 },
     );
   } catch (error) {
     if (error instanceof StaleExecutionFenceError) throw error;

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type {
   Api,
   AssistantMessage,
@@ -896,7 +897,7 @@ function streamCliModel(
           if (error instanceof CliReplyError) continue;
           if (reason === "network") {
             // The prompt was fine; wait for the connection instead of shrinking it.
-            await new Promise((resolve) => setTimeout(resolve, CLI_NETWORK_RETRY_DELAY_MS));
+            await delay(CLI_NETWORK_RETRY_DELAY_MS, undefined, { signal: options.signal });
             options.signal?.throwIfAborted();
             continue;
           }

@@ -23,6 +23,7 @@ const payloadSchemas = {
     threadId: z.string().min(1),
     sourceRunId: z.string().min(1).optional(),
   }),
+  "messaging.mirror": z.object({ runId: z.string().min(1) }),
   "messaging.deliver": z.object({ runId: z.string().min(1).optional() }),
   "cloud_agent.poll": z.object({ agentId: z.string().min(1) }),
 } satisfies { [Name in BackgroundJobName]: z.ZodType<BackgroundJobPayloads[Name]> };
@@ -125,6 +126,15 @@ export function historyCompactJobKey(threadId: string): string {
  * provider errors without storming.
  */
 export const HISTORY_COMPACT_MAX_ATTEMPTS = 4;
+
+export function messagingMirrorJob(runId: string): BackgroundJob {
+  return {
+    name: "messaging.mirror",
+    payload: { runId },
+    replaceKey: `messaging.mirror:${runId}`,
+    keepExisting: true,
+  };
+}
 
 export function messagingDeliverJob(runId?: string, availableAt?: Date): BackgroundJob {
   return {

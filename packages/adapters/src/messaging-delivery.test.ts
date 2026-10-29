@@ -7,6 +7,7 @@ import {
   MESSAGING_DM_OUTBOUND_CAP,
   MESSAGING_OUTBOUND_MAX_ATTEMPTS,
   type MessagingDeliveryDeps,
+  mirrorMessagingOutbound,
 } from "./messaging-delivery.js";
 
 const context: AdapterContext = {
@@ -185,6 +186,17 @@ function createDeps(overrides: {
 }
 
 describe("deliverMessagingOutbound", () => {
+  it("does not create duplicate outbox rows when mirror compensation repeats", async () => {
+    const deps = createDeps({});
+    await mirrorMessagingOutbound(deps, "run-1");
+    await mirrorMessagingOutbound(deps, "run-1");
+    expect(deps.rows).toHaveLength(1);
+    expect(deps.rows[0]).toMatchObject({ idempotencyKey: "msg:m-1" });
+    expect(deps.prisma.messagingOutbound.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skipDuplicates: true }),
+    );
+  });
+
   it("mirrors a messaging DM run's bot text to the identity's conversation", async () => {
     const deps = createDeps({});
     await deliverMessagingOutbound(deps, { runId: "run-1" }, context);

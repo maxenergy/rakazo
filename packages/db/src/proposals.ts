@@ -271,8 +271,22 @@ export async function decideProposalInTransaction(
     where: { spaceId: scope.spaceId, proposalId: input.proposalId },
   });
   if (approval) {
-    const binding = JSON.parse(approval.scope);
-    if (typeof binding.threadId !== "string" || typeof binding.runId !== "string") {
+    let binding: Record<string, unknown> | null;
+    try {
+      binding = JSON.parse(approval.scope);
+    } catch {
+      throw new ProposalDecisionError("Invalid budget approval scope");
+    }
+    if (
+      binding === null ||
+      typeof binding !== "object" ||
+      typeof binding.threadId !== "string" ||
+      typeof binding.runId !== "string" ||
+      typeof binding.botId !== "string" ||
+      typeof binding.leaseFence !== "number" ||
+      !Number.isSafeInteger(binding.leaseFence) ||
+      binding.leaseFence < 0
+    ) {
       throw new ProposalDecisionError("Invalid budget approval scope");
     }
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${binding.threadId} AND "spaceId" = ${scope.spaceId} FOR UPDATE`;

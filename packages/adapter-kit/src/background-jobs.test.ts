@@ -5,6 +5,7 @@ import {
   historyCompactJob,
   historyCompactJobKey,
   messagingDeliverJob,
+  messagingMirrorJob,
   parseBackgroundJob,
 } from "./background-jobs.js";
 import type { BackgroundJobHandlers } from "./types.js";
@@ -18,12 +19,26 @@ function handlers(): BackgroundJobHandlers {
     "computer.control-expire": vi.fn(async () => undefined),
     "skill.teaching-expire": vi.fn(async () => undefined),
     "history.compact": vi.fn(async () => undefined),
+    "messaging.mirror": vi.fn(async () => undefined),
     "messaging.deliver": vi.fn(async () => undefined),
     "cloud_agent.poll": vi.fn(async () => undefined),
   };
 }
 
 describe("background job contracts", () => {
+  it("validates and dispatches run-scoped mirror compensation", async () => {
+    const target = handlers();
+    await dispatchBackgroundJob(target, "messaging.mirror", { runId: "run-1" });
+    expect(target["messaging.mirror"]).toHaveBeenCalledWith({ runId: "run-1" });
+    expect(messagingMirrorJob("run-1")).toEqual({
+      name: "messaging.mirror",
+      payload: { runId: "run-1" },
+      replaceKey: "messaging.mirror:run-1",
+      keepExisting: true,
+    });
+    expect(() => parseBackgroundJob("messaging.mirror", {})).toThrow();
+  });
+
   it("validates and dispatches messaging.deliver", async () => {
     const target = handlers();
     await dispatchBackgroundJob(target, "messaging.deliver", { runId: "run-1" });

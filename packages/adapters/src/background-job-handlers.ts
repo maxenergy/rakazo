@@ -7,7 +7,7 @@ import type {
   SandboxProvider,
   SecretStore,
 } from "@rakazo/adapter-kit";
-import { messagingDeliverJob } from "@rakazo/adapter-kit";
+import { messagingDeliverJob, messagingMirrorJob } from "@rakazo/adapter-kit";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
@@ -58,15 +58,40 @@ export function createBackgroundJobHandlers(deps: {
       // Automatic messaging mirror: once the run's bot messages are durable,
       // copy them into the outbox. Never let mirror failures fail the run.
       if (deps.messaging) {
-        await mirrorMessagingOutbound(
-          { prisma: deps.prisma, messaging: deps.messaging, events: deps.events, jobs: deps.jobs },
-          payload.runId,
-        );
+        try {
+          await mirrorMessagingOutbound(
+            {
+              prisma: deps.prisma,
+              messaging: deps.messaging,
+              events: deps.events,
+              jobs: deps.jobs,
+            },
+            payload.runId,
+          );
+        } catch (error) {
+          getLogger().warn("messaging.mirror error", { runId: payload.runId, error });
+          try {
+            await deps.jobs.enqueue(messagingMirrorJob(payload.runId));
+          } catch (enqueueError) {
+            getLogger().warn("messaging.mirror enqueue error", {
+              runId: payload.runId,
+              error: enqueueError,
+            });
+          }
+        }
         await deps.jobs.enqueue(messagingDeliverJob()).catch(async (error) => {
           getLogger().error("messaging.deliver enqueue error", error);
           await deliverMessaging();
         });
       }
+    },
+    "messaging.mirror": async (payload) => {
+      if (!deps.messaging) return;
+      await mirrorMessagingOutbound(
+        { prisma: deps.prisma, messaging: deps.messaging, events: deps.events, jobs: deps.jobs },
+        payload.runId,
+      );
+      await deps.jobs.enqueue(messagingDeliverJob(payload.runId));
     },
     "messaging.deliver": async (payload) => {
       await deliverMessaging(payload.runId);

@@ -188,6 +188,24 @@ function mutationDeps(ticketBoardEnabled = true) {
 }
 
 describe("ticket mutations", () => {
+  it.each(["bot-2", "bot-3"])("uses the owner reread under the lock: %s", async (owner) => {
+    const s = mutationDeps();
+    s.tx.ticket.findFirst
+      .mockResolvedValueOnce(ticket({ assigneeBotId: "bot-1" }))
+      .mockResolvedValueOnce(ticket({ assigneeBotId: owner }));
+    await commentTicket(s.deps, { spaceId: "ws", botId: "bot-2", id: "t1", body: "Review" });
+    expect(s.tx.ticket.findFirst).toHaveBeenCalledTimes(2);
+    expect(s.tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      s.tx.ticket.findFirst.mock.invocationCallOrder[1]!,
+    );
+    expect(s.changes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assigneeBotId: owner,
+        wakeAssignee: owner !== "bot-2",
+      }),
+    );
+  });
+
   it("disables every tool without database access or wake-ups", async () => {
     const s = mutationDeps(false);
     await createTicket(s.deps, { spaceId: "ws", botId: "bot-1", title: "Ship" });

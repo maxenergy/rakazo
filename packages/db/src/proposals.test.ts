@@ -248,6 +248,29 @@ describe("budget approval recovery", () => {
     return { tx, prisma };
   }
 
+  it.each([
+    "{",
+    "null",
+    JSON.stringify({ threadId: "thread-1", runId: "run-1", leaseFence: 3 }),
+    JSON.stringify({ threadId: "thread-1", runId: "run-1", botId: 42, leaseFence: 3 }),
+    JSON.stringify({ threadId: "thread-1", runId: "run-1", botId: "bot-1", leaseFence: "3" }),
+    JSON.stringify({ threadId: "thread-1", runId: "run-1", botId: "bot-1", leaseFence: 1.5 }),
+  ])("rejects malformed budget approval scope: %s", async (binding) => {
+    const { tx, prisma } = fixture();
+    const approval = await tx.budgetOverrunApproval.findFirst();
+    tx.budgetOverrunApproval.findFirst.mockResolvedValue({ ...approval, scope: binding });
+    await expect(
+      decideProposal(prisma, scope, {
+        proposalId: "p-1",
+        decision: "approve",
+        expectedVersion: 1,
+        expectedHash: row().contentHash,
+      }),
+    ).rejects.toBeInstanceOf(ProposalDecisionError);
+    expect(tx.run.findFirst).not.toHaveBeenCalled();
+    expect(tx.projectBudget.update).not.toHaveBeenCalled();
+  });
+
   it("persists expired proposal status without increasing budget or resuming", async () => {
     const { tx, prisma } = fixture();
     const approval = await tx.budgetOverrunApproval.findUniqueOrThrow();

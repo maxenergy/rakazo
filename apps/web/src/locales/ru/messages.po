@@ -2946,6 +2946,7 @@ msgid "Load earlier messages"
 msgstr "Загрузить более ранние сообщения"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/Board.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "Загрузить ещё"
@@ -2957,6 +2958,11 @@ msgstr "Загрузить более ранние запуски"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Load web images automatically"
 msgstr "Автоматически загружать изображения из интернета"
+
+#. placeholder {0}: tickets.length
+#: src/pages/Board.tsx
+msgid "Loaded {0}"
+msgstr "Загружено: {0}"
 
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"

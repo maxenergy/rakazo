@@ -2946,6 +2946,7 @@ msgid "Load earlier messages"
 msgstr "पुराने संदेश लोड करें"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/Board.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "और लोड करें"
@@ -2957,6 +2958,11 @@ msgstr "पुराने रन लोड करें"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Load web images automatically"
 msgstr "वेब छवियाँ अपने-आप लोड करें"
+
+#. placeholder {0}: tickets.length
+#: src/pages/Board.tsx
+msgid "Loaded {0}"
+msgstr "{0} लोड किए गए"
 
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"

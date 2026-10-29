@@ -10,6 +10,7 @@ import { normalizeHostRoot, validateHostRoots } from "./host-roots.js";
 export type WorkLocation = "host" | "container";
 export const LOCATION_TOOL_NAMES = new Set([
   "shell",
+  "ticket_worktree",
   "list_files",
   "read_file",
   "write_file",

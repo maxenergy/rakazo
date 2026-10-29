@@ -1234,6 +1234,11 @@ msgstr "Компактная"
 msgid "Complete"
 msgstr "Завершить"
 
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Complete export: {0} documents."
+msgstr "Экспорт завершён: документов — {0}."
+
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"
 msgstr "Выполнено"
@@ -2281,12 +2286,16 @@ msgid "Download {name}"
 msgstr "Скачать {name}"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "Скачать как Markdown"
+msgid "Download all as markdown"
+msgstr "Скачать всё в формате Markdown"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
 msgstr "Скачать Executor"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Download first page as markdown"
+msgstr "Скачать первую страницу в формате Markdown"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2471,6 +2480,11 @@ msgstr "Экспорт"
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"
 msgstr "Экспортируйте список этой недели из CRM и поместите его в общую папку."
+
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Export truncated: showing the first 100 of {0} documents. Download all for the complete export."
+msgstr "Экспорт сокращён: показаны первые 100 из {0} документов. Скачайте всё, чтобы получить полный экспорт."
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

@@ -35,6 +35,8 @@ type Row = {
   location: string;
 };
 let rows: Row[];
+let executionTimeouts: number[];
+let transactionTimeout: number | undefined;
 function git(...args: string[]) {
   return execFileSync("git", ["-C", repo, ...args], {
     encoding: "utf8",
@@ -63,7 +65,11 @@ function call(
     },
   };
   const prisma = {
-    $transaction: async (fn: (client: typeof tx) => Promise<unknown>) => {
+    $transaction: async (
+      fn: (client: typeof tx) => Promise<unknown>,
+      options: { timeout: number },
+    ) => {
+      transactionTimeout = options.timeout;
       const previous = [...rows];
       try {
         return await fn(tx);
@@ -81,7 +87,8 @@ function call(
       location: "container",
       workspace: root,
       ticketBoardEnabled: true,
-      async *execute(argv, cwd) {
+      async *execute(argv, cwd, timeoutMs) {
+        executionTimeouts.push(timeoutMs);
         const result = spawnSync(argv[0]!, argv.slice(1), { cwd, encoding: "utf8", env });
         if (result.stdout) yield { type: "stdout" as const, data: result.stdout };
         if (result.stderr) yield { type: "stderr" as const, data: result.stderr };
@@ -115,6 +122,8 @@ function advanceRemote() {
   return execFileSync("git", ["-C", seed, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 }
 beforeEach(() => {
+  executionTimeouts = [];
+  transactionTimeout = undefined;
   root = mkdtempSync(path.join(tmpdir(), "ticket-worktree-"));
   repo = path.join(root, "repo");
   seed = path.join(root, "seed");
@@ -281,5 +290,72 @@ it.each(["failure", "timeout", "missing-commit"])(
     expect(git("branch", "--list", "team/rak-1-worktree")).toBe("");
     expect(existsSync(path.join(root, "wt/RAK-1"))).toBe(false);
     expect(rows).toHaveLength(0);
+  },
+);
+
+it.each([undefined, 250])(
+  "terminates slow checkout and preserves partial worktree (timeout %s)",
+  async (checkoutTimeoutMs) => {
+    const bin = path.join(root, "checkout-bin");
+    mkdirSync(bin);
+    const pidFile = path.join(root, "checkout.pid");
+    const target = path.join(root, "wt/RAK-1");
+    const expectedSeconds = checkoutTimeoutMs === undefined ? "120" : "0.25";
+    writeFileSync(
+      path.join(bin, "sleep"),
+      `#!/bin/bash\n[ "$1" = "${expectedSeconds}" ] || exit 2\nexec /bin/sleep 0.1\n`,
+    );
+    writeFileSync(
+      path.join(bin, "git"),
+      [
+        "#!/bin/bash",
+        'if [ "$3" = worktree ] && [ "$4" = add ]; then',
+        '  mkdir -p "$PARTIAL_TARGET"',
+        '  echo partial > "$PARTIAL_TARGET/marker"',
+        '  echo $$ > "$CHECKOUT_PID_FILE"',
+        '  exec /bin/bash -c "while :; do :; done"',
+        "fi",
+        'exec /usr/bin/git "$@"',
+        "",
+      ].join("\n"),
+    );
+    chmodSync(path.join(bin, "sleep"), 0o755);
+    chmodSync(path.join(bin, "git"), 0o755);
+    const result = await call(
+      "RAK-1",
+      "container",
+      repo,
+      {
+        baseSha: git("rev-parse", "HEAD"),
+        ...(checkoutTimeoutMs === undefined ? {} : { checkoutTimeoutMs }),
+      },
+      {
+        ...process.env,
+        PATH: bin + path.delimiter + process.env.PATH,
+        PARTIAL_TARGET: target,
+        CHECKOUT_PID_FILE: pidFile,
+      },
+    );
+    expect(result).toHaveProperty(
+      "error",
+      expect.stringContaining(`checkout timed out after ${expectedSeconds}`),
+    );
+    expect(result).toHaveProperty("error", expect.stringContaining(target));
+    expect(readFileSync(path.join(target, "marker"), "utf8")).toBe("partial\n");
+    expect(executionTimeouts).toEqual([35_000, 35_000, (checkoutTimeoutMs ?? 120_000) + 5_000]);
+    expect(transactionTimeout).toBe((checkoutTimeoutMs ?? 120_000) + 45_000);
+    const pid = Number(readFileSync(pidFile, "utf8").trim());
+    expect(() => process.kill(pid, 0)).toThrow();
+    expect(rows).toHaveLength(0);
+  },
+);
+
+it.each([0, -1, 1.5, "120000", 600001])(
+  "rejects invalid checkout timeout %s",
+  async (checkoutTimeoutMs) => {
+    expect(await call("RAK-1", "container", repo, { checkoutTimeoutMs })).toHaveProperty(
+      "error",
+      "checkoutTimeoutMs must be an integer between 1 and 600000.",
+    );
   },
 );

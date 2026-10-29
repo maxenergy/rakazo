@@ -5916,8 +5916,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   computer: storedComputer.id,
                   location: selectedLocation!,
                   workspace: resolveBotWorkspaceCwd(computerMode, bot.id, undefined) ?? ".",
-                  execute: (argv, cwd) =>
-                    deps.sandbox.execute(computer, { argv, cwd, timeoutMs: 30_000 }, context),
+                  execute: (argv, cwd, timeoutMs) =>
+                    deps.sandbox.execute(computer, { argv, cwd, timeoutMs }, context),
                 },
                 args,
               ),

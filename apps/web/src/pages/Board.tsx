@@ -31,7 +31,7 @@ import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { formatRelativeTime } from "../lib/relative-time";
-import { rpc } from "../lib/rpc";
+import { rpc, selectedSpaceId } from "../lib/rpc";
 import { useTicketPriorityLabels } from "../lib/ticket-priority";
 import { useTicketStatusLabels } from "../lib/ticket-status";
 import { useBoardRefresh } from "../lib/use-board-refresh";
@@ -75,11 +75,14 @@ export function BoardPage() {
   );
   const [selected, setSelected] = useState<Ticket | "new" | null>(null);
   const [savedRevision, setSavedRevision] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const load = useCallback(
     async (spaceId: string | null) => {
       const options = { context: { spaceId } };
       const [result, bots, projects] = await Promise.all([
-        rpc.tickets.list(filters(), options),
+        rpc.tickets.list({ ...filters(), limit: 100 }, options),
         rpc.bots.list(undefined, options),
         rpc.projects.list({ archived: false }, options),
       ]);
@@ -89,6 +92,7 @@ export function BoardPage() {
           : [];
       return {
         tickets: "tickets" in result ? result.tickets : result.items,
+        nextCursor: "nextCursor" in result ? result.nextCursor : null,
         bots,
         projects,
         milestones,
@@ -98,10 +102,49 @@ export function BoardPage() {
     [filters, projectFilter, savedRevision],
   );
   const { data, error: loadError } = useBoardRefresh(load);
-  const tickets = data?.tickets ?? [];
+  useEffect(() => {
+    if (!data) {
+      setTickets([]);
+      setNextCursor(null);
+      return;
+    }
+    setTickets(data.tickets);
+    setNextCursor(data.nextCursor);
+  }, [data]);
   const bots = data?.bots ?? [];
   const error = loadError ? errorText(loadError) : "";
   const reload = useCallback(async () => setSavedRevision((value) => value + 1), []);
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const result = await rpc.tickets.list(
+        { ...filters(), limit: 100, cursor: nextCursor },
+        {
+          context: { spaceId: selectedSpaceId() },
+        },
+      );
+      if ("items" in result) {
+        setTickets((current) => {
+          const ids = new Set(current.map((ticket) => ticket.id));
+          const appended: Ticket[] = [];
+          for (const ticket of result.items) {
+            if (ids.has(ticket.id)) continue;
+            ids.add(ticket.id);
+            appended.push(ticket);
+          }
+          return [...current, ...appended];
+        });
+        setNextCursor(result.nextCursor);
+      } else {
+        setNextCursor(null);
+      }
+    } catch {
+      // Keep the current page and cursor so the user can retry.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [filters, loadingMore, nextCursor]);
   function changeFilter(key: string, value: string) {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -204,6 +247,9 @@ export function BoardPage() {
         </div>
       </div>
       <main className="relative min-h-0 min-w-0 flex-1 overflow-auto p-4">
+        <p className="mb-3 text-sm text-muted-foreground">
+          <Trans>Loaded {tickets.length}</Trans>
+        </p>
         {listView ? (
           <ul data-testid="ticket-list" className="min-w-0 space-y-2">
             {tickets.map((ticket) => (
@@ -248,6 +294,13 @@ export function BoardPage() {
             ))}
           </div>
         )}
+        {nextCursor ? (
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+              <Trans>Load more</Trans>
+            </Button>
+          </div>
+        ) : null}
         {tickets.length === 0 && !error ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
             <Trans>No tickets yet</Trans>

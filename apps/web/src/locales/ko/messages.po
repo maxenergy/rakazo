@@ -2946,6 +2946,7 @@ msgid "Load earlier messages"
 msgstr "이전 메시지 불러오기"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/Board.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "더 불러오기"
@@ -2957,6 +2958,11 @@ msgstr "이전 실행 불러오기"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Load web images automatically"
 msgstr "웹 이미지 자동으로 불러오기"
+
+#. placeholder {0}: tickets.length
+#: src/pages/Board.tsx
+msgid "Loaded {0}"
+msgstr "{0}개 로드됨"
 
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"

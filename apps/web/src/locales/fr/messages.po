@@ -2946,6 +2946,7 @@ msgid "Load earlier messages"
 msgstr "Charger les messages précédents"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/Board.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "Charger plus"
@@ -2957,6 +2958,11 @@ msgstr "Charger les exécutions précédentes"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Load web images automatically"
 msgstr "Charger automatiquement les images web"
+
+#. placeholder {0}: tickets.length
+#: src/pages/Board.tsx
+msgid "Loaded {0}"
+msgstr "{0} chargés"
 
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"

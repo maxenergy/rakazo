@@ -912,6 +912,20 @@ const baseAgentTools: ConnectorTool[] = [
     readOnly: true,
   },
   {
+    name: "ticket_worktree",
+    description:
+      "Create or strictly reuse a ticket git worktree. Pass its returned absolute path as shell cwd. Existing workspaces are never migrated or overwritten.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ref: { type: "string" },
+        repoPath: { type: "string" },
+        location: { type: "string", enum: ["host", "container"] },
+      },
+      required: ["ref", "repoPath", "location"],
+    },
+  },
+  {
     name: "ticket_get",
     description: "Read a ticket by reference or id, with comments.",
     inputSchema: {

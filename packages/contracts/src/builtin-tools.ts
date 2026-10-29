@@ -46,6 +46,7 @@ export const BUILTIN_TOOL_NAMES = [
   "board_tickets",
   "run_failures",
   "model_scorecard",
+  "ticket_worktree",
   "ticket_get",
   "ticket_dependency_list",
   "ticket_dependency_add",

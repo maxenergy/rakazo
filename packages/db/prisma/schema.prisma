@@ -1577,6 +1577,7 @@ model Milestone {
 }
 
 model Ticket {
+  worktrees TicketWorktree[]
   projectId       String?
   project         Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
   milestoneId     String?
@@ -1876,4 +1877,19 @@ model BudgetApprovalDeletionAudit {
 
   @@unique([spaceId, approvalId])
   @@map("budget_approval_deletion_audit")
+}
+
+// Execution-end paths only. Existing tickets intentionally have no record.
+model TicketWorktree {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  location String
+  computer String
+  repo     String
+  path     String
+  branch   String
+
+  @@unique([ticketId, computer, repo])
+  @@map("ticket_worktrees")
 }

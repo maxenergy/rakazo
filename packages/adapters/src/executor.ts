@@ -422,6 +422,7 @@ import {
   listBoardTickets,
   updateTicket,
 } from "./ticket-tools.js";
+import { ticketWorktree } from "./ticket-worktree.js";
 import { advanceToolCallLoopGuard, loopGuardStopText } from "./tool-loop.js";
 import { textContentArg } from "./tool-text.js";
 import {
@@ -5900,6 +5901,24 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 deps.prisma,
                 { spaceId: run.spaceId, userId: run.userId, botId: bot.id },
                 name,
+                args,
+              ),
+            );
+          }
+          if (name === "ticket_worktree") {
+            return finish(
+              await ticketWorktree(
+                {
+                  prisma: deps.prisma,
+                  executionFence: run.executionFence,
+                  ticketBoardEnabled: deps.ticketBoardEnabled,
+                  spaceId: run.spaceId,
+                  computer: storedComputer.id,
+                  location: selectedLocation!,
+                  workspace: resolveBotWorkspaceCwd(computerMode, bot.id, undefined) ?? ".",
+                  execute: (argv, cwd) =>
+                    deps.sandbox.execute(computer, { argv, cwd, timeoutMs: 30_000 }, context),
+                },
                 args,
               ),
             );

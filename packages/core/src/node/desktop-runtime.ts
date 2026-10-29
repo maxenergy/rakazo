@@ -426,10 +426,6 @@ function gatewayCommand(port: string) {
   ].join("\n");
 }
 
-export function stopScreenTransportsCommand(index: number, env = DEFAULT_DESKTOP_ENV) {
-  return renderStopScreenTransportsCommand(index, env);
-}
-
 export function stopExtraScreenCommand(index: number, screenId: string, env = DEFAULT_DESKTOP_ENV) {
   return renderStopExtraScreenCommand(index, screenId, env);
 }

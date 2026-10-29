@@ -10,13 +10,6 @@ import {
 import type { PrismaClient } from "@rakazo/db";
 import { BUILTIN_AGENT_SKILLS } from "./builtin-skills.js";
 
-export const SKILL_TOOL_NAMES = new Set([
-  "skill_read",
-  "skill_create",
-  "skill_update",
-  "skill_delete",
-]);
-
 /** Match CreateAgentSkillInput / UpdateAgentSkillInput / parseSkillMd bounds. */
 const MAX_SKILL_CONTENT_CHARS = 100_000;
 const MAX_SKILL_NAME_CHARS = 80;

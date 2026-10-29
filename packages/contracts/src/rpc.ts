@@ -598,11 +598,32 @@ export const appContract = {
   memory: {
     list: oc
       .input(z.object({ botId: Id.optional(), scope: z.enum(["bot", "user"]).optional() }))
-      .output(z.array(MemoryDocumentSchema)),
+      .output(z.array(MemoryDocumentSchema.omit({ content: true }))),
+    read: oc
+      .input(
+        z.object({ scope: z.enum(["bot", "user"]), botId: Id.optional(), path: z.string().min(1) }),
+      )
+      .output(MemoryDocumentSchema.nullable()),
     update: oc
       .input(z.object({ documentId: Id, content: z.string() }))
       .output(MemoryDocumentSchema),
-    exportMarkdown: oc.input(z.object({ botId: Id.optional() })).output(z.string()),
+    exportMarkdown: oc
+      .input(
+        z.object({
+          botId: Id.optional(),
+          scope: z.enum(["bot", "user"]).optional(),
+          cursor: Id.optional(),
+          limit: z.number().int().min(1).max(100).default(100),
+        }),
+      )
+      .output(
+        z.object({
+          markdown: z.string(),
+          total: z.number().int(),
+          truncated: z.boolean(),
+          nextCursor: Id.nullable(),
+        }),
+      ),
     providerConfig: oc.output(SpaceMemoryConfigSchema.nullable()),
     connectProvider: oc
       .input(

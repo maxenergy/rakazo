@@ -293,6 +293,11 @@ import {
 } from "./mcp-approval.js";
 import { buildMcpUpdateMaterial } from "./mcp-material.js";
 import {
+  exportMemoryMarkdown,
+  listMemoryDocuments,
+  readMemoryDocument,
+} from "./memory-documents.js";
+import {
   disconnectMemoryProvider,
   persistMemoryProviderConfig,
   serializeSpaceMemoryConfig,
@@ -3547,25 +3552,12 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     memory: {
-      list: authed.memory.list.handler(async ({ context, input }) => {
-        const docs = await deps.prisma.memoryDocument.findMany({
-          where: {
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-            ...(input.botId ? { botId: input.botId } : {}),
-            ...(input.scope ? { scope: input.scope } : {}),
-          },
-        });
-        return docs.map((doc) => ({
-          id: doc.id,
-          scope: doc.scope as "bot" | "user",
-          botId: doc.botId,
-          path: doc.path,
-          content: doc.content,
-          revision: doc.revision,
-          updatedAt: doc.updatedAt.toISOString(),
-        }));
-      }),
+      list: authed.memory.list.handler(async ({ context, input }) =>
+        listMemoryDocuments(deps.prisma, context.actor, input),
+      ),
+      read: authed.memory.read.handler(async ({ context, input }) =>
+        readMemoryDocument(deps.prisma, context.actor, input),
+      ),
       update: authed.memory.update.handler(async ({ context, input }) => {
         const doc = await deps.prisma.memoryDocument.findFirst({
           where: {
@@ -3600,16 +3592,9 @@ export function createRouter(deps: RouterDeps) {
           updatedAt: new Date().toISOString(),
         };
       }),
-      exportMarkdown: authed.memory.exportMarkdown.handler(async ({ context, input }) => {
-        const docs = await deps.prisma.memoryDocument.findMany({
-          where: {
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-            ...(input.botId ? { botId: input.botId } : {}),
-          },
-        });
-        return docs.map((d) => `# ${d.path}\n\n${d.content}`).join("\n\n");
-      }),
+      exportMarkdown: authed.memory.exportMarkdown.handler(async ({ context, input }) =>
+        exportMemoryMarkdown(deps.prisma, context.actor, input),
+      ),
       providerConfig: authed.memory.providerConfig.handler(async ({ context }) => {
         const config = await findSpaceMemoryConfig(deps.prisma, context.actor.spaceId);
         return config ? serializeSpaceMemoryConfig(config) : null;

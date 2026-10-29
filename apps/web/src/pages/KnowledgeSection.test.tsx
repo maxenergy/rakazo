@@ -6,9 +6,14 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 
+const memory = vi.hoisted(() => ({
+  list: vi.fn(async () => [] as unknown[]),
+  read: vi.fn(),
+  exportMarkdown: vi.fn(),
+}));
 const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), get: vi.fn() }));
 vi.mock("../lib/rpc", () => ({
-  rpc: { agentSkills: api, memory: { list: async () => [] } },
+  rpc: { agentSkills: api, memory },
 }));
 vi.mock("../lib/artifact-open", () => ({ downloadArtifactBytes: vi.fn() }));
 vi.mock("@lingui/react/macro", () => {
@@ -144,5 +149,52 @@ it("labels the skills tab as shared and badges built-in and plugin skills", asyn
     await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
+  }
+});
+
+it("loads memory content by path for opening and downloading", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const doc = {
+    id: "doc",
+    scope: "bot",
+    botId: "bot-fixture",
+    path: "MEMORY.md",
+    revision: 1,
+    updatedAt: "",
+  };
+  memory.list.mockResolvedValue([doc]);
+  memory.read.mockResolvedValue({ ...doc, content: "Full body" });
+  api.list.mockResolvedValue([]);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+    );
+    expect(memory.read).not.toHaveBeenCalled();
+    const buttons = () => [...container.querySelectorAll("button")];
+    await act(async () =>
+      buttons()
+        .find((b) => b.textContent?.includes("MEMORY.md"))!
+        .click(),
+    );
+    expect(memory.read).toHaveBeenCalledWith({
+      scope: "bot",
+      botId: "bot-fixture",
+      path: "MEMORY.md",
+    });
+    expect(container.querySelector("textarea")?.value).toBe("Full body");
+    await act(async () =>
+      buttons()
+        .find((b) => b.textContent?.includes("Download as markdown"))!
+        .click(),
+    );
+    const { downloadArtifactBytes } = await import("../lib/artifact-open");
+    const bytes = vi.mocked(downloadArtifactBytes).mock.calls.at(-1)![2];
+    expect(new TextDecoder().decode(bytes)).toBe("# MEMORY.md\n\nFull body");
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+    memory.list.mockResolvedValue([]);
   }
 });

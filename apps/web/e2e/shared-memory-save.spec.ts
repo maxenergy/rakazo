@@ -15,8 +15,11 @@ test("shared memory save writes without an approval card", async ({ page }) => {
   await expect
     .poll(
       async () => {
-        const documents = await rpc<MemoryDocument[]>(page, "memory/list", { scope: "user" });
-        return documents.find((document) => document.path === "MEMORY.md")?.content;
+        const document = await rpc<MemoryDocument | null>(page, "memory/read", {
+          scope: "user",
+          path: "MEMORY.md",
+        });
+        return document?.content;
       },
       { timeout: 30_000 },
     )

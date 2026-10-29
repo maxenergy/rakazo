@@ -80,15 +80,16 @@ function MemoryDocumentList({
   exportFilename,
   testId,
 }: {
-  load: () => Promise<MemoryDocument[]>;
+  load: () => Promise<Omit<MemoryDocument, "content">[]>;
   exportFilename: string;
   testId: string;
 }) {
   const { t } = useLingui();
   const [loading, setLoading] = useState(true);
-  const [docs, setDocs] = useState<MemoryDocument[]>([]);
+  const [docs, setDocs] = useState<Omit<MemoryDocument, "content">[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [original, setOriginal] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
@@ -115,13 +116,27 @@ function MemoryDocumentList({
     };
   }, [t]);
 
-  function openDoc(doc: MemoryDocument) {
-    setOpenId(doc.id);
-    setDraft(doc.content);
+  async function openDoc(doc: Omit<MemoryDocument, "content">) {
+    setBusy(true);
     setError(null);
+    try {
+      const full = await rpc.memory.read({
+        scope: doc.scope,
+        botId: doc.botId ?? undefined,
+        path: doc.path,
+      });
+      if (!full) throw new Error("Missing document");
+      setOpenId(doc.id);
+      setDraft(full.content);
+      setOriginal(full.content);
+    } catch {
+      setError(t`Could not load`);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function save(doc: MemoryDocument) {
+  async function save(doc: Omit<MemoryDocument, "content">) {
     if (busy) return;
     setBusy(true);
     setError(null);
@@ -146,7 +161,19 @@ function MemoryDocumentList({
       const fresh = await loadRef.current();
       generation.current += 1;
       setDocs(fresh);
-      const markdown = fresh.map((doc) => `# ${doc.path}\n\n${doc.content}`).join("\n\n");
+      const full = await Promise.all(
+        fresh.map((doc) =>
+          rpc.memory.read({
+            scope: doc.scope,
+            botId: doc.botId ?? undefined,
+            path: doc.path,
+          }),
+        ),
+      );
+      const markdown = full
+        .filter((doc) => doc !== null)
+        .map((doc) => `# ${doc.path}\n\n${doc.content}`)
+        .join("\n\n");
       downloadArtifactBytes(exportFilename, "text/markdown", new TextEncoder().encode(markdown));
     } catch {
       setError(t`Could not load`);
@@ -170,7 +197,7 @@ function MemoryDocumentList({
             variant="ghost"
             type="button"
             disabled={busy}
-            onClick={() => (openId === doc.id ? setOpenId(null) : openDoc(doc))}
+            onClick={() => (openId === doc.id ? setOpenId(null) : void openDoc(doc))}
             className={rowClass(openId === doc.id)}
           >
             <span className="flex w-full items-baseline justify-between gap-3">
@@ -197,7 +224,7 @@ function MemoryDocumentList({
                 <Button
                   variant="ghost"
                   type="button"
-                  disabled={busy || draft === doc.content}
+                  disabled={busy || draft === original}
                   onClick={() => void save(doc)}
                   className="rounded-lg bg-muted px-3 py-1.5 text-[13px] text-foreground disabled:opacity-50"
                 >

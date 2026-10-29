@@ -101,6 +101,8 @@ export const TicketSchema = z.object({
 export type Ticket = z.infer<typeof TicketSchema>;
 
 export const ListTicketsInput = z.object({
+  limit: z.number().int().min(1).max(100).optional(),
+  cursor: z.string().max(2000).optional(),
   projectId: Id.nullable().optional(),
   milestoneId: Id.nullable().optional(),
   boardId: Id.optional(),
@@ -110,7 +112,10 @@ export const ListTicketsInput = z.object({
 });
 export type ListTicketsInput = z.infer<typeof ListTicketsInput>;
 
-export const ListTicketsOutput = z.object({ tickets: z.array(TicketSchema) });
+export const ListTicketsOutput = z.union([
+  z.object({ tickets: z.array(TicketSchema) }),
+  z.object({ items: z.array(TicketSchema), nextCursor: z.string().nullable() }),
+]);
 export type ListTicketsOutput = z.infer<typeof ListTicketsOutput>;
 
 export const GetTicketInput = z

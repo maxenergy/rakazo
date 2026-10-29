@@ -95,10 +95,10 @@ describe("archived thread read authorization", () => {
       const { actor, call, findMessages } = fixture();
       expect(
         (await call(proc, { botId: "bot-1" }, { ...actor, userId: "other-user" })).status,
-      ).toBe(500);
+      ).toBe(409);
       expect(
         (await call(proc, { botId: "bot-1" }, { ...actor, spaceId: "other-space" })).status,
-      ).toBe(500);
+      ).toBe(409);
       expect(findMessages).not.toHaveBeenCalled();
     },
   );
@@ -119,7 +119,7 @@ describe("archived thread read authorization", () => {
     ["computer/boot", { botId: "bot-1" }],
   ])("%s still rejects an archived bot", async (proc, input) => {
     const { call, findBot } = fixture();
-    expect((await call(proc as string, input)).status).toBe(500);
+    expect((await call(proc as string, input)).status).toBe(409);
     expect(findBot).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ archivedAt: null }) }),
     );

@@ -50,7 +50,8 @@ export function TicketDependencies({
     const timer = setTimeout(() => {
       void rpc.tickets
         .list({ q: query.trim() })
-        .then(({ tickets }) => {
+        .then((result) => {
+          const tickets = "tickets" in result ? result.tickets : result.items;
           if (active) setCandidates(tickets.filter((item) => item.id !== ticketId));
         })
         .catch((cause: unknown) => {

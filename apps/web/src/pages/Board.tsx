@@ -87,7 +87,13 @@ export function BoardPage() {
         projectFilter && projectFilter !== "none"
           ? await rpc.milestones.list({ projectId: projectFilter, archived: false }, options)
           : [];
-      return { tickets: result.tickets, bots, projects, milestones, savedRevision };
+      return {
+        tickets: "tickets" in result ? result.tickets : result.items,
+        bots,
+        projects,
+        milestones,
+        savedRevision,
+      };
     },
     [filters, projectFilter, savedRevision],
   );

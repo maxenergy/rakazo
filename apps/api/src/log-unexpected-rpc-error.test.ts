@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/server";
+import { IsolationError } from "@rakazo/db";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, describe, expect, it } from "vitest";
 import { logUnexpectedRpcError } from "./app.js";
@@ -18,6 +19,21 @@ describe("logUnexpectedRpcError", () => {
     ]);
 
     expect(sink.events).toEqual([]);
+  });
+
+  it("logs raw and mapped isolation conflicts at warn", () => {
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    const cause = new IsolationError();
+    logUnexpectedRpcError(cause, ["tickets", "list"]);
+    logUnexpectedRpcError(new ORPCError("CONFLICT", { cause }), ["tickets", "list"]);
+    expect(sink.events).toHaveLength(2);
+    expect(sink.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ level: "warn", message: "rpc tickets/list conflict" }),
+      ]),
+    );
+    expect(sink.events.every((event) => event.level === "warn")).toBe(true);
   });
 
   it("names the procedure and every cause behind an opaque failure", () => {

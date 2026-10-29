@@ -241,8 +241,18 @@ it("reports truncated exports and follows cursors for complete exports", async (
       "first 100 of 150 documents",
     );
     expect(memory.exportMarkdown).toHaveBeenCalledTimes(1);
+    memory.exportMarkdown
+      .mockReset()
+      .mockResolvedValueOnce({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" })
+      .mockResolvedValueOnce({ markdown: "# two", total: 150, truncated: true, nextCursor: "c2" })
+      .mockResolvedValueOnce({
+        markdown: "# three",
+        total: 150,
+        truncated: false,
+        nextCursor: null,
+      });
     await act(async () => button("Download all as markdown").click());
-    expect(memory.exportMarkdown.mock.calls.slice(1)).toEqual([
+    expect(memory.exportMarkdown.mock.calls).toEqual([
       [{ botId: "bot-fixture", scope: "bot", limit: 100 }],
       [{ botId: "bot-fixture", scope: "bot", cursor: "c1", limit: 100 }],
       [{ botId: "bot-fixture", scope: "bot", cursor: "c2", limit: 100 }],

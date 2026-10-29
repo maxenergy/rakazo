@@ -175,7 +175,7 @@ function MemoryDocumentList({
             cursor: page.nextCursor,
             limit: 100,
           });
-          markdown += page.markdown;
+          markdown = [markdown, page.markdown].filter(Boolean).join("\n\n");
         }
         setExportNotice(t`Complete export: ${page.total} documents.`);
       }

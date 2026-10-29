@@ -165,6 +165,12 @@ it("loads memory content by path for opening and downloading", async () => {
   };
   memory.list.mockResolvedValue([doc]);
   memory.read.mockResolvedValue({ ...doc, content: "Full body" });
+  memory.exportMarkdown.mockResolvedValue({
+    markdown: "# MEMORY.md\n\nFull body",
+    total: 1,
+    truncated: false,
+    nextCursor: null,
+  });
   api.list.mockResolvedValue([]);
   const container = document.createElement("div");
   const root = createRoot(container);
@@ -218,8 +224,8 @@ it("reports truncated exports and follows cursors for complete exports", async (
   memory.list.mockResolvedValue([doc]);
   memory.exportMarkdown
     .mockReset()
-    .mockResolvedValueOnce({ markdown: "# one\n", total: 150, truncated: true, nextCursor: "c1" })
-    .mockResolvedValueOnce({ markdown: "# two\n", total: 150, truncated: true, nextCursor: "c2" })
+    .mockResolvedValueOnce({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" })
+    .mockResolvedValueOnce({ markdown: "# two", total: 150, truncated: true, nextCursor: "c2" })
     .mockResolvedValueOnce({ markdown: "# three", total: 150, truncated: false, nextCursor: null });
   api.list.mockResolvedValue([]);
   const container = document.createElement("div");
@@ -243,7 +249,7 @@ it("reports truncated exports and follows cursors for complete exports", async (
     ]);
     const { downloadArtifactBytes } = await import("../lib/artifact-open");
     const bytes = vi.mocked(downloadArtifactBytes).mock.calls.at(-1)![2];
-    expect(new TextDecoder().decode(bytes)).toBe("# one\n# two\n# three");
+    expect(new TextDecoder().decode(bytes)).toBe("# one\n\n# two\n\n# three");
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
       "Complete export: 150 documents.",
     );

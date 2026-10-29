@@ -58,9 +58,9 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   await expect(docEditor).toHaveValue(new RegExp(marker));
   await captureScreenshot(page, testInfo, "84-space-memory-saved");
   const sharedDocuments = await rpc<MemoryDocument[]>(page, "memory/list", { scope: "user" });
-  expect(sharedDocuments).toContainEqual(
-    expect.objectContaining({ content: `# Memory\n\n${marker}\n`, revision: 2 }),
-  );
+  expect(
+    await rpc<MemoryDocument | null>(page, "memory/read", { scope: "user", path: "MEMORY.md" }),
+  ).toEqual(expect.objectContaining({ content: `# Memory\n\n${marker}\n`, revision: 2 }));
   // Export must fetch fresh content and exclude the bot's private document.
   const sharedDocument = sharedDocuments.find((doc) => doc.path === "MEMORY.md")!;
   const latestMarker = `Latest shared memory ${stamp}`;
@@ -102,11 +102,12 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   await botMemory.getByRole("button", { name: "Save", exact: true }).click();
   await expect(botMemory.getByText("rev 2")).toBeVisible();
   expect(
-    await rpc<MemoryDocument[]>(page, "memory/list", {
+    await rpc<MemoryDocument | null>(page, "memory/read", {
       botId: activeBotId(page),
       scope: "bot",
+      path: "MEMORY.md",
     }),
-  ).toContainEqual(expect.objectContaining({ content: `# Chief\n\n${botMarker}\n`, revision: 2 }));
+  ).toEqual(expect.objectContaining({ content: `# Chief\n\n${botMarker}\n`, revision: 2 }));
   await botMemoryRow.click();
   await expect(botDocEditor).toHaveValue(new RegExp(botMarker));
   await botMemory.getByRole("button", { name: "Cancel", exact: true }).click();

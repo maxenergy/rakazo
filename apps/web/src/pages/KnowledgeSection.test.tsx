@@ -17,7 +17,8 @@ vi.mock("../lib/rpc", () => ({
 }));
 vi.mock("../lib/artifact-open", () => ({ downloadArtifactBytes: vi.fn() }));
 vi.mock("@lingui/react/macro", () => {
-  const t = (parts: TemplateStringsArray) => parts.join("");
+  const t = (parts: TemplateStringsArray, ...values: unknown[]) =>
+    parts.reduce((text, part, index) => text + part + (values[index] ?? ""), "");
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
 vi.mock("@rakazo/ui-web", () => {
@@ -164,6 +165,12 @@ it("loads memory content by path for opening and downloading", async () => {
   };
   memory.list.mockResolvedValue([doc]);
   memory.read.mockResolvedValue({ ...doc, content: "Full body" });
+  memory.exportMarkdown.mockResolvedValue({
+    markdown: "# MEMORY.md\n\nFull body",
+    total: 1,
+    truncated: false,
+    nextCursor: null,
+  });
   api.list.mockResolvedValue([]);
   const container = document.createElement("div");
   const root = createRoot(container);
@@ -186,15 +193,80 @@ it("loads memory content by path for opening and downloading", async () => {
     expect(container.querySelector("textarea")?.value).toBe("Full body");
     await act(async () =>
       buttons()
-        .find((b) => b.textContent?.includes("Download as markdown"))!
+        .find((b) => b.textContent?.includes("Download first page as markdown"))!
         .click(),
     );
     const { downloadArtifactBytes } = await import("../lib/artifact-open");
     const bytes = vi.mocked(downloadArtifactBytes).mock.calls.at(-1)![2];
+    expect(memory.exportMarkdown).toHaveBeenCalledWith({
+      botId: "bot-fixture",
+      scope: "bot",
+      limit: 100,
+    });
     expect(new TextDecoder().decode(bytes)).toBe("# MEMORY.md\n\nFull body");
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
     memory.list.mockResolvedValue([]);
+  }
+});
+
+it("reports truncated exports and follows cursors for complete exports", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const doc = {
+    id: "doc",
+    scope: "bot",
+    botId: "bot-fixture",
+    path: "MEMORY.md",
+    revision: 1,
+    updatedAt: "",
+  };
+  memory.list.mockResolvedValue([doc]);
+  memory.exportMarkdown
+    .mockReset()
+    .mockResolvedValueOnce({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" })
+    .mockResolvedValueOnce({ markdown: "# two", total: 150, truncated: true, nextCursor: "c2" })
+    .mockResolvedValueOnce({ markdown: "# three", total: 150, truncated: false, nextCursor: null });
+  api.list.mockResolvedValue([]);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const button = (label: string) =>
+    [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(label))!;
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+    );
+    await act(async () => button("Download first page as markdown").click());
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      "first 100 of 150 documents",
+    );
+    expect(memory.exportMarkdown).toHaveBeenCalledTimes(1);
+    memory.exportMarkdown
+      .mockReset()
+      .mockResolvedValueOnce({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" })
+      .mockResolvedValueOnce({ markdown: "# two", total: 150, truncated: true, nextCursor: "c2" })
+      .mockResolvedValueOnce({
+        markdown: "# three",
+        total: 150,
+        truncated: false,
+        nextCursor: null,
+      });
+    await act(async () => button("Download all as markdown").click());
+    expect(memory.exportMarkdown.mock.calls).toEqual([
+      [{ botId: "bot-fixture", scope: "bot", limit: 100 }],
+      [{ botId: "bot-fixture", scope: "bot", cursor: "c1", limit: 100 }],
+      [{ botId: "bot-fixture", scope: "bot", cursor: "c2", limit: 100 }],
+    ]);
+    const { downloadArtifactBytes } = await import("../lib/artifact-open");
+    const bytes = vi.mocked(downloadArtifactBytes).mock.calls.at(-1)![2];
+    expect(new TextDecoder().decode(bytes)).toBe("# one\n\n# two\n\n# three");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Complete export: 150 documents.",
+    );
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+    memory.list.mockResolvedValue([]);
+    memory.exportMarkdown.mockReset();
   }
 });

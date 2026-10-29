@@ -66,7 +66,7 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   const latestMarker = `Latest shared memory ${stamp}`;
   await rpc(page, "memory/update", { documentId: sharedDocument.id, content: latestMarker });
   const downloadPromise = page.waitForEvent("download");
-  await spaceDocs.getByRole("button", { name: "Download as markdown" }).click();
+  await spaceDocs.getByRole("button", { name: "Download first page as markdown" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("space-memory.md");
   const exported = await readFile((await download.path())!, "utf8");

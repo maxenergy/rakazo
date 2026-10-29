@@ -1234,6 +1234,11 @@ msgstr "Sık"
 msgid "Complete"
 msgstr "Tamamlandı"
 
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Complete export: {0} documents."
+msgstr "Dışa aktarma tamamlandı: {0} belge."
+
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"
 msgstr "Tamamlandı"
@@ -2281,12 +2286,16 @@ msgid "Download {name}"
 msgstr "{name} indir"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "Markdown olarak indir"
+msgid "Download all as markdown"
+msgstr "Tümünü Markdown olarak indir"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
 msgstr "Executor indir"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Download first page as markdown"
+msgstr "İlk sayfayı Markdown olarak indir"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2471,6 +2480,11 @@ msgstr "Dışa aktar"
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"
 msgstr "Bu haftanın listesini CRM'den dışa aktar ve ortak klasöre bırak"
+
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Export truncated: showing the first 100 of {0} documents. Download all for the complete export."
+msgstr "Dışa aktarma kısaltıldı: {0} belgenin ilk 100'ü gösteriliyor. Tam dışa aktarma için tümünü indirin."
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

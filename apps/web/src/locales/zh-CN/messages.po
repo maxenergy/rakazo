@@ -1234,6 +1234,11 @@ msgstr "紧凑"
 msgid "Complete"
 msgstr "完成"
 
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Complete export: {0} documents."
+msgstr "已完整导出 {0} 个文档。"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"
 msgstr "已完成"
@@ -2281,12 +2286,16 @@ msgid "Download {name}"
 msgstr "下载 {name}"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "下载为 Markdown"
+msgid "Download all as markdown"
+msgstr "下载全部 Markdown"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
 msgstr "下载执行器"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Download first page as markdown"
+msgstr "下载首页 Markdown"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2471,6 +2480,11 @@ msgstr "导出"
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"
 msgstr "从 CRM 导出本周名单并放到共享文件夹"
+
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Export truncated: showing the first 100 of {0} documents. Download all for the complete export."
+msgstr "导出内容已截断：当前显示 {0} 个文档中的前 100 个。下载全部内容以获取完整导出。"
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

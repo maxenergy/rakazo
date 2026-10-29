@@ -1234,6 +1234,11 @@ msgstr "촘촘하게"
 msgid "Complete"
 msgstr "완료"
 
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Complete export: {0} documents."
+msgstr "전체 내보내기: 문서 {0}개."
+
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"
 msgstr "완료됨"
@@ -2281,12 +2286,16 @@ msgid "Download {name}"
 msgstr "{name} 다운로드"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "마크다운으로 다운로드"
+msgid "Download all as markdown"
+msgstr "모두 Markdown으로 다운로드"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
 msgstr "Executor 다운로드"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Download first page as markdown"
+msgstr "첫 페이지를 Markdown으로 다운로드"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2471,6 +2480,11 @@ msgstr "내보내기"
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"
 msgstr "CRM에서 이번 주 목록을 내려받아 공유 폴더에 넣기"
+
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Export truncated: showing the first 100 of {0} documents. Download all for the complete export."
+msgstr "내보내기가 잘렸습니다. 전체 {0}개 중 처음 100개를 표시합니다. 전체 내용을 내보내려면 모두 다운로드하세요."
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

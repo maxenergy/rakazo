@@ -1234,6 +1234,11 @@ msgstr "सघन"
 msgid "Complete"
 msgstr "पूर्ण"
 
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Complete export: {0} documents."
+msgstr "पूरा निर्यात: {0} दस्तावेज़।"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"
 msgstr "पूर्ण"
@@ -2281,12 +2286,16 @@ msgid "Download {name}"
 msgstr "{name} डाउनलोड करें"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "मार्कडाउन के रूप में डाउनलोड करें"
+msgid "Download all as markdown"
+msgstr "सभी Markdown के रूप में डाउनलोड करें"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
 msgstr "Executor डाउनलोड करें"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Download first page as markdown"
+msgstr "पहला पृष्ठ Markdown के रूप में डाउनलोड करें"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2471,6 +2480,11 @@ msgstr "एक्सपोर्ट करें"
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"
 msgstr "CRM से इस सप्ताह की सूची एक्सपोर्ट करें और उसे साझा फ़ोल्डर में डालें"
+
+#. placeholder {0}: page.total
+#: src/pages/KnowledgeSection.tsx
+msgid "Export truncated: showing the first 100 of {0} documents. Download all for the complete export."
+msgstr "निर्यात अधूरा है: {0} में से पहले 100 दस्तावेज़ दिखाए जा रहे हैं। पूरा निर्यात पाने के लिए सभी डाउनलोड करें।"
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/MessagingSettingsOverlay.tsx

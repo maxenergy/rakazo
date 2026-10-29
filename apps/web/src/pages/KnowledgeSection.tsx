@@ -48,6 +48,7 @@ export function KnowledgeSection({
             key={botId}
             load={() => rpc.memory.list({ botId, scope: "bot" })}
             exportFilename="memory.md"
+            exportArgs={{ botId, scope: "bot" }}
             testId="bot-knowledge-memory"
           />
         </TabsContent>
@@ -69,6 +70,7 @@ export function SpaceMemorySection() {
       <MemoryDocumentList
         load={() => rpc.memory.list({ scope: "user" })}
         exportFilename="space-memory.md"
+        exportArgs={{ scope: "user" }}
         testId="space-memory-list"
       />
     </div>
@@ -78,10 +80,12 @@ export function SpaceMemorySection() {
 function MemoryDocumentList({
   load,
   exportFilename,
+  exportArgs,
   testId,
 }: {
   load: () => Promise<Omit<MemoryDocument, "content">[]>;
   exportFilename: string;
+  exportArgs: { botId?: string; scope?: "bot" | "user" };
   testId: string;
 }) {
   const { t } = useLingui();
@@ -92,6 +96,7 @@ function MemoryDocumentList({
   const [original, setOriginal] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const generation = useRef(0);
   const loadRef = useRef(load);
   loadRef.current = load;
@@ -151,29 +156,29 @@ function MemoryDocumentList({
     }
   }
 
-  async function exportMarkdown() {
+  async function exportMarkdown(complete: boolean) {
     if (busy) return;
     setBusy(true);
     setError(null);
+    setExportNotice(null);
     try {
-      // Re-fetch through the section's own loader so the file is current,
-      // then sync the list so the export matches what is displayed.
-      const fresh = await loadRef.current();
-      generation.current += 1;
-      setDocs(fresh);
-      const full = await Promise.all(
-        fresh.map((doc) =>
-          rpc.memory.read({
-            scope: doc.scope,
-            botId: doc.botId ?? undefined,
-            path: doc.path,
-          }),
-        ),
-      );
-      const markdown = full
-        .filter((doc) => doc !== null)
-        .map((doc) => `# ${doc.path}\n\n${doc.content}`)
-        .join("\n\n");
+      let page = await rpc.memory.exportMarkdown({ ...exportArgs, limit: 100 });
+      let markdown = page.markdown;
+      if (!complete && page.truncated) {
+        setExportNotice(
+          t`Export truncated: showing the first 100 of ${page.total} documents. Download all for the complete export.`,
+        );
+      } else if (complete) {
+        while (page.nextCursor) {
+          page = await rpc.memory.exportMarkdown({
+            ...exportArgs,
+            cursor: page.nextCursor,
+            limit: 100,
+          });
+          markdown = [markdown, page.markdown].filter(Boolean).join("\n\n");
+        }
+        setExportNotice(t`Complete export: ${page.total} documents.`);
+      }
       downloadArtifactBytes(exportFilename, "text/markdown", new TextEncoder().encode(markdown));
     } catch {
       setError(t`Could not load`);
@@ -184,6 +189,11 @@ function MemoryDocumentList({
 
   return (
     <div data-testid={testId}>
+      {exportNotice ? (
+        <div role="status" className="px-2.5 pb-2 text-[13px] text-muted-foreground">
+          {exportNotice}
+        </div>
+      ) : null}
       {error ? <div className="px-2.5 pb-2 text-[13px] text-destructive">{error}</div> : null}
       {loading ? <Skeleton className="h-10 w-full" /> : null}
       {!loading && docs.length === 0 && !error ? (
@@ -245,15 +255,26 @@ function MemoryDocumentList({
         </div>
       ))}
       {docs.length ? (
-        <Button
-          variant="ghost"
-          type="button"
-          disabled={busy}
-          onClick={() => void exportMarkdown()}
-          className="mt-2 px-2.5 text-[13px] text-muted-foreground hover:text-foreground"
-        >
-          <Trans>Download as markdown</Trans>
-        </Button>
+        <>
+          <Button
+            variant="ghost"
+            type="button"
+            disabled={busy}
+            onClick={() => void exportMarkdown(false)}
+            className="mt-2 px-2.5 text-[13px] text-muted-foreground hover:text-foreground"
+          >
+            <Trans>Download first page as markdown</Trans>
+          </Button>
+          <Button
+            variant="ghost"
+            type="button"
+            disabled={busy}
+            onClick={() => void exportMarkdown(true)}
+            className="mt-2 px-2.5 text-[13px] text-muted-foreground hover:text-foreground"
+          >
+            <Trans>Download all as markdown</Trans>
+          </Button>
+        </>
       ) : null}
     </div>
   );

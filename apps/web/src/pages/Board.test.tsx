@@ -260,7 +260,9 @@ it("discards a load-more response after changing filters and keeps normal pagina
       items: [ticket("Second", "ticket-2")],
       nextCursor: null,
     });
-    await act(async () => loadButton().click());
+    const nextButton = loadButton();
+    if (!nextButton) throw new Error("Load more button did not render after filtering");
+    await act(async () => nextButton.click());
     expect(page.container.textContent).toContain("Second");
   } finally {
     await page.cleanup();

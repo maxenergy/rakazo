@@ -3,8 +3,6 @@ export type GroupMemberRef = {
   name: string;
 };
 
-const MENTION_PATTERN = /@([A-Za-z0-9][A-Za-z0-9_-]{0,39})/g;
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -16,15 +14,6 @@ export function hasMentionToken(text: string, name: string): boolean {
     `(?:^|[^\\p{L}\\p{N}_-])@${escapeRegExp(normalized)}(?![\\p{L}\\p{N}_-])`,
     "iu",
   ).test(text);
-}
-
-export function parseMentionNames(text: string): string[] {
-  const names = new Set<string>();
-  for (const match of text.matchAll(MENTION_PATTERN)) {
-    const name = match[1];
-    if (name) names.add(name.toLowerCase());
-  }
-  return [...names];
 }
 
 export function resolveGroupTargetBotIds(input: {

@@ -43,6 +43,16 @@
       "types": "./src/node/screen-capability.ts",
       "development": "./src/node/screen-capability.ts",
       "default": "./src/node/screen-capability.ts"
+    },
+    "./prompt-data": {
+      "types": "./src/prompt-data.ts",
+      "development": "./src/prompt-data.ts",
+      "default": "./src/prompt-data.ts"
+    },
+    "./node/truncate-utf8": {
+      "types": "./src/node/truncate-utf8.ts",
+      "development": "./src/node/truncate-utf8.ts",
+      "default": "./src/node/truncate-utf8.ts"
     }
   },
   "scripts": {

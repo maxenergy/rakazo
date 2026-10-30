@@ -1,5 +1,4 @@
 import { formatCron } from "./cron.js";
-import { hasMentionToken } from "./group-mentions.js";
 
 export const COMPOSER_MENTION_KINDS = ["bot", "group", "routine", "connector", "everyone"] as const;
 
@@ -273,11 +272,4 @@ export function resolveComposerSendPlan(input: {
     shouldRunRoutines,
     isNoOp: !shouldSend && !shouldOpenGroup && !shouldRunRoutines,
   };
-}
-
-export function mentionStillInPrompt(
-  text: string,
-  mention: Pick<ComposerMention, "name">,
-): boolean {
-  return hasMentionToken(text, mention.name);
 }

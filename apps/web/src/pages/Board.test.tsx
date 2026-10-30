@@ -219,6 +219,98 @@ it("creates a ticket without a status picker", async () => {
   }
 });
 
+it("discards a load-more response after changing filters and keeps normal pagination", async () => {
+  api.bots.list.mockResolvedValue([bot("bot-1", "Helper")]);
+  let resolvePage!: (value: unknown) => void;
+  api.tickets.list
+    .mockReset()
+    .mockResolvedValueOnce({ items: [ticket("First", "ticket-1")], nextCursor: "cursor-1" })
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePage = resolve;
+        }),
+    )
+    .mockResolvedValue({
+      items: [ticket("Filtered", "ticket-3", "done")],
+      nextCursor: "cursor-filtered",
+    });
+  const page = await renderBoard(undefined, "/app/tickets");
+  try {
+    const loadButton = () =>
+      Array.from(page.container.querySelectorAll("button")).find((b) =>
+        b.textContent?.includes("Load more"),
+      );
+    await act(async () => {
+      while (!loadButton()) await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const button = loadButton();
+    if (!button) throw new Error("Load more button did not render");
+    await act(async () => button.click());
+    const status = page.container.querySelectorAll("select")[2] as HTMLSelectElement;
+    await act(async () => {
+      status.value = "done";
+      status.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () =>
+      resolvePage({ items: [ticket("Stale", "ticket-stale")], nextCursor: null }),
+    );
+    expect(page.container.textContent).not.toContain("Stale");
+    expect(api.tickets.list).toHaveBeenCalledTimes(3);
+
+    api.tickets.list.mockResolvedValueOnce({
+      items: [ticket("Second", "ticket-2")],
+      nextCursor: null,
+    });
+    const nextButton = loadButton();
+    if (!nextButton) throw new Error("Load more button did not render after filtering");
+    await act(async () => nextButton.click());
+    expect(page.container.textContent).toContain("Second");
+  } finally {
+    await page.cleanup();
+  }
+});
+
+it("discards a load-more response after a board refresh", async () => {
+  api.bots.list.mockResolvedValue([bot("bot-1", "Helper")]);
+  let resolvePage!: (value: unknown) => void;
+  api.tickets.list
+    .mockReset()
+    .mockResolvedValueOnce({ items: [ticket("First", "ticket-1")], nextCursor: "cursor-1" })
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePage = resolve;
+        }),
+    )
+    .mockResolvedValue({ items: [ticket("Refreshed", "ticket-2")], nextCursor: "cursor-2" });
+  const live = liveStream();
+  const page = await renderBoard(live.stream, "/app/tickets");
+  try {
+    const loadButton = () =>
+      Array.from(page.container.querySelectorAll("button")).find((b) =>
+        b.textContent?.includes("Load more"),
+      );
+    await act(async () => {
+      while (!loadButton()) await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const button = loadButton();
+    if (!button) throw new Error("Load more button did not render");
+    await act(async () => button.click());
+    await act(async () => {
+      live.event("ticket-1");
+      await Promise.resolve();
+    });
+    await act(async () =>
+      resolvePage({ items: [ticket("Stale refresh page", "ticket-stale")], nextCursor: null }),
+    );
+    expect(page.container.textContent).not.toContain("Stale refresh page");
+  } finally {
+    await page.cleanup();
+  }
+});
+
 function liveStream() {
   let deliver:
     | ((result: IteratorResult<{ ticketId?: string; spaceId?: string }>) => void)
@@ -444,7 +536,10 @@ it("loads more tickets, deduplicates by id, and shows the loaded count", async (
     expect(api.tickets.list).toHaveBeenNthCalledWith(
       2,
       { limit: 100, cursor: "opaque-next" },
-      { context: { spaceId: "space-1" } },
+      expect.objectContaining({
+        context: { spaceId: "space-1" },
+        signal: expect.any(AbortSignal),
+      }),
     );
     expect(page.container.textContent).toContain("Loaded 2");
     expect(page.container.querySelectorAll('[data-testid^="board-card-"]')).toHaveLength(2);

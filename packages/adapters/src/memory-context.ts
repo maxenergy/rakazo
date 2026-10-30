@@ -1,4 +1,5 @@
 import type { AdapterContext, MemorySnapshot, MemoryStore } from "@rakazo/adapter-kit";
+import { truncateUtf8 } from "@rakazo/core/node/truncate-utf8";
 
 const MAX_AGENT_MEMORY_BYTES = 32 * 1024;
 
@@ -56,19 +57,6 @@ export async function loadAgentMemoryContext(
 
 function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
-}
-
-function truncateUtf8(value: string, maxBytes: number): string {
-  if (maxBytes <= 0) return "";
-  const characters: string[] = [];
-  let bytes = 0;
-  for (const character of value) {
-    const characterBytes = byteLength(character);
-    if (bytes + characterBytes > maxBytes) break;
-    characters.push(character);
-    bytes += characterBytes;
-  }
-  return characters.join("");
 }
 
 function memoryTimestamp(updatedAt: string | undefined): number {

@@ -9,6 +9,7 @@ import {
   cliResponseText,
   cliRetryAttempts,
   collapseSystemMessages,
+  createCliVersionProbe,
   modelVisibleMessage,
   parseCliReply,
   parseToolArguments,
@@ -595,5 +596,64 @@ describe("subscription CLI provider conformance", () => {
     const input = vi.mocked(runCliProcess).mock.calls[0]?.[0].input ?? "";
     // 200k tokens x 1.5 chars x 50% share, plus the fixed instructions.
     expect(input.length).toBeLessThan(160_000);
+  });
+});
+
+describe("CLI version probe", () => {
+  it("cools down failures, retries after 60 seconds, and caches success", async () => {
+    let now = 0;
+    const probe = createCliVersionProbe(() => now);
+    await expect(probe("codex-cli")).resolves.toBeUndefined();
+    now = 59_999;
+    await expect(probe("codex-cli")).resolves.toBeUndefined();
+    expect(execFile).toHaveBeenCalledOnce();
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      const callback = args.at(-1) as (error: Error | null, stdout: string) => void;
+      callback(null, "codex-cli 1.2.3");
+      return {} as ReturnType<typeof execFile>;
+    });
+    now = 60_000;
+    await expect(probe("codex-cli")).resolves.toBe("1.2.3");
+    now = 120_000;
+    await expect(probe("codex-cli")).resolves.toBe("1.2.3");
+    expect(execFile).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares concurrent probes and permanently caches success", async () => {
+    const probe = createCliVersionProbe();
+    let finish!: (error: Error | null, stdout: string) => void;
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      finish = args.at(-1) as typeof finish;
+      return {} as ReturnType<typeof execFile>;
+    });
+    const first = probe("codex-cli");
+    const second = probe("codex-cli");
+    expect(execFile).toHaveBeenCalledOnce();
+    expect(vi.mocked(execFile).mock.calls[0]?.[2]).toMatchObject({
+      timeout: 5_000,
+      maxBuffer: 16_384,
+      windowsHide: true,
+    });
+    finish(null, "codex-cli 1.2.3");
+    await expect(Promise.all([first, second])).resolves.toEqual(["1.2.3", "1.2.3"]);
+    await expect(probe("codex-cli")).resolves.toBe("1.2.3");
+    expect(execFile).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an aborted caller while another receives the shared result", async () => {
+    const probe = createCliVersionProbe();
+    let finish!: (error: Error | null, stdout: string) => void;
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      finish = args.at(-1) as typeof finish;
+      return {} as ReturnType<typeof execFile>;
+    });
+    const controller = new AbortController();
+    const first = probe("codex-cli", controller.signal);
+    const second = probe("codex-cli");
+    controller.abort();
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    finish(null, "codex-cli 1.2.3");
+    await expect(second).resolves.toBe("1.2.3");
+    expect(execFile).toHaveBeenCalledOnce();
   });
 });

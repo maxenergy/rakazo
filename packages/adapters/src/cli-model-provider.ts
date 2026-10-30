@@ -34,42 +34,81 @@ import {
 } from "./codex-cli-sessions.js";
 import { residentCodexStep } from "./codex-resident.js";
 
-const cliVersions = new Map<CliModelProvider, Promise<string | undefined>>();
-
-/** Probe once per provider for this process; never log raw CLI output. */
-export function probeCliVersion(provider: CliModelProvider): Promise<string | undefined> {
-  let pending = cliVersions.get(provider);
-  if (!pending) {
-    pending = (async () => {
-      try {
-        const executable = cliExecutable(provider);
-        const stdout = await new Promise<string>((resolve, reject) => {
-          execFile(
-            executable.file,
-            [...executable.prefix, "--version"],
-            {
-              timeout: 5_000,
-              maxBuffer: 16_384,
-              windowsHide: true,
-            },
-            (error, stdout) => (error ? reject(error) : resolve(stdout)),
-          );
-        });
-        const version = stdout
-          .trim()
-          .match(/^(?:[a-z][a-z0-9 -]*\s+)?v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?:\s|$)/i)?.[1];
-        if (!version) throw new Error("Unrecognized CLI version");
-        getLogger().info("cli.version", { "cli.provider": provider, "cli.version": version });
-        return version;
-      } catch {
-        getLogger().warn("cli.version_probe_failed", { "cli.provider": provider });
-        return undefined;
-      }
-    })();
-    cliVersions.set(provider, pending);
-  }
-  return pending;
+/** Each probe owns its cache and clock; callers only cancel their own wait. */
+export function createCliVersionProbe(now: () => number = Date.now) {
+  const cliVersions = new Map<
+    CliModelProvider,
+    { pending?: Promise<string | undefined>; version?: string; retryAt: number }
+  >();
+  return function probeCliVersion(
+    provider: CliModelProvider,
+    signal?: AbortSignal,
+  ): Promise<string | undefined> {
+    signal?.throwIfAborted();
+    let cached = cliVersions.get(provider);
+    if (!cached) {
+      cached = { retryAt: 0 };
+      cliVersions.set(provider, cached);
+    }
+    const entry = cached;
+    if (entry.version) return Promise.resolve(entry.version);
+    if (!entry.pending && now() < entry.retryAt) return Promise.resolve(undefined);
+    if (!entry.pending) {
+      entry.pending = (async () => {
+        try {
+          const executable = cliExecutable(provider);
+          const stdout = await new Promise<string>((resolve, reject) => {
+            execFile(
+              executable.file,
+              [...executable.prefix, "--version"],
+              {
+                timeout: 5_000,
+                maxBuffer: 16_384,
+                windowsHide: true,
+              },
+              (error, stdout) => (error ? reject(error) : resolve(stdout)),
+            );
+          });
+          const version = stdout
+            .trim()
+            .match(/^(?:[a-z][a-z0-9 -]*\s+)?v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?:\s|$)/i)?.[1];
+          if (!version) throw new Error("Unrecognized CLI version");
+          getLogger().info("cli.version", { "cli.provider": provider, "cli.version": version });
+          entry.version = version;
+          return version;
+        } catch {
+          getLogger().warn("cli.version_probe_failed", { "cli.provider": provider });
+          entry.retryAt = now() + 60_000;
+          return undefined;
+        }
+      })().finally(() => {
+        entry.pending = undefined;
+      });
+    }
+    const pending = entry.pending;
+    if (!signal) return pending;
+    return new Promise<string | undefined>((resolve, reject) => {
+      const abort = () => {
+        signal.removeEventListener("abort", abort);
+        reject(new DOMException("The operation was aborted", "AbortError"));
+      };
+      signal.addEventListener("abort", abort, { once: true });
+      pending.then(
+        (version) => {
+          signal.removeEventListener("abort", abort);
+          resolve(version);
+        },
+        (error) => {
+          signal.removeEventListener("abort", abort);
+          reject(error);
+        },
+      );
+    });
+  };
 }
+
+/** Cache successful versions for this process; never log raw CLI output. */
+export const probeCliVersion = createCliVersionProbe();
 
 class CliStartupError extends Error {}
 
@@ -826,7 +865,7 @@ function streamCliModel(
       const schemaPath = join(directory, "response.json");
       await writeFile(schemaPath, JSON.stringify(RESPONSE_SCHEMA), { mode: 0o600 });
       const provider = model.provider as CliModelProvider;
-      await probeCliVersion(provider);
+      await probeCliVersion(provider, options.signal);
       options.signal?.throwIfAborted();
       let reply: CliReply | undefined;
       let budgetScale = 1;

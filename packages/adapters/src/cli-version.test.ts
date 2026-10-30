@@ -6,6 +6,11 @@ vi.mock("node:child_process", async (original) => ({
   execFile: vi.fn(),
 }));
 
+vi.mock("./cli-model-process.js", async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  cliExecutable: () => ({ file: "mock-cli", prefix: [] }),
+}));
+
 beforeEach(() => {
   vi.resetModules();
   vi.mocked(execFile).mockReset();
@@ -43,11 +48,13 @@ describe("CLI version probe", () => {
     result(error);
     const { probeCliVersion } = await import("./cli-model-provider.js");
     await expect(probeCliVersion("claude-code")).resolves.toBeUndefined();
+    expect(execFile).toHaveBeenCalledOnce();
   });
 
   it("ignores unrecognized output", async () => {
     result(null, "unexpected output");
     const { probeCliVersion } = await import("./cli-model-provider.js");
     await expect(probeCliVersion("claude-code")).resolves.toBeUndefined();
+    expect(execFile).toHaveBeenCalledOnce();
   });
 });

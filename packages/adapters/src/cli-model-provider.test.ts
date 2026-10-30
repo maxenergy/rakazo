@@ -30,6 +30,7 @@ beforeEach(() => {
 vi.mock("./cli-model-process.js", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   runCliProcess: vi.fn(),
+  cliExecutable: () => ({ file: "mock-cli", prefix: [] }),
 }));
 afterEach(() => vi.resetAllMocks());
 

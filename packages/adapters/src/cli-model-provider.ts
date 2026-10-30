@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -19,6 +20,7 @@ import {
   CLI_NETWORK_FAILURE,
   CliProcessError,
   classifyCliFailure,
+  cliExecutable,
   isCliProfileId,
   runCliProcess,
   saveCliFailure,
@@ -31,6 +33,45 @@ import {
   rememberCodexThread,
 } from "./codex-cli-sessions.js";
 import { residentCodexStep } from "./codex-resident.js";
+
+const cliVersions = new Map<CliModelProvider, Promise<string | undefined>>();
+
+/** Probe once per provider for this process; never log raw CLI output. */
+export function probeCliVersion(provider: CliModelProvider): Promise<string | undefined> {
+  let pending = cliVersions.get(provider);
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const executable = cliExecutable(provider);
+        const stdout = await new Promise<string>((resolve, reject) => {
+          execFile(
+            executable.file,
+            [...executable.prefix, "--version"],
+            {
+              timeout: 5_000,
+              maxBuffer: 16_384,
+              windowsHide: true,
+            },
+            (error, stdout) => (error ? reject(error) : resolve(stdout)),
+          );
+        });
+        const version = stdout
+          .trim()
+          .match(/^(?:[a-z][a-z0-9 -]*\s+)?v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?:\s|$)/i)?.[1];
+        if (!version) throw new Error("Unrecognized CLI version");
+        getLogger().info("cli.version", { "cli.provider": provider, "cli.version": version });
+        return version;
+      } catch {
+        getLogger().warn("cli.version_probe_failed", { "cli.provider": provider });
+        return undefined;
+      }
+    })();
+    cliVersions.set(provider, pending);
+  }
+  return pending;
+}
+
+class CliStartupError extends Error {}
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -288,6 +329,8 @@ export function cliResponseText(provider: CliModelProvider, output: string): str
     if (!text) throw new CliReplyError("Codex returned no model response.", "empty_response");
     return text;
   }
+  if (provider === "claude-code" && !output.trim())
+    throw new CliStartupError("Claude CLI failed to start: --print returned empty output.");
   const result = JSON.parse(output);
   if (provider === "antigravity-cli" && result.status !== "SUCCESS")
     throw new Error("Antigravity request failed. Check sign-in and subscription limits.");
@@ -783,6 +826,8 @@ function streamCliModel(
       const schemaPath = join(directory, "response.json");
       await writeFile(schemaPath, JSON.stringify(RESPONSE_SCHEMA), { mode: 0o600 });
       const provider = model.provider as CliModelProvider;
+      await probeCliVersion(provider);
+      options.signal?.throwIfAborted();
       let reply: CliReply | undefined;
       let budgetScale = 1;
       const contextWindow = cliContextWindow(provider, model.contextWindow);
@@ -892,7 +937,7 @@ function streamCliModel(
             ).catch(() => undefined);
           }
           // A subscription limit lasts until its reset; retrying now only fails again.
-          if (attempt >= cliRetryAttempts(reason)) throw error;
+          if (error instanceof CliStartupError || attempt >= cliRetryAttempts(reason)) throw error;
           // A malformed reply is a sampling slip; ask again with the same context.
           if (error instanceof CliReplyError) continue;
           if (reason === "network") {
@@ -933,9 +978,11 @@ function streamCliModel(
       message.stopReason = options?.signal?.aborted ? "aborted" : "error";
       message.errorMessage = options?.signal?.aborted
         ? "CLI request cancelled."
-        : cliFailureReason(error) === "network"
-          ? CLI_NETWORK_FAILURE
-          : "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.";
+        : error instanceof CliStartupError
+          ? error.message
+          : cliFailureReason(error) === "network"
+            ? CLI_NETWORK_FAILURE
+            : "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.";
       stream.push({ type: "error", reason: message.stopReason, error: message });
     } finally {
       // On Windows a CLI child can still hold the directory (EBUSY); a leftover temp

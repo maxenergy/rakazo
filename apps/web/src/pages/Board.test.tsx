@@ -521,7 +521,10 @@ it("loads more tickets, deduplicates by id, and shows the loaded count", async (
     expect(api.tickets.list).toHaveBeenNthCalledWith(
       2,
       { limit: 100, cursor: "opaque-next" },
-      { context: { spaceId: "space-1" } },
+      expect.objectContaining({
+        context: { spaceId: "space-1" },
+        signal: expect.any(AbortSignal),
+      }),
     );
     expect(page.container.textContent).toContain("Loaded 2");
     expect(page.container.querySelectorAll('[data-testid^="board-card-"]')).toHaveLength(2);

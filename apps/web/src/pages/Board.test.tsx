@@ -489,7 +489,10 @@ it("sends unassociated and status filters explicitly", async () => {
   try {
     expect(api.tickets.list).toHaveBeenCalledWith(
       { projectId: null, milestoneId: null, status: "done", limit: 100 },
-      { context: { spaceId: "space-1" } },
+      expect.objectContaining({
+        context: { spaceId: "space-1" },
+        signal: expect.any(AbortSignal),
+      }),
     );
   } finally {
     await page.cleanup();

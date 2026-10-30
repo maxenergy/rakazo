@@ -241,7 +241,9 @@ it("discards a load-more response after changing filters and keeps normal pagina
     await act(async () => {
       while (!loadButton()) await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => loadButton()!.click());
+    const button = loadButton();
+    if (!button) throw new Error("Load more button did not render");
+    await act(async () => button.click());
     const status = page.container.querySelectorAll("select")[2] as HTMLSelectElement;
     await act(async () => {
       status.value = "done";
@@ -288,7 +290,9 @@ it("discards a load-more response after a board refresh", async () => {
     await act(async () => {
       while (!loadButton()) await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => loadButton()!.click());
+    const button = loadButton();
+    if (!button) throw new Error("Load more button did not render");
+    await act(async () => button.click());
     await act(async () => {
       live.event("ticket-1");
       await Promise.resolve();

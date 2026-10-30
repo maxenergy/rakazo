@@ -157,6 +157,23 @@ async function command(deps: Deps, script: string, args: string[], timeoutMs = 3
   return stdout.trimEnd();
 }
 
+const worktreeLocks = new Map<string, Promise<void>>();
+async function withWorktreeLock<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const previous = worktreeLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  worktreeLocks.set(key, current);
+  await previous;
+  try {
+    return await run();
+  } finally {
+    release();
+    if (worktreeLocks.get(key) === current) worktreeLocks.delete(key);
+  }
+}
+
 export async function ticketWorktree(deps: Deps, input: Record<string, unknown>) {
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
   if (typeof input.ref !== "string" || !/^[A-Z]+-\d+$/.test(input.ref))
@@ -192,28 +209,52 @@ export async function ticketWorktree(deps: Deps, input: Record<string, unknown>)
     const parent = repo.slice(0, repo.lastIndexOf("/"));
     const path = `${parent}/wt/${ref}`;
     const branch = `team/rak-${ticket.number}-worktree`;
-    return await deps.prisma.$transaction(
-      async (tx) => {
-        if (deps.executionFence) await assertExecutionFence(tx, deps.executionFence);
-        const existing = await tx.ticketWorktree.findUnique({
-          where: { ticketId_computer_repo: { ticketId: ticket.id, computer: deps.computer, repo } },
+    return await withWorktreeLock(JSON.stringify([ticket.id, deps.computer, repo]), async () => {
+      const where = {
+        ticketId_computer_repo: { ticketId: ticket.id, computer: deps.computer, repo },
+      };
+      const read = () =>
+        deps.prisma.$transaction(async (tx) => {
+          if (deps.executionFence) await assertExecutionFence(tx, deps.executionFence);
+          return tx.ticketWorktree.findUnique({ where });
         });
+      const validate = (existing: { location: string; path: string; branch: string }) => {
         if (
-          existing &&
-          (existing.location !== deps.location ||
-            existing.path !== path ||
-            existing.branch !== branch)
+          existing.location !== deps.location ||
+          existing.path !== path ||
+          existing.branch !== branch
         )
-          throw new Error("Recorded worktree does not match this execution endpoint.");
-        // A recorded worktree is verified before any fetch or filesystem mutation.
-        let baseSha: string | undefined;
-        if (!existing) {
-          baseSha = await command(deps, BASELINE, [
-            repo,
-            baseBranch,
-            (input.baseSha as string) ?? "",
-          ]);
-          // Reserve first: a unique-constraint collision must fail, never reuse or rebuild.
+          throw new Error(
+            `Recorded worktree does not match this execution endpoint. Existing paths were not replaced; worktree path: ${path}`,
+          );
+      };
+      const verify = () =>
+        command(
+          deps,
+          CHECKOUT,
+          [repo, path, branch, "verify", ref, "", WORKTREE, String(checkoutTimeoutMs / 1000)],
+          checkoutTimeoutMs + 5_000,
+        );
+      const existing = await read();
+      if (existing) {
+        validate(existing);
+        const headSha = await verify();
+        return { path, branch, reused: true, location: deps.location, headSha };
+      }
+      const baseSha = await command(deps, BASELINE, [
+        repo,
+        baseBranch,
+        (input.baseSha as string) ?? "",
+      ]);
+      const headSha = await command(
+        deps,
+        CHECKOUT,
+        [repo, path, branch, "create", ref, baseSha, WORKTREE, String(checkoutTimeoutMs / 1000)],
+        checkoutTimeoutMs + 5_000,
+      );
+      try {
+        await deps.prisma.$transaction(async (tx) => {
+          if (deps.executionFence) await assertExecutionFence(tx, deps.executionFence);
           await tx.ticketWorktree.create({
             data: {
               ticketId: ticket.id,
@@ -224,34 +265,25 @@ export async function ticketWorktree(deps: Deps, input: Record<string, unknown>)
               branch,
             },
           });
-        }
-        const headSha = await command(
-          deps,
-          CHECKOUT,
-          [
-            repo,
-            path,
-            branch,
-            existing ? "verify" : "create",
-            ref,
-            baseSha ?? "",
-            WORKTREE,
-            String(checkoutTimeoutMs / 1000),
-          ],
-          checkoutTimeoutMs + 5_000,
-        );
-        if (deps.executionFence) await assertExecutionFence(tx, deps.executionFence);
-        return {
-          path,
-          branch,
-          reused: Boolean(existing),
-          location: deps.location,
-          headSha,
-          ...(baseSha ? { baseSha } : {}),
-        };
-      },
-      { timeout: checkoutTimeoutMs + 45_000 },
-    );
+        });
+      } catch (error) {
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          !("code" in error) ||
+          error.code !== "P2002"
+        )
+          throw error;
+        // A unique violation aborts its transaction; reread in a fresh transaction.
+        const winner = await read();
+        if (!winner)
+          throw new Error(`Worktree record conflict; partial worktree retained at ${path}`);
+        validate(winner);
+        const verifiedHead = await verify();
+        return { path, branch, reused: true, location: deps.location, headSha: verifiedHead };
+      }
+      return { path, branch, reused: false, location: deps.location, headSha, baseSha };
+    });
   } catch (error) {
     if (error instanceof StaleExecutionFenceError) throw error;
     return { error: error instanceof Error ? error.message : "Worktree creation failed." };

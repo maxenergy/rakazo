@@ -36,7 +36,9 @@ type Row = {
 };
 let rows: Row[];
 let executionTimeouts: number[];
-let transactionTimeout: number | undefined;
+let transactionOpen = false;
+let insertConflict: "matching" | "mismatch" | undefined;
+let reads = 0;
 function git(...args: string[]) {
   return execFileSync("git", ["-C", repo, ...args], {
     encoding: "utf8",
@@ -52,30 +54,35 @@ function call(
 ) {
   const tx = {
     ticketWorktree: {
-      findUnique: async ({ where }: { where: { ticketId_computer_repo: Partial<Row> } }) =>
-        rows.find((row) =>
+      findUnique: async ({ where }: { where: { ticketId_computer_repo: Partial<Row> } }) => {
+        reads++;
+        return rows.find((row) =>
           Object.entries(where.ticketId_computer_repo).every(
             ([key, value]) => row[key as keyof Row] === value,
           ),
-        ),
+        );
+      },
       create: async ({ data }: { data: Row }) => {
+        if (insertConflict) {
+          rows.push({ ...data, ...(insertConflict === "mismatch" ? { branch: "other" } : {}) });
+          throw Object.assign(new Error("unique conflict"), { code: "P2002" });
+        }
         rows.push(data);
         return data;
       },
     },
   };
   const prisma = {
-    $transaction: async (
-      fn: (client: typeof tx) => Promise<unknown>,
-      options: { timeout: number },
-    ) => {
-      transactionTimeout = options.timeout;
+    $transaction: async (fn: (client: typeof tx) => Promise<unknown>) => {
+      transactionOpen = true;
       const previous = [...rows];
       try {
         return await fn(tx);
       } catch (error) {
-        rows = previous;
+        if (!insertConflict) rows = previous;
         throw error;
+      } finally {
+        transactionOpen = false;
       }
     },
   } as unknown as PrismaClient;
@@ -88,6 +95,7 @@ function call(
       workspace: root,
       ticketBoardEnabled: true,
       async *execute(argv, cwd, timeoutMs) {
+        expect(transactionOpen).toBe(false);
         executionTimeouts.push(timeoutMs);
         const result = spawnSync(argv[0]!, argv.slice(1), { cwd, encoding: "utf8", env });
         if (result.stdout) yield { type: "stdout" as const, data: result.stdout };
@@ -123,7 +131,9 @@ function advanceRemote() {
 }
 beforeEach(() => {
   executionTimeouts = [];
-  transactionTimeout = undefined;
+  transactionOpen = false;
+  insertConflict = undefined;
+  reads = 0;
   root = mkdtempSync(path.join(tmpdir(), "ticket-worktree-"));
   repo = path.join(root, "repo");
   seed = path.join(root, "seed");
@@ -343,7 +353,7 @@ it.each([undefined, 250])(
     expect(result).toHaveProperty("error", expect.stringContaining(target));
     expect(readFileSync(path.join(target, "marker"), "utf8")).toBe("partial\n");
     expect(executionTimeouts).toEqual([35_000, 35_000, (checkoutTimeoutMs ?? 120_000) + 5_000]);
-    expect(transactionTimeout).toBe((checkoutTimeoutMs ?? 120_000) + 45_000);
+    expect(transactionOpen).toBe(false);
     const pid = Number(readFileSync(pidFile, "utf8").trim());
     expect(() => process.kill(pid, 0)).toThrow();
     expect(rows).toHaveLength(0);
@@ -359,3 +369,18 @@ it.each([0, -1, 1.5, "120000", 600001])(
     );
   },
 );
+
+it.each(["matching", "mismatch"] as const)("rereads after a %s unique conflict", async (kind) => {
+  insertConflict = kind;
+  const result = await call();
+  expect(reads).toBe(2);
+  if (kind === "matching") expect(result).toMatchObject({ reused: true });
+  else expect(result).toHaveProperty("error", expect.stringContaining(path.join(root, "wt/RAK-1")));
+  expect(existsSync(path.join(root, "wt/RAK-1/.git"))).toBe(true);
+});
+
+it("serializes creation and reuses a concurrent request in the same process", async () => {
+  const results = await Promise.all([call(), call()]);
+  expect(results.map((result) => "reused" in result && result.reused)).toEqual([false, true]);
+  expect(rows).toHaveLength(1);
+});

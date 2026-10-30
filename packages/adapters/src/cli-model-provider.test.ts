@@ -1,5 +1,6 @@
+import { execFile } from "node:child_process";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliModelProvider } from "./cli-model-process.js";
 import { CLI_MODEL_PROVIDERS, CliProcessError, runCliProcess } from "./cli-model-process.js";
 import {
@@ -13,6 +14,18 @@ import {
   parseToolArguments,
   registerCliModelProviders,
 } from "./cli-model-provider.js";
+
+vi.mock("node:child_process", async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  execFile: vi.fn(),
+}));
+beforeEach(() => {
+  vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+    const callback = args.at(-1) as (error: Error | null, stdout: string, stderr: string) => void;
+    callback(new Error("CLI unavailable in offline test"), "", "");
+    return {} as ReturnType<typeof execFile>;
+  });
+});
 
 vi.mock("./cli-model-process.js", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -128,6 +141,21 @@ describe("subscription CLI provider conformance", () => {
       expect(result.stopReason).toBe("stop");
       expect(result.content).toEqual([]);
       expect(result.errorMessage).toBeUndefined();
+      expect(runCliProcess).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["", " \n\t"])(
+    "rejects successful Claude processes with empty stdout",
+    async (stdout) => {
+      vi.mocked(runCliProcess).mockResolvedValue(stdout);
+      const models = registerCliModelProviders(builtinModels());
+      const model = models.getProvider("claude-code")!.getModels()[0]!;
+      const result = await models
+        .streamSimple(model, { messages: [] }, { apiKey: profileId })
+        .result();
+      expect(result.stopReason).toBe("error");
+      expect(result.errorMessage).toContain("Claude CLI failed to start");
       expect(runCliProcess).toHaveBeenCalledOnce();
     },
   );

@@ -219,6 +219,33 @@ it("creates a ticket without a status picker", async () => {
   }
 });
 
+it("discards a load-more response after changing filters and keeps normal pagination", async () => {
+  api.bots.list.mockResolvedValue([bot("bot-1", "Helper")]);
+  let resolvePage!: (value: unknown) => void;
+  api.tickets.list.mockReset()
+    .mockResolvedValueOnce({ items: [ticket("First", "ticket-1")], nextCursor: "cursor-1" })
+    .mockImplementationOnce(() => new Promise((resolve) => { resolvePage = resolve; }))
+    .mockResolvedValue({ items: [ticket("Filtered", "ticket-3", "done")] });
+  const page = await renderBoard(undefined, "/app/tickets");
+  try {
+    const loadButton = () => Array.from(page.container.querySelectorAll("button")).find((b) => b.textContent?.includes("Load more"))!;
+    await act(async () => loadButton().click());
+    const status = page.container.querySelectorAll("select")[2] as HTMLSelectElement;
+    await act(async () => {
+      status.value = "done";
+      status.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => resolvePage({ items: [ticket("Stale", "ticket-stale")], nextCursor: null }));
+    expect(page.container.textContent).not.toContain("Stale");
+    expect(api.tickets.list).toHaveBeenCalledTimes(3);
+
+    api.tickets.list.mockResolvedValueOnce({ items: [ticket("Second", "ticket-2")], nextCursor: null });
+    await act(async () => loadButton().click());
+    expect(page.container.textContent).toContain("Second");
+  } finally { await page.cleanup(); }
+});
+
 function liveStream() {
   let deliver:
     | ((result: IteratorResult<{ ticketId?: string; spaceId?: string }>) => void)

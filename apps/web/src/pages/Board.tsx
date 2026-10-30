@@ -28,7 +28,7 @@ import {
   Textarea,
 } from "@rakazo/ui-web";
 import { ChevronLeft } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { formatRelativeTime } from "../lib/relative-time";
 import { rpc, selectedSpaceId } from "../lib/rpc";
@@ -77,6 +77,9 @@ export function BoardPage() {
   const [savedRevision, setSavedRevision] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadGeneration = useRef(0);
+  const loadMoreRequest = useRef<AbortController | null>(null);
+  const loadMorePending = useRef(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const load = useCallback(
     async (spaceId: string | null) => {
@@ -103,6 +106,13 @@ export function BoardPage() {
   );
   const { data, error: loadError } = useBoardRefresh(load);
   useEffect(() => {
+    loadGeneration.current += 1;
+    loadMoreRequest.current?.abort();
+    loadMoreRequest.current = null;
+    loadMorePending.current = false;
+    setLoadingMore(false);
+  }, [projectFilter, milestoneFilter, statusFilter, savedRevision]);
+  useEffect(() => {
     if (!data) {
       setTickets([]);
       setNextCursor(null);
@@ -115,15 +125,21 @@ export function BoardPage() {
   const error = loadError ? errorText(loadError) : "";
   const reload = useCallback(async () => setSavedRevision((value) => value + 1), []);
   const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore) return;
+    if (!nextCursor || loadMorePending.current) return;
+    const generation = loadGeneration.current;
+    const controller = new AbortController();
+    loadMoreRequest.current = controller;
+    loadMorePending.current = true;
     setLoadingMore(true);
     try {
       const result = await rpc.tickets.list(
         { ...filters(), limit: 100, cursor: nextCursor },
         {
+          signal: controller.signal,
           context: { spaceId: selectedSpaceId() },
         },
       );
+      if (generation !== loadGeneration.current || controller.signal.aborted) return;
       if ("items" in result) {
         setTickets((current) => {
           const ids = new Set(current.map((ticket) => ticket.id));
@@ -142,9 +158,13 @@ export function BoardPage() {
     } catch {
       // Keep the current page and cursor so the user can retry.
     } finally {
-      setLoadingMore(false);
+      if (generation === loadGeneration.current) {
+        loadMorePending.current = false;
+        if (loadMoreRequest.current === controller) loadMoreRequest.current = null;
+        setLoadingMore(false);
+      }
     }
-  }, [filters, loadingMore, nextCursor]);
+  }, [filters, nextCursor]);
   function changeFilter(key: string, value: string) {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);

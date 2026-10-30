@@ -113,11 +113,12 @@ export function BoardPage() {
     setLoadingMore(false);
   }, [projectFilter, milestoneFilter, statusFilter, savedRevision]);
   useEffect(() => {
-    if (!data) {
-      setTickets([]);
-      setNextCursor(null);
-      return;
-    }
+    if (!data) return;
+    loadGeneration.current += 1;
+    loadMoreRequest.current?.abort();
+    loadMoreRequest.current = null;
+    loadMorePending.current = false;
+    setLoadingMore(false);
     setTickets(data.tickets);
     setNextCursor(data.nextCursor);
   }, [data]);

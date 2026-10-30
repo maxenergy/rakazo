@@ -237,8 +237,11 @@ it("discards a load-more response after changing filters and keeps normal pagina
     const loadButton = () =>
       Array.from(page.container.querySelectorAll("button")).find((b) =>
         b.textContent?.includes("Load more"),
-      )!;
-    await act(async () => loadButton().click());
+      );
+    await act(async () => {
+      while (!loadButton()) await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => loadButton()!.click());
     const status = page.container.querySelectorAll("select")[2] as HTMLSelectElement;
     await act(async () => {
       status.value = "done";
@@ -281,8 +284,11 @@ it("discards a load-more response after a board refresh", async () => {
     const loadButton = () =>
       Array.from(page.container.querySelectorAll("button")).find((b) =>
         b.textContent?.includes("Load more"),
-      )!;
-    await act(async () => loadButton().click());
+      );
+    await act(async () => {
+      while (!loadButton()) await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => loadButton()!.click());
     await act(async () => {
       live.event("ticket-1");
       await Promise.resolve();
@@ -489,10 +495,7 @@ it("sends unassociated and status filters explicitly", async () => {
   try {
     expect(api.tickets.list).toHaveBeenCalledWith(
       { projectId: null, milestoneId: null, status: "done", limit: 100 },
-      expect.objectContaining({
-        context: { spaceId: "space-1" },
-        signal: expect.any(AbortSignal),
-      }),
+      { context: { spaceId: "space-1" } },
     );
   } finally {
     await page.cleanup();

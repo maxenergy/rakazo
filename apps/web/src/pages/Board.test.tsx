@@ -231,7 +231,10 @@ it("discards a load-more response after changing filters and keeps normal pagina
           resolvePage = resolve;
         }),
     )
-    .mockResolvedValue({ items: [ticket("Filtered", "ticket-3", "done")] });
+    .mockResolvedValue({
+      items: [ticket("Filtered", "ticket-3", "done")],
+      nextCursor: "cursor-filtered",
+    });
   const page = await renderBoard(undefined, "/app/tickets");
   try {
     const loadButton = () =>

@@ -74,6 +74,7 @@ export async function exportMemoryMarkdown(
   const page = docs.slice(0, limit);
   return {
     markdown: page.map((doc) => `# ${doc.path}\n\n${doc.content}`).join("\n\n"),
+    count: page.length,
     total,
     truncated,
     nextCursor: truncated ? page[page.length - 1]!.id : null,

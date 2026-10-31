@@ -167,6 +167,7 @@ it("loads memory content by path for opening and downloading", async () => {
   memory.read.mockResolvedValue({ ...doc, content: "Full body" });
   memory.exportMarkdown.mockResolvedValue({
     markdown: "# MEMORY.md\n\nFull body",
+    count: 1,
     total: 1,
     truncated: false,
     nextCursor: null,
@@ -224,9 +225,27 @@ it("reports truncated exports and follows cursors for complete exports", async (
   memory.list.mockResolvedValue([doc]);
   memory.exportMarkdown
     .mockReset()
-    .mockResolvedValueOnce({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" })
-    .mockResolvedValueOnce({ markdown: "# two", total: 150, truncated: true, nextCursor: "c2" })
-    .mockResolvedValueOnce({ markdown: "# three", total: 150, truncated: false, nextCursor: null });
+    .mockResolvedValueOnce({
+      markdown: "# one",
+      count: 100,
+      total: 150,
+      truncated: true,
+      nextCursor: "c1",
+    })
+    .mockResolvedValueOnce({
+      markdown: "# two",
+      count: 45,
+      total: 150,
+      truncated: true,
+      nextCursor: "c2",
+    })
+    .mockResolvedValueOnce({
+      markdown: "# three",
+      count: 2,
+      total: 150,
+      truncated: false,
+      nextCursor: null,
+    });
   api.list.mockResolvedValue([]);
   const container = document.createElement("div");
   const root = createRoot(container);
@@ -243,10 +262,23 @@ it("reports truncated exports and follows cursors for complete exports", async (
     expect(memory.exportMarkdown).toHaveBeenCalledTimes(1);
     memory.exportMarkdown
       .mockReset()
-      .mockResolvedValueOnce({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" })
-      .mockResolvedValueOnce({ markdown: "# two", total: 150, truncated: true, nextCursor: "c2" })
+      .mockResolvedValueOnce({
+        markdown: "# one",
+        count: 100,
+        total: 150,
+        truncated: true,
+        nextCursor: "c1",
+      })
+      .mockResolvedValueOnce({
+        markdown: "# two",
+        count: 45,
+        total: 150,
+        truncated: true,
+        nextCursor: "c2",
+      })
       .mockResolvedValueOnce({
         markdown: "# three",
+        count: 2,
         total: 150,
         truncated: false,
         nextCursor: null,
@@ -261,7 +293,7 @@ it("reports truncated exports and follows cursors for complete exports", async (
     const bytes = vi.mocked(downloadArtifactBytes).mock.calls.at(-1)![2];
     expect(new TextDecoder().decode(bytes)).toBe("# one\n\n# two\n\n# three");
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
-      "Complete export: 150 documents.",
+      "Complete export: 147 documents.",
     );
   } finally {
     await act(async () => root.unmount());
@@ -285,6 +317,7 @@ it("cancels a complete export without requesting another page or downloading", a
   ]);
   let resolveFirst: (page: {
     markdown: string;
+    count: number;
     total: number;
     truncated: boolean;
     nextCursor: string | null;
@@ -310,7 +343,13 @@ it("cancels a complete export without requesting another page or downloading", a
     await act(async () => button("Cancel export").click());
     expect(signal.aborted).toBe(true);
     await act(async () =>
-      resolveFirst({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" }),
+      resolveFirst({
+        markdown: "# one",
+        count: 100,
+        total: 150,
+        truncated: true,
+        nextCursor: "c1",
+      }),
     );
     expect(memory.exportMarkdown).toHaveBeenCalledTimes(1);
     expect(downloadArtifactBytes).not.toHaveBeenCalled();
@@ -340,8 +379,20 @@ it("stops at the page limit without creating a partial file", async () => {
   ]);
   memory.exportMarkdown
     .mockReset()
-    .mockResolvedValueOnce({ markdown: "# one", total: 0, truncated: true, nextCursor: "c1" })
-    .mockResolvedValueOnce({ markdown: "# two", total: 0, truncated: true, nextCursor: "c2" });
+    .mockResolvedValueOnce({
+      markdown: "# one",
+      count: 100,
+      total: 0,
+      truncated: true,
+      nextCursor: "c1",
+    })
+    .mockResolvedValueOnce({
+      markdown: "# two",
+      count: 1,
+      total: 0,
+      truncated: true,
+      nextCursor: "c2",
+    });
   const { downloadArtifactBytes } = await import("../lib/artifact-open");
   vi.mocked(downloadArtifactBytes).mockClear();
   const container = document.createElement("div");

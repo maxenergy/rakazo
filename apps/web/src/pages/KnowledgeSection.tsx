@@ -46,7 +46,9 @@ export function KnowledgeSection({
         <TabsContent value="memory">
           <MemoryDocumentList
             key={botId}
-            load={() => rpc.memory.list({ botId, scope: "bot" }).then((res) => res.documents)}
+            load={(cursor) =>
+              rpc.memory.list({ botId, scope: "bot", limit: 100, ...(cursor ? { cursor } : {}) })
+            }
             exportFilename="memory.md"
             exportArgs={{ botId, scope: "bot" }}
             testId="bot-knowledge-memory"
@@ -68,7 +70,9 @@ export function SpaceMemorySection() {
         <Trans>Shared documents</Trans>
       </div>
       <MemoryDocumentList
-        load={() => rpc.memory.list({ scope: "user" }).then((res) => res.documents)}
+        load={(cursor) =>
+          rpc.memory.list({ scope: "user", limit: 100, ...(cursor ? { cursor } : {}) })
+        }
         exportFilename="space-memory.md"
         exportArgs={{ scope: "user" }}
         testId="space-memory-list"
@@ -83,13 +87,17 @@ function MemoryDocumentList({
   exportArgs,
   testId,
 }: {
-  load: () => Promise<Omit<MemoryDocument, "content">[]>;
+  load: (
+    cursor?: string,
+  ) => Promise<{ documents: Omit<MemoryDocument, "content">[]; nextCursor: string | null }>;
   exportFilename: string;
   exportArgs: { botId?: string; scope?: "bot" | "user" };
   testId: string;
 }) {
   const { t } = useLingui();
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [docs, setDocs] = useState<Omit<MemoryDocument, "content">[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -100,6 +108,7 @@ function MemoryDocumentList({
   const [exporting, setExporting] = useState(false);
   const exportController = useRef<AbortController | null>(null);
   const generation = useRef(0);
+  const loadingMoreRef = useRef(false);
   const loadRef = useRef(load);
   loadRef.current = load;
 
@@ -107,14 +116,16 @@ function MemoryDocumentList({
     const current = ++generation.current;
     void loadRef
       .current()
-      .then((list) => {
+      .then((page) => {
         if (current !== generation.current) return;
-        setDocs(list);
+        setDocs(page.documents);
+        setNextCursor(page.nextCursor);
         setLoading(false);
       })
       .catch(() => {
         if (current !== generation.current) return;
         setDocs([]);
+        setNextCursor(null);
         setLoading(false);
         setError(t`Could not load`);
       });
@@ -122,6 +133,26 @@ function MemoryDocumentList({
       generation.current += 1;
     };
   }, [t]);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMoreRef.current) return;
+    const cursor = nextCursor;
+    const current = generation.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const page = await loadRef.current(cursor);
+      if (current !== generation.current) return;
+      setDocs((existing) => [...existing, ...page.documents]);
+      setNextCursor(page.nextCursor);
+    } catch {
+      if (current === generation.current) setError(t`Could not load`);
+    } finally {
+      loadingMoreRef.current = false;
+      if (current === generation.current) setLoadingMore(false);
+    }
+  }
 
   async function openDoc(doc: Omit<MemoryDocument, "content">) {
     setBusy(true);
@@ -287,6 +318,17 @@ function MemoryDocumentList({
           ) : null}
         </div>
       ))}
+      {nextCursor ? (
+        <Button
+          variant="ghost"
+          type="button"
+          disabled={busy || loadingMore}
+          onClick={() => void loadMore()}
+          className="mt-2 px-2.5 text-[13px] text-muted-foreground hover:text-foreground"
+        >
+          {loadingMore ? <Trans>Loading more</Trans> : <Trans>Load more</Trans>}
+        </Button>
+      ) : null}
       {docs.length ? (
         <>
           <Button

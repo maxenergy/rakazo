@@ -2972,6 +2972,7 @@ msgstr "Charger les messages précédents"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "Charger plus"
@@ -3004,6 +3005,10 @@ msgstr "Chargement des paramètres de mémoire…"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Chargement du catalogue de modèles…"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Loading more"
+msgstr "Chargement en cours"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

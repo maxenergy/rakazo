@@ -2972,6 +2972,7 @@ msgstr "पुराने संदेश लोड करें"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "और लोड करें"
@@ -3004,6 +3005,10 @@ msgstr "मेमोरी सेटिंग्स लोड हो रही �
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "मॉडल कैटलॉग लोड हो रहा है…"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Loading more"
+msgstr "और लोड हो रहा है"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

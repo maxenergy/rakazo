@@ -3008,7 +3008,7 @@ msgstr "正在加载模型目录…"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Loading more"
-msgstr ""
+msgstr "正在加载更多"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

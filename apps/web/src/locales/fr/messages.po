@@ -3008,7 +3008,7 @@ msgstr "Chargement du catalogue de modèles…"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Loading more"
-msgstr ""
+msgstr "Chargement en cours"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

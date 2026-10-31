@@ -3008,7 +3008,7 @@ msgstr "मॉडल कैटलॉग लोड हो रहा है…"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Loading more"
-msgstr ""
+msgstr "और लोड हो रहा है"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

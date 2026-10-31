@@ -3008,7 +3008,7 @@ msgstr "Cargando catálogo de modelos…"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Loading more"
-msgstr ""
+msgstr "Cargando más"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

@@ -3008,7 +3008,7 @@ msgstr "Model kataloğu yükleniyor…"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Loading more"
-msgstr ""
+msgstr "Daha fazla yükleniyor"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

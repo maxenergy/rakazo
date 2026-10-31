@@ -423,6 +423,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
     expect(await rpc<unknown[]>(app, intruder, "memory/list", { botId: ownerBot.id })).toEqual([]);
     expect(await rpc(app, intruder, "memory/exportMarkdown", { botId: ownerBot.id })).toEqual({
       markdown: "",
+      count: 0,
       total: 0,
       truncated: false,
       nextCursor: null,

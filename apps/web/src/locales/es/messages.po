@@ -931,7 +931,7 @@ msgstr "Cancelar"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Cancel export"
-msgstr ""
+msgstr "Cancelar exportación"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Cancel new bot"
@@ -2482,11 +2482,11 @@ msgstr "Exportar"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Export canceled. No file was created."
-msgstr ""
+msgstr "Exportación cancelada. No se creó ningún archivo."
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Export stopped after exceeding the page limit. No file was created."
-msgstr ""
+msgstr "La exportación se detuvo al superar el límite de páginas. No se creó ningún archivo."
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"

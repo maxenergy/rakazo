@@ -931,7 +931,7 @@ msgstr "İptal"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Cancel export"
-msgstr ""
+msgstr "Dışa aktarmayı iptal et"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Cancel new bot"
@@ -2482,11 +2482,11 @@ msgstr "Dışa aktar"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Export canceled. No file was created."
-msgstr ""
+msgstr "Dışa aktarma iptal edildi. Dosya oluşturulmadı."
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Export stopped after exceeding the page limit. No file was created."
-msgstr ""
+msgstr "Sayfa sınırı aşıldıktan sonra dışa aktarma durduruldu. Dosya oluşturulmadı."
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"

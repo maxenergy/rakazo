@@ -929,6 +929,10 @@ msgstr "सर्वर तक नहीं पहुंचा जा सका�
 msgid "Cancel"
 msgstr "रद्द करें"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Cancel export"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Cancel new bot"
 msgstr "नया बॉट रद्द करें"
@@ -1234,10 +1238,9 @@ msgstr "सघन"
 msgid "Complete"
 msgstr "पूर्ण"
 
-#. placeholder {0}: page.total
 #: src/pages/KnowledgeSection.tsx
-msgid "Complete export: {0} documents."
-msgstr "पूरा निर्यात: {0} दस्तावेज़।"
+msgid "Complete export: {exportedCount} documents."
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"
@@ -2476,6 +2479,14 @@ msgstr "समय समाप्त"
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
 msgstr "एक्सपोर्ट करें"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Export canceled. No file was created."
+msgstr ""
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Export stopped after exceeding the page limit. No file was created."
+msgstr ""
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"

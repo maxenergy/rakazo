@@ -188,7 +188,9 @@ function MemoryDocumentList({
           page = await requestPage(page.nextCursor);
           if (controller.signal.aborted) return;
           pages += 1;
-          const remaining = Number.isFinite(firstPageTotal) ? Math.max(0, firstPageTotal - exportedCount) : 100;
+          const remaining = Number.isFinite(firstPageTotal)
+            ? Math.max(0, firstPageTotal - exportedCount)
+            : 100;
           exportedCount += Math.min(100, remaining);
           markdown = [markdown, page.markdown].filter(Boolean).join("\n\n");
         }

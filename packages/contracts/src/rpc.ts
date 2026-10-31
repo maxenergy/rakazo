@@ -619,6 +619,7 @@ export const appContract = {
       .output(
         z.object({
           markdown: z.string(),
+          count: z.number().int(),
           total: z.number().int(),
           truncated: z.boolean(),
           nextCursor: Id.nullable(),

@@ -175,8 +175,7 @@ function MemoryDocumentList({
       let page = await requestPage();
       if (controller.signal.aborted) return;
       let markdown = page.markdown;
-      const firstPageTotal = page.total;
-      let exportedCount = page.truncated ? 100 : Number.isFinite(page.total) ? page.total : 0;
+      let exportedCount = page.count;
       if (!complete && page.truncated) {
         setExportNotice(
           t`Export truncated: showing the first 100 of ${page.total} documents. Download all for the complete export.`,
@@ -188,10 +187,7 @@ function MemoryDocumentList({
           page = await requestPage(page.nextCursor);
           if (controller.signal.aborted) return;
           pages += 1;
-          const remaining = Number.isFinite(firstPageTotal)
-            ? Math.max(0, firstPageTotal - exportedCount)
-            : 100;
-          exportedCount += Math.min(100, remaining);
+          exportedCount += page.count;
           markdown = [markdown, page.markdown].filter(Boolean).join("\n\n");
         }
         if (page.nextCursor) {

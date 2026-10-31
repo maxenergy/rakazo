@@ -71,6 +71,7 @@ describe("memory documents", () => {
     const first = await exportMemoryMarkdown(db, actor, { limit: 2 });
     expect(first).toEqual({
       markdown: "# a.md\n\nbody-a\n\n# b.md\n\nbody-b",
+      count: 2,
       total: 3,
       truncated: true,
       nextCursor: "b",
@@ -78,6 +79,7 @@ describe("memory documents", () => {
     const last = await exportMemoryMarkdown(db, actor, { limit: 2, cursor: first.nextCursor! });
     expect(last).toEqual({
       markdown: "# c.md\n\nbody-c",
+      count: 1,
       total: 3,
       truncated: false,
       nextCursor: null,
@@ -85,6 +87,7 @@ describe("memory documents", () => {
     expect(findMany.mock.calls[0]![0]).toMatchObject({ orderBy: { id: "asc" }, take: 3 });
     expect(await exportMemoryMarkdown(db, actor, { botId: "missing" })).toEqual({
       markdown: "",
+      count: 0,
       total: 0,
       truncated: false,
       nextCursor: null,

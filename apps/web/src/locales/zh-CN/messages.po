@@ -2972,6 +2972,7 @@ msgstr "加载更早的消息"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "加载更多"
@@ -3004,6 +3005,10 @@ msgstr "正在加载记忆设置…"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "正在加载模型目录…"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Loading more"
+msgstr ""
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

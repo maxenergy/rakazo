@@ -2972,6 +2972,7 @@ msgstr "Load earlier messages"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "Load more"
@@ -3004,6 +3005,10 @@ msgstr "Loading memory settings…"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Loading model catalog…"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Loading more"
+msgstr "Loading more"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

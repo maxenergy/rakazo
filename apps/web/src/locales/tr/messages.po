@@ -2972,6 +2972,7 @@ msgstr "Önceki mesajları yükle"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/work-location.tsx
 msgid "Load more"
 msgstr "Daha fazla yükle"
@@ -3004,6 +3005,10 @@ msgstr "Hafıza ayarları yükleniyor…"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Model kataloğu yükleniyor…"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Loading more"
+msgstr ""
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"

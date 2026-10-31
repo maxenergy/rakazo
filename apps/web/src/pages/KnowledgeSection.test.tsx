@@ -7,7 +7,10 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 
 const memory = vi.hoisted(() => ({
-  list: vi.fn(async () => ({ documents: [] as unknown[], nextCursor: null })),
+  list: vi.fn(async (_input?: { cursor?: string; limit?: number }) => ({
+    documents: [] as unknown[],
+    nextCursor: null as string | null,
+  })),
   read: vi.fn(),
   exportMarkdown: vi.fn(),
 }));
@@ -146,6 +149,51 @@ it("labels the skills tab as shared and badges built-in and plugin skills", asyn
     expect(container.textContent).toContain("Built-in");
     expect(button("Close")).toBeTruthy();
     expect(container.textContent).not.toContain("Delete");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("loads memory documents page by page and hides load more after the last page", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const first = {
+    id: "doc-1",
+    scope: "bot",
+    botId: "bot-fixture",
+    path: "MEMORY.md",
+    revision: 1,
+    updatedAt: "",
+  };
+  const second = { ...first, id: "doc-2", path: "NOTES.md" };
+  memory.list.mockReset();
+  memory.list
+    .mockResolvedValueOnce({ documents: [first], nextCursor: "cursor-2" })
+    .mockResolvedValueOnce({ documents: [second], nextCursor: null });
+  api.list.mockResolvedValue([]);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const button = (text: string) => {
+    const found = [...container.querySelectorAll("button")].find((entry) =>
+      entry.textContent?.includes(text),
+    );
+    if (!found) throw new Error(`Missing button: ${text}`);
+    return found;
+  };
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+    );
+    expect(container.textContent).toContain("MEMORY.md");
+    expect(button("Load more")).toBeTruthy();
+    await act(async () => button("Load more").click());
+    expect(container.textContent).toContain("MEMORY.md");
+    expect(container.textContent).toContain("NOTES.md");
+    expect(container.querySelectorAll('[data-testid="bot-knowledge-memory"] > div')).toHaveLength(2);
+    expect(container.textContent).not.toContain("Load more");
+    expect(memory.list).toHaveBeenCalledTimes(2);
+    expect(memory.list.mock.calls[1]?.[0]).toMatchObject({ cursor: "cursor-2", limit: 100 });
   } finally {
     await act(async () => root.unmount());
     container.remove();

@@ -16,6 +16,7 @@ const docs = ["c", "a", "b"].map((id) => ({
   path: `${id}.md`,
   content: `body-${id}`,
   revision: 1,
+  createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),
 }));
 function fixture() {
@@ -24,7 +25,9 @@ function fixture() {
     Object.entries(filter).every(([key, value]) =>
       key === "id" && typeof value === "object"
         ? row.id > (value as { gt: string }).gt
-        : row[key as keyof typeof row] === value,
+        : key === "createdAt" && typeof value === "object"
+          ? row.createdAt <= (value as { lte: Date }).lte
+          : row[key as keyof typeof row] === value,
     );
   const findMany = vi.fn(async (query) =>
     rows
@@ -39,7 +42,13 @@ function fixture() {
   );
   const findFirst = vi.fn(async (query) => rows.find((row) => matches(row, query.where)) ?? null);
   const count = vi.fn(async (query) => rows.filter((row) => matches(row, query.where)).length);
-  return { db: { memoryDocument: { findMany, findFirst, count } } as never, findMany, findFirst };
+  return {
+    db: { memoryDocument: { findMany, findFirst, count } } as never,
+    findMany,
+    findFirst,
+    rows,
+    count,
+  };
 }
 describe("memory documents", () => {
   it("lists metadata without selecting or returning content", async () => {
@@ -91,7 +100,7 @@ describe("memory documents", () => {
       count: 2,
       total: 3,
       truncated: true,
-      nextCursor: "b",
+      nextCursor: expect.stringMatching(/^v1:/),
     });
     const last = await exportMemoryMarkdown(db, actor, { limit: 2, cursor: first.nextCursor! });
     expect(last).toEqual({
@@ -109,6 +118,59 @@ describe("memory documents", () => {
       truncated: false,
       nextCursor: null,
     });
+  });
+  it("keeps the export boundary across pages and accepts legacy cursors", async () => {
+    const { db, rows, count, findMany } = fixture();
+    const boundary = new Date("2026-06-01T00:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(boundary);
+    try {
+      rows.push({ ...docs[0]!, id: "d", path: "d.md", content: "body-d", createdAt: boundary });
+      const first = await exportMemoryMarkdown(db, actor, { limit: 2 });
+      vi.setSystemTime(new Date(boundary.getTime() + 1000));
+      rows.push({ ...docs[0]!, id: "z", createdAt: new Date() });
+      const last = await exportMemoryMarkdown(db, actor, { limit: 2, cursor: first.nextCursor! });
+      expect(first.count).toBe(2);
+      expect(first.total).toBe(4);
+      expect(last).toEqual({
+        markdown: "# c.md\n\nbody-c\n\n# d.md\n\nbody-d",
+        count: 2,
+        total: 4,
+        truncated: false,
+        nextCursor: null,
+      });
+      expect(count.mock.lastCall![0].where.createdAt).toEqual({ lte: boundary });
+      expect(findMany.mock.lastCall![0].where).toMatchObject({
+        createdAt: { lte: boundary },
+        id: { gt: "b" },
+      });
+      const legacy = await exportMemoryMarkdown(db, actor, { cursor: "b", limit: 2 });
+      expect(legacy.total).toBe(5);
+      expect(legacy.nextCursor).toBe("d");
+      expect(count.mock.lastCall![0].where).not.toHaveProperty("createdAt");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("rejects malformed export cursors before querying", async () => {
+    const { db, findMany, count } = fixture();
+    for (const cursor of [
+      "",
+      "bad|cursor",
+      "v1:!",
+      ...[
+        "invalid|b",
+        "2026-02-30T00:00:00.000Z|b",
+        "2026-01-01T00:00:00.000Z|",
+        "2026-01-01T00:00:00.000Z|b|extra",
+      ].map((value) => `v1:${Buffer.from(value).toString("base64url")}`),
+    ]) {
+      await expect(exportMemoryMarkdown(db, actor, { cursor })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+      });
+    }
+    expect(findMany).not.toHaveBeenCalled();
+    expect(count).not.toHaveBeenCalled();
   });
   it("caps requests to 100 rows", async () => {
     const { db, findMany } = fixture();

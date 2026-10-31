@@ -46,7 +46,9 @@ export function KnowledgeSection({
         <TabsContent value="memory">
           <MemoryDocumentList
             key={botId}
-            load={(cursor) => rpc.memory.list({ botId, scope: "bot", limit: 100, ...(cursor ? { cursor } : {}) })}
+            load={(cursor) =>
+              rpc.memory.list({ botId, scope: "bot", limit: 100, ...(cursor ? { cursor } : {}) })
+            }
             exportFilename="memory.md"
             exportArgs={{ botId, scope: "bot" }}
             testId="bot-knowledge-memory"
@@ -68,7 +70,9 @@ export function SpaceMemorySection() {
         <Trans>Shared documents</Trans>
       </div>
       <MemoryDocumentList
-        load={(cursor) => rpc.memory.list({ scope: "user", limit: 100, ...(cursor ? { cursor } : {}) })}
+        load={(cursor) =>
+          rpc.memory.list({ scope: "user", limit: 100, ...(cursor ? { cursor } : {}) })
+        }
         exportFilename="space-memory.md"
         exportArgs={{ scope: "user" }}
         testId="space-memory-list"
@@ -83,7 +87,9 @@ function MemoryDocumentList({
   exportArgs,
   testId,
 }: {
-  load: (cursor?: string) => Promise<{ documents: Omit<MemoryDocument, "content">[]; nextCursor: string | null }>;
+  load: (
+    cursor?: string,
+  ) => Promise<{ documents: Omit<MemoryDocument, "content">[]; nextCursor: string | null }>;
   exportFilename: string;
   exportArgs: { botId?: string; scope?: "bot" | "user" };
   testId: string;

@@ -190,7 +190,9 @@ it("loads memory documents page by page and hides load more after the last page"
     await act(async () => button("Load more").click());
     expect(container.textContent).toContain("MEMORY.md");
     expect(container.textContent).toContain("NOTES.md");
-    expect(container.querySelectorAll('[data-testid="bot-knowledge-memory"] > div')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-testid="bot-knowledge-memory"] > div')).toHaveLength(
+      2,
+    );
     expect(container.textContent).not.toContain("Load more");
     expect(memory.list).toHaveBeenCalledTimes(2);
     expect(memory.list.mock.calls[1]?.[0]).toMatchObject({ cursor: "cursor-2", limit: 100 });

@@ -1240,7 +1240,7 @@ msgstr "완료"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Complete export: {exportedCount} documents."
-msgstr ""
+msgstr "내보내기 완료: 문서 {exportedCount}개."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"

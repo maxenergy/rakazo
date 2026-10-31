@@ -1240,7 +1240,7 @@ msgstr "Завершить"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Complete export: {exportedCount} documents."
-msgstr ""
+msgstr "Экспорт завершён: документов — {exportedCount}."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"

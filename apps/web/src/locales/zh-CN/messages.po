@@ -1240,7 +1240,7 @@ msgstr "完成"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Complete export: {exportedCount} documents."
-msgstr ""
+msgstr "导出完成：{exportedCount} 个文档。"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"

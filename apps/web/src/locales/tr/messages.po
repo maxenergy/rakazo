@@ -1240,7 +1240,7 @@ msgstr "Tamamlandı"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Complete export: {exportedCount} documents."
-msgstr ""
+msgstr "Dışa aktarma tamamlandı: {exportedCount} belge."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"

@@ -1240,7 +1240,7 @@ msgstr "पूर्ण"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Complete export: {exportedCount} documents."
-msgstr ""
+msgstr "निर्यात पूरा हुआ: {exportedCount} दस्तावेज़।"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"

@@ -70,12 +70,38 @@ export async function exportMemoryMarkdown(
   actor: Actor,
   input: Filter & { cursor?: string; limit?: number },
 ) {
-  const filter = where(actor, input);
+  let boundary: Date | undefined = input.cursor === undefined ? new Date() : undefined;
+  let afterId = input.cursor;
+  if (input.cursor !== undefined) {
+    if (input.cursor.startsWith("v1:")) {
+      const encoded = input.cursor.slice(3);
+      const decoded = Buffer.from(encoded, "base64url").toString("utf8");
+      const parts = decoded.split("|");
+      const date = new Date(parts[0] ?? "");
+      if (
+        Buffer.from(decoded).toString("base64url") !== encoded ||
+        parts.length !== 2 ||
+        !Number.isFinite(date.getTime()) ||
+        date.toISOString() !== parts[0] ||
+        !/^[A-Za-z0-9_-]+$/.test(parts[1] ?? "")
+      ) {
+        throw new ORPCError("BAD_REQUEST");
+      }
+      boundary = date;
+      afterId = parts[1];
+    } else if (!/^[A-Za-z0-9_-]+$/.test(input.cursor)) {
+      throw new ORPCError("BAD_REQUEST");
+    }
+  }
+  const filter = {
+    ...where(actor, input),
+    ...(boundary ? { createdAt: { lte: boundary } } : {}),
+  };
   const limit = Math.min(100, Math.max(1, input.limit ?? 100));
   const [total, docs] = await Promise.all([
     db.memoryDocument.count({ where: filter }),
     db.memoryDocument.findMany({
-      where: { ...filter, ...(input.cursor ? { id: { gt: input.cursor } } : {}) },
+      where: { ...filter, ...(afterId ? { id: { gt: afterId } } : {}) },
       orderBy: { id: "asc" },
       take: limit + 1,
       select: { id: true, path: true, content: true },
@@ -88,6 +114,10 @@ export async function exportMemoryMarkdown(
     count: page.length,
     total,
     truncated,
-    nextCursor: truncated ? page[page.length - 1]!.id : null,
+    nextCursor: truncated
+      ? boundary
+        ? `v1:${Buffer.from(`${boundary.toISOString()}|${page[page.length - 1]!.id}`).toString("base64url")}`
+        : page[page.length - 1]!.id
+      : null,
   };
 }

@@ -97,6 +97,8 @@ function MemoryDocumentList({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const exportController = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const loadRef = useRef(load);
   loadRef.current = load;
@@ -158,37 +160,72 @@ function MemoryDocumentList({
 
   async function exportMarkdown(complete: boolean) {
     if (busy) return;
+    const controller = new AbortController();
+    exportController.current = controller;
     setBusy(true);
+    setExporting(true);
     setError(null);
     setExportNotice(null);
     try {
-      let page = await rpc.memory.exportMarkdown({ ...exportArgs, limit: 100 });
+      const requestPage = (cursor?: string) =>
+        rpc.memory.exportMarkdown(
+          { ...exportArgs, ...(cursor ? { cursor } : {}), limit: 100 },
+          { signal: controller.signal },
+        );
+      let page = await requestPage();
+      if (controller.signal.aborted) return;
       let markdown = page.markdown;
+      const firstPageTotal = page.total;
+      let exportedCount = page.truncated ? 100 : Number.isFinite(page.total) ? page.total : 0;
       if (!complete && page.truncated) {
         setExportNotice(
           t`Export truncated: showing the first 100 of ${page.total} documents. Download all for the complete export.`,
         );
       } else if (complete) {
-        while (page.nextCursor) {
-          page = await rpc.memory.exportMarkdown({
-            ...exportArgs,
-            cursor: page.nextCursor,
-            limit: 100,
-          });
+        const maxPages = Number.isFinite(page.total) ? Math.ceil(page.total / 100) + 2 : 200;
+        let pages = 1;
+        while (page.nextCursor && pages < maxPages) {
+          page = await requestPage(page.nextCursor);
+          if (controller.signal.aborted) return;
+          pages += 1;
+          const remaining = Number.isFinite(firstPageTotal)
+            ? Math.max(0, firstPageTotal - exportedCount)
+            : 100;
+          exportedCount += Math.min(100, remaining);
           markdown = [markdown, page.markdown].filter(Boolean).join("\n\n");
         }
-        setExportNotice(t`Complete export: ${page.total} documents.`);
+        if (page.nextCursor) {
+          setExportNotice(t`Export stopped after exceeding the page limit. No file was created.`);
+          return;
+        }
+        setExportNotice(t`Complete export: ${exportedCount} documents.`);
       }
+      if (controller.signal.aborted) return;
       downloadArtifactBytes(exportFilename, "text/markdown", new TextEncoder().encode(markdown));
     } catch {
+      if (controller.signal.aborted) return;
       setError(t`Could not load`);
     } finally {
-      setBusy(false);
+      if (exportController.current === controller) {
+        exportController.current = null;
+        setBusy(false);
+        setExporting(false);
+      }
+      if (controller.signal.aborted) setExportNotice(t`Export canceled. No file was created.`);
     }
+  }
+
+  function cancelExport() {
+    exportController.current?.abort();
   }
 
   return (
     <div data-testid={testId}>
+      {exporting ? (
+        <Button type="button" variant="ghost" onClick={cancelExport}>
+          <Trans>Cancel export</Trans>
+        </Button>
+      ) : null}
       {exportNotice ? (
         <div role="status" className="px-2.5 pb-2 text-[13px] text-muted-foreground">
           {exportNotice}

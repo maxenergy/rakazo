@@ -929,6 +929,10 @@ msgstr "Server nicht erreichbar."
 msgid "Cancel"
 msgstr "Abbrechen"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Cancel export"
+msgstr "Export abbrechen"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Cancel new bot"
 msgstr "Neuen Bot abbrechen"
@@ -1234,10 +1238,9 @@ msgstr "Kompakt"
 msgid "Complete"
 msgstr "Abschließen"
 
-#. placeholder {0}: page.total
 #: src/pages/KnowledgeSection.tsx
-msgid "Complete export: {0} documents."
-msgstr "Vollständiger Export: {0} Dokumente."
+msgid "Complete export: {exportedCount} documents."
+msgstr "Export abgeschlossen: {exportedCount} Dokumente."
 
 #: src/pages/RoutineEditor.tsx
 msgid "Completed"
@@ -2476,6 +2479,14 @@ msgstr "Abgelaufen"
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
 msgstr "Exportieren"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Export canceled. No file was created."
+msgstr "Export abgebrochen. Es wurde keine Datei erstellt."
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Export stopped after exceeding the page limit. No file was created."
+msgstr "Der Export wurde nach Überschreiten des Seitenlimits gestoppt. Es wurde keine Datei erstellt."
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Export this week's list from the CRM and drop it in the shared folder"

@@ -198,7 +198,7 @@ it("loads memory content by path for opening and downloading", async () => {
     );
     const { downloadArtifactBytes } = await import("../lib/artifact-open");
     const bytes = vi.mocked(downloadArtifactBytes).mock.calls.at(-1)![2];
-    expect(memory.exportMarkdown).toHaveBeenCalledWith({
+    expect(memory.exportMarkdown.mock.calls[0]?.[0]).toEqual({
       botId: "bot-fixture",
       scope: "bot",
       limit: 100,
@@ -252,7 +252,7 @@ it("reports truncated exports and follows cursors for complete exports", async (
         nextCursor: null,
       });
     await act(async () => button("Download all as markdown").click());
-    expect(memory.exportMarkdown.mock.calls).toEqual([
+    expect(memory.exportMarkdown.mock.calls.map(([args]) => [args])).toEqual([
       [{ botId: "bot-fixture", scope: "bot", limit: 100 }],
       [{ botId: "bot-fixture", scope: "bot", cursor: "c1", limit: 100 }],
       [{ botId: "bot-fixture", scope: "bot", cursor: "c2", limit: 100 }],
@@ -268,5 +268,101 @@ it("reports truncated exports and follows cursors for complete exports", async (
     vi.unstubAllGlobals();
     memory.list.mockResolvedValue([]);
     memory.exportMarkdown.mockReset();
+  }
+});
+
+it("cancels a complete export without requesting another page or downloading", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  memory.list.mockResolvedValue([
+    {
+      id: "doc",
+      scope: "bot",
+      botId: "bot-fixture",
+      path: "MEMORY.md",
+      revision: 1,
+      updatedAt: "",
+    },
+  ]);
+  let resolveFirst: (page: {
+    markdown: string;
+    total: number;
+    truncated: boolean;
+    nextCursor: string | null;
+  }) => void = () => undefined;
+  memory.exportMarkdown.mockReset().mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      }),
+  );
+  const { downloadArtifactBytes } = await import("../lib/artifact-open");
+  vi.mocked(downloadArtifactBytes).mockClear();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const button = (label: string) =>
+    [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(label))!;
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+    );
+    await act(async () => button("Download all as markdown").click());
+    const signal = memory.exportMarkdown.mock.calls[0]?.[1]?.signal as AbortSignal;
+    await act(async () => button("Cancel export").click());
+    expect(signal.aborted).toBe(true);
+    await act(async () =>
+      resolveFirst({ markdown: "# one", total: 150, truncated: true, nextCursor: "c1" }),
+    );
+    expect(memory.exportMarkdown).toHaveBeenCalledTimes(1);
+    expect(downloadArtifactBytes).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Export canceled. No file was created.",
+    );
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+    memory.list.mockResolvedValue([]);
+    memory.exportMarkdown.mockReset();
+    vi.mocked(downloadArtifactBytes).mockReset();
+  }
+});
+
+it("stops at the page limit without creating a partial file", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  memory.list.mockResolvedValue([
+    {
+      id: "doc",
+      scope: "bot",
+      botId: "bot-fixture",
+      path: "MEMORY.md",
+      revision: 1,
+      updatedAt: "",
+    },
+  ]);
+  memory.exportMarkdown
+    .mockReset()
+    .mockResolvedValueOnce({ markdown: "# one", total: 0, truncated: true, nextCursor: "c1" })
+    .mockResolvedValueOnce({ markdown: "# two", total: 0, truncated: true, nextCursor: "c2" });
+  const { downloadArtifactBytes } = await import("../lib/artifact-open");
+  vi.mocked(downloadArtifactBytes).mockClear();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const button = (label: string) =>
+    [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(label))!;
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+    );
+    await act(async () => button("Download all as markdown").click());
+    expect(memory.exportMarkdown).toHaveBeenCalledTimes(2);
+    expect(downloadArtifactBytes).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Export stopped after exceeding the page limit. No file was created.",
+    );
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+    memory.list.mockResolvedValue([]);
+    memory.exportMarkdown.mockReset();
+    vi.mocked(downloadArtifactBytes).mockReset();
   }
 });

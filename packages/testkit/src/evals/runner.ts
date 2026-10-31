@@ -309,7 +309,11 @@ export async function runTrial(
     for (const [stepIndex, step] of scenario.steps.entries()) {
       if (Date.now() >= deadline) throw new EvalFailure("incomplete", "Trial time budget exceeded");
       if ("newWorkspace" in step) {
-        priorMemory = (await rpc<Array<{ content: string }>>(app, cookie, "memory/list", { botId }))
+        priorMemory = (
+          await rpc<{ documents: Array<{ content: string }> }>(app, cookie, "memory/list", {
+            botId,
+          })
+        ).documents
           .map((m) => m.content)
           .join("\n");
         await setupActor();
@@ -555,9 +559,14 @@ export async function runTrial(
         files[path] = null;
       }
     }
-    const memories = await rpc<Array<{ content: string }>>(handles.app, cookie, "memory/list", {
-      botId,
-    });
+    const { documents: memories } = await rpc<{ documents: Array<{ content: string }> }>(
+      handles.app,
+      cookie,
+      "memory/list",
+      {
+        botId,
+      },
+    );
     const routines = await handles.prisma.routine.findMany({
       where: { botId },
       select: { name: true, prompt: true, crons: true, active: true },

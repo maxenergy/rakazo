@@ -45,7 +45,7 @@ const demoRpc: Record<string, unknown> = {
   ],
   me: null,
   "scratchpad/list": [],
-  "memory/list": [],
+  "memory/list": { documents: [], nextCursor: null },
   "agentSkills/list": [],
 };
 

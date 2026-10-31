@@ -22,17 +22,28 @@ function where(actor: Actor, filter: Filter) {
   };
 }
 
-export async function listMemoryDocuments(db: Db, actor: Actor, filter: Filter) {
+export async function listMemoryDocuments(
+  db: Db,
+  actor: Actor,
+  input: Filter & { cursor?: string; limit?: number },
+) {
+  const limit =
+    Number.isInteger(input.limit) && input.limit! > 0 ? Math.min(input.limit!, 200) : 100;
   const docs = await db.memoryDocument.findMany({
-    where: where(actor, filter),
+    where: { ...where(actor, input), ...(input.cursor ? { id: { gt: input.cursor } } : {}) },
+    take: limit + 1,
     select: metadata,
     orderBy: { id: "asc" },
   });
-  return docs.map((doc) => ({
-    ...doc,
-    scope: doc.scope as "bot" | "user",
-    updatedAt: doc.updatedAt.toISOString(),
-  }));
+  const page = docs.slice(0, limit);
+  return {
+    documents: page.map((doc) => ({
+      ...doc,
+      scope: doc.scope as "bot" | "user",
+      updatedAt: doc.updatedAt.toISOString(),
+    })),
+    nextCursor: docs.length > limit ? page[page.length - 1]!.id : null,
+  };
 }
 
 export async function readMemoryDocument(

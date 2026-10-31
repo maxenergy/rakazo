@@ -45,9 +45,26 @@ describe("memory documents", () => {
   it("lists metadata without selecting or returning content", async () => {
     const { db, findMany } = fixture();
     const result = await listMemoryDocuments(db, actor, {});
-    expect(result).toHaveLength(3);
-    expect(result[0]).not.toHaveProperty("content");
+    expect(result.documents).toHaveLength(3);
+    expect(result.documents[0]).not.toHaveProperty("content");
     expect(findMany.mock.calls[0]![0].select).not.toHaveProperty("content");
+  });
+  it("lists every page once with a null cursor on the last page", async () => {
+    const { db, findMany } = fixture();
+    const first = await listMemoryDocuments(db, actor, { limit: 2 });
+    const last = await listMemoryDocuments(db, actor, { limit: 2, cursor: first.nextCursor! });
+    const ids = [...first.documents, ...last.documents].map((doc) => doc.id);
+    expect(ids).toEqual(["a", "b", "c"]);
+    expect(new Set(ids).size).toBe(3);
+    expect(first.nextCursor).toBe("b");
+    expect(last.nextCursor).toBeNull();
+    expect(findMany.mock.calls[0]![0]).toMatchObject({ orderBy: { id: "asc" }, take: 3 });
+    for (const limit of [undefined, 0, -1, 1.5, Number.NaN]) {
+      await listMemoryDocuments(db, actor, { limit });
+      expect(findMany.mock.lastCall![0].take).toBe(101);
+    }
+    await listMemoryDocuments(db, actor, { limit: 999 });
+    expect(findMany.mock.lastCall![0].take).toBe(201);
   });
   it("reads a single scoped path and isolates other spaces", async () => {
     const { db, findFirst } = fixture();

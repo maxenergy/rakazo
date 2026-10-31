@@ -597,8 +597,26 @@ export const appContract = {
   },
   memory: {
     list: oc
-      .input(z.object({ botId: Id.optional(), scope: z.enum(["bot", "user"]).optional() }))
-      .output(z.array(MemoryDocumentSchema.omit({ content: true }))),
+      .input(
+        z.object({
+          botId: Id.optional(),
+          scope: z.enum(["bot", "user"]).optional(),
+          cursor: Id.optional(),
+          limit: z
+            .number()
+            .int()
+            .positive()
+            .transform((value) => Math.min(value, 200))
+            .catch(100)
+            .default(100),
+        }),
+      )
+      .output(
+        z.object({
+          documents: z.array(MemoryDocumentSchema.omit({ content: true })),
+          nextCursor: Id.nullable(),
+        }),
+      ),
     read: oc
       .input(
         z.object({ scope: z.enum(["bot", "user"]), botId: Id.optional(), path: z.string().min(1) }),

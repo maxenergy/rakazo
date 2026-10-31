@@ -7,7 +7,7 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 
 const memory = vi.hoisted(() => ({
-  list: vi.fn(async () => [] as unknown[]),
+  list: vi.fn(async () => ({ documents: [] as unknown[], nextCursor: null })),
   read: vi.fn(),
   exportMarkdown: vi.fn(),
 }));
@@ -163,7 +163,7 @@ it("loads memory content by path for opening and downloading", async () => {
     revision: 1,
     updatedAt: "",
   };
-  memory.list.mockResolvedValue([doc]);
+  memory.list.mockResolvedValue({ documents: [doc], nextCursor: null });
   memory.read.mockResolvedValue({ ...doc, content: "Full body" });
   memory.exportMarkdown.mockResolvedValue({
     markdown: "# MEMORY.md\n\nFull body",
@@ -208,7 +208,7 @@ it("loads memory content by path for opening and downloading", async () => {
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
-    memory.list.mockResolvedValue([]);
+    memory.list.mockResolvedValue({ documents: [], nextCursor: null });
   }
 });
 
@@ -222,7 +222,7 @@ it("reports truncated exports and follows cursors for complete exports", async (
     revision: 1,
     updatedAt: "",
   };
-  memory.list.mockResolvedValue([doc]);
+  memory.list.mockResolvedValue({ documents: [doc], nextCursor: null });
   memory.exportMarkdown
     .mockReset()
     .mockResolvedValueOnce({
@@ -298,23 +298,26 @@ it("reports truncated exports and follows cursors for complete exports", async (
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
-    memory.list.mockResolvedValue([]);
+    memory.list.mockResolvedValue({ documents: [], nextCursor: null });
     memory.exportMarkdown.mockReset();
   }
 });
 
 it("cancels a complete export without requesting another page or downloading", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  memory.list.mockResolvedValue([
-    {
-      id: "doc",
-      scope: "bot",
-      botId: "bot-fixture",
-      path: "MEMORY.md",
-      revision: 1,
-      updatedAt: "",
-    },
-  ]);
+  memory.list.mockResolvedValue({
+    documents: [
+      {
+        id: "doc",
+        scope: "bot",
+        botId: "bot-fixture",
+        path: "MEMORY.md",
+        revision: 1,
+        updatedAt: "",
+      },
+    ],
+    nextCursor: null,
+  });
   let resolveFirst: (page: {
     markdown: string;
     count: number;
@@ -359,7 +362,7 @@ it("cancels a complete export without requesting another page or downloading", a
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
-    memory.list.mockResolvedValue([]);
+    memory.list.mockResolvedValue({ documents: [], nextCursor: null });
     memory.exportMarkdown.mockReset();
     vi.mocked(downloadArtifactBytes).mockReset();
   }
@@ -367,16 +370,19 @@ it("cancels a complete export without requesting another page or downloading", a
 
 it("stops at the page limit without creating a partial file", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  memory.list.mockResolvedValue([
-    {
-      id: "doc",
-      scope: "bot",
-      botId: "bot-fixture",
-      path: "MEMORY.md",
-      revision: 1,
-      updatedAt: "",
-    },
-  ]);
+  memory.list.mockResolvedValue({
+    documents: [
+      {
+        id: "doc",
+        scope: "bot",
+        botId: "bot-fixture",
+        path: "MEMORY.md",
+        revision: 1,
+        updatedAt: "",
+      },
+    ],
+    nextCursor: null,
+  });
   memory.exportMarkdown
     .mockReset()
     .mockResolvedValueOnce({
@@ -412,7 +418,7 @@ it("stops at the page limit without creating a partial file", async () => {
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
-    memory.list.mockResolvedValue([]);
+    memory.list.mockResolvedValue({ documents: [], nextCursor: null });
     memory.exportMarkdown.mockReset();
     vi.mocked(downloadArtifactBytes).mockReset();
   }

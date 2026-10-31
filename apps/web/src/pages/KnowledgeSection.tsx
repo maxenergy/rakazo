@@ -46,7 +46,7 @@ export function KnowledgeSection({
         <TabsContent value="memory">
           <MemoryDocumentList
             key={botId}
-            load={() => rpc.memory.list({ botId, scope: "bot" })}
+            load={() => rpc.memory.list({ botId, scope: "bot" }).then((res) => res.documents)}
             exportFilename="memory.md"
             exportArgs={{ botId, scope: "bot" }}
             testId="bot-knowledge-memory"
@@ -68,7 +68,7 @@ export function SpaceMemorySection() {
         <Trans>Shared documents</Trans>
       </div>
       <MemoryDocumentList
-        load={() => rpc.memory.list({ scope: "user" })}
+        load={() => rpc.memory.list({ scope: "user" }).then((res) => res.documents)}
         exportFilename="space-memory.md"
         exportArgs={{ scope: "user" }}
         testId="space-memory-list"

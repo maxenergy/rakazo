@@ -420,7 +420,10 @@ describeWithDatabase("API authorization and resource isolation", () => {
       resourceIdCalls.map(([procedure, input]) => expectDenied(app, intruder, procedure, input)),
     );
 
-    expect(await rpc<unknown[]>(app, intruder, "memory/list", { botId: ownerBot.id })).toEqual([]);
+    expect(await rpc(app, intruder, "memory/list", { botId: ownerBot.id })).toEqual({
+      documents: [],
+      nextCursor: null,
+    });
     expect(await rpc(app, intruder, "memory/exportMarkdown", { botId: ownerBot.id })).toEqual({
       markdown: "",
       count: 0,

@@ -509,9 +509,14 @@ describeJourneys("required product journeys", () => {
       path: "notes/result.txt",
     });
     expect(persisted.content).toContain("isolation-ok");
-    const coderMem = await rpc<Array<{ path: string }>>(app, ada, "memory/list", {
-      botId: coder.id,
-    });
+    const { documents: coderMem } = await rpc<{ documents: Array<{ path: string }> }>(
+      app,
+      ada,
+      "memory/list",
+      {
+        botId: coder.id,
+      },
+    );
     const coderDocs = await Promise.all(
       coderMem.map((memory) =>
         rpc<{ content: string }>(app, ada, "memory/read", {
@@ -556,9 +561,14 @@ describeJourneys("required product journeys", () => {
       bot.id,
       "write a file in your home called notes/result.txt that says kept-after-clear",
     );
-    const memories = await rpc<Array<{ id: string; path: string }>>(app, cookie, "memory/list", {
-      botId: bot.id,
-    });
+    const { documents: memories } = await rpc<{ documents: Array<{ id: string; path: string }> }>(
+      app,
+      cookie,
+      "memory/list",
+      {
+        botId: bot.id,
+      },
+    );
     await rpc(app, cookie, "memory/update", {
       documentId: memories[0]!.id,
       content: "# Keeper\n\nRemember this after clearing.",
@@ -633,9 +643,13 @@ describeJourneys("required product journeys", () => {
     expect(
       await rpc(app, cookie, "computer/readFile", { botId: bot.id, path: "notes/result.txt" }),
     ).toMatchObject({ content: expect.stringContaining("kept-after-clear") });
-    expect(await rpc(app, cookie, "memory/list", { botId: bot.id })).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: memories[0]!.id })]),
-    );
+    expect(
+      (
+        await rpc<{ documents: Array<{ id: string }> }>(app, cookie, "memory/list", {
+          botId: bot.id,
+        })
+      ).documents,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ id: memories[0]!.id })]));
     expect(
       await rpc(app, cookie, "memory/read", {
         scope: "bot",

@@ -57,7 +57,11 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   await memoryRow.click();
   await expect(docEditor).toHaveValue(new RegExp(marker));
   await captureScreenshot(page, testInfo, "84-space-memory-saved");
-  const sharedDocuments = await rpc<MemoryDocument[]>(page, "memory/list", { scope: "user" });
+  const { documents: sharedDocuments } = await rpc<{ documents: MemoryDocument[] }>(
+    page,
+    "memory/list",
+    { scope: "user" },
+  );
   expect(
     await rpc<MemoryDocument | null>(page, "memory/read", { scope: "user", path: "MEMORY.md" }),
   ).toEqual(expect.objectContaining({ content: `# Memory\n\n${marker}\n`, revision: 2 }));

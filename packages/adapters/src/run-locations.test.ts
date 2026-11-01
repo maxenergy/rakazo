@@ -71,6 +71,24 @@ async function fixture() {
   return { session, sandbox, prisma, grant, root, exchange, initial, host, args };
 }
 describe("sequential run locations", () => {
+  it("queues parallel calls in arrival order instead of refusing them", async () => {
+    const { session } = await fixture();
+    const order: string[] = [];
+    let finishFirst!: () => void;
+    const first = session.call("container", async () => {
+      order.push("first start");
+      await new Promise<void>((resolve) => (finishFirst = resolve));
+      order.push("first end");
+    });
+    const second = session.call("container", async () => {
+      order.push("second");
+    });
+    await vi.waitFor(() => expect(order).toEqual(["first start"]));
+    finishFirst();
+    await Promise.all([first, second]);
+    expect(order).toEqual(["first start", "first end", "second"]);
+  });
+
   it("requires explicit location in schemas and execution", async () => {
     const { session } = await fixture();
     await expect(session.call(undefined, vi.fn())).rejects.toThrow("explicitly");

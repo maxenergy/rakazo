@@ -36,7 +36,7 @@ const MAX_TRANSFER_BYTES = 10 * 1024 * 1024;
 export class RunLocations {
   private readonly refs = new Map<WorkLocation, ComputerRef>();
   private active: WorkLocation;
-  private busy = false;
+  private queue: Promise<void> = Promise.resolve();
   private readonly completions = new Set<Promise<unknown>>();
 
   constructor(
@@ -153,15 +153,7 @@ export class RunLocations {
     action: (ref: ComputerRef, location: WorkLocation) => Promise<T>,
   ): Promise<T> {
     const location = explicitLocation(locationValue);
-    if (this.busy) {
-      await this.audit(
-        "location_switch",
-        JSON.stringify({ to: location, error: "Concurrent calls are not allowed" }),
-        1,
-      );
-      throw new Error("Computer calls must run sequentially");
-    }
-    this.busy = true;
+    const release = await this.turn();
     try {
       let ref: ComputerRef;
       try {
@@ -176,8 +168,18 @@ export class RunLocations {
       }
       return await action(ref, location);
     } finally {
-      this.busy = false;
+      release();
     }
+  }
+
+  // Models often send tool calls in parallel. Run them one at a time in arrival order
+  // instead of failing all but the first, which made a run retry until its deadline.
+  private async turn(): Promise<() => void> {
+    const previous = this.queue;
+    let release!: () => void;
+    this.queue = new Promise<void>((resolve) => (release = resolve));
+    await previous;
+    return release;
   }
 
   async transfer(args: Record<string, unknown>, resolveContainerPath: (value: string) => string) {
@@ -191,12 +193,10 @@ export class RunLocations {
       exchangeDirectory: args.exchangeDirectory,
     });
     const entry = await this.audit("file_transfer", detail, null);
-    let locked = false;
+    let release: (() => void) | undefined;
     try {
       if (source === target) throw new Error("A transfer must cross locations");
-      if (this.busy) throw new Error("Computer calls must run sequentially");
-      this.busy = true;
-      locked = true;
+      release = await this.turn();
       await this.authorizeHost();
       const roots = await validateHostRoots(this.options.hostRoots);
       const exchange = String(args.exchangeDirectory ?? "");
@@ -268,7 +268,7 @@ export class RunLocations {
       });
       throw error;
     } finally {
-      if (locked) this.busy = false;
+      release?.();
     }
   }
 

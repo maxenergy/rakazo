@@ -63,6 +63,7 @@ import {
   createDb,
   createDbBudgetPort,
   createThreadEvents,
+  DEFAULT_RUN_DEADLINE_MS,
   expireOverrunApprovals,
   isTooManyDatabaseConnections,
   parsePositiveInteger,
@@ -210,6 +211,10 @@ async function main() {
     runtime,
     // Live per-account Codex catalog; never refreshes or writes credentials.
     codexCatalog: new CodexCatalogCache(),
+    runDeadlineMs: parsePositiveInteger(
+      process.env.RAKAZO_RUN_DEADLINE_MS,
+      DEFAULT_RUN_DEADLINE_MS,
+    ),
     sandbox,
     memory: new MarkdownMemoryStore(prisma),
     memoryProviders,

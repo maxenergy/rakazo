@@ -87,6 +87,11 @@ Docker computer topology:
 Set any of them to `0`, `none` or `unlimited` to remove that ceiling. A malformed value fails the
 supervisor at startup naming the variable, rather than surfacing later as a failed bot.
 
+### Run time limit
+
+A single run stops after 2 hours. Set `RAKAZO_RUN_DEADLINE_MS` in milliseconds to change that, up
+to 24 hours. A longer limit lets a bot keep spending model quota for longer.
+
 ### Restricted computer egress
 
 Docker computers have full outbound access by default — the public internet plus the Docker

@@ -451,8 +451,11 @@ function progressDigest(messages: readonly TranscriptMessage[], limit: number): 
     }
   }
   if (!notes.length && !files.size) return "";
-  const written = files.size ? `Files you wrote: ${[...files].join(", ")}\n`.slice(0, limit) : "";
-  let room = limit - written.length;
+  // A write can fail, and its result may be gone too, so these are only attempts.
+  const attempted = files.size
+    ? `Files you tried to write: ${[...files].join(", ")}\n`.slice(0, limit)
+    : "";
+  let room = limit - attempted.length;
   const kept: string[] = [];
   for (let index = notes.length - 1; index >= 0; index -= 1) {
     const line = `- ${notes[index]}\n`;
@@ -460,7 +463,7 @@ function progressDigest(messages: readonly TranscriptMessage[], limit: number): 
     room -= line.length;
     kept.unshift(line);
   }
-  return `${written}${kept.join("")}`;
+  return `${attempted}${kept.join("")}`;
 }
 
 /** Shorten long text in an older message, keeping its start. */
@@ -544,8 +547,10 @@ export function boundCliMessages(
     kept.push(message);
   }
   const dropped = droppedMessages.length;
+  const digest = progressDigest(droppedMessages, digestLimit);
+  const room = budgetChars - digest.length;
   // Recent steps alone can still overflow; shorten all but the latest two.
-  if (size > budgetChars) {
+  if (size > room) {
     for (let index = 0; index < kept.length - 2; index += 1) {
       if (kept[index] !== shortened[latestUser]) kept[index] = shortenOldMessage(kept[index]!);
     }
@@ -553,13 +558,12 @@ export function boundCliMessages(
     // the CLI then rejects the whole prompt. Keep its start and end within budget.
     const latest = kept.slice(-2);
     const others = total(kept) - total(latest);
-    const room = Math.max(CLI_OLD_TEXT_LIMIT, Math.floor((budgetChars - others) / 2));
+    const limit = Math.max(CLI_OLD_TEXT_LIMIT, Math.floor((room - others) / 2));
     for (let index = Math.max(0, kept.length - 2); index < kept.length; index += 1) {
-      kept[index] = trimLatestMessage(kept[index]!, room);
+      kept[index] = trimLatestMessage(kept[index]!, limit);
     }
   }
   if (dropped === 0) return kept;
-  const digest = progressDigest(droppedMessages, digestLimit);
   const marker = {
     role: "user",
     content: `[${dropped} earlier steps were omitted to fit the model context. Continue the work from where it stands, and re-check only what your next step needs.${digest ? ` Your own notes from those steps:\n${digest}` : ""}]`,

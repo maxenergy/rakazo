@@ -417,7 +417,7 @@ describe("subscription CLI provider conformance", () => {
     expect(JSON.stringify(bounded).length).toBeLessThanOrEqual(60_000 + 1_000);
     const marker = JSON.stringify(bounded[1]);
     expect(marker).toContain("finding 0\\n");
-    expect(marker).toContain("Files you wrote: f0.ts");
+    expect(marker).toContain("Files you tried to write: f0.ts");
     expect(marker).not.toContain("Re-check current state");
     expect(marker).not.toContain("output 0");
   });
@@ -437,6 +437,30 @@ describe("subscription CLI provider conformance", () => {
     expect(marker.length).toBeLessThanOrEqual(4_000 + 300);
     expect(marker).not.toContain("finding 0 ");
     expect(marker).toContain("finding 184 ");
+  });
+
+  it("makes room for the notes when recent steps alone nearly fill the budget", () => {
+    const notes = Array.from({ length: 100 }, (_, index) => ({
+      role: "assistant" as const,
+      content: [{ type: "text" as const, text: `finding ${index} ${"z".repeat(500)}` }],
+      timestamp: index,
+    }));
+    const recent = Array.from({ length: 12 }, (_, index) => ({
+      role: "toolResult" as const,
+      toolCallId: `call-${index}`,
+      toolName: "shell",
+      content: [{ type: "text" as const, text: `output ${index} ${"x".repeat(7_800)}` }],
+      isError: false,
+      timestamp: 200 + index,
+    }));
+    const messages = [
+      { role: "user" as const, content: "Fix the failing tests", timestamp: 0 },
+      ...notes,
+      ...recent,
+    ] as Parameters<typeof boundCliMessages>[0];
+    const bounded = boundCliMessages(messages, 100_000);
+    expect(JSON.stringify(bounded).length).toBeLessThanOrEqual(100_000 + 1_000);
+    expect(JSON.stringify(bounded[1])).toContain("finding 99 ");
   });
 
   it("replays repeated system messages into one with the current sections and tools", () => {

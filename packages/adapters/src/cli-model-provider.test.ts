@@ -385,6 +385,60 @@ describe("subscription CLI provider conformance", () => {
     expect(JSON.stringify(bounded)).not.toContain("output 22 ");
   });
 
+  it("keeps the model's own notes and written files from dropped steps", () => {
+    const steps = Array.from({ length: 60 }, (_, index) => [
+      {
+        role: "assistant" as const,
+        content: [
+          { type: "text" as const, text: `finding ${index}` },
+          {
+            type: "toolCall" as const,
+            id: `call-${index}`,
+            name: index === 0 ? "write_file" : "shell",
+            arguments: { path: `f${index}.ts`, content: "y".repeat(5_000) },
+          },
+        ],
+        timestamp: index,
+      },
+      {
+        role: "toolResult" as const,
+        toolCallId: `call-${index}`,
+        toolName: "shell",
+        content: [{ type: "text" as const, text: `output ${index} ${"x".repeat(5_000)}` }],
+        isError: false,
+        timestamp: index,
+      },
+    ]).flat();
+    const messages = [
+      { role: "user" as const, content: "Fix the failing tests", timestamp: 0 },
+      ...steps,
+    ] as Parameters<typeof boundCliMessages>[0];
+    const bounded = boundCliMessages(messages, 60_000);
+    expect(JSON.stringify(bounded).length).toBeLessThanOrEqual(60_000 + 1_000);
+    const marker = JSON.stringify(bounded[1]);
+    expect(marker).toContain("finding 0\\n");
+    expect(marker).toContain("Files you wrote: f0.ts");
+    expect(marker).not.toContain("Re-check current state");
+    expect(marker).not.toContain("output 0");
+  });
+
+  it("keeps the newest notes when they exceed their share of the budget", () => {
+    const step = (index: number) => ({
+      role: "assistant" as const,
+      content: [{ type: "text" as const, text: `finding ${index} ${"z".repeat(1_000)}` }],
+      timestamp: index,
+    });
+    const messages = [
+      { role: "user" as const, content: "Fix the failing tests", timestamp: 0 },
+      ...Array.from({ length: 200 }, (_, index) => step(index)),
+    ] as Parameters<typeof boundCliMessages>[0];
+    const bounded = boundCliMessages(messages, 20_000);
+    const marker = JSON.stringify(bounded[1]);
+    expect(marker.length).toBeLessThanOrEqual(4_000 + 300);
+    expect(marker).not.toContain("finding 0 ");
+    expect(marker).toContain("finding 184 ");
+  });
+
   it("replays repeated system messages into one with the current sections and tools", () => {
     const tool = (name: string) => ({
       name,

@@ -30,6 +30,7 @@ import {
   RunHistoryWriteError,
 } from "./messages.js";
 import { createProposalInTransaction } from "./proposals.js";
+import { createDeadlineRecoveryRun, RUN_DEADLINE_ERROR } from "./run-recovery.js";
 import { lockTicketSpace } from "./ticket-space-lock.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
@@ -1523,7 +1524,12 @@ async function finalizeRunOnce(
         data: { runId: null },
       });
     }
-    const continuationRunId = await createPendingSteeringRun(tx, input);
+    // A person's newer message takes the place of recovery: it may change the work.
+    const continuationRunId =
+      (await createPendingSteeringRun(tx, input)) ??
+      (input.outcome === "failed" && input.error === RUN_DEADLINE_ERROR
+        ? await createDeadlineRecoveryRun(tx, input)
+        : null);
     await tx.bot.update({ where: { id: input.botId }, data: { updatedAt: now } });
     return { threadId: lastEvent.threadId, seq: lastEvent.seq, continuationRunId };
   });

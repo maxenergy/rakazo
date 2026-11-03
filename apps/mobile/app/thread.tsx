@@ -1900,6 +1900,16 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   const answerableAskMessageId = latestAnswerableAskMessageId(snap);
   const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
+  async function resumeFailedRun() {
+    const runId = snap?.run?.id;
+    if (!runId) return;
+    try {
+      await rpc("runs/resume", { runId });
+      await refresh();
+    } catch {
+      setError(t("Could not continue"));
+    }
+  }
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2270,7 +2280,14 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       ) : null}
       {runError ? (
         <Text style={{ color: tokens.destructive, marginTop: error ? 12 : headerHeight + 28 }}>
-          {t(runError)}
+          {t(runError)}{" "}
+          <Text
+            accessibilityRole="button"
+            style={{ fontWeight: "600" }}
+            onPress={() => void resumeFailedRun()}
+          >
+            {t("Continue")}
+          </Text>
         </Text>
       ) : null}
       {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}

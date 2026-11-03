@@ -58,6 +58,25 @@ test("a failed run is visible once without returning after reload", async ({ pag
   await expect(page.getByPlaceholder(/^Message /)).toBeFocused();
 });
 
+test("a failed run can be continued from its error", async ({ page }, testInfo) => {
+  const stamp = Date.now();
+  await signup(page, `run-resume-${stamp}@rakazo.test`, "password12", "Run Resume");
+  await completeOnboarding(page);
+
+  await page.getByPlaceholder(/^Message /).fill("fail this run");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const error = page.getByTestId("composer-error");
+  await expect(error).toBeVisible({ timeout: 30_000 });
+  const resume = page.getByTestId("composer-error-continue");
+  await expect(resume).toHaveText("Continue");
+  await captureScreenshot(page, testInfo, "run-error-continue");
+
+  const resumed = page.waitForResponse((response) => response.url().includes("/runs/resume"));
+  await resume.click();
+  expect((await resumed).ok()).toBe(true);
+});
+
 test("a covered run error is not remembered until it is presented", async ({ page }, testInfo) => {
   const stamp = Date.now();
   await signup(page, `covered-run-failure-${stamp}@rakazo.test`, "password12", "Covered Failure");

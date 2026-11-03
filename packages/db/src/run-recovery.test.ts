@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Prisma } from "./client.js";
-import { createDeadlineRecoveryRun, deadlineRecoveryPrompt } from "./run-recovery.js";
+import type { Prisma, PrismaClient } from "./client.js";
+import {
+  createDeadlineRecoveryRun,
+  createResumeRun,
+  deadlineRecoveryPrompt,
+  resumePrompt,
+} from "./run-recovery.js";
 import { DEFAULT_RUN_DEADLINE_MS } from "./run-segments.js";
 
 const input = { spaceId: "space", threadId: "thread", botId: "bot", runId: "failed-run" };
@@ -101,5 +106,92 @@ describe("createDeadlineRecoveryRun", () => {
 
   it("omits the notes section when the run left none", () => {
     expect(deadlineRecoveryPrompt("Task", [])).not.toContain("last notes");
+  });
+});
+
+describe("createResumeRun", () => {
+  const request = { spaceId: "space", userId: "user", runId: "failed-run" };
+
+  function resumeFixture(state: { failed?: boolean; superseded?: boolean; pinned?: boolean } = {}) {
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(
+        state.failed === false
+          ? null
+          : {
+              botId: "bot",
+              threadId: "thread",
+              createdAt: new Date("2026-11-03T00:00:00Z"),
+              projectId: "project",
+              rootRunId: null,
+              modelPinned: state.pinned ?? false,
+              modelProvider: "provider",
+              modelId: "model",
+              thinkingLevel: null,
+              task: { prompt: "Fix the failing tests" },
+            },
+      )
+      .mockResolvedValueOnce(state.superseded ? { id: "newer-run" } : null);
+    const tx = {
+      $queryRaw: vi.fn(async () => []),
+      run: { findFirst, create: vi.fn(async () => ({ id: "resumed-run" })) },
+      message: {
+        findMany: vi.fn(async () => [{ blocks: [{ kind: "text", text: "Last finding" }] }]),
+      },
+      task: { create: vi.fn(async () => ({ id: "resumed-task" })) },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+    return { tx, prisma };
+  }
+
+  it("queues a resume run with the task and notes under the deployment's limit", async () => {
+    const { tx, prisma } = resumeFixture();
+
+    await expect(createResumeRun(prisma, request)).resolves.toBe("resumed-run");
+
+    const data = tx.run.create.mock.calls[0]?.[0 as never] as unknown as {
+      data: Record<string, unknown>;
+    };
+    expect(data.data).toMatchObject({
+      trigger: "resume",
+      parentRunId: "failed-run",
+      rootRunId: "failed-run",
+      projectId: "project",
+    });
+    expect(data.data).not.toHaveProperty("deadlineMs");
+    expect(data.data).not.toHaveProperty("modelId");
+    expect(tx.task.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        prompt: resumePrompt("Fix the failing tests", ["Last finding"]),
+      }),
+    });
+  });
+
+  it("keeps a pinned model", async () => {
+    const { tx, prisma } = resumeFixture({ pinned: true });
+
+    await createResumeRun(prisma, request);
+
+    expect(tx.run.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ modelPinned: true, modelId: "model" }),
+      }),
+    );
+  });
+
+  it("starts nothing for a run that is not the requester's failed run", async () => {
+    const { tx, prisma } = resumeFixture({ failed: false });
+
+    await expect(createResumeRun(prisma, request)).resolves.toBeNull();
+    expect(tx.run.create).not.toHaveBeenCalled();
+  });
+
+  it("starts nothing once a newer or active run exists", async () => {
+    const { tx, prisma } = resumeFixture({ superseded: true });
+
+    await expect(createResumeRun(prisma, request)).resolves.toBeNull();
+    expect(tx.run.create).not.toHaveBeenCalled();
   });
 });

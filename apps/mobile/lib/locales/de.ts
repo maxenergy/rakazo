@@ -347,6 +347,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Show keyboard": "Tastatur anzeigen",
   Tab: "Tab",
   Up: "Nach oben",
+  Continue: "Weiter",
   "Could not continue": "Fortfahren fehlgeschlagen",
   "Could not load the desktop. This device cannot reach the screen URL.":
     "Der Desktop konnte nicht geladen werden. Dieses Gerät erreicht die Bildschirm-URL nicht.",
@@ -497,7 +498,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Client ID": "Client-ID",
   "Client secret": "Client-Secret",
   Connected: "Verbunden",
-  Continue: "Weiter",
   "Could not load integrations": "Integrationen konnten nicht geladen werden",
   "Could not verify or save these credentials":
     "Diese Zugangsdaten konnten nicht geprüft oder gespeichert werden",

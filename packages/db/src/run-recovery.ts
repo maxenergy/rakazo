@@ -1,6 +1,6 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
-import type { Prisma } from "./client.js";
+import type { Prisma, PrismaClient } from "./client.js";
 import { DEFAULT_RUN_DEADLINE_MS } from "./run-segments.js";
 
 export const RUN_DEADLINE_ERROR = "deadline_exceeded";
@@ -14,18 +14,43 @@ const RECOVERY_NOTE_COUNT = 20;
 const RECOVERY_NOTE_CHARS = 600;
 const RECOVERY_TASK_CHARS = 8_000;
 
-export function deadlineRecoveryPrompt(task: string, notes: readonly string[]) {
+function earlierWork(task: string, notes: readonly string[]) {
   return [
-    "Recovery (automatic, not from the user): your previous run reached its time limit before it finished.",
     `Its task:\n${task.slice(0, RECOVERY_TASK_CHARS)}`,
     notes.length
       ? `Your last notes from that run:\n${notes.map((note) => `- ${note}`).join("\n")}`
       : undefined,
     "Continue from where the work stands. Before repeating anything with an outside effect, such as a push, a pull request, a message or a deployment, check the work directory, git history and pull requests for what already happened.",
+  ];
+}
+
+export function deadlineRecoveryPrompt(task: string, notes: readonly string[]) {
+  return [
+    "Recovery (automatic, not from the user): your previous run reached its time limit before it finished.",
+    ...earlierWork(task, notes),
     "This run has a shorter limit and will not be recovered again, so commit finished steps as you go. If you cannot finish, say what remains and what you need.",
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+export function resumePrompt(task: string, notes: readonly string[]) {
+  return [
+    "The user asked you to continue: your previous run failed before it finished.",
+    ...earlierWork(task, notes),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function latestRunNotes(tx: Prisma.TransactionClient, runId: string) {
+  const latest = await tx.message.findMany({
+    where: { runId, role: "bot" },
+    orderBy: { seq: "desc" },
+    take: RECOVERY_NOTE_COUNT,
+    select: { blocks: true },
+  });
+  return runNotes(latest.toReversed());
 }
 
 function runNotes(messages: ReadonlyArray<{ blocks: unknown }>) {
@@ -82,19 +107,14 @@ export async function createDeadlineRecoveryRun(
     },
   });
   if (earlierTimeouts > 0) return null;
-  const latest = await tx.message.findMany({
-    where: { runId: input.runId, role: "bot" },
-    orderBy: { seq: "desc" },
-    take: RECOVERY_NOTE_COUNT,
-    select: { blocks: true },
-  });
+  const notes = await latestRunNotes(tx, input.runId);
   const task = await tx.task.create({
     data: {
       spaceId: input.spaceId,
       botId: input.botId,
       threadId: input.threadId,
       userId: failed.userId,
-      prompt: deadlineRecoveryPrompt(failed.task.prompt, runNotes(latest.toReversed())),
+      prompt: deadlineRecoveryPrompt(failed.task.prompt, notes),
       status: "queued",
     },
   });
@@ -122,4 +142,85 @@ export async function createDeadlineRecoveryRun(
     },
   });
   return run.id;
+}
+
+/**
+ * Queue a run that picks up a person's failed run, on their request. Returns null once the
+ * run is no longer the bot's latest in its thread or the bot is archived, so a stale or
+ * repeated request starts nothing.
+ */
+export async function createResumeRun(
+  prisma: PrismaClient,
+  input: { spaceId: string; userId: string; runId: string },
+): Promise<string | null> {
+  return prisma.$transaction(async (tx) => {
+    // Concurrent requests for one run take turns, so the second sees the first one's run.
+    await tx.$queryRaw`SELECT id FROM runs WHERE id = ${input.runId} FOR UPDATE`;
+    const failed = await tx.run.findFirst({
+      where: {
+        id: input.runId,
+        spaceId: input.spaceId,
+        userId: input.userId,
+        status: "failed",
+        bot: { archivedAt: null },
+      },
+      select: {
+        botId: true,
+        threadId: true,
+        createdAt: true,
+        projectId: true,
+        rootRunId: true,
+        modelPinned: true,
+        modelProvider: true,
+        modelId: true,
+        thinkingLevel: true,
+        task: { select: { prompt: true } },
+      },
+    });
+    if (!failed) return null;
+    const superseded = await tx.run.findFirst({
+      where: {
+        threadId: failed.threadId,
+        botId: failed.botId,
+        OR: [{ status: { in: [...ACTIVE_RUN_STATUSES] } }, { createdAt: { gt: failed.createdAt } }],
+      },
+      select: { id: true },
+    });
+    if (superseded) return null;
+    const notes = await latestRunNotes(tx, input.runId);
+    const task = await tx.task.create({
+      data: {
+        spaceId: input.spaceId,
+        botId: failed.botId,
+        threadId: failed.threadId,
+        userId: input.userId,
+        prompt: resumePrompt(failed.task.prompt, notes),
+        status: "queued",
+      },
+    });
+    const run = await tx.run.create({
+      data: {
+        spaceId: input.spaceId,
+        botId: failed.botId,
+        threadId: failed.threadId,
+        taskId: task.id,
+        userId: input.userId,
+        status: "queued",
+        trigger: "resume",
+        projectId: failed.projectId,
+        parentRunId: input.runId,
+        rootRunId: failed.rootRunId ?? input.runId,
+        ...(failed.modelPinned
+          ? {
+              modelPinned: true,
+              modelProvider: failed.modelProvider,
+              modelId: failed.modelId,
+              thinkingLevel: failed.thinkingLevel,
+            }
+          : {}),
+      },
+      select: { id: true },
+    });
+    return run.id;
+  });
 }

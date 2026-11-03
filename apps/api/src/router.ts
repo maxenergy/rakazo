@@ -193,6 +193,7 @@ import {
   createMilestone,
   createProject,
   createRepos,
+  createResumeRun,
   createSpaceForMember,
   createThreadMessageInTransaction,
   decideProposal,
@@ -7011,6 +7012,19 @@ export function createRouter(deps: RouterDeps) {
       list: authed.runs.list.handler(async ({ context, input }) => ({
         runs: await listSpaceRuns(deps.prisma, context.actor, input.filter),
       })),
+      resume: authed.runs.resume.handler(async ({ context, input }) => {
+        const runId = await createResumeRun(deps.prisma, {
+          spaceId: context.actor.spaceId,
+          userId: context.actor.userId,
+          runId: input.runId,
+        });
+        if (!runId) throw new ORPCError("CONFLICT");
+        await deps.jobs.enqueue(runContinueJob(runId)).catch((error) => {
+          // The queued run is durable and the job reconciler will repair a missed wake.
+          getLogger().error("run resume enqueue", error);
+        });
+        return { runId };
+      }),
     },
     voice: {
       catalog: authed.voice.catalog.handler(async () => listVoiceCatalog()),

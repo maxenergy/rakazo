@@ -33,6 +33,7 @@ export * from "./project-writes.js";
 export * from "./projects.js";
 export * from "./proposals.js";
 export * from "./repos.js";
+export { createResumeRun } from "./run-recovery.js";
 export * from "./run-segments.js";
 export * from "./scope.js";
 export * from "./sessions.js";

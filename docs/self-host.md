@@ -92,6 +92,10 @@ supervisor at startup naming the variable, rather than surfacing later as a fail
 A single run stops after 2 hours. Set `RAKAZO_RUN_DEADLINE_MS` in milliseconds to change that, up
 to 24 hours. A longer limit lets a bot keep spending model quota for longer.
 
+When a chat, handoff or ticket run reaches the limit, Rakazo continues it once in a new run with a
+2-hour limit, unless a person has sent a newer message. A second timeout for the same bot in that
+chain of runs stops there.
+
 ### Restricted computer egress
 
 Docker computers have full outbound access by default — the public internet plus the Docker

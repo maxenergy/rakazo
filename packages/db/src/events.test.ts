@@ -194,6 +194,66 @@ describe("finalizeRun", () => {
     });
   });
 
+  it.each([
+    ["deadline_exceeded", "recovery-run"],
+    ["CLI request failed", null],
+  ])("after a run fails with %s, the continuation is %s", async (error, continuationRunId) => {
+    const tx = {
+      $queryRaw: vi.fn(async () => []),
+      run: {
+        findUnique: vi.fn(async () => ({
+          status: "running",
+          trigger: "follow_up",
+          userId: "user-1",
+          projectId: null,
+          rootRunId: null,
+          modelPinned: false,
+          task: { prompt: "Fix the failing tests" },
+          bot: { archivedAt: null },
+        })),
+        findUniqueOrThrow: vi.fn(async () => ({ sourceMessage: null })),
+        findFirst: vi.fn(async () => null),
+        count: vi.fn(async () => 0),
+        create: vi.fn(async () => ({ id: "recovery-run" })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      attempt: { updateMany: vi.fn(async () => ({ count: 1 })) },
+      task: {
+        create: vi.fn(async () => ({ id: "recovery-task" })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      message: { findMany: vi.fn(async () => []) },
+      thread: { update: vi.fn(async () => ({ nextEventSeq: 1 })) },
+      event: {
+        create: vi.fn(async () => ({ threadId: "thread-1", seq: 0 })),
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+      },
+      steeringMessage: {
+        findMany: vi.fn(async () => []),
+        updateMany: vi.fn(async () => ({ count: 0 })),
+      },
+      bot: { update: vi.fn(async () => ({})) },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaClient;
+
+    await expect(
+      finalizeRun(prisma, {
+        spaceId: "space-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        runId: "failed-run",
+        taskId: "failed-task",
+        attemptId: "attempt-1",
+        leaseOwner: "worker-1",
+        leaseFence: 1,
+        outcome: "failed",
+        error,
+      }),
+    ).resolves.toEqual({ continuationRunId });
+  });
+
   it("pins the continuation when every waited message chose the same model", async () => {
     const tx = {
       $queryRaw: vi.fn(async () => []),

@@ -258,7 +258,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not clear the previous space": "无法清除上一个空间",
   "Could not connect": "无法连接",
   "Could not connect this provider": "无法连接此提供商",
-  Continue: "继续",
   "Could not continue": "无法继续",
   "Could not disconnect": "无法断开连接",
   "Could not create bot": "无法创建 Bot",

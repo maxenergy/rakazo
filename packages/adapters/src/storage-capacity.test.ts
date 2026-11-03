@@ -38,6 +38,21 @@ describe("storage capacity admission", () => {
         .reason,
     ).toBe("storage_low");
   });
+  it("asks a /tmp smaller than the minimum to keep half of itself free", () => {
+    const gib = 1024n ** 3n;
+    const small = (free: bigint) => ({
+      ...sample("tmp", free),
+      totalBytes: (16n * gib).toString(),
+    });
+    const assess = (free: bigint) =>
+      assessCapacity([sample("home", HOME_MIN_BYTES), small(free)], "home", "tmp").allowed;
+    expect(assess(8n * gib)).toBe(true);
+    expect(assess(8n * gib - 1n)).toBe(false);
+    const large = { ...sample("tmp", TMP_MIN_BYTES - 1n), totalBytes: (500n * gib).toString() };
+    expect(assessCapacity([sample("home", HOME_MIN_BYTES), large], "home", "tmp").allowed).toBe(
+      false,
+    );
+  });
   it("fails closed for missing and failed samples", () => {
     expect(assessCapacity([], "home", "tmp").reason).toBe("capacity_unknown");
     expect(
@@ -60,6 +75,11 @@ describe("storage capacity admission", () => {
     expect(parseCapacitySamples(JSON.stringify([row]), ["/tmp"])[0]).toEqual(row);
     expect(() =>
       parseCapacitySamples(JSON.stringify([{ ...row, availBytes: "1" }]), ["/tmp"]),
+    ).toThrow();
+    const sized = { ...row, totalBytes: "8192" };
+    expect(parseCapacitySamples(JSON.stringify([sized]), ["/tmp"])[0]).toEqual(sized);
+    expect(() =>
+      parseCapacitySamples(JSON.stringify([{ ...row, totalBytes: "-1" }]), ["/tmp"]),
     ).toThrow();
   });
   it("samples real /tmp using statvfs without filling disk", async () => {

@@ -6,6 +6,7 @@ import { PassThrough } from "node:stream";
 import { spawn as spawnTerminal } from "node-pty";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  CliProcessError,
   classifyCliFailure,
   cliEnvironment,
   cliExecutable,
@@ -194,6 +195,38 @@ describe("CLI credential and command boundary", () => {
 });
 
 describe("CLI failure classification", () => {
+  it.each([
+    ["rate limit private-output", "", "rate_limited", "cause is unknown"],
+    ["private-output", "429 private-stderr", "exit_code", "usage limit was reached"],
+  ])("reports nonzero exits from stderr only (%s)", async (stdout, stderr, reason, copy) => {
+    const root = await mkdtemp(join(tmpdir(), "rakazo-cli-report-test-"));
+    roots.push(root);
+    vi.stubEnv("DATA_DIR", root);
+    vi.stubEnv("PATH", root);
+    await writeFile(join(root, process.platform === "win32" ? "agy.exe" : "agy"), "fixture");
+    const child = Object.assign(new ChildProcess(), {
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+    });
+    vi.mocked(spawn).mockImplementation(() => {
+      queueMicrotask(() => {
+        child.stdout.write(stdout);
+        child.stderr.write(stderr);
+        child.emit("close", 1);
+      });
+      return child;
+    });
+    const error = await runCliProcess({
+      provider: "antigravity-cli",
+      profileId: "11111111-1111-4111-8111-111111111111",
+      args: [],
+    }).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(CliProcessError);
+    expect(error).toMatchObject({ reason, message: expect.stringContaining(copy) });
+    expect((error as Error).message).not.toMatch(/private-output|private-stderr|sign-in/);
+  });
+
   it("names the cause without keeping the output", () => {
     expect(classifyCliFailure('{"type":"error","message":"context_length_exceeded"}')).toBe(
       "context_too_long",

@@ -191,8 +191,26 @@ export class CliProcessError extends Error {
   constructor(
     message: string,
     readonly reason: CliFailureCause,
+    /** Public reporting may use narrower evidence without changing retry semantics. */
+    readonly reportReason: CliFailureCause = reason,
   ) {
     super(message);
+  }
+}
+
+/** Fixed public copy; never include native CLI output. */
+export function cliFailureMessage(reason: string): string {
+  switch (reason) {
+    case "context_too_long":
+      return "CLI request failed: the context is too long. No API fallback was used.";
+    case "rate_limited":
+      return "CLI request failed: the usage limit was reached. No API fallback was used.";
+    case "auth":
+      return "CLI request failed: authentication failed. No API fallback was used.";
+    case "network":
+      return CLI_NETWORK_FAILURE;
+    default:
+      return "CLI request failed: the cause is unknown. No API fallback was used.";
   }
 }
 
@@ -291,6 +309,7 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
     });
     let output = "";
     let diagnostics = "";
+    let stderr = "";
     let failure: Error | undefined;
     let stopped = false;
     const stop = () => {
@@ -333,6 +352,7 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
     child.stderr.setEncoding("utf8");
     const receive = (text: string, stdout: boolean) => {
       if (stdout) output += text;
+      else stderr = (stderr + text).slice(-CLI_DIAGNOSTIC_TAIL);
       diagnostics = (diagnostics + text).slice(-CLI_DIAGNOSTIC_TAIL);
       if (output.length > 4 * 1024 * 1024) {
         failure = new Error("CLI response exceeded the size limit.");
@@ -358,8 +378,9 @@ export async function runCliProcess(options: CliProcessOptions): Promise<string>
       if (failure) reject(failure);
       else if (code !== 0 && !stopped) {
         const error = new CliProcessError(
-          `${CLI_MODEL_PROVIDERS[options.provider].name} failed. Check sign-in, model access, and subscription limits.`,
+          cliFailureMessage(classifyCliFailure(stderr)),
           classifyCliFailure(diagnostics),
+          classifyCliFailure(stderr),
         );
         if (!options.interactiveAuth)
           void saveCliFailure(options.provider, `exit code ${code}\n${diagnostics}`).catch(

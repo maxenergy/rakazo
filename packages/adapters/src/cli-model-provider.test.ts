@@ -232,6 +232,44 @@ describe("subscription CLI provider conformance", () => {
     expect(runCliProcess).toHaveBeenCalledTimes(1);
   });
 
+  it("reports fixed safe copy for Codex error events and keeps legacy exit mapping", async () => {
+    const event = '{"type":"error","message":"context_length_exceeded private-diagnostic"}';
+    expect(() => cliResponseText("codex-cli", event)).toThrow(
+      "CLI request failed: the context is too long. No API fallback was used.",
+    );
+    vi.mocked(runCliProcess).mockResolvedValue(event);
+    const models = registerCliModelProviders(builtinModels());
+    const model = models.getProvider("codex-cli")!.getModels()[0]!;
+    const result = await models
+      .streamSimple(model, { messages: [] }, { apiKey: profileId })
+      .result();
+    expect(result.errorMessage).toBe(
+      "CLI request failed: the context is too long. No API fallback was used.",
+    );
+    for (const [reportReason, expected] of [
+      ["exit_code", "cause is unknown"],
+      ["rate_limited", "usage limit was reached"],
+    ] as const) {
+      vi.mocked(runCliProcess).mockRejectedValue(
+        new CliProcessError("private-diagnostic", "rate_limited", reportReason),
+      );
+      const failed = await models
+        .streamSimple(model, { messages: [] }, { apiKey: profileId })
+        .result();
+      expect(failed.errorMessage).toContain(expected);
+      expect(failed.errorMessage).not.toMatch(/private-diagnostic|sign-in/);
+    }
+    vi.mocked(runCliProcess).mockRejectedValue(
+      new Error("CLI request failed. Check sign-in and subscription limits."),
+    );
+    const legacy = await models
+      .streamSimple(model, { messages: [] }, { apiKey: profileId })
+      .result();
+    expect(legacy.errorMessage).toBe(
+      "CLI request failed: the cause is unknown. No API fallback was used.",
+    );
+  });
+
   it("propagates cancellation and failure without leaking CLI diagnostics or API fallback", async () => {
     vi.mocked(runCliProcess).mockRejectedValue(
       new Error("secret-access-token account@example.invalid"),

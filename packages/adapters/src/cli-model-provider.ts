@@ -21,6 +21,7 @@ import {
   CliProcessError,
   classifyCliFailure,
   cliExecutable,
+  cliFailureMessage,
   isCliProfileId,
   runCliProcess,
   saveCliFailure,
@@ -359,7 +360,7 @@ export function cliResponseText(provider: CliModelProvider, output: string): str
       };
       if (event.type === "error" || event.type === "turn.failed")
         throw new CliProcessError(
-          "Codex request failed. Check sign-in and subscription limits.",
+          cliFailureMessage(classifyCliFailure(line)),
           classifyCliFailure(line),
         );
       if (event.type === "item.completed" && event.item?.type === "agent_message")
@@ -1021,7 +1022,7 @@ function streamCliModel(
           ? error.message
           : cliFailureReason(error) === "network"
             ? CLI_NETWORK_FAILURE
-            : "CLI request failed. Check sign-in, selected model, and subscription limits. No API fallback was used.";
+            : cliFailureMessage(error instanceof CliProcessError ? error.reportReason : "unknown");
       stream.push({ type: "error", reason: message.stopReason, error: message });
     } finally {
       // On Windows a CLI child can still hold the directory (EBUSY); a leftover temp

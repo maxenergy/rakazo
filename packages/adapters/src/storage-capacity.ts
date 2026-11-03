@@ -14,6 +14,7 @@ export type CapacitySample =
       bavail: string;
       frsize: string;
       availBytes: string;
+      totalBytes?: string;
       sampledAt: number;
     }
   | { path: string; error: string };
@@ -34,7 +35,7 @@ export const STATVFS_SCRIPT = [
   "for p in sys.argv[1:]:",
   " try:",
   "  s=os.statvfs(p)",
-  "  rows.append(dict(path=p,fsId=str(os.stat(p).st_dev),bavail=str(s.f_bavail),frsize=str(s.f_frsize),availBytes=str(s.f_bavail*s.f_frsize),sampledAt=int(time.time()*1000)))",
+  "  rows.append(dict(path=p,fsId=str(os.stat(p).st_dev),bavail=str(s.f_bavail),frsize=str(s.f_frsize),availBytes=str(s.f_bavail*s.f_frsize),totalBytes=str(s.f_blocks*s.f_frsize),sampledAt=int(time.time()*1000)))",
   " except Exception as e: rows.append(dict(path=p,error=type(e).__name__))",
   "print(json.dumps(rows))",
 ].join("\n");
@@ -51,6 +52,8 @@ export function parseCapacitySamples(output: string, paths: readonly string[]): 
       if (typeof row[key] !== "string" || !/^\d+$/.test(row[key]))
         throw new Error("Invalid capacity bytes");
     }
+    if (row.totalBytes !== undefined && !/^\d+$/.test(String(row.totalBytes)))
+      throw new Error("Invalid capacity bytes");
     if (
       BigInt(row.frsize) <= 0n ||
       BigInt(row.bavail) * BigInt(row.frsize) !== BigInt(row.availBytes) ||
@@ -65,6 +68,7 @@ export function parseCapacitySamples(output: string, paths: readonly string[]): 
       bavail: row.bavail,
       frsize: row.frsize,
       availBytes: row.availBytes,
+      ...(row.totalBytes !== undefined ? { totalBytes: row.totalBytes } : {}),
       sampledAt: row.sampledAt,
     };
   });
@@ -81,6 +85,13 @@ export class LocalCapacityProbe implements CapacityProbe {
   }
 }
 
+/** A /tmp smaller than the minimum, like the tmpfs some distributions mount, could never pass it. */
+function tmpMinBytes(sample: Extract<CapacitySample, { availBytes: string }>) {
+  if (sample.totalBytes === undefined) return TMP_MIN_BYTES;
+  const half = BigInt(sample.totalBytes) / 2n;
+  return half < TMP_MIN_BYTES ? half : TMP_MIN_BYTES;
+}
+
 export function assessCapacity(
   samples: CapacitySample[],
   home: string,
@@ -93,6 +104,7 @@ export function assessCapacity(
   }
   // Check both paths independently, even when their fsId matches. Never sum free space.
   const low =
-    BigInt(homeSample.availBytes) < HOME_MIN_BYTES || BigInt(tmpSample.availBytes) < TMP_MIN_BYTES;
+    BigInt(homeSample.availBytes) < HOME_MIN_BYTES ||
+    BigInt(tmpSample.availBytes) < tmpMinBytes(tmpSample);
   return { allowed: !low, reason: low ? "storage_low" : "sufficient", samples };
 }

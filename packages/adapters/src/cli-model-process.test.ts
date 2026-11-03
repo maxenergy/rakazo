@@ -197,7 +197,7 @@ describe("CLI credential and command boundary", () => {
 describe("CLI failure classification", () => {
   it.each([
     ["rate limit private-output", "", "rate_limited", "cause is unknown"],
-    ["private-output", "429 private-stderr", "rate_limited", "usage limit was reached"],
+    ["private-output", "429 private-stderr", "exit_code", "usage limit was reached"],
   ])("reports nonzero exits from stderr only (%s)", async (stdout, stderr, reason, copy) => {
     const root = await mkdtemp(join(tmpdir(), "rakazo-cli-report-test-"));
     roots.push(root);

@@ -1419,6 +1419,7 @@ msgstr "Janela de contexto: {tokens}"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/Shell.tsx
 msgid "Continue"
 msgstr "Continuar"
 

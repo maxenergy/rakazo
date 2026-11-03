@@ -112,7 +112,15 @@ describe("createDeadlineRecoveryRun", () => {
 describe("createResumeRun", () => {
   const request = { spaceId: "space", userId: "user", runId: "failed-run" };
 
-  function resumeFixture(state: { failed?: boolean; superseded?: boolean; pinned?: boolean } = {}) {
+  function resumeFixture(
+    state: {
+      failed?: boolean;
+      superseded?: boolean;
+      pinned?: boolean;
+      groupId?: string;
+      groupMember?: boolean;
+    } = {},
+  ) {
     const findFirst = vi
       .fn()
       .mockResolvedValueOnce(
@@ -122,6 +130,8 @@ describe("createResumeRun", () => {
               botId: "bot",
               threadId: "thread",
               createdAt: new Date("2026-11-03T00:00:00Z"),
+              sourceMessageId: "source-message",
+              thread: { groupId: state.groupId ?? null },
               projectId: "project",
               rootRunId: null,
               modelPinned: state.pinned ?? false,
@@ -134,6 +144,9 @@ describe("createResumeRun", () => {
       .mockResolvedValueOnce(state.superseded ? { id: "newer-run" } : null);
     const tx = {
       $queryRaw: vi.fn(async () => []),
+      chatGroup: {
+        findFirst: vi.fn(async () => (state.groupMember === false ? null : { id: "group" })),
+      },
       run: { findFirst, create: vi.fn(async () => ({ id: "resumed-run" })) },
       message: {
         findMany: vi.fn(async () => [{ blocks: [{ kind: "text", text: "Last finding" }] }]),
@@ -159,6 +172,7 @@ describe("createResumeRun", () => {
       parentRunId: "failed-run",
       rootRunId: "failed-run",
       projectId: "project",
+      sourceMessageId: "source-message",
     });
     expect(data.data).not.toHaveProperty("deadlineMs");
     expect(data.data).not.toHaveProperty("modelId");
@@ -185,6 +199,28 @@ describe("createResumeRun", () => {
     const { tx, prisma } = resumeFixture({ failed: false });
 
     await expect(createResumeRun(prisma, request)).resolves.toBeNull();
+    expect(tx.run.create).not.toHaveBeenCalled();
+  });
+
+  it("takes the thread lock before checking for a newer run", async () => {
+    const { tx, prisma } = resumeFixture();
+
+    await createResumeRun(prisma, request);
+
+    const lockOrder = tx.$queryRaw.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY;
+    const supersededCheckOrder = tx.run.findFirst.mock.invocationCallOrder[1] ?? 0;
+    expect(lockOrder).toBeLessThan(supersededCheckOrder);
+  });
+
+  it("starts nothing for a bot that left the group", async () => {
+    const { tx, prisma } = resumeFixture({ groupId: "group", groupMember: false });
+
+    await expect(createResumeRun(prisma, request)).resolves.toBeNull();
+    expect(tx.chatGroup.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "group", archivedAt: null, members: { some: { botId: "bot" } } },
+      }),
+    );
     expect(tx.run.create).not.toHaveBeenCalled();
   });
 

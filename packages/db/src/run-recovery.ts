@@ -154,8 +154,6 @@ export async function createResumeRun(
   input: { spaceId: string; userId: string; runId: string },
 ): Promise<string | null> {
   return prisma.$transaction(async (tx) => {
-    // Concurrent requests for one run take turns, so the second sees the first one's run.
-    await tx.$queryRaw`SELECT id FROM runs WHERE id = ${input.runId} FOR UPDATE`;
     const failed = await tx.run.findFirst({
       where: {
         id: input.runId,
@@ -168,6 +166,7 @@ export async function createResumeRun(
         botId: true,
         threadId: true,
         createdAt: true,
+        sourceMessageId: true,
         projectId: true,
         rootRunId: true,
         modelPinned: true,
@@ -175,9 +174,22 @@ export async function createResumeRun(
         modelId: true,
         thinkingLevel: true,
         task: { select: { prompt: true } },
+        thread: { select: { groupId: true } },
       },
     });
     if (!failed) return null;
+    const { groupId } = failed.thread;
+    if (groupId) {
+      // Group changes hold this lock while they cancel runs, so none can slip past them.
+      await tx.$queryRaw`SELECT id FROM chat_groups WHERE id = ${groupId} FOR UPDATE`;
+      const group = await tx.chatGroup.findFirst({
+        where: { id: groupId, archivedAt: null, members: { some: { botId: failed.botId } } },
+        select: { id: true },
+      });
+      if (!group) return null;
+    }
+    // New messages hold this lock too, so one of them and this request cannot both see no run.
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${failed.threadId} FOR UPDATE`;
     const superseded = await tx.run.findFirst({
       where: {
         threadId: failed.threadId,
@@ -207,6 +219,7 @@ export async function createResumeRun(
         userId: input.userId,
         status: "queued",
         trigger: "resume",
+        sourceMessageId: failed.sourceMessageId,
         projectId: failed.projectId,
         parentRunId: input.runId,
         rootRunId: failed.rootRunId ?? input.runId,

@@ -62,6 +62,7 @@ function renderComposer(
     runErrorId: null,
     onRunErrorPresented: () => {},
     onDismissError: () => {},
+    onResumeRun: () => {},
     sending: false,
     fileInputRef: createRef(),
     onAttachmentPick: () => true,

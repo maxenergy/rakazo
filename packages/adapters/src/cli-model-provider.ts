@@ -421,11 +421,50 @@ function cliContextWindow(provider: CliModelProvider, catalogWindow: number | un
 }
 const CLI_RECENT_MESSAGES = 12;
 const CLI_OLD_TEXT_LIMIT = 2_000;
+const CLI_PROGRESS_BUDGET_SHARE = 0.2;
+const CLI_PROGRESS_NOTE_LIMIT = 600;
 
 type TranscriptMessage = TranscriptContext["messages"][number];
 
 function messageSize(message: TranscriptMessage) {
   return JSON.stringify(message).length;
+}
+
+/**
+ * What the model said and wrote in steps about to leave the prompt, newest first when
+ * over the limit. Without this a long run forgets its own findings every few steps and
+ * reads the same files until its deadline.
+ */
+function progressDigest(messages: readonly TranscriptMessage[], limit: number): string {
+  const notes: string[] = [];
+  const files = new Set<string>();
+  for (const message of messages) {
+    if (message.role !== "assistant" || !Array.isArray(message.content)) continue;
+    for (const part of message.content) {
+      if (part.type === "text" && part.text.trim())
+        notes.push(part.text.trim().slice(0, CLI_PROGRESS_NOTE_LIMIT));
+      if (
+        part.type === "toolCall" &&
+        part.name === "write_file" &&
+        typeof part.arguments?.path === "string"
+      )
+        files.add(part.arguments.path);
+    }
+  }
+  if (!notes.length && !files.size) return "";
+  // A write can fail, and its result may be gone too, so these are only attempts.
+  const attempted = files.size
+    ? `Files you tried to write: ${[...files].join(", ")}\n`.slice(0, limit)
+    : "";
+  let room = limit - attempted.length;
+  const kept: string[] = [];
+  for (let index = notes.length - 1; index >= 0; index -= 1) {
+    const line = `- ${notes[index]}\n`;
+    if (line.length > room) break;
+    room -= line.length;
+    kept.unshift(line);
+  }
+  return `${attempted}${kept.join("")}`;
 }
 
 /** Shorten long text in an older message, keeping its start. */
@@ -470,7 +509,8 @@ function trimLatestMessage(message: TranscriptMessage, limit: number): Transcrip
 
 /**
  * Fit the conversation into a character budget: shorten text in older messages,
- * then drop the oldest steps after the first user message, marking the gap.
+ * then drop the oldest steps after the first user message, leaving the model's own
+ * notes from them in their place.
  * System messages and the latest user message, which holds the request this turn is
  * working on, are always kept whole; the most recent messages are trimmed only when
  * they alone overflow the budget.
@@ -490,26 +530,28 @@ export function boundCliMessages(
   if (total(shortened) <= budgetChars) return shortened;
   const firstUser = shortened.findIndex((message) => message.role === "user");
   const keepHead = firstUser < 0 ? 0 : firstUser + 1;
+  const canDrop = (message: TranscriptMessage, index: number) =>
+    index >= keepHead && index < recentFrom && index !== latestUser && message.role !== "system";
+  const digestLimit = Math.floor(budgetChars * CLI_PROGRESS_BUDGET_SHARE);
+  const dropTarget = budgetChars - progressDigest(messages.filter(canDrop), digestLimit).length;
   let size = total(shortened);
-  let dropped = 0;
+  // Read from the originals: shortening removes a large write's path along with its content.
+  const droppedMessages: TranscriptMessage[] = [];
   const kept: TranscriptMessage[] = [];
   for (let index = 0; index < shortened.length; index += 1) {
     const message = shortened[index]!;
-    const droppable =
-      index >= keepHead &&
-      index < recentFrom &&
-      index !== latestUser &&
-      message.role !== "system" &&
-      size > budgetChars;
-    if (droppable) {
+    if (canDrop(message, index) && size > dropTarget) {
       size -= messageSize(message);
-      dropped += 1;
+      droppedMessages.push(messages[index]!);
       continue;
     }
     kept.push(message);
   }
+  const dropped = droppedMessages.length;
+  const digest = progressDigest(droppedMessages, digestLimit);
+  const room = budgetChars - digest.length;
   // Recent steps alone can still overflow; shorten all but the latest two.
-  if (size > budgetChars) {
+  if (size > room) {
     for (let index = 0; index < kept.length - 2; index += 1) {
       if (kept[index] !== shortened[latestUser]) kept[index] = shortenOldMessage(kept[index]!);
     }
@@ -517,15 +559,15 @@ export function boundCliMessages(
     // the CLI then rejects the whole prompt. Keep its start and end within budget.
     const latest = kept.slice(-2);
     const others = total(kept) - total(latest);
-    const room = Math.max(CLI_OLD_TEXT_LIMIT, Math.floor((budgetChars - others) / 2));
+    const limit = Math.max(CLI_OLD_TEXT_LIMIT, Math.floor((room - others) / 2));
     for (let index = Math.max(0, kept.length - 2); index < kept.length; index += 1) {
-      kept[index] = trimLatestMessage(kept[index]!, room);
+      kept[index] = trimLatestMessage(kept[index]!, limit);
     }
   }
   if (dropped === 0) return kept;
   const marker = {
     role: "user",
-    content: `[${dropped} earlier steps were omitted to fit the model context. Re-check current state with tools if you need it.]`,
+    content: `[${dropped} earlier steps were omitted to fit the model context. Continue the work from where it stands, and re-check only what your next step needs.${digest ? ` Your own notes from those steps:\n${digest}` : ""}]`,
     timestamp: Date.now(),
   } as TranscriptMessage;
   kept.splice(Math.min(keepHead, kept.length), 0, marker);

@@ -17,6 +17,8 @@ export const ORG_MEMBER_IDLE_MS = 30 * 60_000;
 export const ORG_READY_TICKET_STALL_MS = 15 * 60_000;
 /** Check-ins per org per day, so an org that keeps stalling cannot burn its subscriptions. */
 export const ORG_CHECK_IN_DAILY_LIMIT = 24;
+/** How many failed tickets one check-in names before it only counts the rest. */
+const ORG_FAILED_TICKETS_NAMED = 10;
 
 export function orgCheckInPrompt(
   idleMinutes: number,
@@ -196,14 +198,20 @@ async function failedOwnerTickets(
         },
       },
     },
-    take: 10,
   });
-  return tickets
+  const failed = tickets
     .filter((ticket) => ticket.assigneeBot?.runs[0]?.status === "failed")
     .map(
       (ticket) =>
         `${ticket.board.ticketPrefix}-${ticket.number} (owner ${ticket.assigneeBot?.name})`,
     );
+  // The next check-in looks only at newer failures, so say when some went unnamed.
+  return failed.length > ORG_FAILED_TICKETS_NAMED
+    ? [
+        ...failed.slice(0, ORG_FAILED_TICKETS_NAMED),
+        `and ${failed.length - ORG_FAILED_TICKETS_NAMED} more on the board`,
+      ]
+    : failed;
 }
 
 /** Wake the CEO of each org whose bots have all gone quiet with work possibly left open. */

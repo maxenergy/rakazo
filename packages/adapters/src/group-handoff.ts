@@ -1,12 +1,12 @@
 import { runContinueJob } from "@rakazo/adapter-kit";
 import { MessageBlock } from "@rakazo/contracts";
 import { botMessageHopExhausted, nextBotMessageHop, renderGroupMembersContext } from "@rakazo/core";
+import type { Prisma } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   IsolationError,
   lockOwnedGroup,
-  type Prisma,
   type PrismaClient,
   touchGroupUpdatedAt,
 } from "@rakazo/db";
@@ -252,12 +252,22 @@ export async function loadGroupContext(
  */
 export async function returnHandoffFailure(
   deps: Pick<ExecutorDeps, "prisma" | "events" | "jobs">,
-  run: HandoffRun & { sourceMessageId?: string | null },
+  run: HandoffRun & { sourceMessageId?: string | null; parentRunId?: string | null },
   error: string,
 ) {
-  const { sourceMessageId } = run;
-  if (!sourceMessageId) return;
   const committed = await deps.prisma.$transaction(async (tx) => {
+    // A timeout's recovery run has no source of its own; the run it continues does.
+    const sourceMessageId =
+      run.sourceMessageId ??
+      (run.parentRunId
+        ? (
+            await tx.run.findUnique({
+              where: { id: run.parentRunId },
+              select: { sourceMessageId: true },
+            })
+          )?.sourceMessageId
+        : null);
+    if (!sourceMessageId) return null;
     const source = await tx.message.findUnique({
       where: { id: sourceMessageId },
       select: { blocks: true },
@@ -269,16 +279,22 @@ export async function returnHandoffFailure(
     if (!sourceHandoff) return null;
     const hop = nextBotMessageHop(sourceHandoff.hop);
     if (botMessageHopExhausted(hop)) return null;
+    const thread = await tx.thread.findUnique({
+      where: { id: run.threadId },
+      select: { groupId: true },
+    });
+    if (!thread?.groupId) return null;
+    // Group changes hold this lock while they cancel runs, so check under it.
+    await lockOwnedGroup(tx, run, thread.groupId);
     const group = await tx.chatGroup.findFirst({
       where: {
+        id: thread.groupId,
         archivedAt: null,
-        thread: { id: run.threadId },
         members: { some: { botId: sourceHandoff.fromBotId, bot: { archivedAt: null } } },
       },
       select: { id: true },
     });
     if (!group) return null;
-    await lockOwnedGroup(tx, run, group.id);
     const deliveryKey = `group-handoff-failure:${run.id}`;
     const delivered = await tx.message.findUnique({
       where: { threadId_clientNonce: { threadId: run.threadId, clientNonce: deliveryKey } },

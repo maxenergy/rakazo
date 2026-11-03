@@ -175,6 +175,9 @@ describe("handoff failure return", () => {
 
   function failureHarness(source: unknown, delivered: unknown = null) {
     const built = harness([]);
+    (built.tx.thread as Record<string, unknown>).findUnique = vi.fn(async () => ({
+      groupId: "group-1",
+    }));
     built.tx.message.findUnique = vi
       .fn()
       .mockResolvedValueOnce(source)
@@ -208,6 +211,32 @@ describe("handoff failure return", () => {
       }),
     );
     expect(deps.jobs.enqueue).toHaveBeenCalledOnce();
+  });
+
+  it("finds the handoff through the run a timeout recovery continues", async () => {
+    const { deps, runCreate, tx } = failureHarness(handedOff(1));
+    tx.run.findUnique = vi.fn(async () => ({ sourceMessageId: "message-0" })) as never;
+
+    await returnHandoffFailure(
+      deps as never,
+      { ...failedRun, sourceMessageId: null, parentRunId: "run-timed-out" },
+      "failed",
+    );
+
+    expect(tx.run.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "run-timed-out" } }),
+    );
+    expect(runCreate).toHaveBeenCalledOnce();
+  });
+
+  it("checks the sender's membership only after taking the group lock", async () => {
+    const { deps, tx } = failureHarness(handedOff(1));
+
+    await returnHandoffFailure(deps as never, failedRun, "failed");
+
+    const lock = tx.$queryRaw.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY;
+    const membership = tx.chatGroup.findFirst.mock.invocationCallOrder[0] ?? 0;
+    expect(lock).toBeLessThan(membership);
   });
 
   it("stays quiet for a run no bot handed off", async () => {

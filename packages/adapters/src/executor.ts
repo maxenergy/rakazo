@@ -276,7 +276,7 @@ import { formatCurrentTimeInstruction } from "./current-time.js";
 import { executeDependencyTool, isDependencyToolName } from "./dependency-tools.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { executeGoalTool, isGoalToolName } from "./goal-tools.js";
-import { handoffToGroupBot, returnHandoffFailure } from "./group-handoff.js";
+import { handoffToGroupBot, loadGroupContext, returnHandoffFailure } from "./group-handoff.js";
 import {
   COMPACTION_BATCH_SIZE,
   formatCompactedSummary,

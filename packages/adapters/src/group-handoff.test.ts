@@ -1,6 +1,7 @@
+import { BOT_MESSAGE_MAX_HOPS } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
-import { handoffToGroupBot } from "./group-handoff.js";
+import { handoffToGroupBot, returnHandoffFailure } from "./group-handoff.js";
 
 const run = {
   id: "run-a",
@@ -63,6 +64,7 @@ function harness(
     },
     messageCreate,
     runCreate,
+    tx,
   };
 }
 
@@ -161,6 +163,74 @@ describe("group handoff ownership", () => {
         message: "Continue",
       }),
     ).resolves.toEqual({ error: "cannot verify the group handoff chain" });
+    expect(runCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("handoff failure return", () => {
+  const failedRun = { ...run, id: "run-b", botId: "bot-b", sourceMessageId: "message-0" };
+  const handedOff = (hop: number) => ({
+    blocks: [{ kind: "handoff", fromBotId: "bot-a", toBotId: "bot-b", text: "Stage", hop }],
+  });
+
+  function failureHarness(source: unknown, delivered: unknown = null) {
+    const built = harness([]);
+    built.tx.message.findUnique = vi
+      .fn()
+      .mockResolvedValueOnce(source)
+      .mockResolvedValueOnce(delivered) as never;
+    return built;
+  }
+
+  it("reports to the sender as the next hop of the same chain", async () => {
+    const { deps, messageCreate, runCreate } = failureHarness(handedOff(1));
+
+    await returnHandoffFailure(deps as never, failedRun, "CLI request failed.");
+
+    expect(messageCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          blocks: [
+            expect.objectContaining({
+              kind: "handoff",
+              fromBotId: "bot-b",
+              toBotId: "bot-a",
+              hop: 2,
+              text: expect.stringContaining("CLI request failed."),
+            }),
+          ],
+        }),
+      }),
+    );
+    expect(runCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ botId: "bot-a", trigger: "follow_up" }),
+      }),
+    );
+    expect(deps.jobs.enqueue).toHaveBeenCalledOnce();
+  });
+
+  it("stays quiet for a run no bot handed off", async () => {
+    const { deps, runCreate } = failureHarness({ blocks: [{ kind: "text", text: "request" }] });
+
+    await returnHandoffFailure(deps as never, failedRun, "failed");
+
+    expect(runCreate).not.toHaveBeenCalled();
+  });
+
+  it("stops when the chain's hop limit is reached", async () => {
+    const { deps, runCreate } = failureHarness(handedOff(BOT_MESSAGE_MAX_HOPS));
+
+    await returnHandoffFailure(deps as never, failedRun, "failed");
+
+    expect(runCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not report twice", async () => {
+    const { deps, runCreate } = failureHarness(handedOff(1), { id: "message-2" });
+
+    await returnHandoffFailure(deps as never, failedRun, "failed");
+
     expect(runCreate).not.toHaveBeenCalled();
   });
 });

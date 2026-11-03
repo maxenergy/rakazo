@@ -91,6 +91,29 @@ describe("ready tickets left unstarted", () => {
   });
 });
 
+describe("tickets whose owner's run failed", () => {
+  const busy = { now, activeRuns: 2, checkInsToday: 0, lastRun: idle(), ceoActive: false };
+  const failedTickets = ["RAK-70 (owner Backend)"];
+
+  it("wakes the CEO soon after a failure, even while others work", () => {
+    const lastCheckInAt = new Date(now.getTime() - ORG_CHECK_IN_IDLE_MS);
+    expect(orgNeedsCheckIn({ ...busy, failedTickets, lastCheckInAt })).toBe(true);
+  });
+
+  it("waits while the CEO works, right after a check-in, and at the daily limit", () => {
+    const recent = new Date(now.getTime() - 60_000);
+    expect(orgNeedsCheckIn({ ...busy, failedTickets, ceoActive: true })).toBe(false);
+    expect(orgNeedsCheckIn({ ...busy, failedTickets, lastCheckInAt: recent })).toBe(false);
+    expect(
+      orgNeedsCheckIn({ ...busy, failedTickets, checkInsToday: ORG_CHECK_IN_DAILY_LIMIT }),
+    ).toBe(false);
+  });
+
+  it("names the tickets in the prompt", () => {
+    expect(orgCheckInPrompt(0, [], [], failedTickets)).toContain("RAK-70 (owner Backend)");
+  });
+});
+
 describe("finished work and pending proposals", () => {
   it("does not wake an idle org that waits on an undecided proposal", () => {
     expect(orgNeedsCheckIn({ ...quiet, pendingProposals: 1 })).toBe(false);

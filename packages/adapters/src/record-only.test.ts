@@ -17,6 +17,11 @@ describe("record-only policy", () => {
     expect(recordOnlyRoutine({ trigger: "routine" }, "chosen")).toBe(false);
   });
 
+  it("always protects the dedicated org trigger, independently of later configuration", () => {
+    expect(recordOnlyRoutine({ trigger: "org_check_in_record_only" }, "")).toBe(true);
+    expect(recordOnlyRoutine({ trigger: "org_check_in" }, "")).toBe(false);
+  });
+
   it("admits only the minimal builtins, never connector routes or metadata", () => {
     for (const name of ["ticket_get", "board_tickets", "read_file", "list_files"]) {
       expect(recordOnlyAllowsTool(name)).toBe(true);

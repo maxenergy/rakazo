@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+import type { PrismaClient } from "@rakazo/db";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ORG_CHECK_IN_DAILY_LIMIT,
   ORG_CHECK_IN_IDLE_MS,
   ORG_CHECK_IN_REPEAT_MS,
+  ORG_RECORD_ONLY_DAILY_LIMIT,
+  ORG_RECORD_ONLY_REPEAT_MS,
   orgCheckInPrompt,
   orgNeedsCheckIn,
+  orgRecordOnlyDue,
+  reconcileOrgCheckIns,
 } from "./org-check-in.js";
 
 const now = new Date("2026-10-16T10:30:00Z");
@@ -122,5 +127,137 @@ describe("finished work and pending proposals", () => {
 
   it("asks the CEO to propose the next phase once the agreed work is done", () => {
     expect(orgCheckInPrompt(30)).toContain("submit_proposal");
+  });
+});
+
+describe("record-only organization reconciliation", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  function fixture({ realDue = false, count = 0, lastAt = null as Date | null } = {}) {
+    const runCreate = vi.fn(async () => ({ id: "record-run" }));
+    const ticketQueries: unknown[] = [];
+    const runQueries: unknown[] = [];
+    const prisma = {
+      bot: {
+        findMany: vi.fn(async () => [
+          { id: "ceo", spaceId: "space", userId: "user", thread: { id: "thread" } },
+        ]),
+      },
+      run: {
+        count: vi.fn(async ({ where }: { where: { trigger?: unknown } }) => {
+          runQueries.push(where);
+          return where.trigger === "org_check_in_record_only" ? count : 0;
+        }),
+        findFirst: vi.fn(async ({ where }: { where: { trigger?: unknown } }) => {
+          runQueries.push(where);
+          if (where.trigger === "org_check_in_record_only")
+            return lastAt ? { createdAt: lastAt } : null;
+          if (where.trigger === "org_check_in")
+            return { createdAt: new Date(now.getTime() - 120 * 60_000) };
+          return {
+            trigger: "user",
+            updatedAt: new Date(now.getTime() - (realDue ? 20 : 1) * 60_000),
+          };
+        }),
+      },
+      ticket: {
+        findMany: vi.fn(async (query: unknown) => {
+          ticketQueries.push(query);
+          return [];
+        }),
+      },
+      proposal: { count: vi.fn(async () => 0) },
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          task: { create: vi.fn(async () => ({ id: "task" })) },
+          run: { create: runCreate },
+        }),
+      ),
+    };
+    const enqueue = vi.fn(async () => undefined);
+    return {
+      prisma,
+      runCreate,
+      enqueue,
+      ticketQueries,
+      runQueries,
+      reconcile: () =>
+        reconcileOrgCheckIns(
+          {
+            prisma: prisma as unknown as PrismaClient,
+            jobs: {
+              enqueue,
+              cancel: vi.fn(async () => undefined),
+              close: vi.fn(async () => undefined),
+            },
+          },
+          now,
+        ),
+    };
+  }
+
+  it("keeps empty configuration unchanged", async () => {
+    vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_BOT_IDS", "");
+    const f = fixture();
+    await f.reconcile();
+    expect(f.runCreate).not.toHaveBeenCalled();
+  });
+
+  it("gives real work priority and never spends the record-only quota", async () => {
+    vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_BOT_IDS", "ceo");
+    const f = fixture({ realDue: true });
+    await f.reconcile();
+    expect(f.runCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ trigger: "org_check_in" }) }),
+    );
+    expect(f.runQueries).not.toContainEqual(
+      expect.objectContaining({ trigger: "org_check_in_record_only" }),
+    );
+  });
+
+  it("isolates activity and real failure watermark from record-only success or failure", async () => {
+    vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_BOT_IDS", " other, ceo ");
+    const f = fixture();
+    await f.reconcile();
+    expect(f.runCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ trigger: "org_check_in_record_only" }),
+      }),
+    );
+    expect(
+      f.runQueries.filter((q) => JSON.stringify(q).includes('"not":"org_check_in_record_only"')),
+    ).toHaveLength(3);
+    expect(f.runQueries).toContainEqual(expect.objectContaining({ trigger: "org_check_in" }));
+    expect(f.ticketQueries[0]).toMatchObject({
+      where: { assigneeBot: { runs: { none: { trigger: { not: "org_check_in_record_only" } } } } },
+    });
+    expect(f.ticketQueries[1]).toMatchObject({
+      where: {
+        assigneeBot: {
+          id: { not: "ceo" },
+          runs: { some: { updatedAt: { gt: new Date(now.getTime() - 120 * 60_000) } } },
+        },
+      },
+    });
+  });
+
+  it.each([{ count: 6 }, { lastAt: now }])(
+    "throttles its own attempts regardless of outcome: %j",
+    async (options) => {
+      vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_BOT_IDS", "ceo");
+      const f = fixture(options);
+      await f.reconcile();
+      expect(f.runCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses a six-per-rolling-day cap and one-hour creation throttle", () => {
+    expect(orgRecordOnlyDue(ORG_RECORD_ONLY_DAILY_LIMIT, null, now)).toBe(false);
+    expect(orgRecordOnlyDue(0, new Date(now.getTime() - ORG_RECORD_ONLY_REPEAT_MS + 1), now)).toBe(
+      false,
+    );
+    expect(orgRecordOnlyDue(5, new Date(now.getTime() - ORG_RECORD_ONLY_REPEAT_MS), now)).toBe(
+      true,
+    );
   });
 });

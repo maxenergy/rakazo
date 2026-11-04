@@ -1016,3 +1016,30 @@ it("keeps connector shadows out of the builtin route", async () => {
     vi.unstubAllEnvs();
   }
 });
+
+describe("record-only organization execution", () => {
+  it.each(["message_bot", "ticket_update", "shell", "remember"])(
+    "blocks %s without main-thread output or notification",
+    async (name) => {
+      const f = fixture({ name, builtin: true, trigger: "org_check_in_record_only" });
+      f.setCalls([{ args: { content: "private-test-value" }, executionId: "call-1" }]);
+      await f.run();
+      expect(f.results).toEqual([expect.objectContaining({ executed: false })]);
+      expect(f.execute).not.toHaveBeenCalled();
+      expect(f.commit).not.toHaveBeenCalled();
+      expect(f.send).not.toHaveBeenCalled();
+      expect(JSON.stringify(f.append.mock.calls)).not.toContain("private-test-value");
+      expect(f.append).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "thread.message.created" }),
+      );
+    },
+  );
+
+  it("refuses the current Codex CLI without starting it", async () => {
+    const f = fixture({ trigger: "org_check_in_record_only", modelProvider: "codex-cli" });
+    await f.continueRun();
+    expect(f.runtimeRun).not.toHaveBeenCalled();
+    expect(f.finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
+    expect(f.send).not.toHaveBeenCalled();
+  });
+});

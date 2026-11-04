@@ -967,3 +967,11 @@ describe("deliverMessagingOutbound retry enqueue failure", () => {
     ]);
   });
 });
+
+it("never mirrors a record-only organization check-in, even with stored bot text", async () => {
+  const deps = createDeps({ run: { ...messagingRun, trigger: "org_check_in_record_only" } });
+  await mirrorMessagingOutbound(deps, "run-1");
+  expect(deps.prisma.message.findMany).not.toHaveBeenCalled();
+  expect(deps.rows).toHaveLength(0);
+  expect(deps.sendToThread).not.toHaveBeenCalled();
+});

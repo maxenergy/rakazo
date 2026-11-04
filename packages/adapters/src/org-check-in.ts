@@ -19,6 +19,17 @@ export const ORG_READY_TICKET_STALL_MS = 15 * 60_000;
 export const ORG_CHECK_IN_DAILY_LIMIT = 24;
 /** How many failed tickets one check-in names before it only counts the rest. */
 const ORG_FAILED_TICKETS_NAMED = 10;
+/** Rolling 24-hour cap and creation-time throttle, including failed attempts. */
+export const ORG_RECORD_ONLY_DAILY_LIMIT = 6;
+export const ORG_RECORD_ONLY_REPEAT_MS = 60 * 60_000;
+const RECORD_ONLY_TRIGGER = "org_check_in_record_only";
+
+export function orgRecordOnlyDue(count: number, lastAt: Date | null, now: Date) {
+  return (
+    count < ORG_RECORD_ONLY_DAILY_LIMIT &&
+    (!lastAt || now.getTime() - lastAt.getTime() >= ORG_RECORD_ONLY_REPEAT_MS)
+  );
+}
 
 export function orgCheckInPrompt(
   idleMinutes: number,
@@ -150,7 +161,9 @@ async function readyStalledTickets(
         userId: ceo.userId,
         archivedAt: null,
         orgRole: { not: null },
-        runs: { none: { status: { in: [...ACTIVE_RUN_STATUSES] } } },
+        runs: {
+          none: { trigger: { not: RECORD_ONLY_TRIGGER }, status: { in: [...ACTIVE_RUN_STATUSES] } },
+        },
       },
     },
     select: {
@@ -226,7 +239,7 @@ export async function reconcileOrgCheckIns(
   for (const ceo of ceos) {
     if (!ceo.thread) continue;
     const org = { spaceId: ceo.spaceId, userId: ceo.userId, orgRole: { not: null } };
-    const orgRuns = { spaceId: ceo.spaceId, bot: org };
+    const orgRuns = { spaceId: ceo.spaceId, bot: org, trigger: { not: RECORD_ONLY_TRIGGER } };
     const [activeRuns, checkInsToday, lastRun, ceoActiveRuns, lastCheckIn] = await Promise.all([
       deps.prisma.run.count({ where: { ...orgRuns, status: { in: [...ACTIVE_RUN_STATUSES] } } }),
       deps.prisma.run.count({
@@ -241,7 +254,13 @@ export async function reconcileOrgCheckIns(
         orderBy: { updatedAt: "desc" },
         select: { trigger: true, updatedAt: true },
       }),
-      deps.prisma.run.count({ where: { botId: ceo.id, status: { in: [...ACTIVE_RUN_STATUSES] } } }),
+      deps.prisma.run.count({
+        where: {
+          botId: ceo.id,
+          trigger: { not: RECORD_ONLY_TRIGGER },
+          status: { in: [...ACTIVE_RUN_STATUSES] },
+        },
+      }),
       deps.prisma.run.findFirst({
         where: { botId: ceo.id, trigger: "org_check_in" },
         orderBy: { createdAt: "desc" },
@@ -274,7 +293,32 @@ export async function reconcileOrgCheckIns(
       pendingProposals,
       lastCheckInAt: lastCheckIn?.createdAt ?? null,
     };
-    if (!orgNeedsCheckIn(state)) continue;
+    // Real check-ins always win this reconciliation round.
+    let trigger = "org_check_in";
+    if (!orgNeedsCheckIn(state)) {
+      const selected = (process.env.RECORD_ONLY_ORG_CHECK_IN_BOT_IDS ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .includes(ceo.id);
+      if (!selected || state.ceoActive || !state.lastRun) continue;
+      const [count, last] = await Promise.all([
+        deps.prisma.run.count({
+          where: {
+            botId: ceo.id,
+            trigger: RECORD_ONLY_TRIGGER,
+            createdAt: { gt: new Date(now.getTime() - 24 * 60 * 60_000) },
+          },
+        }),
+        deps.prisma.run.findFirst({
+          where: { botId: ceo.id, trigger: RECORD_ONLY_TRIGGER },
+          orderBy: { createdAt: "desc" },
+          select: { createdAt: true },
+        }),
+      ]);
+      if (!orgRecordOnlyDue(count, last?.createdAt ?? null, now)) continue;
+      trigger = RECORD_ONLY_TRIGGER;
+    }
     const idleMinutes = Math.round(
       (now.getTime() - (lastRun?.updatedAt ?? now).getTime()) / 60_000,
     );
@@ -286,12 +330,16 @@ export async function reconcileOrgCheckIns(
           botId: ceo.id,
           threadId,
           userId: ceo.userId,
-          prompt: orgCheckInPrompt(
-            idleMinutes,
-            activeRuns > 0 ? idleMembers : [],
-            readyTickets,
-            failedTickets,
-          ),
+          prompt:
+            (trigger === RECORD_ONLY_TRIGGER
+              ? "Record-only organization check-in: evaluate only. Do not perform actions. Tools that change state are blocked.\n"
+              : "") +
+            orgCheckInPrompt(
+              idleMinutes,
+              activeRuns > 0 ? idleMembers : [],
+              readyTickets,
+              failedTickets,
+            ),
           status: "queued",
         },
       });
@@ -302,7 +350,7 @@ export async function reconcileOrgCheckIns(
           threadId,
           userId: ceo.userId,
           taskId: task.id,
-          trigger: "org_check_in",
+          trigger,
           status: "queued",
         },
         select: { id: true },

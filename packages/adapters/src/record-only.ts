@@ -3,6 +3,8 @@ export function recordOnlyRoutine(
   run: { routineId?: string | null; trigger: string },
   configured = process.env.RECORD_ONLY_ROUTINE_IDS,
 ): boolean {
+  // Preserve protection for queued runs even if the operator later clears selection.
+  if (run.trigger === "org_check_in_record_only") return true;
   return (
     run.trigger === "routine" &&
     Boolean(run.routineId) &&
@@ -21,7 +23,7 @@ export function recordOnlyAllowsTool(name: string, route?: unknown): boolean {
 }
 
 export const RECORD_ONLY_MODEL_ERROR =
-  "Record-only routine: model provider has no verified tool-free path; model was not started.";
+  "Record-only run: model provider has no verified tool-free path; model was not started.";
 
 export function recordOnlyAllowsProvider(provider: string, api?: string): boolean {
   if (provider === "claude-code") return api === undefined || api === "rakazo-cli";

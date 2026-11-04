@@ -21,10 +21,13 @@ describe("run state machine", () => {
     expect(isConversationalRun("webhook")).toBe(false);
     expect(isConversationalRun("created")).toBe(false);
     expect(isConversationalRun("tickets")).toBe(false);
+    expect(isConversationalRun("org_check_in_record_only")).toBe(false);
   });
 
   it("marks ticket runs as background work that stays out of the chat", () => {
     expect(isBackgroundRunTrigger("tickets")).toBe(true);
+    expect(isBackgroundRunTrigger("org_check_in_record_only")).toBe(true);
+    expect(isBackgroundRunTrigger("org_check_in")).toBe(false);
     expect(isBackgroundRunTrigger("user")).toBe(false);
     expect(isBackgroundRunTrigger("routine")).toBe(false);
     expect(isBackgroundRunTrigger(null)).toBe(false);

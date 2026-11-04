@@ -20,6 +20,7 @@ const NON_CONVERSATIONAL_RUN_TRIGGERS = new Set([
   "created",
   "tickets",
   "org_check_in",
+  "org_check_in_record_only",
 ]);
 
 /**
@@ -28,7 +29,7 @@ const NON_CONVERSATIONAL_RUN_TRIGGERS = new Set([
  * their steps/text. Ticket work reports through board comments and its status.
  * Existing ask and approval cards can still request user input.
  */
-export const BACKGROUND_RUN_TRIGGERS = ["tickets"] as const;
+export const BACKGROUND_RUN_TRIGGERS = ["tickets", "org_check_in_record_only"] as const;
 const BACKGROUND_RUN_TRIGGER_SET = new Set<string>(BACKGROUND_RUN_TRIGGERS);
 
 export function isBackgroundRunTrigger(trigger: string | null | undefined): boolean {

@@ -17,6 +17,7 @@ export const RUN_TRIGGERS = [
   "created",
   "tickets",
   "org_check_in",
+  "org_check_in_record_only",
 ] as const;
 export const RunTriggerSchema = z.enum(RUN_TRIGGERS);
 export type RunTrigger = z.infer<typeof RunTriggerSchema>;

@@ -7186,7 +7186,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             // Arguments, connector names and free text may contain secrets.
             const safeName = builtinAgentTools.some((tool) => tool.name === name) ? name : "other";
             await recordOnlyEvent(`tool:${safeName}`);
-            return { executed: false, error: "Record-only routine: this action was not executed." };
+            return { executed: false, error: "Record-only run: this action was not executed." };
           }
           if (!LOCATION_TOOL_NAMES.has(name))
             return await applyToolAtComputer(name, args, executionId, route, observer);

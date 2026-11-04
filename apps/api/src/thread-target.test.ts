@@ -293,7 +293,7 @@ describe("threadSnapshot", () => {
         where: expect.objectContaining({
           botId: "bot-1",
           threadId: "thread-1",
-          trigger: { notIn: ["bot_message", "tickets"] },
+          trigger: { notIn: ["bot_message", "tickets", "org_check_in_record_only"] },
           status: {
             in: [
               "queued",
@@ -536,7 +536,7 @@ describe("threadSnapshot", () => {
     expect(findFirstRun).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          trigger: { notIn: ["bot_message", "tickets"] },
+          trigger: { notIn: ["bot_message", "tickets", "org_check_in_record_only"] },
           status: { in: ["failed", "completed", "cancelled"] },
         }),
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -613,7 +613,7 @@ describe("threadSnapshot", () => {
       expect.objectContaining({
         where: {
           threadId: "thread-1",
-          trigger: { notIn: ["bot_message", "tickets"] },
+          trigger: { notIn: ["bot_message", "tickets", "org_check_in_record_only"] },
           status: { in: ["failed", "completed", "cancelled"] },
         },
         orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
@@ -635,7 +635,7 @@ describe("threadSnapshot", () => {
             ],
           },
           OR: [
-            { trigger: { notIn: ["bot_message", "tickets"] } },
+            { trigger: { notIn: ["bot_message", "tickets", "org_check_in_record_only"] } },
             { status: { in: ["waiting_input", "waiting_takeover"] } },
           ],
         },
@@ -692,7 +692,7 @@ describe("threadSnapshot", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           OR: [
-            { trigger: { notIn: ["bot_message", "tickets"] } },
+            { trigger: { notIn: ["bot_message", "tickets", "org_check_in_record_only"] } },
             { status: { in: ["waiting_input", "waiting_takeover"] } },
           ],
           status: {
@@ -711,7 +711,7 @@ describe("threadSnapshot", () => {
     expect(findManyRuns).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          trigger: { notIn: ["bot_message", "tickets"] },
+          trigger: { notIn: ["bot_message", "tickets", "org_check_in_record_only"] },
           status: { in: ["failed", "completed", "cancelled"] },
         }),
       }),

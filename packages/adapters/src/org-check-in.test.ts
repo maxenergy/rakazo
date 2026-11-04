@@ -205,15 +205,42 @@ describe("record-only organization reconciliation", () => {
 
   it("gives real work priority and never spends the record-only quota", async () => {
     vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_BOT_IDS", "ceo");
+    vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_MODEL_ID", "claude-sonnet-5-5");
     const f = fixture({ realDue: true });
     await f.reconcile();
     expect(f.runCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ trigger: "org_check_in" }) }),
     );
+    const data = (f.runCreate.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0]
+      .data;
+    for (const key of ["modelProvider", "modelId", "modelPinned"])
+      expect(data).not.toHaveProperty(key);
     expect(f.runQueries).not.toContainEqual(
       expect.objectContaining({ trigger: "org_check_in_record_only" }),
     );
   });
+
+  it.each(["", "   ", " claude-sonnet-5-5 "])(
+    "pins only a nonempty operator model: %j",
+    async (model) => {
+      vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_BOT_IDS", "ceo");
+      vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_MODEL_ID", model);
+      const f = fixture();
+      await f.reconcile();
+      const data = (f.runCreate.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0]
+        .data;
+      if (model.trim()) {
+        expect(data).toMatchObject({
+          modelProvider: "claude-code",
+          modelId: model.trim(),
+          modelPinned: true,
+        });
+      } else {
+        for (const key of ["modelProvider", "modelId", "modelPinned"])
+          expect(data).not.toHaveProperty(key);
+      }
+    },
+  );
 
   it("isolates activity and real failure watermark from record-only success or failure", async () => {
     vi.stubEnv("RECORD_ONLY_ORG_CHECK_IN_BOT_IDS", " other, ceo ");

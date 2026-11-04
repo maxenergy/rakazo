@@ -1,4 +1,4 @@
-import type { AgentToolCompletion, ConnectorTool } from "@rakazo/adapter-kit";
+import type { AgentRuntimeEvent, AgentToolCompletion, ConnectorTool } from "@rakazo/adapter-kit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fakeAgentState = vi.hoisted(() => ({
@@ -450,6 +450,42 @@ describe("Pi connector tool dispatch", () => {
       args: { collection: "notes", title: "Result", body: "Done" },
     };
     delete process.env.MAX_TOOL_CALLS_PER_TURN;
+  });
+
+  it.each([
+    ["run_subagent", { name: "helper", task: "write a file" }],
+    ["request_takeover", { reason: "sign in" }],
+    ["ask_user", { question: "Proceed?", options: ["Yes", "No"] }],
+  ])("routes record-only special tool %s through the backend gate", async (name, args) => {
+    fakeAgentState.invoke = { name: String(name), args: args as Record<string, unknown> };
+    const executeTool = vi.fn(async () => ({ executed: false, error: "not executed" }));
+    const events: AgentRuntimeEvent[] = [];
+    for await (const event of new PiAgentRuntime().run(
+      {
+        botId: "bot",
+        threadId: "thread",
+        runId: "record-only-special",
+        prompt: "Process the task",
+        instructions: "Use the requested tool.",
+        history: [],
+        tools: [builtinAgentTools.find((tool) => tool.name === name)!],
+        model: { provider: "test", id: "dispatch-test-model" },
+        recordOnly: true,
+        executeTool,
+      },
+      { signal: new AbortController().signal },
+    ))
+      events.push(event);
+    expect(executeTool).toHaveBeenCalledTimes(1);
+    expect(executeTool).toHaveBeenCalledWith(
+      name,
+      expect.any(Object),
+      expect.any(String),
+      undefined,
+    );
+    expect(events.some((event) => ["subagent", "ask", "takeover"].includes(event.type))).toBe(
+      false,
+    );
   });
 
   it.each([undefined, null, ""])(

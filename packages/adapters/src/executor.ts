@@ -346,6 +346,12 @@ import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
 import { loadProjectContext } from "./project-context.js";
 import { projectRunMessages } from "./project-run-context.js";
 import { parseProposalArgs } from "./proposal-tools.js";
+import {
+  RECORD_ONLY_MODEL_ERROR,
+  recordOnlyAllowsProvider,
+  recordOnlyAllowsTool,
+  recordOnlyRoutine,
+} from "./record-only.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
@@ -3357,6 +3363,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         ? Object.assign(loadedRun, { executionFence: undefined as ExecutionFence | undefined })
         : null;
       if (!run) return;
+      const recordOnly = recordOnlyRoutine(run);
       if (isTerminal(run.status as RunStatus)) return;
       if (!run.startedAt && run.projectId) {
         try {
@@ -3378,7 +3385,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       }
       // CLI discovery is read-only and must finish before claiming any lease.
       // Under a lease, all later model resolutions use valid cached evidence only.
-      if (!deps.runtime.describe().capabilities.scripted) {
+      if (!recordOnly && !deps.runtime.describe().capabilities.scripted) {
         const scope = { userId: run.userId, spaceId: run.spaceId };
         const bot = await deps.prisma.bot.findUniqueOrThrow({ where: { id: run.botId } });
         const choice = runModelChoice(run, bot);
@@ -3961,6 +3968,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
           }
         };
+        const recordOnlyEvent = async (action: string) => {
+          await deps.events.append({
+            executionFence: run.executionFence,
+            spaceId: run.spaceId,
+            threadId: thread.id,
+            botId: bot.id,
+            runId,
+            type: "run.record_only",
+            payload: { action },
+          });
+        };
+        if (recordOnly && runModelProvider?.endsWith("-cli")) {
+          await recordOnlyEvent("model_refused");
+          await failRunBeforeModel(RECORD_ONLY_MODEL_ERROR);
+          return;
+        }
         if (
           modelChoice.modelProvider &&
           modelChoice.modelId &&
@@ -7159,6 +7182,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
           route?: unknown,
           observer?: AgentToolExecutionObserver,
         ) => {
+          if (recordOnly && !recordOnlyAllowsTool(name, route ?? connectorTools.get(name)?.route)) {
+            // Arguments, connector names and free text may contain secrets.
+            const safeName = builtinAgentTools.some((tool) => tool.name === name) ? name : "other";
+            await recordOnlyEvent(`tool:${safeName}`);
+            return { executed: false, error: "Record-only routine: this action was not executed." };
+          }
           if (!LOCATION_TOOL_NAMES.has(name))
             return await applyToolAtComputer(name, args, executionId, route, observer);
           try {
@@ -7512,6 +7541,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
               allowSilentEmpty: allowSilentEmptyRun,
               shouldEndTurn: () => handedOff,
               emptyResponseText,
+              recordOnly,
+              beforeModelCall: recordOnly
+                ? async (provider, api) => {
+                    if (!recordOnlyAllowsProvider(provider, api)) {
+                      await recordOnlyEvent("model_refused");
+                      throw new Error(RECORD_ONLY_MODEL_ERROR);
+                    }
+                  }
+                : undefined,
               executeTool: scripted ? undefined : applyTool,
               resolveModel: scripted
                 ? undefined
@@ -7990,7 +8028,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
           pendingProgress += progressRedactor.finish();
           await flushProgress();
 
-          for (const turn of script ?? []) {
+          if (recordOnly && script?.some((turn) => turn.files?.length || turn.memory?.length)) {
+            await recordOnlyEvent("scripted_writes_skipped");
+          }
+          for (const turn of recordOnly ? [] : (script ?? [])) {
             for (const file of turn.files ?? []) {
               workspaceCheckpoint.markDirty();
               await deps.sandbox.writeFile(
@@ -8394,10 +8435,18 @@ async function runNotice(
 
 async function notifyRun(
   deps: ExecutorDeps,
-  run: { spaceId: string; userId: string; botId: string; threadId: string; trigger: string },
+  run: {
+    spaceId: string;
+    userId: string;
+    botId: string;
+    threadId: string;
+    trigger: string;
+    routineId?: string | null;
+  },
   message: NotificationMessage,
 ) {
   if (
+    recordOnlyRoutine(run) ||
     !deps.notifications ||
     (isBackgroundRunTrigger(run.trigger) && message.kind !== "help" && message.kind !== "takeover")
   )

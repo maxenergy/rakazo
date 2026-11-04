@@ -1875,3 +1875,36 @@ describe("provider availability classification", () => {
     expect(isRetryableProviderUnavailable(error)).toBe(expected);
   });
 });
+
+describe("record-only model admission", () => {
+  it("checks every retry immediately before streaming", async () => {
+    providerState.stream.mockImplementation(() =>
+      stream(primary, message(primary, [], "error", "HTTP 503 unavailable")),
+    );
+    const input = request();
+    input.beforeModelCall = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error("policy refused"));
+    await expect(run(input)).rejects.toThrow("policy refused");
+    expect(input.beforeModelCall).toHaveBeenCalledTimes(2);
+    expect(providerState.stream).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a backup without streaming or trying another backup", async () => {
+    providerState.stream.mockImplementation(() =>
+      stream(primary, message(primary, [], "error", "HTTP 503 unavailable")),
+    );
+    const input = request([backupA, backupB]);
+    input.resolveFallbackModel = async (provider, id) => ({
+      provider,
+      id,
+      apiKey: "fake-backup-key",
+    });
+    input.beforeModelCall = vi.fn(async (provider) => {
+      if (provider !== primary.provider) throw new Error("policy refused");
+    });
+    await expect(run(input)).rejects.toThrow("policy refused");
+    expect(providerState.stream).toHaveBeenCalledTimes(1);
+  });
+});

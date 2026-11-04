@@ -143,6 +143,7 @@ export async function getRunDiagnostics(
               "run.failed",
               "run.cancelled",
               "effect.recorded",
+              "run.record_only",
               "effect.reconciled",
             ],
           },
@@ -158,6 +159,26 @@ export async function getRunDiagnostics(
             kind: row.type,
             evidence: { ...base.evidence, eventSeq: row.seq },
           };
+          if (row.type === "run.record_only") {
+            const record = await prisma.event.findFirst({
+              where: { id: row.id, runId: run.id, spaceId: actor.spaceId, type: "run.record_only" },
+              select: { payload: true },
+            });
+            const payload = record?.payload;
+            const action =
+              payload &&
+              typeof payload === "object" &&
+              !Array.isArray(payload) &&
+              "action" in payload
+                ? payload.action
+                : null;
+            const safe =
+              typeof action === "string" &&
+              /^(model_refused|scripted_writes_skipped|tool:[a-z_]+)$/.test(action)
+                ? action
+                : "action_skipped";
+            return { ...entry, kind: `run.record_only:${safe}` };
+          }
           if (row.type === "steering.delivered") {
             const record = await prisma.event.findFirst({
               where: {

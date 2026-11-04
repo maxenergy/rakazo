@@ -2742,6 +2742,21 @@ export function ShellPage() {
     }
   }
 
+  async function resumeFailedRun() {
+    const failedRunId = displayedRunErrorId;
+    if (!failedRunId) return;
+    const botId = activeBotId.current;
+    const groupId = activeGroupId.current;
+    try {
+      await rpc.runs.resume({ runId: failedRunId });
+      dismissComposerError();
+      if (groupId) await refreshGroupThreadRef.current(groupId);
+      else if (botId) await refreshThread(botId);
+    } catch {
+      setSendError(t`Could not continue`);
+    }
+  }
+
   const embeddedScreenUrl = embeddableScreenUrl(screenUrl);
   const hasControl = userHoldsComputerControl(computer, computerBot?.id);
   const hideScreenLoadError = computerErrorFromScreen && Boolean(embeddedScreenUrl);
@@ -3786,6 +3801,7 @@ export function ShellPage() {
             runErrorId={displayedRunErrorId}
             onRunErrorPresented={handleRunErrorPresented}
             onDismissError={dismissComposerError}
+            onResumeRun={resumeFailedRun}
             sending={sending}
             fileInputRef={fileInputRef}
             onAttachmentPick={onAttachmentPick}
@@ -5509,6 +5525,7 @@ export const Composer = memo(function Composer({
   sendError,
   runError,
   runErrorId,
+  onResumeRun,
   onRunErrorPresented,
   onDismissError,
   sending,
@@ -5535,6 +5552,7 @@ export const Composer = memo(function Composer({
   sendError: string | null;
   runError: string | null;
   runErrorId: string | null;
+  onResumeRun: () => void;
   onRunErrorPresented: (runId: string) => void;
   onDismissError: () => void;
   sending: boolean;
@@ -6003,6 +6021,16 @@ export const Composer = memo(function Composer({
           className="mb-3 flex items-center gap-2 rounded-[14px] border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive"
         >
           <span className="min-w-0 flex-1">{sendError ?? runError}</span>
+          {!sendError && runError ? (
+            <button
+              type="button"
+              data-testid="composer-error-continue"
+              onClick={onResumeRun}
+              className="shrink-0 font-medium text-destructive hover:text-foreground"
+            >
+              {t`Continue`}
+            </button>
+          ) : null}
           <button
             type="button"
             aria-label={t`Dismiss error`}

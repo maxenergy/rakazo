@@ -1114,6 +1114,7 @@ export const appContract = {
   runs: {
     diagnostics: oc.input(RunDiagnosticsInputSchema).output(RunDiagnosticsOutputSchema),
     list: oc.input(z.object({ filter: z.enum(["active", "recent"]) })).output(RunsListOutputSchema),
+    resume: oc.input(z.object({ runId: Id })).output(z.object({ runId: Id })),
   },
   voice: {
     catalog: oc.output(z.array(VoiceCatalogEntrySchema)),

@@ -88,6 +88,11 @@ describe("attachment helpers", () => {
     expect(attachmentExtensionForMimeType("application/zip")).toBe(".zip");
   });
 
+  it("gives a resumed run the attachments of the turn it continues", () => {
+    const source = { id: "source", role: "user", blocks: [] };
+    expect(userTurnMessageForRun("resume", "run-new", [source], "source")).toBe(source);
+  });
+
   it("scopes current-turn images to user-triggered runs", () => {
     const messages = [
       {

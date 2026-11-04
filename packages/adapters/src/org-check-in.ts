@@ -351,6 +351,14 @@ export async function reconcileOrgCheckIns(
           userId: ceo.userId,
           taskId: task.id,
           trigger,
+          ...(trigger === RECORD_ONLY_TRIGGER &&
+          process.env.RECORD_ONLY_ORG_CHECK_IN_MODEL_ID?.trim()
+            ? {
+                modelProvider: "claude-code",
+                modelId: process.env.RECORD_ONLY_ORG_CHECK_IN_MODEL_ID.trim(),
+                modelPinned: true,
+              }
+            : {}),
           status: "queued",
         },
         select: { id: true },

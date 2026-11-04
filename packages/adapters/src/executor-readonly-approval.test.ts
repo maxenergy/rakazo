@@ -69,7 +69,9 @@ function fixture({
   routineId,
   modelProvider = "scripted",
   scripted = false,
+  pin,
 }: {
+  pin?: { modelProvider: string; modelId: string; modelPinned: boolean };
   scripted?: boolean;
   routineId?: string;
   modelProvider?: string;
@@ -136,6 +138,7 @@ function fixture({
     status: "queued",
     trigger,
     routineId,
+    ...pin,
     leaseFence: 0,
   };
   const externalEffect = {
@@ -223,6 +226,7 @@ function fixture({
     connection: { findMany: vi.fn(async () => []) },
     spaceModelPreference: { findFirst: vi.fn(async () => null) },
     userModelCredential: { findFirst: vi.fn(async () => null) },
+    secret: { findFirst: vi.fn(async () => null) },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
         defaultModelProvider: modelProvider,
@@ -1034,6 +1038,72 @@ describe("record-only organization execution", () => {
       );
     },
   );
+
+  const pin = { modelProvider: "claude-code", modelId: "claude-sonnet-5-5", modelPinned: true };
+  function connected(options: Parameters<typeof fixture>[0] = {}) {
+    const f = fixture({ trigger: "org_check_in_record_only", pin, ...options });
+    f.prisma.userModelCredential.findFirst.mockResolvedValue({
+      id: "credential",
+      provider: "claude-code",
+      defaultModel: pin.modelId,
+      secretId: "secret",
+    } as never);
+    return f;
+  }
+
+  it("uses the captured Claude pin and disables all backups", async () => {
+    const f = connected({
+      runtimeProbe: async (request) => {
+        expect(request.model).toMatchObject({ provider: pin.modelProvider, id: pin.modelId });
+        expect(request.fallbackModels).toEqual([]);
+        expect(request.recordOnly).toBe(true);
+        await request.beforeModelCall!("claude-code", "rakazo-cli");
+        await expect(request.beforeModelCall!("codex-cli", "rakazo-cli")).rejects.toThrow(
+          "Record-only",
+        );
+      },
+    });
+    await f.run();
+    expect(f.prisma.botBackupModel.findMany).not.toHaveBeenCalled();
+    expect(f.prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each(["unknown-model", "unavailable"])(
+    "fails closed for %s without starting a backup",
+    async (modelId) => {
+      const f = connected({ pin: { ...pin, modelId } });
+      if (modelId === "unavailable") f.prisma.userModelCredential.findFirst.mockResolvedValue(null);
+      await f.continueRun();
+      expect(f.runtimeRun).not.toHaveBeenCalled();
+      expect(f.finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
+      expect(f.prisma.botBackupModel.findMany).not.toHaveBeenCalled();
+      expect(f.send).not.toHaveBeenCalled();
+    },
+  );
+
+  it("fails closed on model failure and ignores model choice in tool arguments", async () => {
+    const f = connected({
+      builtin: true,
+      runtimeProbe: async (request) => {
+        const result = await request.executeTool!(
+          "set_bot_model",
+          {
+            provider: "codex-cli",
+            modelId: "gpt-6.1-sol",
+          },
+          "model-choice",
+        );
+        expect(result).toMatchObject({ executed: false });
+        expect(request.model).toMatchObject({ provider: pin.modelProvider, id: pin.modelId });
+        expect(request.fallbackModels).toEqual([]);
+        throw new Error("model unavailable");
+      },
+    });
+    await f.continueRun();
+    expect(f.finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
+    expect(f.execute).not.toHaveBeenCalled();
+    expect(f.send).not.toHaveBeenCalled();
+  });
 
   it("refuses the current Codex CLI without starting it", async () => {
     const f = fixture({ trigger: "org_check_in_record_only", modelProvider: "codex-cli" });

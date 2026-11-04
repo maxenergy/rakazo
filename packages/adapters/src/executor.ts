@@ -7358,7 +7358,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
 
         let fallbackModels: { provider: string; modelId: string }[] = [];
-        if (!scripted) {
+        if (!scripted && run.trigger !== "org_check_in_record_only") {
           if (run.userId !== bot.userId) {
             getLogger().info("backups_disabled_owner_mismatch", { botId: run.botId });
           } else {

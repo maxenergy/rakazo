@@ -276,7 +276,7 @@ import { formatCurrentTimeInstruction } from "./current-time.js";
 import { executeDependencyTool, isDependencyToolName } from "./dependency-tools.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { executeGoalTool, isGoalToolName } from "./goal-tools.js";
-import { handoffToGroupBot, loadGroupContext } from "./group-handoff.js";
+import { handoffToGroupBot, loadGroupContext, returnHandoffFailure } from "./group-handoff.js";
 import {
   COMPACTION_BATCH_SIZE,
   formatCompactedSummary,
@@ -3945,6 +3945,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               "status",
               { forceUnread: true },
             ).catch((error) => getLogger().error("bot message failure return", error));
+          }
+          if (run.trigger === "follow_up" && !failed.continuationRunId) {
+            await returnHandoffFailure(deps, run, message).catch((error) =>
+              getLogger().error("group handoff failure return", error),
+            );
           }
           if (!failed.continuationRunId) {
             await notifyRun(deps, run, {
@@ -8204,6 +8209,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               "status",
               { forceUnread: true },
             ).catch((returnError) => getLogger().error("bot message failure return", returnError));
+          }
+          if (run.trigger === "follow_up" && !failed.continuationRunId) {
+            await returnHandoffFailure(deps, run, message).catch((returnError) =>
+              getLogger().error("group handoff failure return", returnError),
+            );
           }
           if (runSendsFinishNotification(run.trigger) && !failed.continuationRunId) {
             await notifyRun(deps, run, {

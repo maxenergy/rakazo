@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- When a run a bot handed off fails for good, the bot that handed it off is told and can decide what to do next, and a CEO's team check-in now names tickets whose owner stopped on a failed run. Before, that work sat until someone noticed.
 - A chat, handoff or ticket run that reaches its time limit now continues once in a new 2-hour run instead of stopping until someone asks again.
 - Every run failed with "Storage admission refused" on a machine whose `/tmp` is a small tmpfs, as on Ubuntu 26.04, because the check asked for more free space than `/tmp` could hold. It now asks a `/tmp` under 100 GB to keep half of its size free.
 - Fish Audio speech can use a model other than s2.1-pro. Each Fish connection can set Speech model in Voice settings; `FISH_TTS_MODEL` is the default only when that field is empty (unset still uses s2.1-pro). A failed speak, transcribe, or voice-list request logs the upstream Fish status and message, including when the error body cannot be read, and the message returned to the client does not include the API key.

@@ -17,13 +17,19 @@ export const ORG_MEMBER_IDLE_MS = 30 * 60_000;
 export const ORG_READY_TICKET_STALL_MS = 15 * 60_000;
 /** Check-ins per org per day, so an org that keeps stalling cannot burn its subscriptions. */
 export const ORG_CHECK_IN_DAILY_LIMIT = 24;
+/** How many failed tickets one check-in names before it only counts the rest. */
+const ORG_FAILED_TICKETS_NAMED = 10;
 
 export function orgCheckInPrompt(
   idleMinutes: number,
   idleMembers: readonly string[] = [],
   readyTickets: readonly string[] = [],
+  failedTickets: readonly string[] = [],
 ) {
   return [
+    failedTickets.length
+      ? `Team check-in (automatic, not from the user): the owners of these tickets stopped because their latest run failed: ${failedTickets.join("; ")}. Use run_failures to see why, then assign the work again, change the plan, or tell the user what you need.`
+      : undefined,
     readyTickets.length
       ? `Team check-in (automatic, not from the user): these tickets have every recorded prerequisite done but have not started: ${readyTickets.join("; ")}. Tell each owner to start now with message_bot, or record on the ticket why it still has to wait.`
       : undefined,
@@ -50,6 +56,8 @@ export type OrgCheckInState = {
   idleMembers?: readonly string[];
   /** Tickets whose recorded prerequisites are all done but which nobody has started. */
   readyTickets?: readonly string[];
+  /** Tickets in progress whose owner's latest run failed since the last check-in. */
+  failedTickets?: readonly string[];
   /** Proposals the org sent the user that are still undecided. */
   pendingProposals?: number;
   lastCheckInAt?: Date | null;
@@ -66,6 +74,9 @@ export function orgNeedsCheckIn(state: OrgCheckInState) {
     : Number.POSITIVE_INFINITY;
   // Ready work left unstarted is a stall even while other bots are busy.
   if (state.readyTickets?.length && !state.ceoActive && sinceCheckIn >= ORG_CHECK_IN_REPEAT_MS)
+    return true;
+  // Each failure is reported once, so this needs only the shorter wait.
+  if (state.failedTickets?.length && !state.ceoActive && sinceCheckIn >= ORG_CHECK_IN_IDLE_MS)
     return true;
   if (state.activeRuns > 0) {
     // Part of a larger org can sit idle behind a blocker while the rest works.
@@ -156,6 +167,53 @@ async function readyStalledTickets(
   );
 }
 
+/** Tickets in progress whose owner stopped on a failed run since the last check-in. */
+async function failedOwnerTickets(
+  prisma: PrismaClient,
+  ceo: { id: string; spaceId: string; userId: string },
+  since: Date | null,
+) {
+  const tickets = await prisma.ticket.findMany({
+    where: {
+      spaceId: ceo.spaceId,
+      status: "doing",
+      assigneeBot: {
+        id: { not: ceo.id },
+        userId: ceo.userId,
+        archivedAt: null,
+        orgRole: { not: null },
+        runs: {
+          some: { status: "failed", ...(since ? { updatedAt: { gt: since } } : {}) },
+          none: { status: { in: [...ACTIVE_RUN_STATUSES] } },
+        },
+      },
+    },
+    select: {
+      number: true,
+      board: { select: { ticketPrefix: true } },
+      assigneeBot: {
+        select: {
+          name: true,
+          runs: { orderBy: { createdAt: "desc" }, take: 1, select: { status: true } },
+        },
+      },
+    },
+  });
+  const failed = tickets
+    .filter((ticket) => ticket.assigneeBot?.runs[0]?.status === "failed")
+    .map(
+      (ticket) =>
+        `${ticket.board.ticketPrefix}-${ticket.number} (owner ${ticket.assigneeBot?.name})`,
+    );
+  // The next check-in looks only at newer failures, so say when some went unnamed.
+  return failed.length > ORG_FAILED_TICKETS_NAMED
+    ? [
+        ...failed.slice(0, ORG_FAILED_TICKETS_NAMED),
+        `and ${failed.length - ORG_FAILED_TICKETS_NAMED} more on the board`,
+      ]
+    : failed;
+}
+
 /** Wake the CEO of each org whose bots have all gone quiet with work possibly left open. */
 export async function reconcileOrgCheckIns(
   deps: { prisma: PrismaClient; jobs: JobPublisher },
@@ -194,6 +252,10 @@ export async function reconcileOrgCheckIns(
       activeRuns > 0 && ceoActiveRuns === 0 ? await idleOrgMembers(deps.prisma, ceo, now) : [];
     const readyTickets =
       ceoActiveRuns === 0 ? await readyStalledTickets(deps.prisma, ceo, now) : [];
+    const failedTickets =
+      ceoActiveRuns === 0
+        ? await failedOwnerTickets(deps.prisma, ceo, lastCheckIn?.createdAt ?? null)
+        : [];
     const pendingProposals =
       activeRuns === 0
         ? await deps.prisma.proposal.count({
@@ -208,6 +270,7 @@ export async function reconcileOrgCheckIns(
       ceoActive: ceoActiveRuns > 0,
       idleMembers,
       readyTickets,
+      failedTickets,
       pendingProposals,
       lastCheckInAt: lastCheckIn?.createdAt ?? null,
     };
@@ -223,7 +286,12 @@ export async function reconcileOrgCheckIns(
           botId: ceo.id,
           threadId,
           userId: ceo.userId,
-          prompt: orgCheckInPrompt(idleMinutes, activeRuns > 0 ? idleMembers : [], readyTickets),
+          prompt: orgCheckInPrompt(
+            idleMinutes,
+            activeRuns > 0 ? idleMembers : [],
+            readyTickets,
+            failedTickets,
+          ),
           status: "queued",
         },
       });

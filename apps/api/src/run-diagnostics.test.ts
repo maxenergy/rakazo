@@ -406,3 +406,26 @@ describe("steering diagnostics", () => {
     expect(RunDiagnosticsOutputSchema.safeParse(first).success).toBe(true);
   });
 });
+
+it("exposes record-only events without returning tool arguments", async () => {
+  const { prisma } = fixture();
+  vi.mocked(prisma.event.findMany).mockResolvedValue([
+    { id: "event-1", createdAt: now, type: "run.record_only", seq: 1 },
+  ] as never);
+  prisma.event.findFirst = vi
+    .fn()
+    .mockResolvedValue({ payload: { action: "tool:write_file", args: "private-test-value" } });
+  const result = await getRunDiagnostics(
+    prisma,
+    actor,
+    { runId: "run-1", section: "events", limit: 25 },
+    now,
+  );
+  expect(prisma.event.findMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: expect.objectContaining({ type: { in: expect.arrayContaining(["run.record_only"]) } }),
+    }),
+  );
+  expect(JSON.stringify(result)).toContain("run.record_only:tool:write_file");
+  expect(JSON.stringify(result)).not.toContain("private-test-value");
+});

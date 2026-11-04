@@ -10,6 +10,7 @@ import { botMessageHopExhausted, nextBotMessageHop } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { recordOnlyRoutine } from "./record-only.js";
 
 /**
  * Margin under vendor consecutive-outbound caps (sendblue enforces one hard):
@@ -72,7 +73,7 @@ async function mirrorRun(deps: MessagingDeliveryDeps, runId: string): Promise<vo
     where: { id: runId },
     include: { sourceMessage: true },
   });
-  if (!run) return;
+  if (!run || recordOnlyRoutine(run)) return;
 
   if (run.trigger === "messaging") {
     const sourceBlocks = (run.sourceMessage?.blocks ?? []) as MessageBlock[];

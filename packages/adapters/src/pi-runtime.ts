@@ -1339,6 +1339,19 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
       let failure: unknown;
       try {
         result = await (async () => {
+          if (host.request.recordOnly) {
+            if (!host.request.executeTool) throw new Error("Record-only tool dispatcher missing");
+            const result = await host.request.executeTool(tool.name, args, executionId, tool.route);
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: serializeToolResult(result, host.request.contextStrategy, tool.name, args),
+                },
+              ],
+              details: result,
+            };
+          }
           if (tool.name === "request_takeover") {
             host.pausePending = true;
             host.queue.push({
@@ -2769,6 +2782,7 @@ function fallbackAwareModelStream(
       let restart = false;
       let stream: AssistantMessageEventStream;
       try {
+        await state.request.beforeModelCall?.(target.config.provider, target.model.api);
         const apiKey = target.credentials?.accessToken ?? target.apiKey;
         const thinkingLevel = target.model.reasoning
           ? thinkingLevelFor(

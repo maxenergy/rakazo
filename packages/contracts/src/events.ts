@@ -5,6 +5,7 @@ import { McpTransportSchema } from "./mcp.js";
 import { OnboardingApp, OnboardingText } from "./onboarding.js";
 
 export const ProductEventType = z.enum([
+  "run.record_only",
   "run.storage_refused",
   "run.storage_paused",
   "run.storage_resumed",

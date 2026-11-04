@@ -66,7 +66,13 @@ function fixture({
   disabledBuiltinTools = [],
   existingSharedMemory,
   advanceRevisionAfterRead = false,
+  routineId,
+  modelProvider = "scripted",
+  scripted = false,
 }: {
+  scripted?: boolean;
+  routineId?: string;
+  modelProvider?: string;
   builtin?: boolean;
   disabledBuiltinTools?: string[];
   existingSharedMemory?: string;
@@ -129,6 +135,7 @@ function fixture({
     userId: "user-1",
     status: "queued",
     trigger,
+    routineId,
     leaseFence: 0,
   };
   const externalEffect = {
@@ -176,6 +183,7 @@ function fixture({
     $transaction: vi.fn(async function (this: any, callback: (tx: any) => Promise<any>) {
       return callback(this);
     }),
+    routine: { findUnique: vi.fn(async () => ({ crons: ["0 * * * *"] })) },
     user: { findUnique: vi.fn(async () => ({ uiLocale: "en" })) },
     run: {
       findUnique: vi.fn(async () => run),
@@ -217,7 +225,7 @@ function fixture({
     userModelCredential: { findFirst: vi.fn(async () => null) },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
-        defaultModelProvider: "scripted",
+        defaultModelProvider: modelProvider,
         defaultModelId: "scripted",
       })),
     },
@@ -258,10 +266,13 @@ function fixture({
     }
     yield { type: "done" as const, text: "Done" };
   });
+  const append = vi.fn(async () => undefined);
+  const send = vi.fn(async () => undefined);
+  const writeFile = vi.fn(async () => undefined);
   const executor = createRunExecutor({
     prisma,
     secretStore: { load: vi.fn(async () => "fake-backup-key") },
-    runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
+    runtime: { describe: () => ({ capabilities: { scripted } }), run: runtimeRun },
     connector: {
       discoverTools: async () =>
         builtin
@@ -281,6 +292,7 @@ function fixture({
       execute,
     },
     sandbox: {
+      writeFile,
       async *execute(_computer: unknown, request: { argv: string[] }) {
         yield {
           type: "stdout" as const,
@@ -324,7 +336,8 @@ function fixture({
       commit,
     },
     memoryProviders: { resolve: async () => null },
-    events: { append: vi.fn(async () => undefined), pauseRunForInput, finalizeRun },
+    events: { append, pauseRunForInput, finalizeRun },
+    notifications: { send },
     jobs,
     secrets,
     autoReview: autoReviewProvider,
@@ -332,6 +345,9 @@ function fixture({
   } as unknown as Parameters<typeof createRunExecutor>[0]);
   return {
     prisma,
+    append,
+    send,
+    writeFile,
     runtimeRun,
     finalizeRun,
     jobs,
@@ -884,4 +900,119 @@ describe("backup model ownership", () => {
     expect(f.prisma.spaceBackupModel.findMany).not.toHaveBeenCalled();
     expect(f.prisma.aiDataConsent.findUnique).not.toHaveBeenCalled();
   });
+});
+
+describe("record-only routines", () => {
+  it.each([
+    "shell",
+    "write_file",
+    "remember",
+    "run_subagent",
+    "message_bot",
+    "ticket_update",
+    "secret_request",
+  ])("does not execute %s and records only a safe action", async (name) => {
+    vi.stubEnv("RECORD_ONLY_ROUTINE_IDS", "routine-1");
+    try {
+      const f = fixture({ name, builtin: true, trigger: "routine", routineId: "routine-1" });
+      f.setCalls([{ args: { content: "private-test-value" }, executionId: "call-1" }]);
+      await f.run();
+      expect(f.results).toEqual([expect.objectContaining({ executed: false })]);
+      expect(f.execute).not.toHaveBeenCalled();
+      expect(f.commit).not.toHaveBeenCalled();
+      expect(f.send).not.toHaveBeenCalled();
+      expect(f.append).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "run.record_only",
+          runId: "run-1",
+        }),
+      );
+      expect(JSON.stringify(f.append.mock.calls)).not.toContain("private-test-value");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("refuses Codex before invoking the runtime, with an Event and no notification", async () => {
+    vi.stubEnv("RECORD_ONLY_ROUTINE_IDS", "routine-1");
+    try {
+      const f = fixture({ trigger: "routine", routineId: "routine-1", modelProvider: "codex-cli" });
+      await f.continueRun();
+      expect(f.runtimeRun).not.toHaveBeenCalled();
+      expect(f.finalizeRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outcome: "failed",
+          error: expect.stringContaining("not started"),
+        }),
+      );
+      expect(f.append).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "run.record_only", payload: { action: "model_refused" } }),
+      );
+      expect(f.send).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("preserves writes with an empty allowlist", async () => {
+    vi.stubEnv("RECORD_ONLY_ROUTINE_IDS", "");
+    try {
+      const f = fixture({
+        name: "save_shared_memory",
+        builtin: true,
+        trigger: "routine",
+        routineId: "routine-1",
+      });
+      f.setCalls([
+        { args: { path: "MEMORY.md", content: "Normal memory" }, executionId: "call-1" },
+      ]);
+      await f.run();
+      expect(f.commit).toHaveBeenCalled();
+      expect(f.append).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "run.record_only" }),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+it.each(["complete the requested task", "remember this preference"])(
+  "skips scripted completion writes for %s",
+  async (prompt) => {
+    vi.stubEnv("RECORD_ONLY_ROUTINE_IDS", "routine-1");
+    try {
+      const f = fixture({
+        trigger: "routine",
+        routineId: "routine-1",
+        scripted: true,
+        prompt,
+        runtimeProbe: async () => undefined,
+      });
+      await f.run();
+      expect(f.writeFile).not.toHaveBeenCalled();
+      expect(f.commit).not.toHaveBeenCalled();
+      expect(f.send).not.toHaveBeenCalled();
+      expect(f.append).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "run.record_only",
+          payload: { action: "scripted_writes_skipped" },
+        }),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  },
+);
+
+it("keeps connector shadows out of the builtin route", async () => {
+  vi.stubEnv("RECORD_ONLY_ROUTINE_IDS", "routine-1");
+  try {
+    const f = fixture({ name: "ticket_get", trigger: "routine", routineId: "routine-1" });
+    await f.run();
+    expect(f.results).toEqual([{ error: "Board unavailable." }]);
+    expect(f.execute).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });

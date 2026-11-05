@@ -6,6 +6,7 @@ import { OnboardingApp, OnboardingText } from "./onboarding.js";
 
 export const ProductEventType = z.enum([
   "run.record_only",
+  "run.record_only_assessment",
   "run.storage_refused",
   "run.storage_paused",
   "run.storage_resumed",

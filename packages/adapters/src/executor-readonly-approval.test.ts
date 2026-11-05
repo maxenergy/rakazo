@@ -70,7 +70,9 @@ function fixture({
   modelProvider = "scripted",
   scripted = false,
   pin,
+  reply = "Done",
 }: {
+  reply?: string;
   pin?: { modelProvider: string; modelId: string; modelPinned: boolean };
   scripted?: boolean;
   routineId?: string;
@@ -268,7 +270,7 @@ function fixture({
       results.push(result);
       if (isApprovalPausedResult(result)) return;
     }
-    yield { type: "done" as const, text: "Done" };
+    yield { type: "done" as const, text: reply };
   });
   const append = vi.fn(async () => undefined);
   const send = vi.fn(async () => undefined);
@@ -1111,5 +1113,38 @@ describe("record-only organization execution", () => {
     expect(f.runtimeRun).not.toHaveBeenCalled();
     expect(f.finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
     expect(f.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("record-only assessment retention", () => {
+  it.each([
+    "Observed an issue; would investigate because it may block work.",
+    "x".repeat(2100),
+    "",
+  ])("retains assessment without chat output (%#. case)", async (reply) => {
+    const f = fixture({ trigger: "org_check_in_record_only", scripted: true, reply });
+    f.setCalls([]);
+    await f.continueRun();
+    expect(f.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "run.record_only_assessment",
+        payload: { text: reply.slice(0, 2000), originalLength: reply.length },
+      }),
+    );
+    expect(f.append).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "thread.message.created" }),
+    );
+    expect(f.finalizeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "completed", blocks: [], markUnread: false }),
+    );
+    expect(f.send).not.toHaveBeenCalled();
+  });
+  it("leaves other triggers unchanged", async () => {
+    const f = fixture({ trigger: "routine", reply: "Routine result" });
+    await f.continueRun();
+    expect(f.append).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "run.record_only_assessment" }),
+    );
+    expect(f.finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "completed" }));
   });
 });

@@ -1711,6 +1711,8 @@ export async function* followThreadEvents(
         batchSize = events.length;
         for (const event of events) {
           seq = event.seq;
+          // Assessment text is retained for backend review, never client streams.
+          if (event.type === "run.record_only_assessment") continue;
           yield mapProductEvent(event);
         }
       } while (batchSize === EVENT_BATCH_SIZE && !signal?.aborted);

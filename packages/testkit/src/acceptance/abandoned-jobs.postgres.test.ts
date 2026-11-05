@@ -164,12 +164,12 @@ describeCluster("abandoned Graphile jobs (real PostgreSQL schema)", () => {
 
   it("logs failure without throwing and throttles failed attempts", async () => {
     const error = vi.spyOn(getLogger(), "error");
-    await pool.query("SAVEPOINT cleanup_failure");
-    await pool.query("ALTER TABLE graphile_worker._private_jobs RENAME TO cleanup_hidden_jobs");
+    // Inject failure without discarding the connection that owns the test transaction.
+    const query = vi.spyOn(pool, "query").mockRejectedValueOnce(new Error("cleanup query failed"));
     const cleanup = createAbandonedJobCleanup(pool);
     await expect(cleanup()).resolves.toBeUndefined();
     expect(error).toHaveBeenCalledWith("abandoned Graphile jobs cleanup", expect.any(Error));
-    await pool.query("ROLLBACK TO SAVEPOINT cleanup_failure");
+    query.mockRestore();
     const id = await abandoned();
     await cleanup();
     expect(await exists(id)).toBe(true);

@@ -98,6 +98,33 @@ export function createPostgresReconciliationLeadership(
   };
 }
 
+/** Only the Graphile-backed worker installs this auxiliary task. */
+export function createAbandonedJobCleanup(pool: Pick<Pool, "query">) {
+  let lastAttemptAt: number | undefined;
+  return async () => {
+    const startedAt = performance.now();
+    if (lastAttemptAt !== undefined && startedAt - lastAttemptAt < 3_600_000) return;
+    lastAttemptAt = startedAt;
+    try {
+      const result = await pool.query(`
+        DELETE FROM graphile_worker._private_jobs
+        WHERE key IS NULL
+          AND attempts = max_attempts
+          AND last_error IS NULL
+          AND locked_at IS NULL
+          AND greatest(updated_at, run_at) < now() - interval '7 days'
+      `);
+      getLogger().info("abandoned Graphile jobs cleanup", {
+        deletedRows: result.rowCount ?? 0,
+        retentionDays: 7,
+        durationMs: performance.now() - startedAt,
+      });
+    } catch (error) {
+      getLogger().error("abandoned Graphile jobs cleanup", error);
+    }
+  };
+}
+
 export function createJobReconciler(
   deps: {
     prisma: PrismaClient;
@@ -110,6 +137,7 @@ export function createJobReconciler(
     reconcileOrgCheckIns?: () => Promise<void>;
     reconcileTicketWakes?: () => Promise<void>;
     reconcileBudgetApprovals?: () => Promise<void>;
+    reconcileAbandonedJobs?: () => Promise<void>;
   },
   options: { intervalMs?: number; batchSize?: number } = {},
 ) {
@@ -136,6 +164,7 @@ export function createJobReconciler(
           deps.reconcileOrgCheckIns,
           deps.reconcileTicketWakes,
           deps.reconcileBudgetApprovals,
+          deps.reconcileAbandonedJobs,
         ].map(async (reconcile) => reconcile?.()),
       );
       for (const result of auxiliary) {

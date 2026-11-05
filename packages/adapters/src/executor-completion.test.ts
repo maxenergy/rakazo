@@ -438,7 +438,7 @@ describe("runReplyGuidance", () => {
     expect(runReplyGuidance("org_check_in_record_only")).toContain("what you observed");
     expect(runReplyGuidance("org_check_in_record_only")).toContain("what you would have done");
     expect(runReplyGuidance("org_check_in_record_only")).toContain("why");
-    expect(runReplyGuidance("org_check_in")).toBe(TICKET_SILENT_REPLY_GUIDANCE);
+    expect(runReplyGuidance("org_check_in")).toBe(LONG_WORK_PROGRESS_GUIDANCE);
   });
 
   it("does not ask routine runs for message_user progress", () => {

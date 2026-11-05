@@ -8070,6 +8070,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
           await workspaceCheckpoint.flush();
           terminalCheckpointComplete = true;
 
+          if (run.trigger === "org_check_in_record_only") {
+            const assessment = redactSecrets(assembled, runSecrets);
+            await deps.events.append({
+              executionFence: run.executionFence,
+              spaceId: run.spaceId,
+              threadId: thread.id,
+              botId: bot.id,
+              runId,
+              type: "run.record_only_assessment",
+              payload: { text: assessment.slice(0, 2000), originalLength: assembled.length },
+            });
+          }
+
           flushPendingTools();
           // Only routine runs are instructed to emit NO_RESPONSE. Other
           // allowSilentEmpty wakes (FYI, messaging) may finish truly empty.
@@ -8991,6 +9004,9 @@ export const TICKET_SILENT_REPLY_GUIDANCE =
   "Ticket work is reported on the board, not in chat. Put updates and results in ticket_comment and keep the ticket status current with ticket_update. Use the existing ask or approval mechanism when user input is needed. Leave the final reply empty.";
 
 export function runReplyGuidance(trigger: string): string {
+  if (trigger === "org_check_in_record_only") {
+    return "Write an assessment in your final reply: what you observed, what you would have done, and why. This assessment is retained privately for review; do not send messages or notifications.";
+  }
   if (isBackgroundRunTrigger(trigger)) return TICKET_SILENT_REPLY_GUIDANCE;
   return runAllowsSilentEmpty(trigger)
     ? ROUTINE_SILENT_REPLY_GUIDANCE

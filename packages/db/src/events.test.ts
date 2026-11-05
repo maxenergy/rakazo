@@ -419,6 +419,21 @@ describe("finalizeRun", () => {
 });
 
 describe("followThreadEvents", () => {
+  it("skips private assessments and continues at the following event", async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { ...event(0), type: "run.record_only_assessment", payload: { text: "private" } },
+        event(1),
+      ]);
+    const prisma = { event: { findMany } } as unknown as PrismaClient;
+    const abort = new AbortController();
+    const stream = followThreadEvents(prisma, "thread-1", -1, undefined, abort.signal);
+    await expect(stream.next()).resolves.toMatchObject({ value: { seq: 1 }, done: false });
+    abort.abort();
+    await stream.return(undefined);
+  });
+
   it("does not lose a notification that arrives while querying", async () => {
     const fanout = new TestFanout();
     const findMany = vi

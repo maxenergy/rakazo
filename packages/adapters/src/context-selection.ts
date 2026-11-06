@@ -185,6 +185,84 @@ function shortenHistoryResult(
   }
   return encoded;
 }
+interface TicketCommentReference {
+  id: string;
+  createdAt: string;
+  body: string;
+  bodyOffset: number;
+  bodyTotal: number;
+  bodyTruncated: boolean;
+  nextBodyOffset?: number;
+}
+function shortenTicketResult(
+  source: string,
+  size: number,
+  tool: { name?: string; arguments?: unknown },
+): string | undefined {
+  if (tool.name !== "ticket_get") return;
+  let payload: {
+    ticket: unknown;
+    comments: TicketCommentReference[];
+    commentsTotal: number;
+    commentsOmitted: number;
+    nextCursor?: string;
+    contextTruncated?: boolean;
+    needsRetry?: boolean;
+  };
+  try {
+    payload = JSON.parse(source);
+  } catch {
+    return;
+  }
+  // A retry response must never be rewritten into a partial error or request.
+  if (payload?.needsRetry) return source;
+  if (!Array.isArray(payload?.comments) || !Number.isInteger(payload.commentsTotal)) return;
+  if (
+    payload.comments.some(
+      (comment) =>
+        typeof comment.id !== "string" ||
+        typeof comment.createdAt !== "string" ||
+        typeof comment.body !== "string" ||
+        !Number.isInteger(comment.bodyOffset) ||
+        !Number.isInteger(comment.bodyTotal),
+    )
+  )
+    return;
+  payload.contextTruncated = true;
+  let encoded = JSON.stringify(payload);
+  while (encoded.length > size) {
+    const longest = payload.comments.reduce<TicketCommentReference | undefined>(
+      (best, comment) => (!best || comment.body.length > best.body.length ? comment : best),
+      undefined,
+    );
+    if (longest && longest.body.length > 1) {
+      longest.body = longest.body.slice(0, Math.max(1, Math.floor(longest.body.length / 2)));
+      const next = longest.bodyOffset + longest.body.length;
+      longest.bodyTruncated = longest.bodyOffset > 0 || next < longest.bodyTotal;
+      if (next < longest.bodyTotal) longest.nextBodyOffset = next;
+      else delete longest.nextBodyOffset;
+    } else if (payload.comments.length > 1) {
+      // Pages are ascending; keep the newest suffix. The cursor points before
+      // its oldest retained comment, so every removed row remains reachable.
+      payload.comments.shift();
+      const oldest = payload.comments[0]!;
+      payload.nextCursor = Buffer.from(`${oldest.createdAt}|${oldest.id}`, "utf8").toString(
+        "base64url",
+      );
+      payload.commentsOmitted = Math.max(0, payload.commentsTotal - payload.comments.length);
+    } else {
+      return JSON.stringify({
+        contextTruncated: true,
+        needsRetry: true,
+        error: "Retry same request with limit=1 and more context; no cursor consumed.",
+        retry: { limit: 1 },
+      });
+    }
+    encoded = JSON.stringify(payload);
+  }
+  return encoded;
+}
+
 /** Keep control fields and JSON shape while marking omitted long evidence strings. */
 function shortenStructuredResult(source: string, size: number): string | undefined {
   let payload: unknown;
@@ -240,6 +318,7 @@ export function shortenToolResultText(
   tool: { name?: string; arguments?: unknown } = {},
 ): string {
   return (
+    shortenTicketResult(source, size, tool) ??
     shortenHistoryResult(source, size, tool) ??
     shortenStructuredResult(source, size) ??
     `${source.slice(0, Math.floor(size / 2))}\n[Tool result truncated to fit context; inspect original evidence before claiming omitted details.]\n${source.slice(-Math.floor(size / 2))}`

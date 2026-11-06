@@ -5958,6 +5958,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 {
                   spaceId: run.spaceId,
                   ref: String(args.ref ?? ""),
+                  cursor: args.cursor as string | undefined,
+                  limit: args.limit as number | undefined,
+                  commentId: args.commentId as string | undefined,
+                  bodyOffset: args.bodyOffset as number | undefined,
                 },
               ),
             );

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ContextMessage } from "./context-selection.js";
+import { selectContext } from "./context-selection.js";
 import {
   commentTicket,
   createTicket,
@@ -176,7 +178,7 @@ function mutationDeps(ticketBoardEnabled = true) {
     ...boardSpace(),
     bot: { findFirst: vi.fn(async () => ({ id: "bot-2" })) },
     ticket: tx.ticket,
-    ticketComment: { findMany: vi.fn(async () => []) },
+    ticketComment: { findMany: vi.fn(async () => []), count: vi.fn(async () => 0) },
     $transaction: vi.fn(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
   };
   return {
@@ -300,6 +302,8 @@ describe("ticket mutations", () => {
     await expect(getTicket(s.deps, { spaceId: "ws", ref: "RAK-1" })).resolves.toEqual({
       ticket: expect.objectContaining({ ref: "RAK-1" }),
       comments: [],
+      commentsTotal: 0,
+      commentsOmitted: 0,
     });
     expect(s.prisma.ticket.findFirst).toHaveBeenCalledWith({
       where: { number: 1, spaceId: "ws", boardId: "board-1" },
@@ -315,5 +319,210 @@ describe("ticket mutations", () => {
       updateTicket(s.deps, { spaceId: "ws", id: "t1", ownerBotId: "foreign" }),
     ).resolves.toHaveProperty("error");
     expect(s.prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("ticket comment paging", () => {
+  function fixture() {
+    const s = mutationDeps();
+    const rows = Array.from({ length: 105 }, (_, index) => ({
+      id: String(index).padStart(3, "0"),
+      ticketId: "t1",
+      spaceId: "ws",
+      body: index === 104 ? "运营取证😀".repeat(901) : "comment",
+      createdAt: NOW,
+      updatedAt: NOW,
+      authorBotId: "bot-1",
+      authorUserId: null,
+      authorBot: { name: "Planner" },
+      authorUser: null,
+    }));
+    s.prisma.ticketComment.count.mockResolvedValue(rows.length);
+    (
+      s.prisma.ticketComment.findMany as unknown as {
+        mockImplementation: (
+          fn: (args: {
+            where: {
+              spaceId: string;
+              ticketId: string;
+              id?: string;
+              OR?: [unknown, { id: { lt: string } }];
+            };
+            take: number;
+          }) => Promise<never>,
+        ) => void;
+      }
+    ).mockImplementation(
+      async (args: {
+        where: {
+          spaceId: string;
+          ticketId: string;
+          id?: string;
+          OR?: [unknown, { id: { lt: string } }];
+        };
+        take: number;
+      }) =>
+        rows
+          .filter(
+            (row) =>
+              row.spaceId === args.where.spaceId &&
+              row.ticketId === args.where.ticketId &&
+              (!args.where.id || row.id === args.where.id) &&
+              (!args.where.OR || row.id < args.where.OR[1].id.lt),
+          )
+          .reverse()
+          .slice(0, args.take) as never,
+    );
+    return { ...s, rows };
+  }
+  it("pages 105 tied timestamps without omissions and returns the latest evidence first", async () => {
+    const s = fixture();
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const result = await getTicket(s.deps, { spaceId: "ws", ref: "RAK-1", cursor });
+      if (!("comments" in result)) throw new Error("unexpected error");
+      expect(result.comments.map((c) => c.id)).toEqual(result.comments.map((c) => c.id).sort());
+      if (!cursor) {
+        expect(result.commentsTotal).toBe(105);
+        expect(result.commentsOmitted).toBe(85);
+        expect(result.comments.at(-1)?.id).toBe("104");
+      }
+      seen.push(...result.comments.map((c) => c.id));
+      cursor = result.nextCursor;
+    } while (cursor);
+    expect(new Set(seen).size).toBe(105);
+    expect(seen).toHaveLength(105);
+  });
+  it("reads every code unit of the final long comment using returned offsets", async () => {
+    const s = fixture();
+    let bodyOffset = 0;
+    let body = "";
+    for (;;) {
+      const result = await getTicket(s.deps, {
+        spaceId: "ws",
+        ref: "t1",
+        commentId: "104",
+        bodyOffset,
+      });
+      if (!("comments" in result)) throw new Error("unexpected error");
+      const comment = result.comments[0]!;
+      expect(comment.body.length).toBeLessThanOrEqual(1000);
+      body += comment.body;
+      if (comment.nextBodyOffset === undefined) break;
+      expect(comment.bodyTruncated).toBe(true);
+      bodyOffset = comment.nextBodyOffset;
+    }
+    expect(body).toBe(s.rows[104]!.body);
+    expect(s.prisma.ticketComment.count).toHaveBeenCalledWith({
+      where: { ticketId: "t1", spaceId: "ws" },
+    });
+  });
+  it.each([5000, 548])(
+    "reads and pages all evidence through selectContext at budget %i",
+    async (contextWindow) => {
+      const s = fixture();
+      type Input = Parameters<typeof getTicket>[1];
+      async function read(input: Input) {
+        async function select(request: Input, window: number) {
+          const result = await getTicket(s.deps, request);
+          if (!("comments" in result)) throw new Error("unexpected ticket error");
+          const selected = selectContext<ContextMessage>(
+            [
+              {
+                role: "assistant",
+                content: [{ type: "toolCall", id: "call", name: "ticket_get", arguments: request }],
+              },
+              {
+                role: "toolResult",
+                toolCallId: "call",
+                toolName: "ticket_get",
+                content: JSON.stringify(result),
+              },
+            ],
+            {
+              strategy: "retrieval",
+              budget: { contextWindow: window, outputReserve: 0, systemPrompt: "", tools: [] },
+            },
+          );
+          const last = selected.messages.at(-1)!;
+          const text =
+            typeof last.content === "string"
+              ? last.content
+              : (last.content as Array<{ text: string }>)[0]!.text;
+          return JSON.parse(text) as typeof result & {
+            needsRetry?: boolean;
+            retry?: Input;
+            contextTruncated?: boolean;
+          };
+        }
+        let result = await select(input, contextWindow);
+        if (result.needsRetry) {
+          expect(result.contextTruncated).toBe(true);
+          expect(result).not.toHaveProperty("nextCursor");
+          expect(result.retry).toEqual({ limit: 1 });
+          // The minimum target cannot hold ticket metadata. Retry the exact
+          // unconsumed position with limit=1 once sufficient context is available.
+          result = await select({ ...input, ...result.retry! }, 5000);
+        }
+        expect(result.needsRetry).not.toBe(true);
+        return result;
+      }
+      let cursor: string | undefined;
+      const seen: string[] = [];
+      let newest: Awaited<ReturnType<typeof read>>["comments"][number] | undefined;
+      do {
+        const page = await read({ spaceId: "ws", ref: "RAK-1", cursor });
+        if (!cursor) {
+          newest = page.comments.at(-1)!;
+          expect(newest.id).toBe("104");
+        }
+        seen.push(...page.comments.map((c) => c.id));
+        cursor = page.nextCursor;
+      } while (cursor);
+      expect(seen).toHaveLength(105);
+      expect(new Set(seen).size).toBe(105);
+      let body = newest!.body;
+      let offset = newest!.nextBodyOffset;
+      expect(offset).toBe(newest!.bodyOffset + newest!.body.length);
+      while (offset !== undefined) {
+        const result = await read({
+          spaceId: "ws",
+          ref: "RAK-1",
+          commentId: "104",
+          bodyOffset: offset,
+        });
+        const comment = result.comments[0]!;
+        expect(comment.body.length).toBeGreaterThan(0);
+        expect(comment.bodyOffset).toBe(offset);
+        body += comment.body;
+        expect(comment.bodyTruncated).toBe(true);
+        if (comment.nextBodyOffset !== undefined) {
+          expect(comment.nextBodyOffset).toBe(offset + comment.body.length);
+        }
+        offset = comment.nextBodyOffset;
+      }
+      expect(body).toBe(s.rows[104]!.body);
+    },
+  );
+  it("validates cursors, bounds and comment ownership", async () => {
+    const s = fixture();
+    for (const args of [
+      { limit: 0 },
+      { limit: 21 },
+      { bodyOffset: -1 },
+      { bodyOffset: 1 },
+      { cursor: "invalid" },
+      { commentId: "104", cursor: "invalid" },
+    ]) {
+      expect(await getTicket(s.deps, { spaceId: "ws", ref: "RAK-1", ...args })).toHaveProperty(
+        "error",
+      );
+    }
+    expect(
+      await getTicket(s.deps, { spaceId: "ws", ref: "RAK-1", commentId: "foreign" }),
+    ).toHaveProperty("error", "Comment not found in this ticket.");
+    const one = await getTicket(s.deps, { spaceId: "ws", ref: "RAK-1", limit: 1 });
+    expect(one).toHaveProperty("comments", [expect.objectContaining({ id: "104" })]);
   });
 });

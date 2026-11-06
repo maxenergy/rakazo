@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ContextMessage } from "./context-selection.js";
+import { selectContext } from "./context-selection.js";
 import {
   commentTicket,
   createTicket,
@@ -416,6 +418,93 @@ describe("ticket comment paging", () => {
       where: { ticketId: "t1", spaceId: "ws" },
     });
   });
+  it.each([5000, 548])(
+    "reads and pages all evidence through selectContext at budget %i",
+    async (contextWindow) => {
+      const s = fixture();
+      type Input = Parameters<typeof getTicket>[1];
+      async function read(input: Input) {
+        async function select(request: Input, window: number) {
+          const result = await getTicket(s.deps, request);
+          if (!("comments" in result)) throw new Error("unexpected ticket error");
+          const selected = selectContext<ContextMessage>(
+            [
+              {
+                role: "assistant",
+                content: [{ type: "toolCall", id: "call", name: "ticket_get", arguments: request }],
+              },
+              {
+                role: "toolResult",
+                toolCallId: "call",
+                toolName: "ticket_get",
+                content: JSON.stringify(result),
+              },
+            ],
+            {
+              strategy: "retrieval",
+              budget: { contextWindow: window, outputReserve: 0, systemPrompt: "", tools: [] },
+            },
+          );
+          const last = selected.messages.at(-1)!;
+          const text =
+            typeof last.content === "string"
+              ? last.content
+              : (last.content as Array<{ text: string }>)[0]!.text;
+          return JSON.parse(text) as typeof result & {
+            needsRetry?: boolean;
+            retry?: Input;
+            contextTruncated?: boolean;
+          };
+        }
+        let result = await select(input, contextWindow);
+        if (result.needsRetry) {
+          expect(result.contextTruncated).toBe(true);
+          expect(result).not.toHaveProperty("nextCursor");
+          expect(result.retry).toEqual({ limit: 1 });
+          // The minimum target cannot hold ticket metadata. Retry the exact
+          // unconsumed position with limit=1 once sufficient context is available.
+          result = await select({ ...input, ...result.retry! }, 5000);
+        }
+        expect(result.needsRetry).not.toBe(true);
+        return result;
+      }
+      let cursor: string | undefined;
+      const seen: string[] = [];
+      let newest: Awaited<ReturnType<typeof read>>["comments"][number] | undefined;
+      do {
+        const page = await read({ spaceId: "ws", ref: "RAK-1", cursor });
+        if (!cursor) {
+          newest = page.comments.at(-1)!;
+          expect(newest.id).toBe("104");
+        }
+        seen.push(...page.comments.map((c) => c.id));
+        cursor = page.nextCursor;
+      } while (cursor);
+      expect(seen).toHaveLength(105);
+      expect(new Set(seen).size).toBe(105);
+      let body = newest!.body;
+      let offset = newest!.nextBodyOffset;
+      expect(offset).toBe(newest!.bodyOffset + newest!.body.length);
+      while (offset !== undefined) {
+        const result = await read({
+          spaceId: "ws",
+          ref: "RAK-1",
+          commentId: "104",
+          bodyOffset: offset,
+        });
+        const comment = result.comments[0]!;
+        expect(comment.body.length).toBeGreaterThan(0);
+        expect(comment.bodyOffset).toBe(offset);
+        body += comment.body;
+        expect(comment.bodyTruncated).toBe(true);
+        if (comment.nextBodyOffset !== undefined) {
+          expect(comment.nextBodyOffset).toBe(offset + comment.body.length);
+        }
+        offset = comment.nextBodyOffset;
+      }
+      expect(body).toBe(s.rows[104]!.body);
+    },
+  );
   it("validates cursors, bounds and comment ownership", async () => {
     const s = fixture();
     for (const args of [

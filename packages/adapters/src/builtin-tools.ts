@@ -940,11 +940,16 @@ const baseAgentTools: ConnectorTool[] = [
   },
   {
     name: "ticket_get",
-    description: "Read a ticket by reference or id, with comments.",
+    description:
+      "Read a ticket with the latest 20 comments in chronological order. Use nextCursor for older pages. For a truncated body, pass commentId and nextBodyOffset as bodyOffset until complete; offsets are UTF-16 code units.",
     inputSchema: {
       type: "object",
       properties: {
         ref: { type: "string", description: "Ticket reference such as RAK-42, or the ticket id." },
+        cursor: { type: "string" },
+        limit: { type: "integer", minimum: 1, maximum: 20 },
+        commentId: { type: "string" },
+        bodyOffset: { type: "integer", minimum: 0 },
       },
       required: ["ref"],
     },

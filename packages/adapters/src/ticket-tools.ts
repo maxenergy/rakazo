@@ -13,7 +13,6 @@ import {
   enqueueDependentWakes,
   ensureBoard,
   findTicket,
-  listTicketComments,
   lockTicketForLinkUpdate,
   lockTicketSpace,
   resolveTicketLinks,
@@ -131,8 +130,27 @@ export async function listBoardTickets(
   };
 }
 
-export async function getTicket(deps: TicketToolDeps, input: { spaceId: string; ref: string }) {
+export async function getTicket(
+  deps: TicketToolDeps,
+  input: {
+    spaceId: string;
+    ref: string;
+    cursor?: string;
+    limit?: number;
+    commentId?: string;
+    bodyOffset?: number;
+  },
+) {
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
+  const limit = input.limit ?? 20;
+  const bodyOffset = input.bodyOffset ?? 0;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 20) return { error: "limit must be 1–20." };
+  if (!Number.isSafeInteger(bodyOffset) || bodyOffset < 0 || (bodyOffset > 0 && !input.commentId))
+    return { error: "bodyOffset requires commentId and must be a nonnegative integer." };
+  if (input.commentId && input.cursor)
+    return { error: "commentId cannot be combined with cursor." };
+  const cursor = input.cursor ? decodeTicketListCursor(input.cursor) : undefined;
+  if (cursor && "error" in cursor) return cursor;
   const ref = input.ref.trim();
   if (!ref) return { error: "ref is required." };
   const board = await ensureBoard(deps.prisma, input.spaceId, deps.executionFence);
@@ -140,10 +158,46 @@ export async function getTicket(deps: TicketToolDeps, input: { spaceId: string; 
     (await findTicket(deps.prisma, input.spaceId, board, { ref })) ??
     (await findTicket(deps.prisma, input.spaceId, board, { id: ref }));
   if (!row) return { error: `Ticket ${ref} not found.` };
-  const comments = await listTicketComments(deps.prisma, input.spaceId, row.id);
+  const where = { ticketId: row.id, spaceId: input.spaceId };
+  const commentsTotal = await deps.prisma.ticketComment.count({ where });
+  const comments = await deps.prisma.ticketComment.findMany({
+    where: {
+      ...where,
+      ...(input.commentId ? { id: input.commentId } : {}),
+      ...(cursor
+        ? {
+            OR: [
+              { createdAt: { lt: cursor.createdAt } },
+              { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+            ],
+          }
+        : {}),
+    },
+    include: { authorBot: { select: { name: true } }, authorUser: { select: { name: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: input.commentId ? 1 : limit + 1,
+  });
+  if (input.commentId && !comments.length) return { error: "Comment not found in this ticket." };
+  const page = comments.slice(0, limit);
+  const next = !input.commentId && comments.length > limit ? page.at(-1) : undefined;
   return {
     ticket: toTicketDto(row, board.ticketPrefix),
-    comments: comments.map(toTicketCommentDto),
+    commentsTotal,
+    commentsOmitted: Math.max(0, commentsTotal - page.length),
+    ...(next ? { nextCursor: encodeTicketListCursor(next) } : {}),
+    comments: page.reverse().map((comment) => {
+      const dto = toTicketCommentDto(comment);
+      const body = dto.body.slice(bodyOffset, bodyOffset + 1000);
+      const nextBodyOffset = bodyOffset + body.length;
+      return {
+        ...dto,
+        body,
+        bodyOffset,
+        bodyTotal: dto.body.length,
+        bodyTruncated: bodyOffset > 0 || nextBodyOffset < dto.body.length,
+        ...(nextBodyOffset < dto.body.length ? { nextBodyOffset } : {}),
+      };
+    }),
   };
 }
 

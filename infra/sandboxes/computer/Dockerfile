@@ -74,7 +74,7 @@ RUN set -eux; \
     *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
   esac; \
   archive="$(mktemp)"; \
-  curl -fsSL "https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" -o "$archive"; \
+  curl -fsSL --retry 5 --retry-delay 5 "https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" -o "$archive"; \
   echo "$uv_sha256  $archive" | sha256sum -c -; \
   tar -xzf "$archive" -C /usr/local/bin --strip-components=1 "uv-${uv_arch}-unknown-linux-gnu/uv" "uv-${uv_arch}-unknown-linux-gnu/uvx"; \
   rm -f "$archive"; \
@@ -89,7 +89,7 @@ RUN set -eux; \
     *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
   esac; \
   archive="$(mktemp)"; \
-  curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${gh_arch}.tar.gz" -o "$archive"; \
+  curl -fsSL --retry 5 --retry-delay 5 "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${gh_arch}.tar.gz" -o "$archive"; \
   echo "$gh_sha256  $archive" | sha256sum -c -; \
   tar -xzf "$archive" -C /usr/local/bin --strip-components=2 "gh_${GH_VERSION}_linux_${gh_arch}/bin/gh"; \
   rm -f "$archive"; \

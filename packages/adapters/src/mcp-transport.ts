@@ -5,7 +5,10 @@ import {
   StdioClientTransport,
   type StdioServerParameters,
 } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+  StreamableHTTPClientTransport,
+  StreamableHTTPError,
+} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { CallToolResult, ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import { isLocalMcpHost } from "@rakazo/contracts";
@@ -246,6 +249,20 @@ function stdioParams(options: McpStdioOptions): StdioServerParameters {
   };
 }
 
+function withHttpStatus(error: unknown): unknown {
+  if (
+    error instanceof StreamableHTTPError &&
+    error.code &&
+    error.code >= 100 &&
+    !error.message.includes(`HTTP ${error.code}`)
+  ) {
+    error.message = `HTTP ${error.code}: ${error.message}`;
+  }
+  return error;
+}
+
+class ExpiredMcpSessionError extends StreamableHTTPError {}
+
 /** A narrow seam around the official SDK, suitable for the agent tool layer. */
 export class McpSession {
   client: Client;
@@ -254,6 +271,8 @@ export class McpSession {
   private remoteFetch?: SafeRemoteFetch;
   private connected = false;
   private connecting?: Promise<void>;
+  private remoteOptions?: McpRemoteOptions;
+  private recovering?: Promise<void>;
 
   constructor(options: McpClientOptions = {}) {
     this.clientOptions = options;
@@ -280,7 +299,25 @@ export class McpSession {
       options.network,
     );
     this.remoteFetch = safeFetch;
-    const fetch = withEndpointOriginFallback(url.origin, safeFetch);
+    const endpointFetch = withEndpointOriginFallback(url.origin, safeFetch);
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+      const headers = new Headers(
+        init?.headers ?? (input instanceof Request ? input.headers : undefined),
+      );
+      const requestUrl = input instanceof Request ? input.url : input.toString();
+      const response = await endpointFetch(input, init);
+      if (
+        response.status === 404 &&
+        method.toUpperCase() === "POST" &&
+        headers.has("mcp-session-id") &&
+        new URL(requestUrl).href === url.href
+      ) {
+        const body = await response.text();
+        throw new ExpiredMcpSessionError(404, `HTTP 404: ${body}`);
+      }
+      return response;
+    };
     const signal = combineSignals(options.signal, AbortSignal.timeout(options.timeoutMs ?? 15_000));
     let usedFallback = false;
     const connect = async (kind: McpRemoteTransport): Promise<void> => {
@@ -301,6 +338,7 @@ export class McpSession {
       this.transport = transport;
       await this.client.connect(transport, { signal, timeout: options.timeoutMs ?? 15_000 });
       this.connected = true;
+      this.remoteOptions = kind === "streamable-http" ? options : undefined;
     };
     this.connecting = (async () => {
       try {
@@ -316,7 +354,7 @@ export class McpSession {
         if (!canFallback) {
           await this.remoteFetch?.close().catch(() => undefined);
           this.remoteFetch = undefined;
-          throw error;
+          throw withHttpStatus(error);
         }
         usedFallback = true;
         // The SDK's documented fallback uses a fresh Client after a failed
@@ -326,7 +364,7 @@ export class McpSession {
           await connect("sse");
         } catch (fallbackError) {
           await this.close();
-          throw fallbackError;
+          throw withHttpStatus(fallbackError);
         }
       } finally {
         this.connecting = undefined;
@@ -358,7 +396,10 @@ export class McpSession {
 
   async listTools(options?: { signal?: AbortSignal }): Promise<ListToolsResult> {
     this.assertConnected();
-    return this.client.listTools({}, { signal: options?.signal });
+    return this.withSessionRecovery(
+      (client) => client.listTools({}, { signal: options?.signal }),
+      options?.signal,
+    );
   }
 
   async callTool(
@@ -367,12 +408,48 @@ export class McpSession {
     options?: { signal?: AbortSignal },
   ): Promise<CallToolResult> {
     this.assertConnected();
-    return (await this.client.callTool({ name, arguments: args }, undefined, {
-      signal: options?.signal,
-    })) as CallToolResult;
+    return this.withSessionRecovery(
+      async (client) =>
+        (await client.callTool({ name, arguments: args }, undefined, {
+          signal: options?.signal,
+        })) as CallToolResult,
+      options?.signal,
+    );
+  }
+
+  private async withSessionRecovery<T>(
+    operation: (client: Client) => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    const failedClient = this.client;
+    try {
+      return await operation(failedClient);
+    } catch (error) {
+      const options = this.remoteOptions;
+      if (!(error instanceof ExpiredMcpSessionError) || !options) throw withHttpStatus(error);
+      signal?.throwIfAborted();
+      if (this.client === failedClient && !this.recovering) {
+        this.recovering = (async () => {
+          await this.close();
+          this.client = this.newClient();
+          await this.connectRemote({ ...options, fallbackToSse: false });
+        })().finally(() => {
+          this.recovering = undefined;
+        });
+      }
+      await this.recovering;
+      signal?.throwIfAborted();
+      // The replay deliberately bypasses recovery: each operation retries at most once.
+      try {
+        return await operation(this.client);
+      } catch (replayError) {
+        throw withHttpStatus(replayError);
+      }
+    }
   }
 
   async close(): Promise<void> {
+    this.remoteOptions = undefined;
     this.connecting = undefined;
     this.connected = false;
     await this.client.close().catch(() => undefined);

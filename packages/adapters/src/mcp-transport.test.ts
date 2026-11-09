@@ -684,3 +684,139 @@ describe("MCP transport seam", () => {
     expect(inner).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("expired Streamable HTTP sessions", () => {
+  it.each(["tools/list", "tools/call"])("reinitializes and replays %s once", async (method) => {
+    const fixture = await expiredSessionFixture();
+    try {
+      await expect(fixture.session.listTools()).resolves.toEqual({ tools: [] });
+      fixture.expire();
+      if (method === "tools/list") {
+        await expect(fixture.session.listTools()).resolves.toEqual({ tools: [] });
+      } else {
+        await expect(fixture.session.callTool("echo", { text: "hello" })).resolves.toEqual({
+          content: [{ type: "text", text: "hello" }],
+        });
+      }
+      expect(fixture.initializations()).toBe(2);
+      expect(fixture.attempts(method)).toBe(method === "tools/list" ? 3 : 2);
+      expect(fixture.calls().every((args) => args.text === "hello")).toBe(true);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("reports empty-body HTTP 404 and stops after the replay", async () => {
+    const fixture = await expiredSessionFixture(true);
+    try {
+      fixture.expire();
+      await expect(fixture.session.listTools()).rejects.toThrow("HTTP 404");
+      expect(fixture.initializations()).toBe(2);
+      expect(fixture.attempts("tools/list")).toBe(2);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("reports other HTTP errors without rebuilding the session", async () => {
+    const fixture = await expiredSessionFixture(false, 503);
+    try {
+      fixture.expire();
+      await expect(fixture.session.listTools()).rejects.toThrow("HTTP 503");
+      expect(fixture.initializations()).toBe(1);
+      expect(fixture.attempts("tools/list")).toBe(1);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("does not retry an initialize 404 without a session", async () => {
+    const session = new McpSession();
+    const fetch = vi.fn(async () => new Response(null, { status: 404 }));
+    try {
+      await expect(
+        session.connectRemote({
+          url: "http://127.0.0.1:8123/mcp",
+          fallbackToSse: false,
+          urlPolicy: { allowHttpLocalhost: true, allowPrivateEndpoint: true },
+          network: { fetch },
+        }),
+      ).rejects.toThrow("HTTP 404");
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      await session.close();
+    }
+  });
+});
+
+async function expiredSessionFixture(alwaysExpired = false, failureStatus = 404) {
+  let generation = 0;
+  let expired = false;
+  const methods: string[] = [];
+  const calls: Record<string, unknown>[] = [];
+  const server = createServer(async (request, response) => {
+    if (request.method === "GET") {
+      response.writeHead(405).end();
+      return;
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    const message = JSON.parse(Buffer.concat(chunks).toString());
+    if (message.method === "initialize") {
+      generation++;
+      response.setHeader("Mcp-Session-Id", `session-${generation}`);
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: message.id,
+          result: {
+            protocolVersion: "2025-11-25",
+            capabilities: { tools: {} },
+            serverInfo: { name: "expiry-fixture", version: "1" },
+          },
+        }),
+      );
+      return;
+    }
+    if (!("id" in message)) {
+      response.writeHead(202).end();
+      return;
+    }
+    methods.push(message.method);
+    if (message.method === "tools/call") calls.push(message.params.arguments);
+    if (expired && (alwaysExpired || request.headers["mcp-session-id"] === "session-1")) {
+      response.writeHead(failureStatus).end();
+      return;
+    }
+    const result =
+      message.method === "tools/list"
+        ? { tools: [] }
+        : { content: [{ type: "text", text: message.params.arguments.text }] };
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const session = new McpSession();
+  await session.connectRemote({
+    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp`,
+    fallbackToSse: false,
+    urlPolicy: { allowHttpLocalhost: true, allowPrivateEndpoint: true },
+  });
+  return {
+    session,
+    expire: () => {
+      expired = true;
+    },
+    initializations: () => generation,
+    attempts: (method: string) => methods.filter((value) => value === method).length,
+    calls: () => calls,
+    close: async () => {
+      await session.close();
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    },
+  };
+}

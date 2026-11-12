@@ -2995,6 +2995,10 @@ msgstr "Загружено: {0}"
 msgid "Loading activity…"
 msgstr "Загрузка активности…"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Loading contents…"
+msgstr "Загрузка содержимого…"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
 msgstr "Загрузка интеграций…"
@@ -4604,6 +4608,10 @@ msgstr "Выберите подключённую модель"
 msgid "Select a person"
 msgstr "Выберите человека"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Select a supported text file to preview."
+msgstr "Выберите поддерживаемый текстовый файл для предварительного просмотра."
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Выберите задачу"
@@ -5118,6 +5126,10 @@ msgstr "Будут удалены все версии этого результ�
 msgid "This file is not valid UTF-8 text."
 msgstr "Этот файл не является корректным текстом UTF-8."
 
+#: src/components/ArtifactFileCard.tsx
+msgid "This file is unsupported, damaged or too large to preview."
+msgstr "Файл не поддерживается, повреждён или слишком велик для предварительного просмотра."
+
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "этот Mac"
@@ -5310,6 +5322,10 @@ msgstr "Открепить"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "Неподдерживаемый тип файла: {0}."
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Unsupported, damaged or oversized ZIP archive."
+msgstr "ZIP-архив не поддерживается, повреждён или слишком велик."
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5598,3 +5614,7 @@ msgstr "Ваше имя"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Ваша команда постоянно работающих агентов<0/>, которым вы можете дать настоящую работу."
+
+#: src/components/ArtifactFileCard.tsx
+msgid "ZIP contents"
+msgstr "Содержимое ZIP"

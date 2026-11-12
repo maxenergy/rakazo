@@ -2995,6 +2995,10 @@ msgstr "{0} geladen"
 msgid "Loading activity…"
 msgstr "Aktivität wird geladen…"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Loading contents…"
+msgstr "Inhalte werden geladen…"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
 msgstr "Integrationen werden geladen…"
@@ -4604,6 +4608,10 @@ msgstr "Verbundenes Modell auswählen"
 msgid "Select a person"
 msgstr "Person auswählen"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Select a supported text file to preview."
+msgstr "Wähle eine unterstützte Textdatei für die Vorschau aus."
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Ticket auswählen"
@@ -5118,6 +5126,10 @@ msgstr "Dies löscht alle {0} Versionen dieses Ergebnisses. Dies kann nicht rüc
 msgid "This file is not valid UTF-8 text."
 msgstr "Diese Datei ist kein gültiger UTF-8-Text."
 
+#: src/components/ArtifactFileCard.tsx
+msgid "This file is unsupported, damaged or too large to preview."
+msgstr "Diese Datei wird nicht unterstützt, ist beschädigt oder zu groß für eine Vorschau."
+
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "dieser Mac"
@@ -5310,6 +5322,10 @@ msgstr "Lösen"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "Nicht unterstützter Dateityp: {0}"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Unsupported, damaged or oversized ZIP archive."
+msgstr "Nicht unterstütztes, beschädigtes oder zu großes ZIP-Archiv."
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5598,3 +5614,7 @@ msgstr "Dein Name"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Dein Team aus jederzeit verfügbaren Agents<0/>für echte Aufgaben."
+
+#: src/components/ArtifactFileCard.tsx
+msgid "ZIP contents"
+msgstr "ZIP-Inhalt"

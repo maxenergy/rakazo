@@ -3,11 +3,12 @@ import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/web";
 import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
-import { Code2, Download, FileText, X } from "lucide-react";
+import { Archive, Code2, Download, FileText, X } from "lucide-react";
 import type { RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { downloadArtifact, downloadArtifactBytes, fetchArtifactBytes } from "../lib/artifact-open";
+import { rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 import { PdfViewer } from "./PdfViewer";
 import { SandboxedHtmlViewer } from "./SandboxedHtmlViewer";
@@ -20,7 +21,12 @@ type ArtifactFileCardProps = {
   size: number;
 };
 
-const PREVIEWABLE_MIME_TYPES = new Set(["text/markdown", "text/html", "application/pdf"]);
+const PREVIEWABLE_MIME_TYPES = new Set([
+  "text/markdown",
+  "text/html",
+  "application/pdf",
+  "application/zip",
+]);
 const TEXT_MIME_TYPES = new Set(["text/markdown", "text/html"]);
 
 export function ArtifactFileCard(props: ArtifactFileCardProps) {
@@ -70,7 +76,9 @@ export function ArtifactFileCard(props: ArtifactFileCardProps) {
             className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-accent"
           >
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-muted text-foreground">
-              {props.mimeType === "text/html" ? (
+              {props.mimeType === "application/zip" ? (
+                <Archive size={21} strokeWidth={1.8} />
+              ) : props.mimeType === "text/html" ? (
                 <Code2 size={21} strokeWidth={1.8} />
               ) : (
                 <FileText size={21} strokeWidth={1.8} />
@@ -102,9 +110,154 @@ export function ArtifactFileCard(props: ArtifactFileCardProps) {
           finalFocus={previewButton}
           className="flex h-[min(88vh,900px)] w-[min(960px,94vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
         >
-          <FilePreview {...props} closeButtonRef={closeButton} />
+          {props.mimeType === "application/zip" ? (
+            <ZipFilePreview {...props} closeButtonRef={closeButton} />
+          ) : (
+            <FilePreview {...props} closeButtonRef={closeButton} />
+          )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+}
+
+const ZIP_TEXT_EXTENSIONS = new Set([
+  ".txt",
+  ".md",
+  ".markdown",
+  ".json",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".xml",
+  ".csv",
+  ".log",
+  ".html",
+  ".css",
+  ".js",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  ".sh",
+  ".py",
+  ".sql",
+  ".ini",
+  ".cfg",
+  ".conf",
+]);
+
+function ZipFilePreview({
+  artifactId,
+  name,
+  closeButtonRef,
+}: ArtifactFileCardProps & { closeButtonRef: RefObject<HTMLButtonElement | null> }) {
+  const { t } = useLingui();
+  const [entries, setEntries] = useState<Array<{
+    path: string;
+    size: number;
+    directory: boolean;
+  }> | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [text, setText] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void rpc.artifacts
+      .zipEntries({ artifactId })
+      .then((result) => {
+        if (!cancelled) setEntries(result);
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setMessage(errorText(error, t`Unsupported, damaged or oversized ZIP archive.`));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [artifactId]);
+  async function selectEntry(path: string) {
+    setSelected(path);
+    setText(null);
+    setMessage(null);
+    setLoading(true);
+    try {
+      const result = await rpc.artifacts.zipText({ artifactId, path });
+      setText(result.text);
+    } catch (error) {
+      setMessage(errorText(error, t`This file is unsupported, damaged or too large to preview.`));
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <>
+      <header className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-5">
+        <DialogTitle className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">
+          {name}
+        </DialogTitle>
+        <DialogClose
+          ref={closeButtonRef}
+          aria-label={t`Close preview`}
+          render={
+            <Button variant="ghost" size="icon-lg" className="rounded-full text-muted-foreground" />
+          }
+        >
+          <X />
+        </DialogClose>
+      </header>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(180px,280px)_1fr]">
+        <nav aria-label={t`ZIP contents`} className="overflow-y-auto border-r border-border p-2">
+          {entries === null && !message ? (
+            <p className="p-3 text-sm text-muted-foreground">
+              <Trans>Loading contents…</Trans>
+            </p>
+          ) : null}
+          {entries?.map((entry) => {
+            const ext =
+              entry.path
+                .slice(entry.path.lastIndexOf("/") + 1)
+                .match(/\.[^.]+$/)?.[0]
+                ?.toLowerCase() ?? "";
+            const supported = !entry.directory && ZIP_TEXT_EXTENSIONS.has(ext);
+            return (
+              <button
+                key={entry.path}
+                type="button"
+                disabled={!supported}
+                aria-pressed={selected === entry.path}
+                onClick={() => void selectEntry(entry.path)}
+                className="block w-full truncate rounded px-3 py-2 text-left text-sm enabled:hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                title={entry.path}
+              >
+                {entry.path}
+              </button>
+            );
+          })}
+        </nav>
+        <section aria-live="polite" className="min-h-0 overflow-auto p-5">
+          {message ? (
+            <p role="alert" className="text-sm text-destructive">
+              {message}
+            </p>
+          ) : null}
+          {!message && selected && loading ? (
+            <p className="text-sm text-muted-foreground">
+              <Trans>Loading preview…</Trans>
+            </p>
+          ) : null}
+          {!message && selected && text !== null ? (
+            <pre className="whitespace-pre-wrap break-words font-mono text-sm text-foreground">
+              {text}
+            </pre>
+          ) : null}
+          {!message && !selected && entries ? (
+            <p className="text-sm text-muted-foreground">
+              <Trans>Select a supported text file to preview.</Trans>
+            </p>
+          ) : null}
+        </section>
+      </div>
     </>
   );
 }

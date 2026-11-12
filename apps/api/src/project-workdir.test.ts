@@ -8,6 +8,7 @@ import {
   getProjectWorkdir,
   readProjectCommits,
   readProjectFile,
+  readProjectImage,
   resolveProjectPath,
 } from "./project-workdir.js";
 
@@ -95,6 +96,67 @@ describe("project workdir", () => {
     await writeFile(path.join(dir, "binary"), Buffer.from([0, 1]));
     await expect(readProjectFile(root, "space", "repo", "binary")).rejects.toMatchObject({
       code: "BAD_REQUEST",
+    });
+  });
+  it.each([
+    ["png", "89504e470d0a1a0a", "image/png"],
+    ["jpeg", "ffd8ff", "image/jpeg"],
+    ["gif87", "474946383761", "image/gif"],
+    ["gif89", "474946383961", "image/gif"],
+    ["webp", "524946460400000057454250", "image/webp"],
+  ])("reads %s by signature despite a misleading extension", async (_, hex, mime) => {
+    const bytes = Buffer.from(hex, "hex");
+    await writeFile(path.join(dir, "image.txt"), bytes);
+    expect(await readProjectImage(root, "space", "repo", "image.txt")).toEqual({
+      mime,
+      size: bytes.length,
+      dataBase64: bytes.toString("base64"),
+    });
+  });
+  it("rejects unknown signatures, SVG and incomplete signatures", async () => {
+    for (const bytes of [
+      Buffer.from("<svg></svg>"),
+      Buffer.from("hello"),
+      Buffer.from([137, 80]),
+      Buffer.from("RIFFxxxxNOPE"),
+      Buffer.from([199, 201, 198, 184, 185, 225]),
+    ]) {
+      await writeFile(path.join(dir, "image.png"), bytes);
+      await expect(readProjectImage(root, "space", "repo", "image.png")).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Text files only.",
+      });
+    }
+  });
+  it("allows exactly 5 MiB and rejects larger images", async () => {
+    const bytes = Buffer.alloc(5 * 1024 * 1024);
+    Buffer.from([255, 216, 255]).copy(bytes);
+    await writeFile(path.join(dir, "image"), bytes);
+    expect((await readProjectImage(root, "space", "repo", "image")).size).toBe(bytes.length);
+    await writeFile(path.join(dir, "image"), Buffer.concat([bytes, Buffer.from([0])]));
+    await expect(readProjectImage(root, "space", "repo", "image")).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Read limit exceeded.",
+    });
+  });
+  it("applies file path and space restrictions to images", async () => {
+    await symlink(path.join(dir, "hello.txt"), path.join(dir, "sym"));
+    await link(path.join(dir, "hello.txt"), path.join(dir, "hard"));
+    await writeFile(path.join(dir, ".env.png"), "hidden");
+    for (const name of [
+      "../hello.txt",
+      "/etc/passwd",
+      "hello.txt:secret",
+      "sym",
+      "hard",
+      ".env.png",
+    ]) {
+      await expect(readProjectImage(root, "space", "repo", name)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+    }
+    await expect(readProjectImage(root, "other", "repo", "hello.txt")).rejects.toMatchObject({
+      code: "NOT_FOUND",
     });
   });
   it("limits directory entries", async () => {

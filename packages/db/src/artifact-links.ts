@@ -1,3 +1,4 @@
+import { getLogger } from "@rakazo/logging";
 import type { Prisma } from "./client.js";
 import { ProjectLinkError } from "./project-links.js";
 
@@ -22,7 +23,7 @@ function conflict(): never {
 }
 
 /** Resolve only trusted ids or an explicit reference, never an employee's current assignment. */
-export async function resolveArtifactLinks(
+async function resolveLinks(
   db: LinkReader,
   spaceId: string,
   input: ArtifactLinkInput,
@@ -37,7 +38,7 @@ export async function resolveArtifactLinks(
       where: { spaceId, number: Number(match[2]), board: { ticketPrefix: match[1] } },
       select: { id: true },
     });
-    if (!ticket) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+    if (!ticket) conflict();
     if (ticketId && ticketId !== ticket.id) conflict();
     ticketId = ticket.id;
   }
@@ -48,7 +49,7 @@ export async function resolveArtifactLinks(
       where: { id: ticketId, spaceId },
       select: { projectId: true, milestoneId: true },
     });
-    if (!ticket) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+    if (!ticket) conflict();
     if (input.projectId !== undefined && input.projectId !== ticket.projectId) conflict();
     if (input.milestoneId !== undefined && input.milestoneId !== ticket.milestoneId) conflict();
     if (context && context.projectId !== ticket.projectId) conflict();
@@ -61,7 +62,7 @@ export async function resolveArtifactLinks(
       where: { id: milestoneId, spaceId },
       select: { projectId: true },
     });
-    if (!milestone) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+    if (!milestone) conflict();
     if (milestone.projectId !== projectId) conflict();
   }
   if (projectId) {
@@ -69,7 +70,7 @@ export async function resolveArtifactLinks(
       where: { id: projectId, spaceId },
       select: { id: true },
     });
-    if (!project) throw new ProjectLinkError("NOT_FOUND", "Resource not found.");
+    if (!project) conflict();
   }
   const explicit = [input.projectId, input.milestoneId, input.ticketId, input.ticketRef].some(
     (value) => value !== undefined,
@@ -80,4 +81,30 @@ export async function resolveArtifactLinks(
     ticketId,
     linkSource: explicit ? "explicit" : projectId || ticketId ? "run" : null,
   };
+}
+
+/** Automatic associations must never prevent saving a file; explicit invalid input is an error. */
+export async function resolveArtifactLinks(
+  db: LinkReader,
+  spaceId: string,
+  input: ArtifactLinkInput,
+  context?: ArtifactRunContext,
+) {
+  const explicit = [input.projectId, input.milestoneId, input.ticketId, input.ticketRef].some(
+    (value) => value !== undefined,
+  );
+  const empty = { projectId: null, milestoneId: null, ticketId: null, linkSource: null };
+  if (!explicit && !context?.ticketId) {
+    if (context) getLogger().warn("artifact association skipped: run has no ticketId");
+    return empty;
+  }
+  try {
+    return await resolveLinks(db, spaceId, input, context);
+  } catch (error) {
+    if (explicit || !(error instanceof ProjectLinkError)) throw error;
+    getLogger().warn("artifact association skipped: invalid run ticket context", {
+      reason: error.message,
+    });
+    return empty;
+  }
 }

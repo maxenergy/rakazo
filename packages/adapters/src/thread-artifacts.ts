@@ -19,7 +19,11 @@ import {
   validateAttachmentMimeType,
 } from "@rakazo/core";
 import type { ExecutionFence, PrismaClient } from "@rakazo/db";
-import { withResolvedArtifactVersion } from "@rakazo/db";
+import {
+  type ArtifactRunContext,
+  resolveArtifactLinks,
+  withResolvedArtifactVersion,
+} from "@rakazo/db";
 import { resolveBotWorkspacePath } from "./computer-support.js";
 
 export type MaterializedThreadFile = {
@@ -46,6 +50,8 @@ export async function attachWorkspaceFileToThread(
     executionFence?: ExecutionFence;
     name?: string;
     description?: string;
+    ticketRef?: string;
+    runContext?: ArtifactRunContext;
   },
 ): Promise<{ artifactId: string; block: Extract<MessageBlock, { kind: "image" | "file" }> }> {
   const fileName = path.basename(input.filePath) || input.filePath;
@@ -59,6 +65,12 @@ export async function attachWorkspaceFileToThread(
     throw new Error("file exceeds the 10 MiB attachment limit");
   }
 
+  const links = await resolveArtifactLinks(
+    deps.prisma,
+    input.spaceId,
+    { ticketRef: input.ticketRef },
+    input.runContext,
+  );
   const context = {
     operationId: input.operationId,
     traceId: input.operationId,
@@ -87,6 +99,7 @@ export async function attachWorkspaceFileToThread(
           botId: input.botId,
           groupId: input.groupId,
           runId: input.runId,
+          ...links,
           name,
           description: input.description?.trim().slice(0, ARTIFACT_DESCRIPTION_MAX_LENGTH) || null,
           mimeType,

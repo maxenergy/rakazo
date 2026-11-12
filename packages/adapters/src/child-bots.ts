@@ -226,6 +226,11 @@ async function ensureSpawnRun(
           status: "queued",
         },
       });
+      const parent = await tx.run.findFirst({
+        where: { id: input.sourceRunId, spaceId: input.spaceId },
+        select: { projectId: true, ticketId: true, rootRunId: true },
+      });
+      if (!parent) throw new Error("Source run not found");
       const createdRun = await tx.run.create({
         data: {
           spaceId: input.spaceId,
@@ -235,6 +240,10 @@ async function ensureSpawnRun(
           userId: input.userId,
           status: "queued",
           trigger: "spawn",
+          projectId: parent.projectId,
+          ticketId: parent.ticketId,
+          parentRunId: input.sourceRunId,
+          rootRunId: parent.rootRunId ?? input.sourceRunId,
           clientNonce,
         },
       });

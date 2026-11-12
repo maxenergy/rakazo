@@ -9,3 +9,5 @@ ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_ticket_id_fkey" FOREIGN KEY ("
 CREATE INDEX "artifacts_spaceId_project_id_createdAt_idx" ON "artifacts"("spaceId", "project_id", "createdAt");
 CREATE INDEX "artifacts_spaceId_milestone_id_createdAt_idx" ON "artifacts"("spaceId", "milestone_id", "createdAt");
 CREATE INDEX "artifacts_spaceId_ticket_id_createdAt_idx" ON "artifacts"("spaceId", "ticket_id", "createdAt");
+
+ALTER TABLE "runs" ADD COLUMN "ticketId" TEXT REFERENCES "tickets"("id") ON DELETE SET NULL;

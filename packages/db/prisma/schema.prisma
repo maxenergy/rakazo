@@ -685,6 +685,8 @@ model Run {
   status               String
   /// Immutable financial snapshots; null means unassigned.
   projectId            String?
+  ticketId             String?
+  ticket               Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
   parentRunId          String?
   rootRunId            String?
   trigger              String
@@ -1589,6 +1591,7 @@ model Milestone {
 }
 
 model Ticket {
+  runs Run[]
   artifacts Artifact[]
   worktrees TicketWorktree[]
   projectId       String?

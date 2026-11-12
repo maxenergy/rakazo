@@ -14,6 +14,44 @@ import {
 } from "./thread-artifacts.js";
 
 describe("current-turn thread files", () => {
+  it("associates attachment metadata using trusted run ticket context", async () => {
+    const create = vi.fn(async ({ data }) => ({ id: "artifact", ...data }));
+    const tx = {
+      artifact: { findFirst: vi.fn().mockResolvedValue(null), create },
+      $queryRaw: vi.fn().mockResolvedValue([{ lock: "1" }]),
+    };
+    const prisma = {
+      ticket: { findFirst: vi.fn().mockResolvedValue({ projectId: null, milestoneId: null }) },
+      $transaction: async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+    } as unknown as PrismaClient;
+    await attachWorkspaceFileToThread(
+      {
+        prisma,
+        artifacts: {
+          put: vi.fn().mockResolvedValue({ id: "stored" }),
+          remove: vi.fn(),
+        } as unknown as ArtifactStore,
+      },
+      {
+        spaceId: "space",
+        userId: "user",
+        botId: "bot",
+        runId: "run",
+        runContext: { projectId: null, ticketId: "ticket" },
+        filePath: "report.txt",
+        bytes: new Uint8Array([65]),
+        operationId: "attach",
+      },
+    );
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        ticketId: "ticket",
+        projectId: null,
+        milestoneId: null,
+        linkSource: "run",
+      }),
+    });
+  });
   it("rejects stale attachment metadata and removes stored bytes", async () => {
     const remove = vi.fn().mockResolvedValue(undefined);
     const artifact = { findFirst: vi.fn(), create: vi.fn() };

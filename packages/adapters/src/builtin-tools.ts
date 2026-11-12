@@ -321,6 +321,10 @@ const baseAgentTools: ConnectorTool[] = [
         path: { type: "string" },
         name: { type: "string" },
         description: { type: "string" },
+        ticketRef: {
+          type: "string",
+          description: "Optional ticket reference, for example RAK-171.",
+        },
       },
       required: ["path"],
     },

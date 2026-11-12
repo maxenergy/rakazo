@@ -85,9 +85,7 @@ describe("artifact associations", () => {
       { projectId: "project" },
       { projectId: "project", milestoneId: "milestone" },
     ]) {
-      await expect(resolveArtifactLinks(db, "other-space", links)).rejects.toThrow(
-        "Resource not found",
-      );
+      await expect(resolveArtifactLinks(db, "other-space", links)).rejects.toThrow("conflicts");
     }
   });
 
@@ -121,5 +119,20 @@ describe("artifact associations", () => {
         },
       ),
     ).rejects.toThrow("conflicts");
+  });
+  it("keeps automatic uploads when ticket context is missing or invalid", async () => {
+    const { db } = database();
+    for (const context of [
+      { projectId: "project", ticketId: null },
+      { projectId: "other", ticketId: "ticket" },
+      { projectId: "project", ticketId: "outside" },
+    ]) {
+      await expect(resolveArtifactLinks(db, "space", {}, context)).resolves.toEqual({
+        projectId: null,
+        milestoneId: null,
+        ticketId: null,
+        linkSource: null,
+      });
+    }
   });
 });

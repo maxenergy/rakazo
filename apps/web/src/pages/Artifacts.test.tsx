@@ -6,8 +6,8 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ listSpace: vi.fn() }));
-vi.mock("../lib/rpc", () => ({ rpc: { artifacts: api } }));
+const api = vi.hoisted(() => ({ listSpace: vi.fn(), projectsList: vi.fn().mockResolvedValue([]), milestonesList: vi.fn().mockResolvedValue([]), ticketsList: vi.fn().mockResolvedValue({ tickets: [] }) }));
+vi.mock("../lib/rpc", () => ({ rpc: { artifacts: api, projects: { list: api.projectsList }, milestones: { list: api.milestonesList }, tickets: { list: api.ticketsList } } }));
 vi.mock("../lib/bootstrap", () => ({
   takeInitialBootstrap: vi.fn().mockResolvedValue({ bots: [] }),
 }));

@@ -121,6 +121,40 @@ export async function readProjectFile(
   binding: string,
   relative: string,
 ) {
+  const bytes = await readProjectBytes(homesRoot, spaceId, binding, relative, MAX_FILE);
+  if (bytes.includes(0)) throw new ORPCError("BAD_REQUEST", { message: "Text files only." });
+  return { text: bytes.toString("utf8"), size: bytes.length };
+}
+export async function readProjectImage(
+  homesRoot: string | undefined,
+  spaceId: string,
+  binding: string,
+  relative: string,
+) {
+  const bytes = await readProjectBytes(homesRoot, spaceId, binding, relative, 5 * 1024 * 1024);
+  let mime: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  if (bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
+    mime = "image/png";
+  else if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255)
+    mime = "image/jpeg";
+  else if (["GIF87a", "GIF89a"].some((magic) => bytes.subarray(0, 6).equals(Buffer.from(magic))))
+    mime = "image/gif";
+  else if (
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).equals(Buffer.from("RIFF")) &&
+    bytes.subarray(8, 12).equals(Buffer.from("WEBP"))
+  )
+    mime = "image/webp";
+  else throw new ORPCError("BAD_REQUEST", { message: "Text files only." });
+  return { mime, size: bytes.length, dataBase64: bytes.toString("base64") };
+}
+async function readProjectBytes(
+  homesRoot: string | undefined,
+  spaceId: string,
+  binding: string,
+  relative: string,
+  limit: number,
+) {
   const target = await resolveProjectPath(homesRoot, spaceId, binding, relative);
   const file = await open(target, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)).catch(() => {
     throw missing();
@@ -128,18 +162,17 @@ export async function readProjectFile(
   try {
     const stat = await file.stat();
     if (!stat.isFile() || stat.nlink !== 1) throw missing();
-    if (stat.size > MAX_FILE) throw limited();
-    const buffer = Buffer.alloc(MAX_FILE + 1);
+    if (stat.size > limit) throw limited();
+    const buffer = Buffer.alloc(limit + 1);
     let total = 0;
     while (total < buffer.length) {
       const { bytesRead } = await file.read(buffer, total, buffer.length - total, null);
       if (!bytesRead) break;
       total += bytesRead;
     }
-    if (total > MAX_FILE) throw limited();
+    if (total > limit) throw limited();
     const bytes = buffer.subarray(0, total);
-    if (bytes.includes(0)) throw new ORPCError("BAD_REQUEST", { message: "Text files only." });
-    return { text: bytes.toString("utf8"), size: total };
+    return bytes;
   } finally {
     await file.close();
   }

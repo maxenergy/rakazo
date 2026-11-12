@@ -317,6 +317,7 @@ import {
   getProjectWorkdir,
   readProjectCommits,
   readProjectFile,
+  readProjectImage,
   resolveProjectPath,
 } from "./project-workdir.js";
 import { listRoutineRuns } from "./routine-runs.js";
@@ -4281,6 +4282,20 @@ export function createRouter(deps: RouterDeps) {
         );
         if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
         return readProjectFile(
+          process.env.PROJECT_HOMES_ROOT,
+          context.actor.spaceId,
+          binding,
+          input.path,
+        );
+      }),
+      fileImage: boardEnabled.projects.fileImage.handler(async ({ context, input }) => {
+        const binding = await getProjectWorkdir(
+          deps.prisma,
+          context.actor.spaceId,
+          input.projectId,
+        );
+        if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        return readProjectImage(
           process.env.PROJECT_HOMES_ROOT,
           context.actor.spaceId,
           binding,

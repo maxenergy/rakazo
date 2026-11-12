@@ -1042,6 +1042,23 @@ export const appContract = {
     set: oc.input(z.object({ enabled: z.boolean() })).output(ActionAutoReviewSettingsSchema),
   },
   artifacts: {
+    zipEntries: oc.input(z.object({ artifactId: Id })).output(
+      z.array(
+        z.object({
+          path: z.string(),
+          size: z.number(),
+          compressedSize: z.number(),
+          directory: z.boolean(),
+        }),
+      ),
+    ),
+    zipText: oc.input(z.object({ artifactId: Id, path: z.string().min(1).max(4096) })).output(
+      z.object({
+        path: z.string(),
+        text: z.string(),
+        size: z.number(),
+      }),
+    ),
     list: oc.input(botId).output(z.array(ArtifactSchema)),
     listSpace: oc
       .input(

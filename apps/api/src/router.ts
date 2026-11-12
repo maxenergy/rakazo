@@ -268,6 +268,7 @@ import { getLogger } from "@rakazo/logging";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
 import { createAgentSkillsService } from "./agent-skills.js";
 import { aiConsentStatus, allowAiConsent } from "./ai-consent.js";
+import { listZipEntries, loadZipArtifact, readZipText } from "./artifact-zip.js";
 import {
   ArtifactListCursorError,
   createOwnedArtifact,
@@ -6783,6 +6784,12 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     artifacts: {
+      zipEntries: authed.artifacts.zipEntries.handler(async ({ context, input }) =>
+        listZipEntries(await loadZipArtifact(deps, context.actor, input.artifactId)),
+      ),
+      zipText: authed.artifacts.zipText.handler(async ({ context, input }) =>
+        readZipText(await loadZipArtifact(deps, context.actor, input.artifactId), input.path),
+      ),
       list: authed.artifacts.list.handler(async ({ context, input }) => {
         await repos.getBot(context.actor, input.botId);
         const rows = await deps.prisma.artifact.findMany({

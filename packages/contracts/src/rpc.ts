@@ -784,15 +784,13 @@ export const appContract = {
     file: oc
       .input(z.object({ projectId: Id, path: z.string().max(4096) }))
       .output(z.object({ text: z.string(), size: z.number() })),
-    fileImage: oc
-      .input(z.object({ projectId: Id, path: z.string().max(4096) }))
-      .output(
-        z.object({
-          mime: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
-          size: z.number(),
-          dataBase64: z.string(),
-        }),
-      ),
+    fileImage: oc.input(z.object({ projectId: Id, path: z.string().max(4096) })).output(
+      z.object({
+        mime: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
+        size: z.number(),
+        dataBase64: z.string(),
+      }),
+    ),
     commits: oc.input(z.object({ projectId: Id })).output(
       z.array(
         z.object({

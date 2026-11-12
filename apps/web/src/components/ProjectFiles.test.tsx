@@ -29,7 +29,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function render() {
+async function render(withGitHistory = true) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
@@ -47,6 +47,7 @@ async function render() {
       subject: "Initial commit",
     },
   ]);
+  if (!withGitHistory) commits.mockRejectedValue(new Error("Resource not found."));
   await act(async () => root.render(<ProjectFiles projectId="project" />));
   dispose = async () => {
     await act(async () => root.unmount());
@@ -96,8 +97,7 @@ it("shows clear denied and over-limit messages", async () => {
 });
 
 it("keeps files available when a project has no Git history", async () => {
-  commits.mockRejectedValue(new Error("Resource not found."));
-  const c = await render();
+  const c = await render(false);
   expect(c.textContent).toContain("notes.md");
   await click(c, "Recent commits");
   expect(c.textContent).toContain("no Git history");

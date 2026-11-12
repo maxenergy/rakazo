@@ -1047,6 +1047,9 @@ export const appContract = {
       .input(
         z.object({
           botId: Id.optional(),
+          projectId: Id.optional(),
+          milestoneId: Id.optional(),
+          ticketId: Id.optional(),
           cursor: z.string().optional(),
           limit: z.number().int().min(1).max(60).optional(),
         }),
@@ -1068,6 +1071,10 @@ export const appContract = {
             contentBase64: z.string().min(1).max(ATTACHMENT_MAX_BASE64_LENGTH),
             /** Unique per upload; a retry with the same nonce returns the artifact it created. */
             clientNonce: z.string().min(1).max(200).optional(),
+            projectId: Id.optional(),
+            milestoneId: Id.optional(),
+            ticketId: Id.optional(),
+            ticketRef: z.string().min(1).max(200).optional(),
           }),
         ),
       )

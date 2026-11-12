@@ -11,7 +11,12 @@ import {
   validateAttachmentMimeType,
 } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
-import { IsolationError, Prisma, withResolvedArtifactVersion } from "@rakazo/db";
+import {
+  IsolationError,
+  Prisma,
+  resolveArtifactLinks,
+  withResolvedArtifactVersion,
+} from "@rakazo/db";
 
 function adapterContext(actor: Actor, botId: string, operationId: string) {
   return {
@@ -38,10 +43,18 @@ export async function createOwnedArtifact(
     mimeType: string;
     contentBase64: string;
     clientNonce?: string;
+    projectId?: string;
+    milestoneId?: string;
+    ticketId?: string;
+    ticketRef?: string;
   },
 ) {
+  const links = await resolveArtifactLinks(deps.prisma, actor.spaceId, input);
   const replayed = await findReplayedArtifact(deps.prisma, actor, input);
-  if (replayed) return createdArtifact(replayed);
+  if (replayed) {
+    assertReplayLinks(replayed, input, links);
+    return createdArtifact(replayed);
+  }
   const mimeType =
     inferAttachmentMimeType(input.name, input.mimeType) === "application/zip"
       ? "application/zip"
@@ -63,9 +76,13 @@ export async function createOwnedArtifact(
     async (tx, { rootArtifactId, version }) => {
       // A retry of the same upload has the same name and target, so it waits on the same lock.
       const raced = await findReplayedArtifact(tx, actor, input);
-      if (raced) return { row: raced, replay: true };
+      if (raced) {
+        assertReplayLinks(raced, input, links);
+        return { row: raced, replay: true };
+      }
       const created = await tx.artifact.create({
         data: {
+          ...links,
           spaceId: actor.spaceId,
           userId: actor.userId,
           botId: input.botId,
@@ -89,6 +106,23 @@ export async function createOwnedArtifact(
   });
   if (replay) await deps.artifacts.remove(stored.id, context).catch(() => undefined);
   return createdArtifact(row);
+}
+
+function assertReplayLinks(
+  row: { projectId: string | null; milestoneId: string | null; ticketId: string | null },
+  input: { projectId?: string; milestoneId?: string; ticketId?: string; ticketRef?: string },
+  links: { projectId: string | null; milestoneId: string | null; ticketId: string | null },
+) {
+  if (
+    [input.projectId, input.milestoneId, input.ticketId, input.ticketRef].some(
+      (value) => value !== undefined,
+    ) &&
+    (row.projectId !== links.projectId ||
+      row.milestoneId !== links.milestoneId ||
+      row.ticketId !== links.ticketId)
+  ) {
+    throw new IsolationError();
+  }
 }
 
 /** The artifact an earlier upload with this nonce created; a nonce reused for another chat is refused. */
@@ -116,6 +150,10 @@ function createdArtifact(row: Prisma.ArtifactGetPayload<Record<string, never>>) 
     botId: row.botId,
     groupId: row.groupId,
     runId: row.runId,
+    projectId: row.projectId,
+    milestoneId: row.milestoneId,
+    ticketId: row.ticketId,
+    linkSource: row.linkSource,
     name: row.name,
     description: row.description,
     mimeType: row.mimeType,
@@ -194,6 +232,10 @@ async function readArtifact(
     botId: string | null;
     groupId: string | null;
     runId: string | null;
+    projectId: string | null;
+    milestoneId: string | null;
+    ticketId: string | null;
+    linkSource: string | null;
     storageKey: string;
     name: string;
     description: string | null;
@@ -213,6 +255,10 @@ async function readArtifact(
     botId: row.botId,
     groupId: row.groupId,
     runId: row.runId,
+    projectId: row.projectId,
+    milestoneId: row.milestoneId,
+    ticketId: row.ticketId,
+    linkSource: row.linkSource,
     name: row.name,
     description: row.description,
     mimeType: row.mimeType,
@@ -229,6 +275,10 @@ type ListSpaceRow = {
   botId: string | null;
   groupId: string | null;
   runId: string | null;
+  projectId: string | null;
+  milestoneId: string | null;
+  ticketId: string | null;
+  linkSource: string | null;
   name: string;
   description: string | null;
   mimeType: string;
@@ -249,6 +299,9 @@ type ArtifactListCursor = {
   createdAt: string;
   id: string;
   botId: string | null;
+  projectId: string | null;
+  milestoneId: string | null;
+  ticketId: string | null;
   // Freezes the version set for this page sequence.
   asOf: string;
 };
@@ -287,7 +340,15 @@ function decodeArtifactListCursor(value: string): ArtifactListCursor {
   if (Number.isNaN(createdAt.getTime()) || Number.isNaN(asOf.getTime())) {
     throw new ArtifactListCursorError();
   }
-  return { createdAt: createdAt.toISOString(), id: record.id, botId, asOf: asOf.toISOString() };
+  return {
+    createdAt: createdAt.toISOString(),
+    id: record.id,
+    botId,
+    projectId: cursorBotId(record.projectId ?? null),
+    milestoneId: cursorBotId(record.milestoneId ?? null),
+    ticketId: cursorBotId(record.ticketId ?? null),
+    asOf: asOf.toISOString(),
+  };
 }
 
 function cursorBotId(value: unknown): string | null {
@@ -298,10 +359,31 @@ function cursorBotId(value: unknown): string | null {
 export async function listSpaceArtifacts(
   deps: { prisma: Pick<PrismaClient, "artifact" | "$queryRaw"> },
   actor: Actor,
-  input: { botId?: string; cursor?: string; limit?: number },
+  input: {
+    botId?: string;
+    projectId?: string;
+    milestoneId?: string;
+    ticketId?: string;
+    cursor?: string;
+    limit?: number;
+  },
 ) {
   const take = Math.min(Math.max(input.limit ?? 30, 1), 60);
   const scopeBotId = input.botId ?? null;
+  const filters = {
+    projectId: input.projectId ?? null,
+    milestoneId: input.milestoneId ?? null,
+    ticketId: input.ticketId ?? null,
+  };
+  const projectFilter = input.projectId
+    ? Prisma.sql`AND latest."projectId" = ${input.projectId}`
+    : Prisma.empty;
+  const milestoneFilter = input.milestoneId
+    ? Prisma.sql`AND latest."milestoneId" = ${input.milestoneId}`
+    : Prisma.empty;
+  const ticketFilter = input.ticketId
+    ? Prisma.sql`AND latest."ticketId" = ${input.ticketId}`
+    : Prisma.empty;
   const botFilter = scopeBotId ? Prisma.sql`AND "botId" = ${scopeBotId}` : Prisma.empty;
 
   let asOf = new Date();
@@ -309,6 +391,12 @@ export async function listSpaceArtifacts(
   if (input.cursor) {
     // Position is stored on the cursor so a deleted row cannot replay the first page.
     const cursor = decodeArtifactListCursor(input.cursor);
+    if (
+      cursor.projectId !== filters.projectId ||
+      cursor.milestoneId !== filters.milestoneId ||
+      cursor.ticketId !== filters.ticketId
+    )
+      throw new ArtifactListCursorError();
     if (cursor.botId !== scopeBotId) throw new ArtifactListCursorError();
     asOf = new Date(cursor.asOf);
     cursorFilter = Prisma.sql`AND (latest."createdAt", latest.id) < (${new Date(cursor.createdAt)}, ${cursor.id})`;
@@ -322,7 +410,7 @@ export async function listSpaceArtifacts(
     ),
     latest AS (
       SELECT DISTINCT ON (COALESCE("rootArtifactId", id))
-        id, "botId", "groupId", "runId", name, description, "mimeType", size, version, "createdAt", "rootArtifactId"
+        id, "botId", "groupId", "runId", "project_id" AS "projectId", "milestone_id" AS "milestoneId", "ticket_id" AS "ticketId", "link_source" AS "linkSource", name, description, "mimeType", size, version, "createdAt", "rootArtifactId"
       FROM scoped
       ORDER BY COALESCE("rootArtifactId", id), version DESC
     ),
@@ -332,12 +420,12 @@ export async function listSpaceArtifacts(
       GROUP BY COALESCE("rootArtifactId", id)
     )
     SELECT latest.id, COALESCE(latest."rootArtifactId", latest.id) AS "familyId",
-           latest."botId", latest."groupId", latest."runId", latest.name,
+           latest."botId", latest."groupId", latest."runId", latest."projectId", latest."milestoneId", latest."ticketId", latest."linkSource", latest.name,
            latest.description, latest."mimeType", latest.size, latest.version, latest."createdAt",
            counts."versionCount"
     FROM latest
     JOIN counts ON counts."familyId" = COALESCE(latest."rootArtifactId", latest.id)
-    WHERE true ${cursorFilter}
+    WHERE true ${projectFilter} ${milestoneFilter} ${ticketFilter} ${cursorFilter}
     ORDER BY latest."createdAt" DESC, latest.id DESC
     LIMIT ${take + 1}
   `);
@@ -353,6 +441,10 @@ export async function listSpaceArtifacts(
       botId: row.botId,
       groupId: row.groupId,
       runId: row.runId,
+      projectId: row.projectId,
+      milestoneId: row.milestoneId,
+      ticketId: row.ticketId,
+      linkSource: row.linkSource,
       name: row.name,
       description: row.description,
       mimeType: row.mimeType,
@@ -367,6 +459,7 @@ export async function listSpaceArtifacts(
             createdAt: last.createdAt.toISOString(),
             id: last.id,
             botId: scopeBotId,
+            ...filters,
             asOf: asOf.toISOString(),
           })
         : null,

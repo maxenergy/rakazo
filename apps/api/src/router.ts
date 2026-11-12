@@ -6798,6 +6798,10 @@ export function createRouter(deps: RouterDeps) {
           botId: row.botId,
           groupId: row.groupId,
           runId: row.runId,
+          projectId: row.projectId,
+          milestoneId: row.milestoneId,
+          ticketId: row.ticketId,
+          linkSource: row.linkSource,
           name: row.name,
           description: row.description,
           mimeType: row.mimeType,
@@ -6828,6 +6832,8 @@ export function createRouter(deps: RouterDeps) {
         try {
           return await createOwnedArtifact(deps, context.actor, { ...input, botId });
         } catch (error) {
+          if (error instanceof ProjectLinkError)
+            throw new ORPCError(error.code, { message: error.message });
           if (error instanceof AttachmentValidationError) {
             throw new ORPCError("BAD_REQUEST", { message: error.message });
           }

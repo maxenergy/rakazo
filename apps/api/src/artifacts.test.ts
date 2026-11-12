@@ -28,12 +28,23 @@ function listRow(id: string, familyId: string, createdAt = "2026-09-01T00:00:00.
   };
 }
 
-function cursor(input: { createdAt: string; id: string; botId: string | null; asOf?: string }) {
+function cursor(input: {
+  createdAt: string;
+  id: string;
+  botId: string | null;
+  asOf?: string;
+  projectId?: string;
+  milestoneId?: string;
+  ticketId?: string;
+}) {
   return `v1.${Buffer.from(
     JSON.stringify({
       createdAt: input.createdAt,
       id: input.id,
       botId: input.botId,
+      projectId: input.projectId ?? null,
+      milestoneId: input.milestoneId ?? null,
+      ticketId: input.ticketId ?? null,
       asOf: input.asOf ?? "2026-09-20T00:00:00.000Z",
     }),
     "utf8",
@@ -50,6 +61,30 @@ function scopedClause(query: { strings: string[] }) {
 }
 
 describe("listSpaceArtifacts", () => {
+  it("binds association filters to pagination and filters the latest version", async () => {
+    const queryRaw = vi.fn().mockResolvedValue([]);
+    const deps = {
+      prisma: { $queryRaw: queryRaw } as unknown as Pick<PrismaClient, "artifact" | "$queryRaw">,
+    };
+    const filters = { projectId: "project", milestoneId: "milestone", ticketId: "ticket" };
+    await listSpaceArtifacts(deps, actor, filters);
+    const sql = queryRaw.mock.calls[0]?.[0] as { strings: string[]; values: unknown[] };
+    expect(statement(sql)).toContain('latest."projectId" =');
+    expect(statement(sql)).toContain('latest."milestoneId" =');
+    expect(statement(sql)).toContain('latest."ticketId" =');
+    for (const value of Object.values(filters)) expect(sql.values).toContain(value);
+    const pageCursor = cursor({
+      createdAt: "2026-09-01T00:00:00.000Z",
+      id: "artifact",
+      botId: null,
+      ...filters,
+    });
+    await expect(
+      listSpaceArtifacts(deps, actor, { ...filters, ticketId: "another", cursor: pageCursor }),
+    ).rejects.toThrow(ArtifactListCursorError);
+    expect(queryRaw).toHaveBeenCalledOnce();
+  });
+
   it("pages families in the database instead of slicing a fixed newest-row snapshot", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z"));

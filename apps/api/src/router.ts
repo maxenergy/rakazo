@@ -268,6 +268,7 @@ import { getLogger } from "@rakazo/logging";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
 import { createAgentSkillsService } from "./agent-skills.js";
 import { aiConsentStatus, allowAiConsent } from "./ai-consent.js";
+import { listZipEntries, loadZipArtifact, readZipText } from "./artifact-zip.js";
 import {
   ArtifactListCursorError,
   createOwnedArtifact,
@@ -311,6 +312,13 @@ import {
   promptFocus,
   startOnboarding,
 } from "./onboarding.js";
+import {
+  browseProjectDirectory,
+  getProjectWorkdir,
+  readProjectCommits,
+  readProjectFile,
+  resolveProjectPath,
+} from "./project-workdir.js";
 import { listRoutineRuns } from "./routine-runs.js";
 import { getRunDiagnostics } from "./run-diagnostics.js";
 import { listSpaceRuns } from "./runs.js";
@@ -4248,6 +4256,46 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     projects: {
+      workdir: boardEnabled.projects.workdir.handler(async ({ context, input }) => ({
+        path: await getProjectWorkdir(deps.prisma, context.actor.spaceId, input.projectId),
+      })),
+      directory: boardEnabled.projects.directory.handler(async ({ context, input }) => {
+        const binding = await getProjectWorkdir(
+          deps.prisma,
+          context.actor.spaceId,
+          input.projectId,
+        );
+        if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        return browseProjectDirectory(
+          process.env.PROJECT_HOMES_ROOT,
+          context.actor.spaceId,
+          binding,
+          input.path,
+        );
+      }),
+      file: boardEnabled.projects.file.handler(async ({ context, input }) => {
+        const binding = await getProjectWorkdir(
+          deps.prisma,
+          context.actor.spaceId,
+          input.projectId,
+        );
+        if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        return readProjectFile(
+          process.env.PROJECT_HOMES_ROOT,
+          context.actor.spaceId,
+          binding,
+          input.path,
+        );
+      }),
+      commits: boardEnabled.projects.commits.handler(async ({ context, input }) => {
+        const binding = await getProjectWorkdir(
+          deps.prisma,
+          context.actor.spaceId,
+          input.projectId,
+        );
+        if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        return readProjectCommits(process.env.PROJECT_HOMES_ROOT, context.actor.spaceId, binding);
+      }),
       members: boardEnabled.projects.members.handler(async ({ context, input }) => {
         const result = await withSerializableRetry(() =>
           deps.prisma.$transaction(
@@ -4372,6 +4420,17 @@ export function createRouter(deps: RouterDeps) {
       }),
       update: boardEnabled.projects.update.handler(async ({ context, input }) => {
         const spaceId = context.actor.spaceId;
+        if (input.workdirPath !== undefined && input.workdirPath !== null) {
+          await getProjectWorkdir(deps.prisma, spaceId, input.id);
+          const target = await resolveProjectPath(
+            process.env.PROJECT_HOMES_ROOT,
+            spaceId,
+            input.workdirPath,
+          );
+          const { lstat } = await import("node:fs/promises");
+          if (!(await lstat(target)).isDirectory())
+            throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        }
         const result = await withSerializableRetry(() =>
           deps.prisma.$transaction(
             async (tx) => {
@@ -6783,6 +6842,12 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     artifacts: {
+      zipEntries: authed.artifacts.zipEntries.handler(async ({ context, input }) =>
+        listZipEntries(await loadZipArtifact(deps, context.actor, input.artifactId)),
+      ),
+      zipText: authed.artifacts.zipText.handler(async ({ context, input }) =>
+        readZipText(await loadZipArtifact(deps, context.actor, input.artifactId), input.path),
+      ),
       list: authed.artifacts.list.handler(async ({ context, input }) => {
         await repos.getBot(context.actor, input.botId);
         const rows = await deps.prisma.artifact.findMany({

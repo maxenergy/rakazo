@@ -311,6 +311,13 @@ import {
   promptFocus,
   startOnboarding,
 } from "./onboarding.js";
+import {
+  browseProjectDirectory,
+  getProjectWorkdir,
+  readProjectCommits,
+  readProjectFile,
+  resolveProjectPath,
+} from "./project-workdir.js";
 import { listRoutineRuns } from "./routine-runs.js";
 import { getRunDiagnostics } from "./run-diagnostics.js";
 import { listSpaceRuns } from "./runs.js";
@@ -4248,6 +4255,66 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     projects: {
+      workdir: boardEnabled.projects.workdir.handler(async ({ context, input }) => ({
+        path: await getProjectWorkdir(deps.prisma, context.actor.spaceId, input.projectId),
+      })),
+      setWorkdir: boardEnabled.projects.setWorkdir.handler(async ({ context, input }) => {
+        await getProjectWorkdir(deps.prisma, context.actor.spaceId, input.projectId);
+        if (input.path !== null) {
+          const target = await resolveProjectPath(
+            process.env.PROJECT_HOMES_ROOT,
+            context.actor.spaceId,
+            input.path,
+          );
+          const { lstat } = await import("node:fs/promises");
+          if (!(await lstat(target)).isDirectory())
+            throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        }
+        const changed = await deps.prisma.project.updateMany({
+          where: { id: input.projectId, spaceId: context.actor.spaceId },
+          data: { workdirPath: input.path },
+        });
+        if (!changed.count) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        await deps.boardEvents.notify(context.actor.spaceId);
+        return { path: input.path };
+      }),
+      directory: boardEnabled.projects.directory.handler(async ({ context, input }) => {
+        const binding = await getProjectWorkdir(
+          deps.prisma,
+          context.actor.spaceId,
+          input.projectId,
+        );
+        if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        return browseProjectDirectory(
+          process.env.PROJECT_HOMES_ROOT,
+          context.actor.spaceId,
+          binding,
+          input.path,
+        );
+      }),
+      file: boardEnabled.projects.file.handler(async ({ context, input }) => {
+        const binding = await getProjectWorkdir(
+          deps.prisma,
+          context.actor.spaceId,
+          input.projectId,
+        );
+        if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        return readProjectFile(
+          process.env.PROJECT_HOMES_ROOT,
+          context.actor.spaceId,
+          binding,
+          input.path,
+        );
+      }),
+      commits: boardEnabled.projects.commits.handler(async ({ context, input }) => {
+        const binding = await getProjectWorkdir(
+          deps.prisma,
+          context.actor.spaceId,
+          input.projectId,
+        );
+        if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        return readProjectCommits(process.env.PROJECT_HOMES_ROOT, context.actor.spaceId, binding);
+      }),
       members: boardEnabled.projects.members.handler(async ({ context, input }) => {
         const result = await withSerializableRetry(() =>
           deps.prisma.$transaction(

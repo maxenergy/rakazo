@@ -1534,6 +1534,7 @@ model ProjectMember {
 }
 
 model Project {
+  workdirPath String? @map("workdir_path")
   id          String      @id @default(cuid())
   spaceId     String
   space       Space       @relation(fields: [spaceId], references: [id], onDelete: Cascade)

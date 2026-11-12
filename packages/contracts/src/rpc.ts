@@ -771,6 +771,29 @@ export const appContract = {
     delete: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
   },
   projects: {
+    workdir: oc
+      .input(z.object({ projectId: Id }))
+      .output(z.object({ path: z.string().nullable() })),
+    directory: oc
+      .input(z.object({ projectId: Id, path: z.string().max(4096).default("") }))
+      .output(
+        z.array(
+          z.object({ name: z.string(), type: z.enum(["directory", "file"]), size: z.number() }),
+        ),
+      ),
+    file: oc
+      .input(z.object({ projectId: Id, path: z.string().max(4096) }))
+      .output(z.object({ text: z.string(), size: z.number() })),
+    commits: oc.input(z.object({ projectId: Id })).output(
+      z.array(
+        z.object({
+          sha: z.string(),
+          authoredAt: z.string(),
+          author: z.string(),
+          subject: z.string(),
+        }),
+      ),
+    ),
     members: oc.input(ProjectMembersInput).output(z.array(ProjectMemberSchema)),
     addMember: oc.input(EditProjectMemberInput).output(z.array(ProjectMemberSchema)),
     removeMember: oc.input(EditProjectMemberInput).output(z.array(ProjectMemberSchema)),

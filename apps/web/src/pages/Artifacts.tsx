@@ -50,6 +50,22 @@ const LIST_PAGE_SIZE = 60;
 
 type ArtifactSummary = Artifact & { versionCount: number };
 
+async function listProjectTickets(projectId: string): Promise<Ticket[]> {
+  const allTickets: Ticket[] = [];
+  let cursor: string | undefined;
+  while (true) {
+    const result = await rpc.tickets.list({
+      projectId,
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    });
+    if ("tickets" in result) return allTickets.concat(result.tickets);
+    allTickets.push(...result.items);
+    if (!result.nextCursor) return allTickets;
+    cursor = result.nextCursor;
+  }
+}
+
 function readViewMode(): ViewMode {
   try {
     return window.localStorage.getItem(VIEW_MODE_STORAGE_KEY) === "list" ? "list" : "grid";
@@ -118,12 +134,12 @@ export function ArtifactsPage() {
     let cancelled = false;
     void Promise.all([
       rpc.milestones.list({ projectId, archived: false }),
-      rpc.tickets.list({ projectId, limit: 100 }),
+      listProjectTickets(projectId),
     ])
-      .then(([nextMilestones, result]) => {
+      .then(([nextMilestones, projectTickets]) => {
         if (cancelled) return;
         setMilestones(nextMilestones);
-        setTickets("tickets" in result ? result.tickets : result.items);
+        setTickets(projectTickets);
       })
       .catch(() => {
         if (!cancelled) {

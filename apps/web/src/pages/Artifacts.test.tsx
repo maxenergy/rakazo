@@ -188,3 +188,50 @@ it("still offers Load more when filters match nothing on the loaded page", async
     vi.unstubAllGlobals();
   }
 });
+
+
+it("applies project, milestone, and ticket filters together", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  api.projectsList.mockResolvedValue([{ id: "project-1", name: "Project one" }]);
+  api.milestonesList.mockResolvedValue([{ id: "milestone-1", name: "Milestone one" }]);
+  api.ticketsList.mockResolvedValue({ tickets: [{ id: "ticket-1", title: "Ticket one" }] });
+  api.listSpace.mockResolvedValue({ items: [], nextCursor: null });
+  const page = await renderArtifacts();
+  try {
+    const filters = [...page.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Filters"),
+    );
+    await act(async () => filters?.click());
+    const selectOption = async (label: string, value: string) => {
+      const select = [...page.container.querySelectorAll("select")].find(
+        (candidate) => candidate.getAttribute("aria-label") === label,
+      );
+      if (!(select instanceof HTMLSelectElement)) throw new Error("missing filter select");
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+      await act(async () => {
+        setter?.call(select, value);
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    };
+    await selectOption("Project", "project-1");
+    await act(async () => {
+      await vi.waitFor(() => expect(page.container.querySelector('select[aria-label="Milestone"]')).toBeTruthy());
+    });
+    await selectOption("Milestone", "milestone-1");
+    await selectOption("Ticket", "ticket-1");
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(api.listSpace).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            projectId: "project-1",
+            milestoneId: "milestone-1",
+            ticketId: "ticket-1",
+          }),
+        ),
+      );
+    });
+  } finally {
+    await page.cleanup();
+    vi.unstubAllGlobals();
+  }
+});

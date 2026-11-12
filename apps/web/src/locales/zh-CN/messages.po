@@ -2995,10 +2995,6 @@ msgstr "已加载 {0}"
 msgid "Loading activity…"
 msgstr "正在加载动态…"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Loading contents…"
-msgstr "正在加载目录…"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
 msgstr "正在加载集成…"
@@ -4608,10 +4604,6 @@ msgstr "选择已连接的模型"
 msgid "Select a person"
 msgstr "选择人员"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Select a supported text file to preview."
-msgstr "选择支持的文本文件以预览。"
-
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "选择工单"
@@ -5126,10 +5118,6 @@ msgstr "这会删除此产出文件的全部 {0} 个版本，且无法撤销。"
 msgid "This file is not valid UTF-8 text."
 msgstr "此文件不是有效的 UTF-8 文本。"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "This file is unsupported, damaged or too large to preview."
-msgstr "此文件不支持预览，或文件已损坏、超出大小限制。"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "这台 Mac"
@@ -5322,10 +5310,6 @@ msgstr "取消置顶"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "不支持的文件类型：{0}"
-
-#: src/components/ArtifactFileCard.tsx
-msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr "不支持此 ZIP 文件，或文件已损坏、超出限制。"
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5615,6 +5599,18 @@ msgstr "你的名字"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "你的一支随时在线的 Agent 团队<0/>可以交给它们真正的工作。"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "ZIP contents"
-msgstr "ZIP 文件目录"
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All projects"
+msgstr "所有项目"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All milestones"
+msgstr "所有里程碑"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All tickets"
+msgstr "所有工单"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "暂无产出物"

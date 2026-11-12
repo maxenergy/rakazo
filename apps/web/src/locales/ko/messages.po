@@ -2995,10 +2995,6 @@ msgstr "{0}개 로드됨"
 msgid "Loading activity…"
 msgstr "활동을 불러오는 중…"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Loading contents…"
-msgstr "내용을 불러오는 중…"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
 msgstr "연동 목록을 불러오는 중…"
@@ -4608,10 +4604,6 @@ msgstr "연결된 모델 선택"
 msgid "Select a person"
 msgstr "사람 선택"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Select a supported text file to preview."
-msgstr "미리 볼 수 있는 텍스트 파일을 선택하세요."
-
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "티켓 선택"
@@ -5126,10 +5118,6 @@ msgstr "이 결과물의 모든 버전({0}개)이 삭제됩니다. 취소할 수
 msgid "This file is not valid UTF-8 text."
 msgstr "이 파일은 유효한 UTF-8 텍스트가 아닙니다."
 
-#: src/components/ArtifactFileCard.tsx
-msgid "This file is unsupported, damaged or too large to preview."
-msgstr "지원되지 않거나 손상되었거나 미리 보기에는 너무 큰 파일입니다."
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "이 Mac"
@@ -5322,10 +5310,6 @@ msgstr "고정 해제"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "지원하지 않는 파일 형식: {0}"
-
-#: src/components/ArtifactFileCard.tsx
-msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr "지원되지 않거나 손상되었거나 너무 큰 ZIP 파일입니다."
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5615,6 +5599,18 @@ msgstr "이름"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "언제든 실제 작업을 맡길 수 있는<0/>나만의 Agent 팀"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "ZIP contents"
-msgstr "ZIP 내용"
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All projects"
+msgstr "모든 프로젝트"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All milestones"
+msgstr "모든 마일스톤"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All tickets"
+msgstr "모든 티켓"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "아티팩트가 없습니다"

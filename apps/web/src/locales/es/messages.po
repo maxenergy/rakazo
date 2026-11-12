@@ -2995,10 +2995,6 @@ msgstr "Cargados {0}"
 msgid "Loading activity…"
 msgstr "Cargando actividad…"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Loading contents…"
-msgstr "Cargando contenido…"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
 msgstr "Cargando integraciones…"
@@ -4608,10 +4604,6 @@ msgstr "Selecciona un modelo conectado"
 msgid "Select a person"
 msgstr "Selecciona una persona"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Select a supported text file to preview."
-msgstr "Selecciona un archivo de texto compatible para obtener una vista previa."
-
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Seleccionar un ticket"
@@ -5126,10 +5118,6 @@ msgstr "Esto elimina las {0} versiones de este resultado. No se puede deshacer."
 msgid "This file is not valid UTF-8 text."
 msgstr "Este archivo no es texto UTF-8 válido."
 
-#: src/components/ArtifactFileCard.tsx
-msgid "This file is unsupported, damaged or too large to preview."
-msgstr "Este archivo no es compatible, está dañado o es demasiado grande para previsualizarlo."
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "esta Mac"
@@ -5322,10 +5310,6 @@ msgstr "Desfijar"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "Tipo de archivo no compatible: {0}"
-
-#: src/components/ArtifactFileCard.tsx
-msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr "Archivo ZIP no compatible, dañado o demasiado grande."
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5615,6 +5599,18 @@ msgstr "Tu nombre"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Tu equipo de agentes siempre activos<0/>a los que puedes dar trabajo real."
 
-#: src/components/ArtifactFileCard.tsx
-msgid "ZIP contents"
-msgstr "Contenido del ZIP"
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All projects"
+msgstr "Todos los proyectos"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All milestones"
+msgstr "Todos los hitos"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All tickets"
+msgstr "Todos los tickets"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "No hay artefactos"

@@ -2995,10 +2995,6 @@ msgstr "{0} yüklendi"
 msgid "Loading activity…"
 msgstr "Etkinlik yükleniyor…"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Loading contents…"
-msgstr "İçerik yükleniyor…"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
 msgstr "Entegrasyonlar yükleniyor…"
@@ -4608,10 +4604,6 @@ msgstr "Bağlı bir model seçin"
 msgid "Select a person"
 msgstr "Bir kişi seçin"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Select a supported text file to preview."
-msgstr "Önizlemek için desteklenen bir metin dosyası seçin."
-
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Bir iş kaydı seç"
@@ -5126,10 +5118,6 @@ msgstr "Bu, bu çıktının tüm {0} sürümünü siler. Geri alınamaz."
 msgid "This file is not valid UTF-8 text."
 msgstr "Bu dosya geçerli UTF-8 metni değil."
 
-#: src/components/ArtifactFileCard.tsx
-msgid "This file is unsupported, damaged or too large to preview."
-msgstr "Bu dosya desteklenmiyor, hasarlı veya önizleme için çok büyük."
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "bu Mac"
@@ -5322,10 +5310,6 @@ msgstr "Sabitlemeyi kaldır"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "Desteklenmeyen dosya türü: {0}"
-
-#: src/components/ArtifactFileCard.tsx
-msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr "Desteklenmeyen, hasarlı veya çok büyük ZIP arşivi."
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5615,6 +5599,18 @@ msgstr "Adın"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Gerçek işler verebileceğin,<0/>her zaman açık agent takımın."
 
-#: src/components/ArtifactFileCard.tsx
-msgid "ZIP contents"
-msgstr "ZIP içeriği"
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All projects"
+msgstr "Tüm projeler"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All milestones"
+msgstr "Tüm kilometre taşları"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All tickets"
+msgstr "Tüm biletler"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Çıktı yok"

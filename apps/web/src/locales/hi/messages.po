@@ -2995,10 +2995,6 @@ msgstr "{0} लोड किए गए"
 msgid "Loading activity…"
 msgstr "गतिविधि लोड हो रही है…"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Loading contents…"
-msgstr "सामग्री लोड हो रही है…"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
 msgstr "इंटीग्रेशन लोड हो रहे हैं…"
@@ -4608,10 +4604,6 @@ msgstr "जुड़ा मॉडल चुनें"
 msgid "Select a person"
 msgstr "व्यक्ति चुनें"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "Select a supported text file to preview."
-msgstr "पूर्वावलोकन के लिए समर्थित टेक्स्ट फ़ाइल चुनें।"
-
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "टिकट चुनें"
@@ -5126,10 +5118,6 @@ msgstr "इस आउटपुट के सभी {0} संस्करण ह
 msgid "This file is not valid UTF-8 text."
 msgstr "यह फ़ाइल मान्य UTF-8 टेक्स्ट नहीं है।"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "This file is unsupported, damaged or too large to preview."
-msgstr "यह फ़ाइल असमर्थित, क्षतिग्रस्त या पूर्वावलोकन के लिए बहुत बड़ी है।"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "यह Mac"
@@ -5322,10 +5310,6 @@ msgstr "पिन हटाएं"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "असमर्थित फ़ाइल प्रकार: {0}"
-
-#: src/components/ArtifactFileCard.tsx
-msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr "ZIP संग्रह असमर्थित, क्षतिग्रस्त या बहुत बड़ा है।"
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5615,6 +5599,18 @@ msgstr "आपका नाम"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "हमेशा चालू रहने वाले एजेंटों की आपकी टीम<0/>जिन्हें आप असली काम सौंप सकते हैं।"
 
-#: src/components/ArtifactFileCard.tsx
-msgid "ZIP contents"
-msgstr "ZIP सामग्री"
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All projects"
+msgstr "सभी प्रोजेक्ट"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All milestones"
+msgstr "सभी माइलस्टोन"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "All tickets"
+msgstr "सभी टिकट"
+
+#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "कोई आर्टिफैक्ट नहीं"

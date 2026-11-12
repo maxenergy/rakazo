@@ -774,9 +774,6 @@ export const appContract = {
     workdir: oc
       .input(z.object({ projectId: Id }))
       .output(z.object({ path: z.string().nullable() })),
-    setWorkdir: oc
-      .input(z.object({ projectId: Id, path: z.string().max(4096).nullable() }))
-      .output(z.object({ path: z.string().nullable() })),
     directory: oc
       .input(z.object({ projectId: Id, path: z.string().max(4096).default("") }))
       .output(

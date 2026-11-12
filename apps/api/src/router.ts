@@ -4258,26 +4258,6 @@ export function createRouter(deps: RouterDeps) {
       workdir: boardEnabled.projects.workdir.handler(async ({ context, input }) => ({
         path: await getProjectWorkdir(deps.prisma, context.actor.spaceId, input.projectId),
       })),
-      setWorkdir: boardEnabled.projects.setWorkdir.handler(async ({ context, input }) => {
-        await getProjectWorkdir(deps.prisma, context.actor.spaceId, input.projectId);
-        if (input.path !== null) {
-          const target = await resolveProjectPath(
-            process.env.PROJECT_HOMES_ROOT,
-            context.actor.spaceId,
-            input.path,
-          );
-          const { lstat } = await import("node:fs/promises");
-          if (!(await lstat(target)).isDirectory())
-            throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
-        }
-        const changed = await deps.prisma.project.updateMany({
-          where: { id: input.projectId, spaceId: context.actor.spaceId },
-          data: { workdirPath: input.path },
-        });
-        if (!changed.count) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
-        await deps.boardEvents.notify(context.actor.spaceId);
-        return { path: input.path };
-      }),
       directory: boardEnabled.projects.directory.handler(async ({ context, input }) => {
         const binding = await getProjectWorkdir(
           deps.prisma,
@@ -4439,6 +4419,17 @@ export function createRouter(deps: RouterDeps) {
       }),
       update: boardEnabled.projects.update.handler(async ({ context, input }) => {
         const spaceId = context.actor.spaceId;
+        if (input.workdirPath !== undefined && input.workdirPath !== null) {
+          await getProjectWorkdir(deps.prisma, spaceId, input.id);
+          const target = await resolveProjectPath(
+            process.env.PROJECT_HOMES_ROOT,
+            spaceId,
+            input.workdirPath,
+          );
+          const { lstat } = await import("node:fs/promises");
+          if (!(await lstat(target)).isDirectory())
+            throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
+        }
         const result = await withSerializableRetry(() =>
           deps.prisma.$transaction(
             async (tx) => {

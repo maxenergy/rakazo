@@ -37,6 +37,7 @@ export async function updateProject(
     id: string;
     name?: string;
     description?: string | null;
+    workdirPath?: string | null;
     status?: "active" | "paused";
     cancelRunIds?: string[];
   },

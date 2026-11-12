@@ -61,6 +61,7 @@ export const MilestoneSchema = ProjectBaseSchema.extend({
 });
 export const CreateProjectInput = z.object({ name, description: description.optional() });
 export const UpdateProjectInput = z.object({
+  workdirPath: z.string().max(4096).nullable().optional(),
   status: ProjectStatusSchema.optional(),
   cancelRunIds: z.array(Id).max(100).optional(),
   id: Id,
@@ -76,6 +77,7 @@ export const CreateMilestoneInput = CreateProjectInput.extend({
   dueAt: IsoDate.nullable().optional(),
 });
 export const UpdateMilestoneInput = UpdateProjectInput.omit({
+  workdirPath: true,
   status: true,
   cancelRunIds: true,
 }).extend({

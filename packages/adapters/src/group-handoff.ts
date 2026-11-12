@@ -53,7 +53,7 @@ async function createHandoffRun(
   });
   const attributionParent = await tx.run.findFirst({
     where: { id: run.id, spaceId: run.spaceId },
-    select: { projectId: true, rootRunId: true },
+    select: { projectId: true, ticketId: true, rootRunId: true },
   });
   if (!attributionParent) throw new Error("Handoff parent run is unavailable");
   const nextRun = await tx.run.create({
@@ -67,6 +67,7 @@ async function createHandoffRun(
       trigger: "follow_up",
       sourceMessageId: message.id,
       projectId: attributionParent.projectId,
+      ticketId: attributionParent.ticketId,
       parentRunId: run.id,
       rootRunId: attributionParent.rootRunId ?? run.id,
     },

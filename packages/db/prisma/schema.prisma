@@ -685,6 +685,8 @@ model Run {
   status               String
   /// Immutable financial snapshots; null means unassigned.
   projectId            String?
+  ticketId             String?
+  ticket               Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
   parentRunId          String?
   rootRunId            String?
   trigger              String
@@ -1107,6 +1109,13 @@ model Artifact {
   group       ChatGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
   userId      String
   runId       String?
+  projectId   String? @map("project_id")
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestoneId String? @map("milestone_id")
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  ticketId    String? @map("ticket_id")
+  ticket      Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  linkSource  String? @map("link_source")
   name        String
   description String?
   mimeType    String
@@ -1128,6 +1137,9 @@ model Artifact {
   @@index([groupId])
   @@index([rootArtifactId])
   // artifacts_family_version_key is raw SQL: Prisma cannot express COALESCE indexes.
+  @@index([spaceId, projectId, createdAt])
+  @@index([spaceId, milestoneId, createdAt])
+  @@index([spaceId, ticketId, createdAt])
   @@map("artifacts")
 }
 
@@ -1534,6 +1546,7 @@ model ProjectMember {
 }
 
 model Project {
+  artifacts Artifact[]
   workdirPath String? @map("workdir_path")
   id          String      @id @default(cuid())
   spaceId     String
@@ -1559,6 +1572,7 @@ model Project {
 }
 
 model Milestone {
+  artifacts Artifact[]
   id          String    @id @default(cuid())
   spaceId     String
   projectId   String
@@ -1578,6 +1592,8 @@ model Milestone {
 }
 
 model Ticket {
+  runs Run[]
+  artifacts Artifact[]
   worktrees TicketWorktree[]
   projectId       String?
   project         Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)

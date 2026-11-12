@@ -17,6 +17,7 @@ function fixture(overrides: Record<string, unknown> = {}, state = { active: fals
         trigger: "follow_up",
         userId: "user",
         projectId: "project",
+        ticketId: "ticket",
         rootRunId: "root-run",
         modelPinned: false,
         modelProvider: "provider",
@@ -56,6 +57,7 @@ describe("createDeadlineRecoveryRun", () => {
         parentRunId: "failed-run",
         rootRunId: "root-run",
         projectId: "project",
+        ticketId: "ticket",
         deadlineMs: DEFAULT_RUN_DEADLINE_MS,
       }),
     });
@@ -133,6 +135,7 @@ describe("createResumeRun", () => {
               sourceMessageId: "source-message",
               thread: { groupId: state.groupId ?? null },
               projectId: "project",
+              ticketId: "ticket",
               rootRunId: null,
               modelPinned: state.pinned ?? false,
               modelProvider: "provider",
@@ -172,6 +175,7 @@ describe("createResumeRun", () => {
       parentRunId: "failed-run",
       rootRunId: "failed-run",
       projectId: "project",
+      ticketId: "ticket",
       sourceMessageId: "source-message",
     });
     expect(data.data).not.toHaveProperty("deadlineMs");

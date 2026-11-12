@@ -784,6 +784,10 @@ export const BotMcpServerSchema = z.object({
 export type BotMcpServer = z.infer<typeof BotMcpServerSchema>;
 
 export const ArtifactSchema = z.object({
+  projectId: Id.nullable().optional(),
+  milestoneId: Id.nullable().optional(),
+  ticketId: Id.nullable().optional(),
+  linkSource: z.string().nullable().optional(),
   id: Id,
   botId: Id.nullable(),
   groupId: Id.nullable(),

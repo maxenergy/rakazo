@@ -32,6 +32,7 @@ function harness(
       findFirst: vi.fn(async () => ({
         id: run.id,
         projectId: null,
+        ticketId: "ticket-1",
         rootRunId: "root-run",
         sourceMessage: { blocks: sourceBlocks },
       })),
@@ -98,6 +99,7 @@ describe("group handoff ownership", () => {
         data: expect.objectContaining({
           trigger: "follow_up",
           projectId: null,
+          ticketId: "ticket-1",
           parentRunId: run.id,
           rootRunId: "root-run",
         }),

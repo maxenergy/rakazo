@@ -821,7 +821,7 @@ msgstr "Оплата"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Bind working directory"
-msgstr ""
+msgstr "Привязать рабочую директорию"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -996,7 +996,7 @@ msgstr "Изменить пароль"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Change working directory"
-msgstr ""
+msgstr "Изменить рабочую директорию"
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -3653,7 +3653,7 @@ msgstr "Нет незавершённых задач."
 
 #: src/components/ProjectWorkdir.tsx
 msgid "No working directory is bound"
-msgstr ""
+msgstr "Рабочая директория не привязана"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
@@ -4011,7 +4011,7 @@ msgstr "Бюджет проекта"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Project files"
-msgstr ""
+msgstr "Файлы проекта"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -4027,7 +4027,7 @@ msgstr "Проект приостановлен"
 
 #: src/pages/Projects.tsx
 msgid "Project sections"
-msgstr ""
+msgstr "Разделы проекта"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4657,7 +4657,7 @@ msgstr "Выберите поддерживаемый текстовый фай�
 
 #: src/pages/Artifacts.tsx
 msgid "Select a text file to preview it."
-msgstr ""
+msgstr "Выберите текстовый файл для предварительного просмотра."
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -5620,7 +5620,7 @@ msgstr "Смена рабочего расположения"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Working directory relative path"
-msgstr ""
+msgstr "Относительный путь рабочей директории"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

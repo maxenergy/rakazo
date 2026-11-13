@@ -821,7 +821,7 @@ msgstr "बिलिंग"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Bind working directory"
-msgstr ""
+msgstr "कार्य निर्देशिका बाँधें"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -996,7 +996,7 @@ msgstr "पासवर्ड बदलें"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Change working directory"
-msgstr ""
+msgstr "कार्य निर्देशिका बदलें"
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -3653,7 +3653,7 @@ msgstr "कोई अधूरे टिकट नहीं।"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "No working directory is bound"
-msgstr ""
+msgstr "कोई कार्य निर्देशिका संबद्ध नहीं है"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
@@ -4011,7 +4011,7 @@ msgstr "प्रोजेक्ट बजट"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Project files"
-msgstr ""
+msgstr "परियोजना फ़ाइलें"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -4027,7 +4027,7 @@ msgstr "प्रोजेक्ट रुका हुआ है"
 
 #: src/pages/Projects.tsx
 msgid "Project sections"
-msgstr ""
+msgstr "परियोजना अनुभाग"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4657,7 +4657,7 @@ msgstr "पूर्वावलोकन के लिए समर्थित
 
 #: src/pages/Artifacts.tsx
 msgid "Select a text file to preview it."
-msgstr ""
+msgstr "पूर्वावलोकन के लिए कोई टेक्स्ट फ़ाइल चुनें।"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -5620,7 +5620,7 @@ msgstr "कार्य स्थान बदलें"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Working directory relative path"
-msgstr ""
+msgstr "कार्य निर्देशिका का सापेक्ष पथ"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

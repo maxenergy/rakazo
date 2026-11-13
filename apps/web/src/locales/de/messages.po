@@ -821,7 +821,7 @@ msgstr "Abrechnung"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Bind working directory"
-msgstr ""
+msgstr "Arbeitsverzeichnis binden"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -996,7 +996,7 @@ msgstr "Passwort ändern"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Change working directory"
-msgstr ""
+msgstr "Arbeitsverzeichnis ändern"
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -3653,7 +3653,7 @@ msgstr "Keine offenen Tickets."
 
 #: src/components/ProjectWorkdir.tsx
 msgid "No working directory is bound"
-msgstr ""
+msgstr "Kein Arbeitsverzeichnis gebunden"
 
 #: src/components/GoalEditor.tsx
 msgid "None"
@@ -4011,7 +4011,7 @@ msgstr "Projektbudget"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Project files"
-msgstr ""
+msgstr "Projektdateien"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
@@ -4027,7 +4027,7 @@ msgstr "Projekt pausiert"
 
 #: src/pages/Projects.tsx
 msgid "Project sections"
-msgstr ""
+msgstr "Projektabschnitte"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4657,7 +4657,7 @@ msgstr "Wählen Sie eine unterstützte Textdatei für die Vorschau aus."
 
 #: src/pages/Artifacts.tsx
 msgid "Select a text file to preview it."
-msgstr ""
+msgstr "Wählen Sie eine Textdatei zur Vorschau aus."
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -5620,7 +5620,7 @@ msgstr "Arbeitsort wechseln"
 
 #: src/components/ProjectWorkdir.tsx
 msgid "Working directory relative path"
-msgstr ""
+msgstr "Relativer Pfad des Arbeitsverzeichnisses"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx

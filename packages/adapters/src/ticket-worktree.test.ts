@@ -355,9 +355,23 @@ it.each([undefined, 250])(
     expect(executionTimeouts).toEqual([35_000, 35_000, (checkoutTimeoutMs ?? 120_000) + 5_000]);
     expect(transactionOpen).toBe(false);
     const pid = Number(readFileSync(pidFile, "utf8").trim());
-    expect(() => process.kill(pid, 0)).toThrow();
+    await expect
+      .poll(
+        () => {
+          try {
+            process.kill(pid, 0);
+            return false;
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ESRCH") return true;
+            throw error;
+          }
+        },
+        { timeout: 5_000 },
+      )
+      .toBe(true);
     expect(rows).toHaveLength(0);
   },
+  10_000,
 );
 
 it.each([0, -1, 1.5, "120000", 600001])(

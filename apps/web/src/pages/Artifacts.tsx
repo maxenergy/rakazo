@@ -1038,7 +1038,11 @@ function PreviewPane({
           </div>
         ) : (
           <div className="relative h-full overflow-hidden rounded-2xl border border-border">
-            <ArtifactPreview artifact={state.artifact} bytes={state.bytes} />
+            {state.artifact.mimeType === "application/zip" ? (
+              <ZipArtifactPreview artifactId={state.artifact.id} />
+            ) : (
+              <ArtifactPreview artifact={state.artifact} bytes={state.bytes} />
+            )}
             {state.artifact.mimeType === "text/html" ? (
               <div className="absolute bottom-3 end-3 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1.5 text-[11px] text-white">
                 <Lock size={12} strokeWidth={2} />
@@ -1055,6 +1059,7 @@ function PreviewPane({
 }
 
 function ArtifactPreview({ artifact, bytes }: { artifact: Artifact; bytes: Uint8Array }) {
+  if (artifact.mimeType === "application/zip") return null;
   if (artifact.mimeType === "text/html") {
     const html = new TextDecoder("utf-8").decode(bytes);
     return <SandboxedHtmlViewer html={html} title={artifact.name} />;
@@ -1096,6 +1101,124 @@ function ImagePreview({
   return (
     <div className="grid h-full place-items-center overflow-auto bg-muted/40 p-4">
       <img src={url} alt={name} className="max-h-full max-w-full rounded-lg shadow-sm" />
+    </div>
+  );
+}
+
+const ZIP_TEXT_EXTENSIONS = new Set([
+  ".txt",
+  ".md",
+  ".markdown",
+  ".json",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".xml",
+  ".csv",
+  ".log",
+  ".html",
+  ".css",
+  ".js",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  ".sh",
+  ".py",
+  ".sql",
+  ".ini",
+  ".cfg",
+  ".conf",
+]);
+function ZipArtifactPreview({ artifactId }: { artifactId: string }) {
+  const { t } = useLingui();
+  const [entries, setEntries] = useState<Array<{
+    path: string;
+    size: number;
+    directory: boolean;
+  }> | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [text, setText] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const previewRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void rpc.artifacts.zipEntries({ artifactId }).then(
+      (result) => {
+        if (!cancelled) setEntries(result);
+      },
+      (error: unknown) => {
+        if (!cancelled)
+          setMessage(errorText(error, t`Unsupported, damaged or oversized ZIP archive.`));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [artifactId, t]);
+  async function selectEntry(path: string) {
+    setSelected(path);
+    setText(null);
+    setMessage(null);
+    setLoading(true);
+    if (typeof previewRef.current?.scrollIntoView === "function") {
+      previewRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    try {
+      setText((await rpc.artifacts.zipText({ artifactId, path })).text);
+    } catch (error) {
+      setMessage(errorText(error, t`This file is unsupported, damaged or too large to preview.`));
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <div className="grid h-full min-h-0 grid-cols-1 overflow-auto sm:grid-cols-[minmax(180px,280px)_minmax(0,1fr)]">
+      <nav
+        aria-label={t`ZIP contents`}
+        className="max-h-48 overflow-y-auto border-b border-border p-2 sm:max-h-none sm:border-b-0 sm:border-r"
+      >
+        {entries === null && !message ? (
+          <p className="p-3 text-sm text-muted-foreground">
+            <Trans>Loading contents…</Trans>
+          </p>
+        ) : null}
+        {entries?.map((entry) => {
+          const name = entry.path.slice(entry.path.lastIndexOf("/") + 1);
+          const ext = name.match(/\.[^.]+$/)?.[0]?.toLowerCase() ?? "";
+          const supported = !entry.directory && ZIP_TEXT_EXTENSIONS.has(ext);
+          return (
+            <button
+              key={entry.path}
+              type="button"
+              disabled={!supported}
+              aria-pressed={selected === entry.path}
+              onClick={() => void selectEntry(entry.path)}
+              className="block w-full truncate rounded px-3 py-2 text-left text-sm enabled:hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              title={entry.path}
+            >
+              {entry.path}
+            </button>
+          );
+        })}
+      </nav>
+      <section ref={previewRef} aria-live="polite" className="min-h-48 min-w-0 overflow-auto p-5">
+        {message ? (
+          <p role="alert" className="text-sm text-destructive">
+            {message}
+          </p>
+        ) : loading ? (
+          <p className="text-sm text-muted-foreground">
+            <Trans>Loading preview…</Trans>
+          </p>
+        ) : text !== null ? (
+          <pre className="whitespace-pre-wrap break-words font-mono text-sm">{text}</pre>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            <Trans>Select a text file to preview it.</Trans>
+          </p>
+        )}
+      </section>
     </div>
   );
 }

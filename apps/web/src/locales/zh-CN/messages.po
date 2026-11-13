@@ -652,6 +652,7 @@ msgstr "参数"
 
 #: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "产出文件"
@@ -817,6 +818,10 @@ msgstr "Bearer token"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "账单"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Bind working directory"
+msgstr "绑定工作目录"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -988,6 +993,10 @@ msgstr "卡片视图"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "修改密码"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Change working directory"
+msgstr "更改工作目录"
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -2570,6 +2579,7 @@ msgid "File write"
 msgstr "写入文件"
 
 #: src/components/computer/ComputerWorkspace.tsx
+#: src/pages/Projects.tsx
 msgid "Files"
 msgstr "文件"
 
@@ -3010,6 +3020,7 @@ msgid "Loading activity…"
 msgstr "正在加载动态…"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading contents…"
 msgstr "正在加载内容…"
 
@@ -3030,6 +3041,7 @@ msgid "Loading more"
 msgstr "正在加载更多"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading preview…"
 msgstr "正在加载预览…"
 
@@ -3639,6 +3651,10 @@ msgstr "无触发器"
 msgid "No unfinished tickets."
 msgstr "没有未完成工单。"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "No working directory is bound"
+msgstr "未绑定工作目录"
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "无"
@@ -3993,6 +4009,10 @@ msgstr "项目"
 msgid "Project budget"
 msgstr "项目预算"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Project files"
+msgstr "项目文件"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "项目 ID"
@@ -4004,6 +4024,10 @@ msgstr "项目成员"
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
 msgstr "项目已暂停"
+
+#: src/pages/Projects.tsx
+msgid "Project sections"
+msgstr "项目分区"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4631,6 +4655,10 @@ msgstr "选择人员"
 msgid "Select a supported text file to preview."
 msgstr "请选择支持的文本文件进行预览。"
 
+#: src/pages/Artifacts.tsx
+msgid "Select a text file to preview it."
+msgstr "选择文本文件以预览。"
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "选择工单"
@@ -5146,6 +5174,7 @@ msgid "This file is not valid UTF-8 text."
 msgstr "此文件不是有效的 UTF-8 文本。"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "This file is unsupported, damaged or too large to preview."
 msgstr "此文件不受支持、已损坏或过大，无法预览。"
 
@@ -5343,6 +5372,7 @@ msgid "Unsupported file type: {0}"
 msgstr "不支持的文件类型：{0}"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
 msgstr "ZIP 压缩包不受支持、已损坏或过大。"
 
@@ -5588,6 +5618,10 @@ msgstr "工作位置"
 msgid "Work location switch"
 msgstr "切换工作位置"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Working directory relative path"
+msgstr "工作目录相对路径"
+
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 msgid "Working…"
@@ -5635,5 +5669,6 @@ msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "你的一支随时在线的 Agent 团队<0/>可以交给它们真正的工作。"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP 内容"

@@ -652,6 +652,7 @@ msgstr "인자"
 
 #: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "결과물"
@@ -817,6 +818,10 @@ msgstr "Bearer 토큰"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "결제"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Bind working directory"
+msgstr "작업 디렉터리 연결"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -988,6 +993,10 @@ msgstr "카드 보기"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "비밀번호 변경"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Change working directory"
+msgstr "작업 디렉터리 변경"
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -2570,6 +2579,7 @@ msgid "File write"
 msgstr "File write"
 
 #: src/components/computer/ComputerWorkspace.tsx
+#: src/pages/Projects.tsx
 msgid "Files"
 msgstr "파일"
 
@@ -3010,6 +3020,7 @@ msgid "Loading activity…"
 msgstr "활동을 불러오는 중…"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading contents…"
 msgstr "콘텐츠를 불러오는 중…"
 
@@ -3030,6 +3041,7 @@ msgid "Loading more"
 msgstr "더 불러오는 중"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading preview…"
 msgstr "미리보기를 불러오는 중…"
 
@@ -3639,6 +3651,10 @@ msgstr "트리거 없음"
 msgid "No unfinished tickets."
 msgstr "미완료 티켓이 없습니다."
 
+#: src/components/ProjectWorkdir.tsx
+msgid "No working directory is bound"
+msgstr "연결된 작업 디렉터리가 없습니다"
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "없음"
@@ -3993,6 +4009,10 @@ msgstr "프로젝트"
 msgid "Project budget"
 msgstr "프로젝트 예산"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Project files"
+msgstr "프로젝트 파일"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "프로젝트 ID"
@@ -4004,6 +4024,10 @@ msgstr "프로젝트 멤버"
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
 msgstr "프로젝트 일시 중지됨"
+
+#: src/pages/Projects.tsx
+msgid "Project sections"
+msgstr "프로젝트 섹션"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4631,6 +4655,10 @@ msgstr "사람 선택"
 msgid "Select a supported text file to preview."
 msgstr "미리 볼 지원되는 텍스트 파일을 선택하세요."
 
+#: src/pages/Artifacts.tsx
+msgid "Select a text file to preview it."
+msgstr "미리 볼 텍스트 파일을 선택하세요."
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "티켓 선택"
@@ -5146,6 +5174,7 @@ msgid "This file is not valid UTF-8 text."
 msgstr "이 파일은 유효한 UTF-8 텍스트가 아닙니다."
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "This file is unsupported, damaged or too large to preview."
 msgstr "이 파일은 지원되지 않거나 손상되었거나 너무 커서 미리 볼 수 없습니다."
 
@@ -5343,6 +5372,7 @@ msgid "Unsupported file type: {0}"
 msgstr "지원하지 않는 파일 형식: {0}"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
 msgstr "지원되지 않거나 손상되었거나 너무 큰 ZIP 아카이브입니다."
 
@@ -5588,6 +5618,10 @@ msgstr "Work location"
 msgid "Work location switch"
 msgstr "작업 위치 전환"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Working directory relative path"
+msgstr "작업 디렉터리 상대 경로"
+
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 msgid "Working…"
@@ -5635,5 +5669,6 @@ msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "언제든 실제 작업을 맡길 수 있는<0/>나만의 Agent 팀"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP 내용"

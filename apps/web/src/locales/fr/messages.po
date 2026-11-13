@@ -652,6 +652,7 @@ msgstr "Arguments"
 
 #: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "Artefacts"
@@ -817,6 +818,10 @@ msgstr "Jeton porteur"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "Facturation"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Bind working directory"
+msgstr "Associer un répertoire de travail"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -988,6 +993,10 @@ msgstr "Vue en cartes"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "Changer le mot de passe"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Change working directory"
+msgstr "Modifier le répertoire de travail"
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -2570,6 +2579,7 @@ msgid "File write"
 msgstr "File write"
 
 #: src/components/computer/ComputerWorkspace.tsx
+#: src/pages/Projects.tsx
 msgid "Files"
 msgstr "Fichiers"
 
@@ -3010,6 +3020,7 @@ msgid "Loading activity…"
 msgstr "Chargement de l'activité…"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading contents…"
 msgstr "Chargement du contenu…"
 
@@ -3030,6 +3041,7 @@ msgid "Loading more"
 msgstr "Chargement en cours"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading preview…"
 msgstr "Chargement de l'aperçu…"
 
@@ -3639,6 +3651,10 @@ msgstr "Aucun déclencheur"
 msgid "No unfinished tickets."
 msgstr "Aucun ticket en cours."
 
+#: src/components/ProjectWorkdir.tsx
+msgid "No working directory is bound"
+msgstr "Aucun répertoire de travail n’est associé"
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "Aucun"
@@ -3993,6 +4009,10 @@ msgstr "Projet"
 msgid "Project budget"
 msgstr "Budget du projet"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Project files"
+msgstr "Fichiers du projet"
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "ID du projet"
@@ -4004,6 +4024,10 @@ msgstr "Membres du projet"
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
 msgstr "Projet en pause"
+
+#: src/pages/Projects.tsx
+msgid "Project sections"
+msgstr "Sections du projet"
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4631,6 +4655,10 @@ msgstr "Sélectionner une personne"
 msgid "Select a supported text file to preview."
 msgstr "Sélectionnez un fichier texte pris en charge pour l'aperçu."
 
+#: src/pages/Artifacts.tsx
+msgid "Select a text file to preview it."
+msgstr "Sélectionnez un fichier texte pour en afficher l’aperçu."
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Sélectionner un ticket"
@@ -5146,6 +5174,7 @@ msgid "This file is not valid UTF-8 text."
 msgstr "Ce fichier n'est pas un texte UTF-8 valide."
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "This file is unsupported, damaged or too large to preview."
 msgstr "Ce fichier n'est pas pris en charge, est endommagé ou trop volumineux pour l'aperçu."
 
@@ -5343,6 +5372,7 @@ msgid "Unsupported file type: {0}"
 msgstr "Type de fichier non pris en charge : {0}"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
 msgstr "Archive ZIP non prise en charge, endommagée ou trop volumineuse."
 
@@ -5588,6 +5618,10 @@ msgstr "Work location"
 msgid "Work location switch"
 msgstr "Changement de lieu de travail"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Working directory relative path"
+msgstr "Chemin relatif du répertoire de travail"
+
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 msgid "Working…"
@@ -5635,5 +5669,6 @@ msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Votre équipe d'agents toujours actifs<0/>à qui vous pouvez confier de vrais travaux."
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "Contenu du ZIP"

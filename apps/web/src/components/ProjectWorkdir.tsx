@@ -1,5 +1,5 @@
-import { Button, Input } from "@rakazo/ui-web";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { Button, Input } from "@rakazo/ui-web";
 import { useEffect, useState } from "react";
 import { rpc, selectedSpaceId } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
@@ -35,7 +35,11 @@ export function ProjectWorkdir({ projectId }: { projectId: string }) {
   return (
     <section id="project-files" className="space-y-3" aria-label={t`Project files`}>
       {error ? <p role="alert">{error}</p> : null}
-      {binding === null ? <p><Trans>No working directory is bound</Trans></p> : null}
+      {binding === null ? (
+        <p>
+          <Trans>No working directory is bound</Trans>
+        </p>
+      ) : null}
       {binding !== undefined && (binding === null || editing) ? (
         <form
           className="flex gap-2"

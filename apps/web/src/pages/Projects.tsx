@@ -128,10 +128,22 @@ export function ProjectsPage() {
             {errorText(error)}
           </p>
         ) : null}
-        {projectId && detail && !milestoneId ? <nav aria-label={t`Project sections`} className="flex gap-2">
-          <a className="rounded-md border px-3 py-2 text-sm hover:bg-accent" href="#project-artifacts"><Trans>Artifacts</Trans></a>
-          <a className="rounded-md border px-3 py-2 text-sm hover:bg-accent" href="#project-files"><Trans>Files</Trans></a>
-        </nav> : null}
+        {projectId && detail && !milestoneId ? (
+          <nav aria-label={t`Project sections`} className="flex gap-2">
+            <a
+              className="rounded-md border px-3 py-2 text-sm hover:bg-accent"
+              href="#project-artifacts"
+            >
+              <Trans>Artifacts</Trans>
+            </a>
+            <a
+              className="rounded-md border px-3 py-2 text-sm hover:bg-accent"
+              href="#project-files"
+            >
+              <Trans>Files</Trans>
+            </a>
+          </nav>
+        ) : null}
         {detail ? (
           <section className="min-w-0 space-y-3">
             {detail.description ? (

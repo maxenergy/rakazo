@@ -138,8 +138,6 @@ export function ArtifactsPage() {
   }, []);
 
   useEffect(() => {
-    setMilestoneId("");
-    setTicketId("");
     if (!projectId) {
       setMilestones([]);
       setTickets([]);
@@ -355,7 +353,11 @@ export function ArtifactsPage() {
             <NativeSelect
               aria-label="Project"
               value={projectId}
-              onChange={(event) => setProjectId(event.target.value)}
+              onChange={(event) => {
+                setProjectId(event.target.value);
+                setMilestoneId("");
+                setTicketId("");
+              }}
             >
               <NativeSelectOption value="">
                 <Trans>All projects</Trans>

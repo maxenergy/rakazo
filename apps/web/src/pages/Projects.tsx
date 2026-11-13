@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@rakazo/ui-web";
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { LinkedArtifacts } from "../components/LinkedArtifacts";
 import { ProjectBudget } from "../components/ProjectBudget";
 import { ProjectFiles } from "../components/ProjectFiles";
 import { ProjectGoals } from "../components/ProjectGoals";
@@ -281,7 +282,12 @@ export function ProjectsPage() {
             readOnly={data.project.archived}
           />
         ) : null}
-        {projectId && data?.project && !milestoneId ? <ProjectFiles projectId={projectId} /> : null}
+        {projectId && data?.project && !milestoneId ? (
+          <>
+            <LinkedArtifacts projectId={projectId} />
+            <ProjectFiles projectId={projectId} />
+          </>
+        ) : null}
         {!milestoneId ? (
           <>
             <label className="flex items-center gap-2 text-sm">

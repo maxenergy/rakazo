@@ -457,6 +457,14 @@ msgstr "Todos"
 msgid "All bots"
 msgstr "Todos os bots"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "Todos os marcos"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "Todos os projetos"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "Todos os provedores"
@@ -464,6 +472,10 @@ msgstr "Todos os provedores"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "Todos os status"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "Todos os tickets"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "Arquivado. Chat, memória e arquivos mantidos."
 msgid "Arguments"
 msgstr "Argumentos:"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "Ouvindo"
 msgid "Load earlier messages"
 msgstr "Carregar mensagens anteriores..."
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -3032,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "Carregando provedores de voz..."
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3451,6 +3466,10 @@ msgstr "Ainda não há conexões de agentes."
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Nenhum aplicativo corresponde à sua pesquisa."
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Nenhum artefato"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
@@ -5325,7 +5344,7 @@ msgstr "Tipo de arquivo não suportado: {0}"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr "Arquivo ZIP incompatível, danificado ou grande demais."
+msgstr "Arquivo ZIP não compatível, danificado ou grande demais."
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx

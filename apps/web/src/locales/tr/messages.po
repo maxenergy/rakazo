@@ -457,6 +457,14 @@ msgstr "Tümü"
 msgid "All bots"
 msgstr "Tüm botlar"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "Tüm kilometre taşları"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "Tüm projeler"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "Tüm sağlayıcılar"
@@ -464,6 +472,10 @@ msgstr "Tüm sağlayıcılar"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "Tüm durumlar"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "Tüm biletler"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "Arşivlendi. Sohbet, hafıza ve dosyalar korundu."
 msgid "Arguments"
 msgstr "Argümanlar"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "Dinliyor"
 msgid "Load earlier messages"
 msgstr "Önceki mesajları yükle"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -3032,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "Ses sağlayıcıları yükleniyor…"
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3451,6 +3466,10 @@ msgstr "Henüz ajan bağlantısı yok."
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Aramanla eşleşen uygulama yok."
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Çıktı yok"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."

@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   bots: { list: vi.fn() },
   projects: { list: vi.fn() },
   milestones: { list: vi.fn() },
+  artifacts: { listSpace: vi.fn() },
   tickets: {
     list: vi.fn(),
     update: vi.fn(),
@@ -57,6 +58,7 @@ import { BoardPage } from "./Board";
 beforeEach(() => {
   api.projects.list.mockReset().mockResolvedValue([]);
   api.milestones.list.mockReset().mockResolvedValue([]);
+  api.artifacts.listSpace.mockReset().mockResolvedValue({ items: [], nextCursor: null });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   window.matchMedia = vi
     .fn()

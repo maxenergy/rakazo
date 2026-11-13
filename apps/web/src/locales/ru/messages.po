@@ -457,6 +457,14 @@ msgstr "Все"
 msgid "All bots"
 msgstr "Все боты"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "Все этапы"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "Все проекты"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "Все провайдеры"
@@ -464,6 +472,10 @@ msgstr "Все провайдеры"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "Все статусы"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "Все задачи"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "В архиве. Чат, память и файлы сохраняютс
 msgid "Arguments"
 msgstr "Аргументы"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "Прослушивание"
 msgid "Load earlier messages"
 msgstr "Загрузить более ранние сообщения"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -3032,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "Загрузка поставщиков голосовой связи…"
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3451,6 +3466,10 @@ msgstr "Агентских подключений пока нет."
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Нет приложений, соответствующих вашему запросу."
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Нет материалов"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
@@ -4610,7 +4629,7 @@ msgstr "Выберите человека"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Select a supported text file to preview."
-msgstr "Выберите поддерживаемый текстовый файл для предварительного просмотра."
+msgstr "Выберите поддерживаемый текстовый файл для предпросмотра."
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -5128,7 +5147,7 @@ msgstr "Этот файл не является корректным текст�
 
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is unsupported, damaged or too large to preview."
-msgstr "Файл не поддерживается, повреждён или слишком велик для предварительного просмотра."
+msgstr "Этот файл не поддерживается, повреждён или слишком велик для предпросмотра."
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"

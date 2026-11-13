@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/web";
-import type { Artifact, ArtifactVersion, Bot } from "@rakazo/contracts";
+import type { Artifact, ArtifactVersion, Bot, Milestone, Project, Ticket } from "@rakazo/contracts";
 import { isAttachmentImageMimeType } from "@rakazo/contracts";
 import {
   AlertDialog,
@@ -50,6 +50,22 @@ const LIST_PAGE_SIZE = 60;
 
 type ArtifactSummary = Artifact & { versionCount: number };
 
+async function listProjectTickets(projectId: string): Promise<Ticket[]> {
+  const allTickets: Ticket[] = [];
+  let cursor: string | undefined;
+  while (true) {
+    const result = await rpc.tickets.list({
+      projectId,
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    });
+    if ("tickets" in result) return allTickets.concat(result.tickets);
+    allTickets.push(...result.items);
+    if (!result.nextCursor) return allTickets;
+    cursor = result.nextCursor;
+  }
+}
+
 function readViewMode(): ViewMode {
   try {
     return window.localStorage.getItem(VIEW_MODE_STORAGE_KEY) === "list" ? "list" : "grid";
@@ -84,6 +100,12 @@ export function ArtifactsPage() {
   const navigate = useNavigate();
   const { t } = useLingui();
   const [bots, setBots] = useState<Bot[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [milestoneId, setMilestoneId] = useState("");
+  const [ticketId, setTicketId] = useState("");
   const [items, setItems] = useState<ArtifactSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -102,7 +124,37 @@ export function ArtifactsPage() {
 
   useEffect(() => {
     void takeInitialBootstrap().then((bootstrap) => setBots(bootstrap.bots));
+    void rpc.projects.list({ archived: false }).then(setProjects);
   }, []);
+
+  useEffect(() => {
+    setMilestoneId("");
+    setTicketId("");
+    if (!projectId) {
+      setMilestones([]);
+      setTickets([]);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all([
+      rpc.milestones.list({ projectId, archived: false }),
+      listProjectTickets(projectId),
+    ])
+      .then(([nextMilestones, projectTickets]) => {
+        if (cancelled) return;
+        setMilestones(nextMilestones);
+        setTickets(projectTickets);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMilestones([]);
+          setTickets([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +165,13 @@ export function ArtifactsPage() {
     setLoadError(null);
     setNextCursor(null);
     void rpc.artifacts
-      .listSpace({ botId: activeBotId ?? undefined, limit: LIST_PAGE_SIZE })
+      .listSpace({
+        botId: activeBotId ?? undefined,
+        projectId: projectId || undefined,
+        milestoneId: milestoneId || undefined,
+        ticketId: ticketId || undefined,
+        limit: LIST_PAGE_SIZE,
+      })
       .then((page) => {
         if (cancelled) return;
         setItems(page.items);
@@ -127,7 +185,7 @@ export function ArtifactsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeBotId, t]);
+  }, [activeBotId, projectId, milestoneId, ticketId, t]);
 
   async function loadMore() {
     if (!nextCursor || loadingMoreRef.current) return;
@@ -138,6 +196,9 @@ export function ArtifactsPage() {
     try {
       const page = await rpc.artifacts.listSpace({
         botId: activeBotId ?? undefined,
+        projectId: projectId || undefined,
+        milestoneId: milestoneId || undefined,
+        ticketId: ticketId || undefined,
         cursor: nextCursor,
         limit: LIST_PAGE_SIZE,
       });
@@ -281,6 +342,52 @@ export function ArtifactsPage() {
                 className="w-full rounded-lg border border-border bg-background py-1.5 ps-8 pe-3 text-[13px] outline-none focus:border-ring"
               />
             </div>
+            <NativeSelect
+              aria-label="Project"
+              value={projectId}
+              onChange={(event) => setProjectId(event.target.value)}
+            >
+              <NativeSelectOption value="">
+                <Trans>All projects</Trans>
+              </NativeSelectOption>
+              {projects.map((project) => (
+                <NativeSelectOption key={project.id} value={project.id}>
+                  {project.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            {projectId ? (
+              <NativeSelect
+                aria-label="Milestone"
+                value={milestoneId}
+                onChange={(event) => setMilestoneId(event.target.value)}
+              >
+                <NativeSelectOption value="">
+                  <Trans>All milestones</Trans>
+                </NativeSelectOption>
+                {milestones.map((milestone) => (
+                  <NativeSelectOption key={milestone.id} value={milestone.id}>
+                    {milestone.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            ) : null}
+            {projectId ? (
+              <NativeSelect
+                aria-label="Ticket"
+                value={ticketId}
+                onChange={(event) => setTicketId(event.target.value)}
+              >
+                <NativeSelectOption value="">
+                  <Trans>All tickets</Trans>
+                </NativeSelectOption>
+                {tickets.map((ticket) => (
+                  <NativeSelectOption key={ticket.id} value={ticket.id}>
+                    {ticket.title}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            ) : null}
             <NativeSelect
               aria-label={t`Filter by date`}
               className="w-auto text-[13px]"

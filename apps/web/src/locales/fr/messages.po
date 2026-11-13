@@ -457,6 +457,14 @@ msgstr "Tous"
 msgid "All bots"
 msgstr "Tous les bots"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "Tous les jalons"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "Tous les projets"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "Tous les fournisseurs"
@@ -464,6 +472,10 @@ msgstr "Tous les fournisseurs"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "Tous les statuts"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "Tous les tickets"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "Archivé. Conversation, mémoire et fichiers conservés."
 msgid "Arguments"
 msgstr "Arguments"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "Écoute"
 msgid "Load earlier messages"
 msgstr "Charger les messages précédents"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -3032,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "Chargement des fournisseurs vocaux…"
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3451,6 +3466,10 @@ msgstr "Aucune connexion d'agent pour le moment."
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Aucune application ne correspond à votre recherche."
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Aucun artefact"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
@@ -4610,7 +4629,7 @@ msgstr "Sélectionner une personne"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Select a supported text file to preview."
-msgstr "Sélectionnez un fichier texte compatible pour afficher un aperçu."
+msgstr "Sélectionnez un fichier texte pris en charge pour l'aperçu."
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -5128,7 +5147,7 @@ msgstr "Ce fichier n'est pas un texte UTF-8 valide."
 
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is unsupported, damaged or too large to preview."
-msgstr "Ce fichier n’est pas pris en charge, est endommagé ou trop volumineux pour être prévisualisé."
+msgstr "Ce fichier n'est pas pris en charge, est endommagé ou trop volumineux pour l'aperçu."
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"

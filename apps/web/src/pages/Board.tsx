@@ -30,6 +30,7 @@ import {
 import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { LinkedArtifacts } from "../components/LinkedArtifacts";
 import { formatRelativeTime } from "../lib/relative-time";
 import { rpc, selectedSpaceId } from "../lib/rpc";
 import { useTicketPriorityLabels } from "../lib/ticket-priority";
@@ -608,7 +609,10 @@ function TicketDialog({
           </div>
         </form>
         {ticket ? (
-          <TicketDependencies ticketId={ticket.id} revision={commentRevision} onSaved={onSaved} />
+          <>
+            <TicketDependencies ticketId={ticket.id} revision={commentRevision} onSaved={onSaved} />
+            <LinkedArtifacts ticketId={ticket.id} />
+          </>
         ) : null}
         {ticket ? (
           <div data-testid="ticket-comments" className="space-y-3 border-t pt-3">

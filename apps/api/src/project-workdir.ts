@@ -5,6 +5,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { ORPCError } from "@orpc/server";
 
+export function projectHomesRoot(dataDir: string, override = process.env.PROJECT_HOMES_ROOT) {
+  return override || path.join(dataDir, "homes");
+}
+
 const exec = promisify(execFile);
 const MAX_FILE = 256 * 1024;
 const MAX_ENTRIES = 500;

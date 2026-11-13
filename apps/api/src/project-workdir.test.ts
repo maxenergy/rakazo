@@ -2,10 +2,11 @@ import { execFileSync } from "node:child_process";
 import { link, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   browseProjectDirectory,
   getProjectWorkdir,
+  projectHomesRoot,
   readProjectCommits,
   readProjectFile,
   readProjectImage,
@@ -22,7 +23,22 @@ describe("project workdir", () => {
     await writeFile(path.join(dir, "hello.txt"), "hello");
   });
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await rm(root, { recursive: true, force: true });
+  });
+  it("defaults to Team Computer homes and honors overrides", async () => {
+    vi.stubEnv("PROJECT_HOMES_ROOT", undefined);
+    const homes = projectHomesRoot(root);
+    expect(homes).toBe(path.join(root, "homes"));
+    expect(projectHomesRoot(root, "custom-homes")).toBe("custom-homes");
+    await mkdir(path.join(homes, "team-space", "repo"), { recursive: true });
+    await writeFile(path.join(homes, "team-space", "repo", "hello.txt"), "hello");
+    expect(await resolveProjectPath(homes, "space", "repo")).toBe(
+      path.join(homes, "team-space", "repo"),
+    );
+    expect(await browseProjectDirectory(homes, "space", "repo", "")).toEqual([
+      { name: "hello.txt", type: "file", size: 5 },
+    ]);
   });
   it("reads ordinary files and directories", async () => {
     expect(await readProjectFile(root, "space", "repo", "hello.txt")).toEqual({

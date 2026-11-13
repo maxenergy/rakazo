@@ -14,6 +14,9 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("heading", { name: "Goal acceptance project", exact: true }),
     ).toBeVisible();
+    await expect(page.getByText("尚未绑定工作目录", { exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "工作目录相对路径" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "绑定工作目录", exact: true })).toBeDisabled();
     const members = page.getByRole("region", { name: "Project members" });
     await expect(members).toBeVisible();
     await expect(members.getByRole("heading", { name: "Members", exact: true })).toBeVisible();

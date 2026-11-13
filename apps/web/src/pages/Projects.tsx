@@ -4,10 +4,10 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { LinkedArtifacts } from "../components/LinkedArtifacts";
 import { ProjectBudget } from "../components/ProjectBudget";
-import { ProjectFiles } from "../components/ProjectFiles";
 import { ProjectGoals } from "../components/ProjectGoals";
 import { ProjectMembers } from "../components/ProjectMembers";
 import { ProjectProgress } from "../components/ProjectProgress";
+import { ProjectWorkdir } from "../components/ProjectWorkdir";
 import { nextProjectPauseStatus } from "../lib/project-pause";
 import { rpc, selectedSpaceId } from "../lib/rpc";
 import { useBoardRefresh } from "../lib/use-board-refresh";
@@ -285,7 +285,7 @@ export function ProjectsPage() {
         {projectId && data?.project && !milestoneId ? (
           <>
             <LinkedArtifacts projectId={projectId} />
-            <ProjectFiles projectId={projectId} />
+            <ProjectWorkdir key={projectId} projectId={projectId} />
           </>
         ) : null}
         {!milestoneId ? (

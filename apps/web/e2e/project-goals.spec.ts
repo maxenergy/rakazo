@@ -16,8 +16,12 @@ for (const width of [1440, 390]) {
       page.getByRole("heading", { name: "Goal acceptance project", exact: true }),
     ).toBeVisible();
     await expect(page.getByText("No working directory is bound", { exact: true })).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "Working directory relative path" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Bind working directory", exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole("textbox", { name: "Working directory relative path" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Bind working directory", exact: true }),
+    ).toBeDisabled();
     await captureScreenshot(page, testInfo, `rak178-unbound-${width}`);
     expect(process.env.PROJECT_HOMES_ROOT).toBeUndefined();
     const binding = `shared/project-${project.id}`;

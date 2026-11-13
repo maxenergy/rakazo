@@ -260,17 +260,36 @@ it("previews text files from a ZIP in artifact details", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   api.listSpace.mockResolvedValue({ items: [], nextCursor: null });
   api.listVersions.mockResolvedValue([]);
-  api.getById.mockResolvedValue({ ...artifact("bundle.zip", "zip-1"), mimeType: "application/zip", contentBase64: "" });
+  api.getById.mockResolvedValue({
+    ...artifact("bundle.zip", "zip-1"),
+    mimeType: "application/zip",
+    contentBase64: "",
+  });
   api.zipEntries.mockResolvedValue([{ path: "README.md", size: 5, directory: false }]);
   api.zipText.mockResolvedValue({ text: "hello" });
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  await act(async () => root.render(<MemoryRouter initialEntries={["/app/artifacts/zip-1"]}><Routes><Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} /></Routes></MemoryRouter>));
+  await act(async () =>
+    root.render(
+      <MemoryRouter initialEntries={["/app/artifacts/zip-1"]}>
+        <Routes>
+          <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    ),
+  );
   try {
-    await act(async () => { await vi.waitFor(() => expect(container.textContent).toContain("README.md")); });
-    const entry = [...container.querySelectorAll("button")].find((button) => button.textContent === "README.md");
-    await act(async () => { entry?.click(); await vi.waitFor(() => expect(container.textContent).toContain("hello")); });
+    await act(async () => {
+      await vi.waitFor(() => expect(container.textContent).toContain("README.md"));
+    });
+    const entry = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "README.md",
+    );
+    await act(async () => {
+      entry?.click();
+    });
+    await vi.waitFor(() => expect(container.textContent).toContain("hello"));
     expect(api.zipEntries).toHaveBeenCalledWith({ artifactId: "zip-1" });
     expect(api.zipText).toHaveBeenCalledWith({ artifactId: "zip-1", path: "README.md" });
   } finally {

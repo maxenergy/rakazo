@@ -652,6 +652,7 @@ msgstr "Argümanlar"
 
 #: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "Çıktılar"
@@ -817,6 +818,10 @@ msgstr "Bearer token"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "Faturalandırma"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Bind working directory"
+msgstr ""
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -988,6 +993,10 @@ msgstr "Kart görünümü"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "Parolayı değiştir"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Change working directory"
+msgstr ""
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -2570,6 +2579,7 @@ msgid "File write"
 msgstr "File write"
 
 #: src/components/computer/ComputerWorkspace.tsx
+#: src/pages/Projects.tsx
 msgid "Files"
 msgstr "Dosyalar"
 
@@ -3010,6 +3020,7 @@ msgid "Loading activity…"
 msgstr "Etkinlik yükleniyor…"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading contents…"
 msgstr "İçerik yükleniyor…"
 
@@ -3030,6 +3041,7 @@ msgid "Loading more"
 msgstr "Daha fazla yükleniyor"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading preview…"
 msgstr "Önizleme yükleniyor…"
 
@@ -3639,6 +3651,10 @@ msgstr "Tetikleyici yok"
 msgid "No unfinished tickets."
 msgstr "Tamamlanmamış bilet yok."
 
+#: src/components/ProjectWorkdir.tsx
+msgid "No working directory is bound"
+msgstr ""
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "Yok"
@@ -3993,6 +4009,10 @@ msgstr "Proje"
 msgid "Project budget"
 msgstr "Proje bütçesi"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Project files"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "Proje kimliği"
@@ -4004,6 +4024,10 @@ msgstr "Proje üyeleri"
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
 msgstr "Proje duraklatıldı"
+
+#: src/pages/Projects.tsx
+msgid "Project sections"
+msgstr ""
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4631,6 +4655,10 @@ msgstr "Bir kişi seçin"
 msgid "Select a supported text file to preview."
 msgstr "Önizlemek için desteklenen bir metin dosyası seçin."
 
+#: src/pages/Artifacts.tsx
+msgid "Select a text file to preview it."
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Bir iş kaydı seç"
@@ -5146,6 +5174,7 @@ msgid "This file is not valid UTF-8 text."
 msgstr "Bu dosya geçerli UTF-8 metni değil."
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "This file is unsupported, damaged or too large to preview."
 msgstr "Bu dosya desteklenmiyor, hasarlı veya önizleme için çok büyük."
 
@@ -5343,6 +5372,7 @@ msgid "Unsupported file type: {0}"
 msgstr "Desteklenmeyen dosya türü: {0}"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
 msgstr "Desteklenmeyen, hasarlı veya çok büyük ZIP arşivi."
 
@@ -5588,6 +5618,10 @@ msgstr "Work location"
 msgid "Work location switch"
 msgstr "Çalışma konumunu değiştir"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Working directory relative path"
+msgstr ""
+
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 msgid "Working…"
@@ -5635,5 +5669,6 @@ msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Gerçek işler verebileceğin,<0/>her zaman açık agent takımın."
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP içeriği"

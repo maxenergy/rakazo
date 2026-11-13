@@ -652,6 +652,7 @@ msgstr "आर्ग्युमेंट"
 
 #: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
+#: src/pages/Projects.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "आउटपुट"
@@ -817,6 +818,10 @@ msgstr "बियरर टोकन"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "बिलिंग"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Bind working directory"
+msgstr ""
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -988,6 +993,10 @@ msgstr "कार्ड दृश्य"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "पासवर्ड बदलें"
+
+#: src/components/ProjectWorkdir.tsx
+msgid "Change working directory"
+msgstr ""
 
 #: src/pages/shell/work-location.tsx
 msgid "Changing work location can allow irreversible operations on the host. Continue?"
@@ -2570,6 +2579,7 @@ msgid "File write"
 msgstr "File write"
 
 #: src/components/computer/ComputerWorkspace.tsx
+#: src/pages/Projects.tsx
 msgid "Files"
 msgstr "फ़ाइलें"
 
@@ -3010,6 +3020,7 @@ msgid "Loading activity…"
 msgstr "गतिविधि लोड हो रही है…"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading contents…"
 msgstr "सामग्री लोड हो रही है…"
 
@@ -3030,6 +3041,7 @@ msgid "Loading more"
 msgstr "और लोड हो रहा है"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Loading preview…"
 msgstr "प्रीव्यू लोड हो रहा है…"
 
@@ -3639,6 +3651,10 @@ msgstr "कोई ट्रिगर नहीं"
 msgid "No unfinished tickets."
 msgstr "कोई अधूरे टिकट नहीं।"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "No working directory is bound"
+msgstr ""
+
 #: src/components/GoalEditor.tsx
 msgid "None"
 msgstr "कोई नहीं"
@@ -3993,6 +4009,10 @@ msgstr "परियोजना"
 msgid "Project budget"
 msgstr "प्रोजेक्ट बजट"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Project files"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Project ID"
 msgstr "प्रोजेक्ट ID"
@@ -4004,6 +4024,10 @@ msgstr "प्रोजेक्ट सदस्य"
 #: src/components/BotRestorePreview.tsx
 msgid "Project paused"
 msgstr "प्रोजेक्ट रुका हुआ है"
+
+#: src/pages/Projects.tsx
+msgid "Project sections"
+msgstr ""
 
 #: src/components/BotRestorePreview.tsx
 #: src/pages/Board.tsx
@@ -4631,6 +4655,10 @@ msgstr "व्यक्ति चुनें"
 msgid "Select a supported text file to preview."
 msgstr "पूर्वावलोकन के लिए समर्थित टेक्स्ट फ़ाइल चुनें।"
 
+#: src/pages/Artifacts.tsx
+msgid "Select a text file to preview it."
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "टिकट चुनें"
@@ -5146,6 +5174,7 @@ msgid "This file is not valid UTF-8 text."
 msgstr "यह फ़ाइल मान्य UTF-8 टेक्स्ट नहीं है।"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "This file is unsupported, damaged or too large to preview."
 msgstr "यह फ़ाइल असमर्थित, क्षतिग्रस्त या पूर्वावलोकन के लिए बहुत बड़ी है।"
 
@@ -5343,6 +5372,7 @@ msgid "Unsupported file type: {0}"
 msgstr "असमर्थित फ़ाइल प्रकार: {0}"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
 msgstr "असमर्थित, क्षतिग्रस्त या बहुत बड़ा ZIP संग्रह।"
 
@@ -5588,6 +5618,10 @@ msgstr "Work location"
 msgid "Work location switch"
 msgstr "कार्य स्थान बदलें"
 
+#: src/components/ProjectWorkdir.tsx
+msgid "Working directory relative path"
+msgstr ""
+
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 msgid "Working…"
@@ -5635,5 +5669,6 @@ msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "हमेशा चालू रहने वाले एजेंटों की आपकी टीम<0/>जिन्हें आप असली काम सौंप सकते हैं।"
 
 #: src/components/ArtifactFileCard.tsx
+#: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP सामग्री"

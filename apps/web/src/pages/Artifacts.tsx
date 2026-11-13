@@ -1120,7 +1120,9 @@ function ZipArtifactPreview({ artifactId }: { artifactId: string }) {
   }, [artifactId, t]);
   async function selectEntry(path: string) {
     setSelected(path); setText(null); setMessage(null); setLoading(true);
-    previewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    if (typeof previewRef.current?.scrollIntoView === "function") {
+      previewRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
     try { setText((await rpc.artifacts.zipText({ artifactId, path })).text); }
     catch (error) { setMessage(errorText(error, t`This file is unsupported, damaged or too large to preview.`)); }
     finally { setLoading(false); }

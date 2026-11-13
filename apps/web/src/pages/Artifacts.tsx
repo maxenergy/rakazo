@@ -31,7 +31,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { PdfViewer } from "../components/PdfViewer";
 import { SandboxedHtmlViewer } from "../components/SandboxedHtmlViewer";
 import { decodeArtifactBase64, downloadArtifactBytes } from "../lib/artifact-open";
@@ -98,21 +98,22 @@ function matchesCalendarDateFilter(iso: string, filter: DateFilter, now: Date): 
 export function ArtifactsPage() {
   const { artifactId } = useParams<{ artifactId?: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useLingui();
   const [bots, setBots] = useState<Bot[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [projectId, setProjectId] = useState("");
-  const [milestoneId, setMilestoneId] = useState("");
-  const [ticketId, setTicketId] = useState("");
+  const [projectId, setProjectId] = useState(() => searchParams.get("projectId") ?? "");
+  const [milestoneId, setMilestoneId] = useState(() => searchParams.get("milestoneId") ?? "");
+  const [ticketId, setTicketId] = useState(() => searchParams.get("ticketId") ?? "");
   const [items, setItems] = useState<ArtifactSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
   const listingGenerationRef = useRef(0);
-  const [activeBotId, setActiveBotId] = useState<string | null>(null);
+  const [activeBotId, setActiveBotId] = useState<string | null>(() => searchParams.get("botId"));
   const [viewMode, setViewMode] = useState<ViewMode>(readViewMode);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,6 +122,15 @@ export function ArtifactsPage() {
   const [pendingDelete, setPendingDelete] = useState<ArtifactSummary | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (activeBotId) next.set("botId", activeBotId);
+    if (projectId) next.set("projectId", projectId);
+    if (milestoneId) next.set("milestoneId", milestoneId);
+    if (ticketId) next.set("ticketId", ticketId);
+    setSearchParams(next, { replace: true });
+  }, [activeBotId, projectId, milestoneId, ticketId, setSearchParams]);
 
   useEffect(() => {
     void takeInitialBootstrap().then((bootstrap) => setBots(bootstrap.bots));

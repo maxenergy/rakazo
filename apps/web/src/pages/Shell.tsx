@@ -3482,6 +3482,10 @@ export function ShellPage() {
           ) : null}
         </div>
         <PendingApprovalsLink onNavigate={() => setMobileSidebarOpen(false)} />
+        <Link to="/app/artifacts" onClick={() => setMobileSidebarOpen(false)} className="mx-3 mb-1 flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-sidebar-accent">
+          <span className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-accent text-foreground/80"><FolderOpen size={15} strokeWidth={1.8} /></span>
+          <span className="text-[14px] font-medium text-foreground/90"><Trans>Artifacts</Trans></span>
+        </Link>
         <button
           type="button"
           onClick={() => setPluginsOpen(true)}
@@ -3716,6 +3720,12 @@ export function ShellPage() {
           </div>
           <div className="flex items-center gap-1">
             {!inGroup && active ? (
+              <Link
+                to={`/app/artifacts?botId=${encodeURIComponent(active.id)}`}
+                aria-label={t`Artifacts`}
+                title={t`Artifacts`}
+                className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent"
+              ><FolderOpen size={17} strokeWidth={1.7} /></Link>
               <button
                 type="button"
                 title={t`Agent computer`}

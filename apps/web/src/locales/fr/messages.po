@@ -3011,7 +3011,7 @@ msgstr "Chargement de l'activité…"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading contents…"
-msgstr ""
+msgstr "Chargement du contenu…"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
@@ -4629,7 +4629,7 @@ msgstr "Sélectionner une personne"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Select a supported text file to preview."
-msgstr ""
+msgstr "Sélectionnez un fichier texte pris en charge pour l'aperçu."
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -5147,7 +5147,7 @@ msgstr "Ce fichier n'est pas un texte UTF-8 valide."
 
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is unsupported, damaged or too large to preview."
-msgstr ""
+msgstr "Ce fichier n'est pas pris en charge, est endommagé ou trop volumineux pour l'aperçu."
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
@@ -5344,7 +5344,7 @@ msgstr "Type de fichier non pris en charge : {0}"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr ""
+msgstr "Archive ZIP non prise en charge, endommagée ou trop volumineuse."
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5636,4 +5636,4 @@ msgstr "Votre équipe d'agents toujours actifs<0/>à qui vous pouvez confier de 
 
 #: src/components/ArtifactFileCard.tsx
 msgid "ZIP contents"
-msgstr ""
+msgstr "Contenu du ZIP"

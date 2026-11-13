@@ -3011,7 +3011,7 @@ msgstr "正在加载动态…"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading contents…"
-msgstr ""
+msgstr "正在加载内容…"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
@@ -4629,7 +4629,7 @@ msgstr "选择人员"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Select a supported text file to preview."
-msgstr ""
+msgstr "请选择支持的文本文件进行预览。"
 
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
@@ -5147,7 +5147,7 @@ msgstr "此文件不是有效的 UTF-8 文本。"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is unsupported, damaged or too large to preview."
-msgstr ""
+msgstr "此文件不受支持、已损坏或过大，无法预览。"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
@@ -5344,7 +5344,7 @@ msgstr "不支持的文件类型：{0}"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "Unsupported, damaged or oversized ZIP archive."
-msgstr ""
+msgstr "ZIP 压缩包不受支持、已损坏或过大。"
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5636,4 +5636,4 @@ msgstr "你的一支随时在线的 Agent 团队<0/>可以交给它们真正的�
 
 #: src/components/ArtifactFileCard.tsx
 msgid "ZIP contents"
-msgstr ""
+msgstr "ZIP 内容"

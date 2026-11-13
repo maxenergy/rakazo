@@ -457,6 +457,14 @@ msgstr "Alle"
 msgid "All bots"
 msgstr "Alle Bots"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "Alle Meilensteine"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "Alle Projekte"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "Alle Anbieter"
@@ -464,6 +472,10 @@ msgstr "Alle Anbieter"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "Alle Status"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "Alle Tickets"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "Archiviert. Chat, Erinnerungen und Dateien bleiben erhalten."
 msgid "Arguments"
 msgstr "Argumente"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "Hört zu"
 msgid "Load earlier messages"
 msgstr "Frühere Nachrichten laden"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -2994,6 +3008,10 @@ msgstr "{0} geladen"
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"
 msgstr "Aktivität wird geladen…"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Loading contents…"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
@@ -3028,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "Stimmanbieter werden geladen…"
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3447,6 +3466,10 @@ msgstr "Noch keine Agentenverbindungen."
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Keine Apps entsprechen deiner Suche."
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Keine Artefakte"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
@@ -4604,6 +4627,10 @@ msgstr "Verbundenes Modell auswählen"
 msgid "Select a person"
 msgstr "Person auswählen"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Select a supported text file to preview."
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Ticket auswählen"
@@ -5118,6 +5145,10 @@ msgstr "Dies löscht alle {0} Versionen dieses Ergebnisses. Dies kann nicht rüc
 msgid "This file is not valid UTF-8 text."
 msgstr "Diese Datei ist kein gültiger UTF-8-Text."
 
+#: src/components/ArtifactFileCard.tsx
+msgid "This file is unsupported, damaged or too large to preview."
+msgstr ""
+
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "dieser Mac"
@@ -5310,6 +5341,10 @@ msgstr "Lösen"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "Nicht unterstützter Dateityp: {0}"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Unsupported, damaged or oversized ZIP archive."
+msgstr ""
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5599,18 +5634,6 @@ msgstr "Dein Name"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Dein Team aus jederzeit verfügbaren Agents<0/>für echte Aufgaben."
 
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All projects"
-msgstr "Alle Projekte"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All milestones"
-msgstr "Alle Meilensteine"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All tickets"
-msgstr "Alle Tickets"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "No artifacts"
-msgstr "Keine Artefakte"
+#: src/components/ArtifactFileCard.tsx
+msgid "ZIP contents"
+msgstr ""

@@ -457,6 +457,14 @@ msgstr "Все"
 msgid "All bots"
 msgstr "Все боты"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "Все этапы"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "Все проекты"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "Все провайдеры"
@@ -464,6 +472,10 @@ msgstr "Все провайдеры"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "Все статусы"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "Все задачи"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "В архиве. Чат, память и файлы сохраняютс
 msgid "Arguments"
 msgstr "Аргументы"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "Прослушивание"
 msgid "Load earlier messages"
 msgstr "Загрузить более ранние сообщения"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -2994,6 +3008,10 @@ msgstr "Загружено: {0}"
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"
 msgstr "Загрузка активности…"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Loading contents…"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
@@ -3028,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "Загрузка поставщиков голосовой связи…"
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3447,6 +3466,10 @@ msgstr "Агентских подключений пока нет."
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Нет приложений, соответствующих вашему запросу."
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Нет материалов"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
@@ -4604,6 +4627,10 @@ msgstr "Выберите подключённую модель"
 msgid "Select a person"
 msgstr "Выберите человека"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Select a supported text file to preview."
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Выберите задачу"
@@ -5118,6 +5145,10 @@ msgstr "Будут удалены все версии этого результ�
 msgid "This file is not valid UTF-8 text."
 msgstr "Этот файл не является корректным текстом UTF-8."
 
+#: src/components/ArtifactFileCard.tsx
+msgid "This file is unsupported, damaged or too large to preview."
+msgstr ""
+
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "этот Mac"
@@ -5310,6 +5341,10 @@ msgstr "Открепить"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "Неподдерживаемый тип файла: {0}."
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Unsupported, damaged or oversized ZIP archive."
+msgstr ""
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5599,18 +5634,6 @@ msgstr "Ваше имя"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Ваша команда постоянно работающих агентов<0/>, которым вы можете дать настоящую работу."
 
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All projects"
-msgstr "Все проекты"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All milestones"
-msgstr "Все этапы"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All tickets"
-msgstr "Все задачи"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "No artifacts"
-msgstr "Нет материалов"
+#: src/components/ArtifactFileCard.tsx
+msgid "ZIP contents"
+msgstr ""

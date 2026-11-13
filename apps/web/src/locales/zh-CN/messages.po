@@ -457,6 +457,14 @@ msgstr "全部"
 msgid "All bots"
 msgstr "所有机器人"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "所有里程碑"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "所有项目"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "所有提供商"
@@ -464,6 +472,10 @@ msgstr "所有提供商"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "所有状态"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "所有工单"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "已归档。对话、记忆和文件保留。"
 msgid "Arguments"
 msgstr "参数"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "聆听中"
 msgid "Load earlier messages"
 msgstr "加载更早的消息"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -2994,6 +3008,10 @@ msgstr "已加载 {0}"
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"
 msgstr "正在加载动态…"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Loading contents…"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
@@ -3028,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "正在加载语音提供方…"
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3447,6 +3466,10 @@ msgstr "还没有 Agent 连接。"
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "没有匹配的应用。"
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "暂无产出物"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
@@ -4604,6 +4627,10 @@ msgstr "选择已连接的模型"
 msgid "Select a person"
 msgstr "选择人员"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Select a supported text file to preview."
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "选择工单"
@@ -5118,6 +5145,10 @@ msgstr "这会删除此产出文件的全部 {0} 个版本，且无法撤销。"
 msgid "This file is not valid UTF-8 text."
 msgstr "此文件不是有效的 UTF-8 文本。"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "This file is unsupported, damaged or too large to preview."
+msgstr ""
+
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "这台 Mac"
@@ -5310,6 +5341,10 @@ msgstr "取消置顶"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "不支持的文件类型：{0}"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Unsupported, damaged or oversized ZIP archive."
+msgstr ""
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5599,18 +5634,6 @@ msgstr "你的名字"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "你的一支随时在线的 Agent 团队<0/>可以交给它们真正的工作。"
 
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All projects"
-msgstr "所有项目"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All milestones"
-msgstr "所有里程碑"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All tickets"
-msgstr "所有工单"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "No artifacts"
-msgstr "暂无产出物"
+#: src/components/ArtifactFileCard.tsx
+msgid "ZIP contents"
+msgstr ""

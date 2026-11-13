@@ -457,6 +457,14 @@ msgstr "Tümü"
 msgid "All bots"
 msgstr "Tüm botlar"
 
+#: src/pages/Artifacts.tsx
+msgid "All milestones"
+msgstr "Tüm kilometre taşları"
+
+#: src/pages/Artifacts.tsx
+msgid "All projects"
+msgstr "Tüm projeler"
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "All providers"
 msgstr "Tüm sağlayıcılar"
@@ -464,6 +472,10 @@ msgstr "Tüm sağlayıcılar"
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
 msgstr "Tüm durumlar"
+
+#: src/pages/Artifacts.tsx
+msgid "All tickets"
+msgstr "Tüm biletler"
 
 #: src/pages/Artifacts.tsx
 msgid "All time"
@@ -638,6 +650,7 @@ msgstr "Arşivlendi. Sohbet, hafıza ve dosyalar korundu."
 msgid "Arguments"
 msgstr "Argümanlar"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Shell.tsx
 msgid "Artifacts"
@@ -2971,6 +2984,7 @@ msgstr "Dinliyor"
 msgid "Load earlier messages"
 msgstr "Önceki mesajları yükle"
 
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Board.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -2994,6 +3008,10 @@ msgstr "{0} yüklendi"
 #: src/pages/ActivityList.tsx
 msgid "Loading activity…"
 msgstr "Etkinlik yükleniyor…"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Loading contents…"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Loading integrations…"
@@ -3028,6 +3046,7 @@ msgid "Loading voice providers…"
 msgstr "Ses sağlayıcıları yükleniyor…"
 
 #: src/App.tsx
+#: src/components/LinkedArtifacts.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3447,6 +3466,10 @@ msgstr "Henüz ajan bağlantısı yok."
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Aramanla eşleşen uygulama yok."
+
+#: src/components/LinkedArtifacts.tsx
+msgid "No artifacts"
+msgstr "Çıktı yok"
 
 #: src/pages/Artifacts.tsx
 msgid "No artifacts found."
@@ -4604,6 +4627,10 @@ msgstr "Bağlı bir model seçin"
 msgid "Select a person"
 msgstr "Bir kişi seçin"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Select a supported text file to preview."
+msgstr ""
+
 #: src/pages/TicketDependencies.tsx
 msgid "Select a ticket"
 msgstr "Bir iş kaydı seç"
@@ -5118,6 +5145,10 @@ msgstr "Bu, bu çıktının tüm {0} sürümünü siler. Geri alınamaz."
 msgid "This file is not valid UTF-8 text."
 msgstr "Bu dosya geçerli UTF-8 metni değil."
 
+#: src/components/ArtifactFileCard.tsx
+msgid "This file is unsupported, damaged or too large to preview."
+msgstr ""
+
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "bu Mac"
@@ -5310,6 +5341,10 @@ msgstr "Sabitlemeyi kaldır"
 #: src/pages/Shell.tsx
 msgid "Unsupported file type: {0}"
 msgstr "Desteklenmeyen dosya türü: {0}"
+
+#: src/components/ArtifactFileCard.tsx
+msgid "Unsupported, damaged or oversized ZIP archive."
+msgstr ""
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -5599,18 +5634,6 @@ msgstr "Adın"
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Gerçek işler verebileceğin,<0/>her zaman açık agent takımın."
 
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All projects"
-msgstr "Tüm projeler"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All milestones"
-msgstr "Tüm kilometre taşları"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "All tickets"
-msgstr "Tüm biletler"
-
-#: src/pages/Artifacts.tsx src/components/LinkedArtifacts.tsx
-msgid "No artifacts"
-msgstr "Çıktı yok"
+#: src/components/ArtifactFileCard.tsx
+msgid "ZIP contents"
+msgstr ""

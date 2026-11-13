@@ -441,7 +441,9 @@ describe("ticket description budget", () => {
     );
     const content = selected.messages.at(-1)!.content;
     const text =
-      typeof content === "string" ? content : (content as unknown as Array<{ text: string }>)[0]!.text;
+      typeof content === "string"
+        ? content
+        : (content as unknown as Array<{ text: string }>)[0]!.text;
     const result = JSON.parse(text);
     expect(result.needsRetry).not.toBe(true);
     expect(result.ticket).toMatchObject({ title: "Long ticket", status: "doing" });

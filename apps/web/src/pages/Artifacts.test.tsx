@@ -85,13 +85,13 @@ function typeSearch(container: HTMLElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-async function renderArtifacts() {
+async function renderArtifacts(initialEntry = "/app/artifacts") {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   await act(async () =>
     root.render(
-      <MemoryRouter initialEntries={["/app/artifacts"]}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
           <Route path="/app/artifacts" element={<ArtifactsPage />} />
@@ -120,6 +120,25 @@ it("opens the Artifacts screen and lists what listSpace returns", async () => {
     expect(page.container.textContent).toContain("Q3 Content Calendar");
     expect(page.container.querySelector("a[href='/app']")?.textContent).toContain("Bots");
     expect(page.container.querySelector("[data-testid='app-rail']")).toBeNull();
+  } finally {
+    await page.cleanup();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("applies URL filters to the artifacts request", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  api.listSpace.mockResolvedValue({ items: [], nextCursor: null });
+  const page = await renderArtifacts("/app/artifacts?botId=bot-1&projectId=project-2&milestoneId=milestone-3&ticketId=ticket-4");
+  try {
+    await act(async () => {
+      await vi.waitFor(() => expect(api.listSpace).toHaveBeenCalledWith(expect.objectContaining({
+        botId: "bot-1",
+        projectId: "project-2",
+        milestoneId: "milestone-3",
+        ticketId: "ticket-4",
+      })));
+    });
   } finally {
     await page.cleanup();
     vi.unstubAllGlobals();

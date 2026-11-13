@@ -1,4 +1,5 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, rpc, signup } from "./helpers";
 
@@ -7,13 +8,28 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await signup(page, `goals-${width}-${Date.now()}@example.com`, "password123", "Goal tester");
     await completeOnboarding(page);
-    const project = await rpc<{ id: string }>(page, "projects/create", {
+    const project = await rpc<{ id: string; spaceId: string }>(page, "projects/create", {
       name: "Goal acceptance project",
     });
     await page.goto(`/app/projects/${project.id}`);
     await expect(
       page.getByRole("heading", { name: "Goal acceptance project", exact: true }),
     ).toBeVisible();
+    await expect(page.getByText("尚未绑定工作目录", { exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "工作目录相对路径" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "绑定工作目录", exact: true })).toBeDisabled();
+    await captureScreenshot(page, testInfo, `rak178-unbound-${width}`);
+    expect(process.env.PROJECT_HOMES_ROOT).toBeUndefined();
+    const binding = `shared/project-${project.id}`;
+    const directory = path.join(process.env.DATA_DIR!, "homes", `team-${project.spaceId}`, binding);
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, "hello.txt"), "Default homes browsing works");
+    await page.getByRole("textbox", { name: "工作目录相对路径" }).fill(binding);
+    await page.getByRole("button", { name: "绑定工作目录", exact: true }).click();
+    await expect(page.getByRole("button", { name: "hello.txt", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "hello.txt", exact: true }).click();
+    await expect(page.getByText("Default homes browsing works", { exact: true })).toBeVisible();
+    await captureScreenshot(page, testInfo, `rak178-bound-${width}`);
     const members = page.getByRole("region", { name: "Project members" });
     await expect(members).toBeVisible();
     await expect(members.getByRole("heading", { name: "Members", exact: true })).toBeVisible();

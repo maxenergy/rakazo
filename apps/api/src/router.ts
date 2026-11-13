@@ -315,6 +315,7 @@ import {
 import {
   browseProjectDirectory,
   getProjectWorkdir,
+  projectHomesRoot,
   readProjectCommits,
   readProjectFile,
   readProjectImage,
@@ -4268,7 +4269,7 @@ export function createRouter(deps: RouterDeps) {
         );
         if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
         return browseProjectDirectory(
-          process.env.PROJECT_HOMES_ROOT,
+          projectHomesRoot(deps.dataDir),
           context.actor.spaceId,
           binding,
           input.path,
@@ -4282,7 +4283,7 @@ export function createRouter(deps: RouterDeps) {
         );
         if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
         return readProjectFile(
-          process.env.PROJECT_HOMES_ROOT,
+          projectHomesRoot(deps.dataDir),
           context.actor.spaceId,
           binding,
           input.path,
@@ -4296,7 +4297,7 @@ export function createRouter(deps: RouterDeps) {
         );
         if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
         return readProjectImage(
-          process.env.PROJECT_HOMES_ROOT,
+          projectHomesRoot(deps.dataDir),
           context.actor.spaceId,
           binding,
           input.path,
@@ -4309,7 +4310,7 @@ export function createRouter(deps: RouterDeps) {
           input.projectId,
         );
         if (binding === null) throw new ORPCError("NOT_FOUND", { message: "Resource not found." });
-        return readProjectCommits(process.env.PROJECT_HOMES_ROOT, context.actor.spaceId, binding);
+        return readProjectCommits(projectHomesRoot(deps.dataDir), context.actor.spaceId, binding);
       }),
       members: boardEnabled.projects.members.handler(async ({ context, input }) => {
         const result = await withSerializableRetry(() =>
@@ -4438,7 +4439,7 @@ export function createRouter(deps: RouterDeps) {
         if (input.workdirPath !== undefined && input.workdirPath !== null) {
           await getProjectWorkdir(deps.prisma, spaceId, input.id);
           const target = await resolveProjectPath(
-            process.env.PROJECT_HOMES_ROOT,
+            projectHomesRoot(deps.dataDir),
             spaceId,
             input.workdirPath,
           );

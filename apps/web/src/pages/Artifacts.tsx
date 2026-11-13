@@ -130,7 +130,11 @@ export function ArtifactsPage() {
   useEffect(() => {
     setMilestoneId("");
     setTicketId("");
-    if (!projectId) { setMilestones([]); setTickets([]); return; }
+    if (!projectId) {
+      setMilestones([]);
+      setTickets([]);
+      return;
+    }
     let cancelled = false;
     void Promise.all([
       rpc.milestones.list({ projectId, archived: false }),
@@ -147,7 +151,9 @@ export function ArtifactsPage() {
           setTickets([]);
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
 
   useEffect(() => {
@@ -341,7 +347,9 @@ export function ArtifactsPage() {
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
             >
-              <NativeSelectOption value=""><Trans>All projects</Trans></NativeSelectOption>
+              <NativeSelectOption value="">
+                <Trans>All projects</Trans>
+              </NativeSelectOption>
               {projects.map((project) => (
                 <NativeSelectOption key={project.id} value={project.id}>
                   {project.name}
@@ -354,7 +362,9 @@ export function ArtifactsPage() {
                 value={milestoneId}
                 onChange={(event) => setMilestoneId(event.target.value)}
               >
-                <NativeSelectOption value=""><Trans>All milestones</Trans></NativeSelectOption>
+                <NativeSelectOption value="">
+                  <Trans>All milestones</Trans>
+                </NativeSelectOption>
                 {milestones.map((milestone) => (
                   <NativeSelectOption key={milestone.id} value={milestone.id}>
                     {milestone.name}
@@ -368,7 +378,9 @@ export function ArtifactsPage() {
                 value={ticketId}
                 onChange={(event) => setTicketId(event.target.value)}
               >
-                <NativeSelectOption value=""><Trans>All tickets</Trans></NativeSelectOption>
+                <NativeSelectOption value="">
+                  <Trans>All tickets</Trans>
+                </NativeSelectOption>
                 {tickets.map((ticket) => (
                   <NativeSelectOption key={ticket.id} value={ticket.id}>
                     {ticket.title}

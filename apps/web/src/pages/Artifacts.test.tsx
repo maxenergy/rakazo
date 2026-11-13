@@ -6,8 +6,20 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ listSpace: vi.fn(), projectsList: vi.fn().mockResolvedValue([]), milestonesList: vi.fn().mockResolvedValue([]), ticketsList: vi.fn().mockResolvedValue({ tickets: [] }) }));
-vi.mock("../lib/rpc", () => ({ rpc: { artifacts: api, projects: { list: api.projectsList }, milestones: { list: api.milestonesList }, tickets: { list: api.ticketsList } } }));
+const api = vi.hoisted(() => ({
+  listSpace: vi.fn(),
+  projectsList: vi.fn().mockResolvedValue([]),
+  milestonesList: vi.fn().mockResolvedValue([]),
+  ticketsList: vi.fn().mockResolvedValue({ tickets: [] }),
+}));
+vi.mock("../lib/rpc", () => ({
+  rpc: {
+    artifacts: api,
+    projects: { list: api.projectsList },
+    milestones: { list: api.milestonesList },
+    tickets: { list: api.ticketsList },
+  },
+}));
 vi.mock("../lib/bootstrap", () => ({
   takeInitialBootstrap: vi.fn().mockResolvedValue({ bots: [] }),
 }));
@@ -189,7 +201,6 @@ it("still offers Load more when filters match nothing on the loaded page", async
   }
 });
 
-
 it("applies project, milestone, and ticket filters together", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   api.projectsList.mockResolvedValue([{ id: "project-1", name: "Project one" }]);
@@ -215,7 +226,9 @@ it("applies project, milestone, and ticket filters together", async () => {
     };
     await selectOption("Project", "project-1");
     await act(async () => {
-      await vi.waitFor(() => expect(page.container.querySelector('select[aria-label="Milestone"]')).toBeTruthy());
+      await vi.waitFor(() =>
+        expect(page.container.querySelector('select[aria-label="Milestone"]')).toBeTruthy(),
+      );
     });
     await selectOption("Milestone", "milestone-1");
     await selectOption("Ticket", "ticket-1");

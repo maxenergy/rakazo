@@ -17,8 +17,16 @@ vi.mock("@lingui/react/macro", () => ({
 import { LinkedArtifacts } from "./LinkedArtifacts";
 
 const item = (id: string, name: string) => ({
-  id, botId: "bot-1", groupId: null, runId: null, name, description: null,
-  mimeType: "text/markdown", size: 10, version: 1, createdAt: "2026-11-12T00:00:00Z",
+  id,
+  botId: "bot-1",
+  groupId: null,
+  runId: null,
+  name,
+  description: null,
+  mimeType: "text/markdown",
+  size: 10,
+  version: 1,
+  createdAt: "2026-11-12T00:00:00Z",
   versionCount: 1,
 });
 
@@ -32,9 +40,15 @@ it("filters linked artifacts, opens the existing preview, and pages without omis
   try {
     expect(listSpace).toHaveBeenCalledWith({ projectId: "project-1", limit: 60 });
     expect(container.textContent).toContain("Preview First");
-    const more = [...container.querySelectorAll("button")].find((button) => button.textContent === "Load more");
+    const more = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more",
+    );
     await act(async () => more?.click());
-    expect(listSpace).toHaveBeenLastCalledWith({ projectId: "project-1", cursor: "next", limit: 60 });
+    expect(listSpace).toHaveBeenLastCalledWith({
+      projectId: "project-1",
+      cursor: "next",
+      limit: 60,
+    });
     expect(container.textContent).toContain("Preview Second");
   } finally {
     await act(async () => root.unmount());

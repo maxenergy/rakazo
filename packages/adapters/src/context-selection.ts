@@ -201,7 +201,13 @@ function shortenTicketResult(
 ): string | undefined {
   if (tool.name !== "ticket_get") return;
   let payload: {
-    ticket: unknown;
+    ticket: {
+      description?: string | null;
+      descriptionOffset?: number;
+      descriptionTotal?: number;
+      descriptionTruncated?: boolean;
+      nextDescriptionOffset?: number;
+    };
     comments: TicketCommentReference[];
     commentsTotal: number;
     commentsOmitted: number;
@@ -235,7 +241,21 @@ function shortenTicketResult(
       (best, comment) => (!best || comment.body.length > best.body.length ? comment : best),
       undefined,
     );
-    if (longest && longest.body.length > 1) {
+    const ticket = payload.ticket;
+    if (
+      typeof ticket?.description === "string" &&
+      ticket.description.length > 1 &&
+      ticket.description.length >= (longest?.body.length ?? 0)
+    ) {
+      ticket.descriptionTotal ??= ticket.description.length;
+      ticket.descriptionOffset ??= 0;
+      ticket.description = ticket.description.slice(
+        0,
+        Math.max(1, Math.floor(ticket.description.length / 2)),
+      );
+      ticket.descriptionTruncated = true;
+      ticket.nextDescriptionOffset = ticket.descriptionOffset + ticket.description.length;
+    } else if (longest && longest.body.length > 1) {
       longest.body = longest.body.slice(0, Math.max(1, Math.floor(longest.body.length / 2)));
       const next = longest.bodyOffset + longest.body.length;
       longest.bodyTruncated = longest.bodyOffset > 0 || next < longest.bodyTotal;
@@ -251,12 +271,37 @@ function shortenTicketResult(
       );
       payload.commentsOmitted = Math.max(0, payload.commentsTotal - payload.comments.length);
     } else {
-      return JSON.stringify({
-        contextTruncated: true,
-        needsRetry: true,
-        error: "Retry same request with limit=1 and more context; no cursor consumed.",
-        retry: { limit: 1 },
-      });
+      // No smaller request can recover the fixed metadata. Preserve the
+      // available ticket and pagination fields instead of prescribing a loop.
+      const ticketKeys = new Set([
+        "id",
+        "ref",
+        "title",
+        "status",
+        "description",
+        "descriptionOffset",
+        "descriptionTotal",
+        "descriptionTruncated",
+        "nextDescriptionOffset",
+      ]);
+      for (const key of Object.keys(ticket ?? {})) {
+        if (!ticketKeys.has(key)) delete (ticket as Record<string, unknown>)[key];
+      }
+      const commentKeys = new Set([
+        "id",
+        "createdAt",
+        "body",
+        "bodyOffset",
+        "bodyTotal",
+        "bodyTruncated",
+        "nextBodyOffset",
+      ]);
+      for (const comment of payload.comments) {
+        for (const key of Object.keys(comment)) {
+          if (!commentKeys.has(key)) delete (comment as unknown as Record<string, unknown>)[key];
+        }
+      }
+      return JSON.stringify(payload);
     }
     encoded = JSON.stringify(payload);
   }

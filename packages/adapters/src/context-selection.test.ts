@@ -191,7 +191,7 @@ describe("bounded context selection", () => {
       ],
       { budget: { ...budget, contextWindow: 4000 }, strategy: "retrieval" },
     );
-    const content = selected.messages.at(-1)!.content as Array<{ text: string }>;
+    const content = selected.messages.at(-1)!.content as unknown as Array<{ text: string }>;
     const decoded = JSON.parse(content[0]!.text);
     expect(decoded).toMatchObject({
       nextRunId: "run-cursor",
@@ -238,7 +238,7 @@ describe("bounded context selection", () => {
       ],
       { budget, strategy: "retrieval" },
     );
-    const content = selected.messages.at(-1)!.content as Array<{ text: string }>;
+    const content = selected.messages.at(-1)!.content as unknown as Array<{ text: string }>;
     expect(JSON.parse(content[0]!.text)).toMatchObject({
       untrusted: true,
       needsRetry: true,
@@ -271,7 +271,7 @@ describe("bounded context selection", () => {
       ],
       { budget, strategy: "retrieval" },
     );
-    const content = selected.messages.at(-1)!.content as Array<{ text: string }>;
+    const content = selected.messages.at(-1)!.content as unknown as Array<{ text: string }>;
     const decoded = JSON.parse(content[0]!.text);
     expect(decoded).toMatchObject({
       nextCursor: "segment-2",
@@ -398,5 +398,57 @@ describe("cache request metadata", () => {
     expect(tracker.record(request)).toEqual({ observedReuse: null });
     expect(tracker.record(request, 0)).toEqual({ observedReuse: false });
     expect(tracker.record(request, 1)).toEqual({ observedReuse: true });
+  });
+});
+
+describe("ticket description budget", () => {
+  it("retains ticket identity and partial description at a small budget", () => {
+    const payload = {
+      ticket: {
+        id: "t1",
+        title: "Long ticket",
+        status: "doing",
+        description: "detail ".repeat(10000),
+      },
+      comments: [],
+      commentsTotal: 0,
+      commentsOmitted: 0,
+    };
+    const selected = selectContext(
+      [
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              id: "c",
+              name: "ticket_get",
+              arguments: { ref: "RAK-1", limit: 1 },
+            },
+          ],
+        },
+        {
+          role: "toolResult",
+          toolCallId: "c",
+          toolName: "ticket_get",
+          content: JSON.stringify(payload),
+        },
+      ],
+      {
+        strategy: "retrieval",
+        budget: { contextWindow: 2000, outputReserve: 0, systemPrompt: "", tools: [] },
+      },
+    );
+    const content = selected.messages.at(-1)!.content;
+    const text =
+      typeof content === "string"
+        ? content
+        : (content as unknown as Array<{ text: string }>)[0]!.text;
+    const result = JSON.parse(text);
+    expect(result.needsRetry).not.toBe(true);
+    expect(result.ticket).toMatchObject({ title: "Long ticket", status: "doing" });
+    expect(result.ticket.description.length).toBeGreaterThan(0);
+    expect(result.ticket.description.length).toBeLessThan(payload.ticket.description.length);
+    expect(result.ticket.nextDescriptionOffset).toBe(result.ticket.description.length);
   });
 });

@@ -139,11 +139,15 @@ export async function getTicket(
     limit?: number;
     commentId?: string;
     bodyOffset?: number;
+    descriptionOffset?: number;
   },
 ) {
   if (!deps.ticketBoardEnabled) return { error: "Board unavailable." };
   const limit = input.limit ?? 20;
   const bodyOffset = input.bodyOffset ?? 0;
+  const descriptionOffset = input.descriptionOffset ?? 0;
+  if (!Number.isSafeInteger(descriptionOffset) || descriptionOffset < 0)
+    return { error: "descriptionOffset must be a nonnegative integer." };
   if (!Number.isInteger(limit) || limit < 1 || limit > 20) return { error: "limit must be 1–20." };
   if (!Number.isSafeInteger(bodyOffset) || bodyOffset < 0 || (bodyOffset > 0 && !input.commentId))
     return { error: "bodyOffset requires commentId and must be a nonnegative integer." };
@@ -181,7 +185,21 @@ export async function getTicket(
   const page = comments.slice(0, limit);
   const next = !input.commentId && comments.length > limit ? page.at(-1) : undefined;
   return {
-    ticket: toTicketDto(row, board.ticketPrefix),
+    ticket: (() => {
+      const dto = toTicketDto(row, board.ticketPrefix);
+      const description =
+        dto.description?.slice(descriptionOffset, descriptionOffset + 1000) ?? dto.description;
+      const total = dto.description?.length ?? 0;
+      const next = descriptionOffset + (description?.length ?? 0);
+      return {
+        ...dto,
+        description,
+        descriptionOffset,
+        descriptionTotal: total,
+        descriptionTruncated: descriptionOffset > 0 || next < total,
+        ...(next < total ? { nextDescriptionOffset: next } : {}),
+      };
+    })(),
     commentsTotal,
     commentsOmitted: Math.max(0, commentsTotal - page.length),
     ...(next ? { nextCursor: encodeTicketListCursor(next) } : {}),

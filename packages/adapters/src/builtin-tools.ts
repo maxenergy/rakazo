@@ -945,7 +945,7 @@ const baseAgentTools: ConnectorTool[] = [
   {
     name: "ticket_get",
     description:
-      "Read a ticket with the latest 20 comments in chronological order. Use nextCursor for older pages. For a truncated body, pass commentId and nextBodyOffset as bodyOffset until complete; offsets are UTF-16 code units.",
+      "Read a ticket with the latest 20 comments in chronological order. Use nextCursor for older pages. For a truncated description, pass ticket.nextDescriptionOffset as descriptionOffset. For a truncated body, pass commentId and nextBodyOffset as bodyOffset until complete; offsets are UTF-16 code units.",
     inputSchema: {
       type: "object",
       properties: {
@@ -954,6 +954,7 @@ const baseAgentTools: ConnectorTool[] = [
         limit: { type: "integer", minimum: 1, maximum: 20 },
         commentId: { type: "string" },
         bodyOffset: { type: "integer", minimum: 0 },
+        descriptionOffset: { type: "integer", minimum: 0 },
       },
       required: ["ref"],
     },

@@ -5965,6 +5965,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   limit: args.limit as number | undefined,
                   commentId: args.commentId as string | undefined,
                   bodyOffset: args.bodyOffset as number | undefined,
+                  descriptionOffset: args.descriptionOffset as number | undefined,
                 },
               ),
             );

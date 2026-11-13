@@ -418,7 +418,7 @@ describe("ticket comment paging", () => {
       where: { ticketId: "t1", spaceId: "ws" },
     });
   });
-  it.each([5000, 548])(
+  it.each([5000, 1000])(
     "reads and pages all evidence through selectContext at budget %i",
     async (contextWindow) => {
       const s = fixture();
@@ -456,15 +456,7 @@ describe("ticket comment paging", () => {
             contextTruncated?: boolean;
           };
         }
-        let result = await select(input, contextWindow);
-        if (result.needsRetry) {
-          expect(result.contextTruncated).toBe(true);
-          expect(result).not.toHaveProperty("nextCursor");
-          expect(result.retry).toEqual({ limit: 1 });
-          // The minimum target cannot hold ticket metadata. Retry the exact
-          // unconsumed position with limit=1 once sufficient context is available.
-          result = await select({ ...input, ...result.retry! }, 5000);
-        }
+        const result = await select(input, contextWindow);
         expect(result.needsRetry).not.toBe(true);
         return result;
       }

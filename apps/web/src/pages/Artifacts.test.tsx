@@ -129,15 +129,21 @@ it("opens the Artifacts screen and lists what listSpace returns", async () => {
 it("applies URL filters to the artifacts request", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   api.listSpace.mockResolvedValue({ items: [], nextCursor: null });
-  const page = await renderArtifacts("/app/artifacts?botId=bot-1&projectId=project-2&milestoneId=milestone-3&ticketId=ticket-4");
+  const page = await renderArtifacts(
+    "/app/artifacts?botId=bot-1&projectId=project-2&milestoneId=milestone-3&ticketId=ticket-4",
+  );
   try {
     await act(async () => {
-      await vi.waitFor(() => expect(api.listSpace).toHaveBeenCalledWith(expect.objectContaining({
-        botId: "bot-1",
-        projectId: "project-2",
-        milestoneId: "milestone-3",
-        ticketId: "ticket-4",
-      })));
+      await vi.waitFor(() =>
+        expect(api.listSpace).toHaveBeenCalledWith(
+          expect.objectContaining({
+            botId: "bot-1",
+            projectId: "project-2",
+            milestoneId: "milestone-3",
+            ticketId: "ticket-4",
+          }),
+        ),
+      );
     });
   } finally {
     await page.cleanup();

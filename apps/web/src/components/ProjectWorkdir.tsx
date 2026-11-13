@@ -1,10 +1,12 @@
 import { Button, Input } from "@rakazo/ui-web";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { rpc, selectedSpaceId } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 import { ProjectFiles } from "./ProjectFiles";
 
 export function ProjectWorkdir({ projectId }: { projectId: string }) {
+  const { t } = useLingui();
   const [binding, setBinding] = useState<string | null>();
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
@@ -31,9 +33,9 @@ export function ProjectWorkdir({ projectId }: { projectId: string }) {
     };
   }, [projectId, spaceId]);
   return (
-    <section className="space-y-3" aria-label="项目工作目录">
+    <section id="project-files" className="space-y-3" aria-label={t`Project files`}>
       {error ? <p role="alert">{error}</p> : null}
-      {binding === null ? <p>尚未绑定工作目录</p> : null}
+      {binding === null ? <p><Trans>No working directory is bound</Trans></p> : null}
       {binding !== undefined && (binding === null || editing) ? (
         <form
           className="flex gap-2"
@@ -57,17 +59,17 @@ export function ProjectWorkdir({ projectId }: { projectId: string }) {
           }}
         >
           <Input
-            aria-label="工作目录相对路径"
+            aria-label={t`Working directory relative path`}
             placeholder="shared/project/repo"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
           />
           <Button type="submit" disabled={saving || !draft.trim()}>
-            绑定工作目录
+            <Trans>Bind working directory</Trans>
           </Button>
         </form>
       ) : binding !== undefined ? (
-        <Button onClick={() => setEditing(true)}>更改工作目录</Button>
+        <Button onClick={() => setEditing(true)}>{t`Change working directory`}</Button>
       ) : null}
       {binding !== undefined && binding !== null ? (
         <ProjectFiles key={`${projectId}:${binding}`} projectId={projectId} />

@@ -3,11 +3,15 @@
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({
   listSpace: vi.fn(),
+  getById: vi.fn(),
+  listVersions: vi.fn(),
+  zipEntries: vi.fn(),
+  zipText: vi.fn(),
   projectsList: vi.fn().mockResolvedValue([]),
   milestonesList: vi.fn().mockResolvedValue([]),
   ticketsList: vi.fn().mockResolvedValue({ tickets: [] }),
@@ -88,7 +92,10 @@ async function renderArtifacts() {
   await act(async () =>
     root.render(
       <MemoryRouter initialEntries={["/app/artifacts"]}>
-        <ArtifactsPage />
+        <Routes>
+          <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
+          <Route path="/app/artifacts" element={<ArtifactsPage />} />
+        </Routes>
       </MemoryRouter>,
     ),
   );
@@ -245,6 +252,30 @@ it("applies project, milestone, and ticket filters together", async () => {
     });
   } finally {
     await page.cleanup();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("previews text files from a ZIP in artifact details", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  api.listSpace.mockResolvedValue({ items: [], nextCursor: null });
+  api.listVersions.mockResolvedValue([]);
+  api.getById.mockResolvedValue({ ...artifact("bundle.zip", "zip-1"), mimeType: "application/zip", contentBase64: "" });
+  api.zipEntries.mockResolvedValue([{ path: "README.md", size: 5, directory: false }]);
+  api.zipText.mockResolvedValue({ text: "hello" });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  await act(async () => root.render(<MemoryRouter initialEntries={["/app/artifacts/zip-1"]}><Routes><Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} /></Routes></MemoryRouter>));
+  try {
+    await act(async () => { await vi.waitFor(() => expect(container.textContent).toContain("README.md")); });
+    const entry = [...container.querySelectorAll("button")].find((button) => button.textContent === "README.md");
+    await act(async () => { entry?.click(); await vi.waitFor(() => expect(container.textContent).toContain("hello")); });
+    expect(api.zipEntries).toHaveBeenCalledWith({ artifactId: "zip-1" });
+    expect(api.zipText).toHaveBeenCalledWith({ artifactId: "zip-1", path: "README.md" });
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
     vi.unstubAllGlobals();
   }
 });

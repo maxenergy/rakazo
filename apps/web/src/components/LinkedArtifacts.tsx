@@ -55,7 +55,7 @@ export function LinkedArtifacts({ projectId, ticketId }: Props) {
   }
 
   return (
-    <section className="space-y-3">
+    <section id="project-artifacts" className="space-y-3">
       <h2 className="font-medium">
         <Trans>Artifacts</Trans>
       </h2>

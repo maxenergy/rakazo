@@ -70,7 +70,7 @@ export function ProjectWorkdir({ projectId }: { projectId: string }) {
         <Button onClick={() => setEditing(true)}>更改工作目录</Button>
       ) : null}
       {binding !== undefined && binding !== null ? (
-        <ProjectFiles key={projectId + ":" + binding} projectId={projectId} />
+        <ProjectFiles key={`${projectId}:${binding}`} projectId={projectId} />
       ) : null}
     </section>
   );

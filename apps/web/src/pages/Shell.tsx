@@ -137,7 +137,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArtifactFileCard } from "../components/ArtifactFileCard";
 import { AskCard } from "../components/AskCard";
 import { ActiveBotGlyph, CollaborationMarker } from "../components/ai/CollaborationMarker";
@@ -3482,6 +3482,18 @@ export function ShellPage() {
           ) : null}
         </div>
         <PendingApprovalsLink onNavigate={() => setMobileSidebarOpen(false)} />
+        <Link
+          to="/app/artifacts"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="mx-3 mb-1 hidden items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-sidebar-accent md:flex"
+        >
+          <span className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-accent text-foreground/80">
+            <FolderOpen size={15} strokeWidth={1.8} />
+          </span>
+          <span className="text-[14px] font-medium text-foreground/90">
+            <Trans>Artifacts</Trans>
+          </span>
+        </Link>
         <button
           type="button"
           onClick={() => setPluginsOpen(true)}
@@ -3716,22 +3728,32 @@ export function ShellPage() {
           </div>
           <div className="flex items-center gap-1">
             {!inGroup && active ? (
-              <button
-                type="button"
-                title={t`Agent computer`}
-                onClick={() => {
-                  const next = panel === "computer" ? null : "computer";
-                  setPanel(next);
-                  if (next === "computer" && active) {
-                    // Refresh run/computer so Take control isn't stuck on a stale busyBotName.
-                    void refreshThread(active.id).catch(() => undefined);
-                  }
-                }}
-                data-active={panel === "computer" ? "" : undefined}
-                className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent data-active:bg-accent"
-              >
-                <Monitor size={18} strokeWidth={1.6} className="text-foreground/75" />
-              </button>
+              <>
+                <Link
+                  to={`/app/artifacts?botId=${encodeURIComponent(active.id)}`}
+                  aria-label={t`Artifacts`}
+                  title={t`Artifacts`}
+                  className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent"
+                >
+                  <FolderOpen size={17} strokeWidth={1.7} />
+                </Link>
+                <button
+                  type="button"
+                  title={t`Agent computer`}
+                  onClick={() => {
+                    const next = panel === "computer" ? null : "computer";
+                    setPanel(next);
+                    if (next === "computer" && active) {
+                      // Refresh run/computer so Take control isn't stuck on a stale busyBotName.
+                      void refreshThread(active.id).catch(() => undefined);
+                    }
+                  }}
+                  data-active={panel === "computer" ? "" : undefined}
+                  className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent data-active:bg-accent"
+                >
+                  <Monitor size={18} strokeWidth={1.6} className="text-foreground/75" />
+                </button>
+              </>
             ) : null}
           </div>
         </div>

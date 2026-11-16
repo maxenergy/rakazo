@@ -1,7 +1,11 @@
 import type { PoolClient } from "pg";
 import { Pool } from "pg";
-import type { HistoricalArtifact, HistoricalTicket } from "../src/artifact-backfill.js";
-import { planArtifactBackfill } from "../src/artifact-backfill.js";
+import type {
+  HistoricalArtifact,
+  HistoricalRunProject,
+  HistoricalTicket,
+} from "../src/artifact-backfill.js";
+import { planArtifactRunProjectBackfill } from "../src/artifact-backfill.js";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
@@ -30,11 +34,16 @@ try {
     WHERE t."spaceId" = $1 AND b."ticketPrefix" = 'RAK'`,
     [spaceId],
   );
-  const { rows: artifacts } = await client.query<HistoricalArtifact>(
+  const { rows: artifacts } = await client.query<HistoricalArtifact & HistoricalRunProject>(
     `
-    SELECT id, "spaceId", name, description, project_id AS "projectId",
-      milestone_id AS "milestoneId", ticket_id AS "ticketId", link_source AS "linkSource"
-    FROM artifacts WHERE "spaceId" = $1 ORDER BY id ${apply ? "FOR UPDATE" : ""}`,
+    SELECT a.id, a."spaceId", a.name, a.description, a.project_id AS "projectId",
+      a.milestone_id AS "milestoneId", a.ticket_id AS "ticketId", a.link_source AS "linkSource",
+      r."spaceId" AS "runSpaceId", r."projectId" AS "runProjectId",
+      p."spaceId" AS "projectSpaceId"
+    FROM artifacts a
+    LEFT JOIN runs r ON r.id = a."runId"
+    LEFT JOIN projects p ON p.id = r."projectId"
+    WHERE a."spaceId" = $1 ORDER BY a.id ${apply ? "FOR UPDATE OF a" : ""}`,
     [spaceId],
   );
   const stats = {
@@ -48,7 +57,8 @@ try {
     reasons: {} as Record<string, number>,
   };
   for (const artifact of artifacts) {
-    const plan = planArtifactBackfill(artifact, tickets);
+    const plan = planArtifactRunProjectBackfill(artifact, tickets, artifact);
+    process.stdout.write(`${JSON.stringify({ artifactId: artifact.id, ...plan })}\n`);
     stats[plan.kind]++;
     if (plan.kind !== "matched") {
       stats.reasons[plan.reason] = (stats.reasons[plan.reason] ?? 0) + 1;

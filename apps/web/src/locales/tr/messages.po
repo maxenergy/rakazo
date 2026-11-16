@@ -2115,7 +2115,6 @@ msgstr "Sil"
 #. placeholder {0}: pendingDelete.name
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr "\"{0}\" silinsin mi?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -2718,7 +2717,6 @@ msgstr "üstbilgi"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Header \"{header}\""
-msgstr "Üstbilgi \"{header}\""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -3321,7 +3319,6 @@ msgstr "Model"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
-msgstr "\"{modelId}\" modeli listelenmedi."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -5672,3 +5669,10 @@ msgstr "Gerçek işler verebileceğin,<0/>her zaman açık agent takımın."
 #: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP içeriği"
+
+
+#: src/components/MilestoneArtifactsLink.tsx
+
+#: src/components/MilestoneArtifactsLink.tsx
+msgid "View artifacts"
+msgstr "Çıktıları görüntüle"

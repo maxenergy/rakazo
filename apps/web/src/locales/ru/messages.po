@@ -2115,7 +2115,6 @@ msgstr "Удалить"
 #. placeholder {0}: pendingDelete.name
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr "Удалить \"{0}\"?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -2718,7 +2717,6 @@ msgstr "заголовок"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Header \"{header}\""
-msgstr "Заголовок \"{header}\""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -3321,7 +3319,6 @@ msgstr "Модель"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
-msgstr "Модель \"{modelId}\" отсутствует в списке."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -5672,3 +5669,10 @@ msgstr "Ваша команда постоянно работающих аген
 #: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "Содержимое ZIP"
+
+
+#: src/components/MilestoneArtifactsLink.tsx
+
+#: src/components/MilestoneArtifactsLink.tsx
+msgid "View artifacts"
+msgstr "Посмотреть артефакты"

@@ -2718,7 +2718,6 @@ msgstr "en-tête"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Header \"{header}\""
-msgstr "En-tête \"{header}\""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -3321,7 +3320,6 @@ msgstr "Modèle"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
-msgstr "Le modèle \"{modelId}\" n'est pas dans la liste."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -5672,3 +5670,10 @@ msgstr "Votre équipe d'agents toujours actifs<0/>à qui vous pouvez confier de 
 #: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "Contenu du ZIP"
+
+
+#: src/components/MilestoneArtifactsLink.tsx
+
+#: src/components/MilestoneArtifactsLink.tsx
+msgid "View artifacts"
+msgstr "Voir les artefacts"

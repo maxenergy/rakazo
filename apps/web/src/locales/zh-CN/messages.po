@@ -5672,3 +5672,10 @@ msgstr "你的一支随时在线的 Agent 团队<0/>可以交给它们真正的�
 #: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP 内容"
+
+
+#: src/components/MilestoneArtifactsLink.tsx
+
+#: src/components/MilestoneArtifactsLink.tsx
+msgid "View artifacts"
+msgstr "查看产出物"

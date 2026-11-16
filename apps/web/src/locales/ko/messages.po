@@ -2115,7 +2115,6 @@ msgstr "삭제"
 #. placeholder {0}: pendingDelete.name
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr "\"{0}\"을(를) 삭제할까요?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -2718,7 +2717,6 @@ msgstr "header"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Header \"{header}\""
-msgstr "헤더 \"{header}\""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -3321,7 +3319,6 @@ msgstr "모델"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
-msgstr "\"{modelId}\" 모델이 목록에 없습니다."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -5672,3 +5669,10 @@ msgstr "언제든 실제 작업을 맡길 수 있는<0/>나만의 Agent 팀"
 #: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP 내용"
+
+
+#: src/components/MilestoneArtifactsLink.tsx
+
+#: src/components/MilestoneArtifactsLink.tsx
+msgid "View artifacts"
+msgstr "산출물 보기"

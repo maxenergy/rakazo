@@ -2115,7 +2115,6 @@ msgstr "डिलीट करें"
 #. placeholder {0}: pendingDelete.name
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr "\"{0}\" हटाएँ?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -2718,7 +2717,6 @@ msgstr "हेडर"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Header \"{header}\""
-msgstr "हेडर \"{header}\""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -3321,7 +3319,6 @@ msgstr "मॉडल"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
-msgstr "मॉडल \"{modelId}\" सूची में नहीं था।"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -5672,3 +5669,10 @@ msgstr "हमेशा चालू रहने वाले एजेंट�
 #: src/pages/Artifacts.tsx
 msgid "ZIP contents"
 msgstr "ZIP सामग्री"
+
+
+#: src/components/MilestoneArtifactsLink.tsx
+
+#: src/components/MilestoneArtifactsLink.tsx
+msgid "View artifacts"
+msgstr "आर्टिफ़ैक्ट देखें"

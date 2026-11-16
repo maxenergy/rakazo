@@ -3,6 +3,7 @@ import { Button } from "@rakazo/ui-web";
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { LinkedArtifacts } from "../components/LinkedArtifacts";
+import { MilestoneArtifactsLink } from "../components/MilestoneArtifactsLink";
 import { ProjectBudget } from "../components/ProjectBudget";
 import { ProjectGoals } from "../components/ProjectGoals";
 import { ProjectMembers } from "../components/ProjectMembers";
@@ -346,6 +347,7 @@ export function ProjectsPage() {
                     </p>
                   ) : null}
                   <ProjectProgress progress={item.progress} />
+                  {projectId ? <MilestoneArtifactsLink milestoneId={item.id} /> : null}
                 </li>
               ))}
             </ul>

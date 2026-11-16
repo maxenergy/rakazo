@@ -70,3 +70,40 @@ export function planArtifactBackfill(
     },
   };
 }
+
+export type HistoricalRunProject = {
+  runSpaceId: string | null;
+  runProjectId: string | null;
+  projectSpaceId: string | null;
+};
+
+/** Ticket references retain precedence; run ownership only fills unlinked artifacts. */
+export function planArtifactRunProjectBackfill(
+  artifact: HistoricalArtifact,
+  tickets: HistoricalTicket[],
+  run: HistoricalRunProject,
+): BackfillPlan {
+  const existing = planArtifactBackfill(artifact, tickets);
+  if (existing.kind !== "unmatched" || existing.reason !== "no_reference") return existing;
+  if (
+    [artifact.projectId, artifact.milestoneId, artifact.ticketId, artifact.linkSource].some(
+      (value) => value !== null,
+    )
+  )
+    return { kind: "skipped", reason: "existing_links" };
+  if (run.runSpaceId === null) return { kind: "skipped", reason: "run_not_found" };
+  if (run.runSpaceId !== artifact.spaceId) return { kind: "skipped", reason: "run_space_mismatch" };
+  if (run.runProjectId === null) return { kind: "skipped", reason: "run_without_project" };
+  if (run.projectSpaceId === null) return { kind: "skipped", reason: "project_not_found" };
+  if (run.projectSpaceId !== artifact.spaceId)
+    return { kind: "skipped", reason: "project_space_mismatch" };
+  return {
+    kind: "matched",
+    links: {
+      projectId: run.runProjectId,
+      milestoneId: null,
+      ticketId: null,
+      linkSource: "backfill_run_project",
+    },
+  };
+}
